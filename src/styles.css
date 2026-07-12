@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-emerald-50: #eff4fa;
+  --color-emerald-100: #dbe7f3;
+  --color-emerald-200: #bfd2e6;
+  --color-emerald-400: #7897b8;
+  --color-emerald-700: #355f8a;
+  --color-emerald-800: #274c77;
+}
+
+:root { font-family: Pretendard, "Noto Sans KR", system-ui, sans-serif; color: #17211d; background: #f4f6f5; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; }
+aside { background: #1e3a5f !important; }
+main.min-h-screen > section:first-child { background: #1e3a5f !important; }
+button, input, select, textarea { font: inherit; }
+button { cursor: pointer; }
+@media print { .no-print { display: none !important; } body { background: white; } }
+
+@layer components {
+  .data-table { width: 100%; border-collapse: collapse; font-size: .8125rem; }
+  .data-table th { white-space: nowrap; background: #f8faf9; padding: .75rem 1rem; text-align: left; font-weight: 600; color: #64716b; border-bottom: 1px solid #e5e9e7; }
+  .data-table td { white-space: nowrap; padding: .8rem 1rem; color: #34413b; border-bottom: 1px solid #eef1ef; }
+  .data-table tbody tr:hover { background: #fafcfb; }
+  .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: .375rem; color: #64716b; }
+  .icon-btn:hover { background: #eef3f8; color: #274c77; }
+}
+
+@media print {
+  main { max-width: none !important; padding: 0 !important; }
+  section { break-inside: avoid; box-shadow: none !important; }
+}
