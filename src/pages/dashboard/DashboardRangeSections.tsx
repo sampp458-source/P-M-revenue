@@ -1,0 +1,57 @@
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button, Card, Input, cn } from "../../components/ui";
+import { shortWon, won } from "../../lib/format";
+import type { BusinessUnitOption, DailyRevenue, DashboardDateRange, DashboardPeriod } from "./dashboardMetrics";
+
+const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [
+  { value: "today", label: "오늘" },
+  { value: "yesterday", label: "어제" },
+  { value: "this_week", label: "이번 주" },
+  { value: "last_week", label: "지난주" },
+  { value: "this_month", label: "이번 달" },
+  { value: "last_month", label: "지난달" },
+  { value: "custom", label: "직접 선택" },
+];
+
+export function DashboardPeriodFilters({ period, range, unitName, onPeriod, onCustom, onMoveDay }: { period: DashboardPeriod; range: DashboardDateRange; unitName: string; onPeriod: (period: DashboardPeriod) => void; onCustom: (range: DashboardDateRange) => void; onMoveDay: (days: number) => void }) {
+  const singleDay = range.from === range.to;
+  return <Card className="mb-6 overflow-hidden p-4 sm:p-5"><div className="flex gap-2 overflow-x-auto pb-1" aria-label="빠른 조회 기간">{periodOptions.map((option) => <button key={option.value} type="button" onClick={() => onPeriod(option.value)} className={cn("min-h-11 shrink-0 rounded-xl border px-3.5 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", period === option.value ? "border-primary bg-primary text-white" : "border-border bg-white text-text-secondary hover:border-primary/25 hover:bg-primary-subtle")}>{option.label}</button>)}</div><div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 lg:flex-row lg:items-end"><div className="flex items-center gap-2"><Button type="button" variant="secondary" aria-label="이전 날짜" disabled={!singleDay} onClick={() => onMoveDay(-1)}><ChevronLeft size={17} /></Button><div className="min-w-52 rounded-xl border border-primary/10 bg-primary-subtle px-4 py-2.5 text-center"><span className="block text-[11px] text-text-muted">현재 조회 · {unitName}</span><strong className="mt-0.5 block text-sm text-text-primary tabular-nums">{range.from === range.to ? range.from : `${range.from} ~ ${range.to}`}</strong></div><Button type="button" variant="secondary" aria-label="다음 날짜" disabled={!singleDay} onClick={() => onMoveDay(1)}><ChevronRight size={17} /></Button></div>{period === "custom" && <div className="grid flex-1 gap-2 sm:grid-cols-2"><label><span className="mb-1 block text-xs font-semibold text-text-secondary">시작일</span><Input type="date" value={range.from} onChange={(event) => onCustom({ from: event.target.value, to: range.to })} /></label><label><span className="mb-1 block text-xs font-semibold text-text-secondary">종료일</span><Input type="date" min={range.from} value={range.to} onChange={(event) => onCustom({ from: range.from, to: event.target.value })} /></label></div>}</div></Card>;
+}
+
+export function DailyRevenueTrend({ data, selectedDate, unitName, onSelect }: { data: DailyRevenue[]; selectedDate: string; unitName: string; onSelect: (date: string) => void }) {
+  const max = Math.max(0, ...data.map((row) => Math.max(0, row.net)));
+  return <Card className="p-5 sm:p-6"><div className="mb-5"><h2 className="font-bold text-text-primary">날짜별 실매출 추이</h2><p className="mt-1 text-xs text-text-muted">{unitName} · 날짜를 선택하면 상세와 캘린더가 함께 바뀝니다.</p></div>{data.length ? <div className="overflow-x-auto pb-2"><div className="flex h-64 min-w-full items-end gap-2" style={{ width: `${Math.max(100, data.length * 52)}px` }}>{data.map((row) => { const height = max > 0 ? Math.max(4, Math.sqrt(Math.max(0, row.net) / max) * 172) : 4; return <button key={row.date} type="button" onClick={() => onSelect(row.date)} className={cn("group flex h-full min-w-10 flex-1 flex-col items-center justify-end rounded-lg px-1 pt-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", selectedDate === row.date && "bg-primary-subtle")} aria-label={`${row.date} 실매출 ${won(row.net)} ${row.count}건`}><span className="mb-2 hidden text-[10px] font-semibold text-text-secondary group-hover:block sm:block">{shortWon(row.net)}</span><span className={cn("w-full max-w-8 rounded-t-md transition-all duration-200", selectedDate === row.date ? "bg-primary" : "bg-[#7f9dbb] group-hover:bg-primary")} style={{ height }} /><span className="mt-2 text-[10px] text-text-muted">{Number(row.date.slice(8))}일</span></button>; })}</div></div> : <p className="rounded-xl bg-surface-secondary p-5 text-center text-sm text-text-muted">선택 기간에 표시할 매출이 없습니다.</p>}</Card>;
+}
+
+const monthDays = (month: string) => {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const firstDay = new Date(year, monthNumber - 1, 1).getDay();
+  const lastDate = new Date(year, monthNumber, 0).getDate();
+  return Array.from({ length: 42 }, (_, index) => {
+    const day = index - firstDay + 1;
+    return day >= 1 && day <= lastDate ? `${month}-${String(day).padStart(2, "0")}` : null;
+  });
+};
+
+const moveMonth = (month: string, offset: number) => {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const date = new Date(year, monthNumber - 1 + offset, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+};
+
+export function SalesHeatmapCalendar({ month, data, today, selectedDate, onMonth, onSelect }: { month: string; data: DailyRevenue[]; today: string; selectedDate: string; onMonth: (month: string) => void; onSelect: (date: string) => void }) {
+  const byDate = new Map(data.map((row) => [row.date, row]));
+  const max = Math.max(0, ...data.map((row) => Math.max(0, row.net)));
+  const intensity = (amount: number) => max <= 0 ? 0 : Math.min(4, Math.max(1, Math.ceil(Math.sqrt(Math.max(0, amount) / max) * 4)));
+  const tones = ["bg-white", "bg-blue-50", "bg-blue-100", "bg-blue-200", "bg-[#b7cbe0]"];
+  return <Card className="p-4 sm:p-6"><div className="mb-4 flex items-center justify-between gap-3"><div><h2 className="font-bold text-text-primary">매출 캘린더</h2><p className="mt-1 text-xs text-text-muted">진한 셀일수록 해당 월 실매출이 큽니다.</p></div><div className="flex items-center gap-1"><Button type="button" variant="ghost" aria-label="이전 달" onClick={() => onMonth(moveMonth(month, -1))}><ChevronLeft size={17} /></Button><strong className="min-w-24 text-center text-sm tabular-nums">{month.replace("-", ".")}</strong><Button type="button" variant="ghost" aria-label="다음 달" onClick={() => onMonth(moveMonth(month, 1))}><ChevronRight size={17} /></Button></div></div><div className="grid grid-cols-7 gap-1 text-center text-[11px] font-semibold text-text-muted">{["일", "월", "화", "수", "목", "금", "토"].map((day) => <span key={day} className="py-1">{day}</span>)}</div><div className="mt-1 grid grid-cols-7 gap-1">{monthDays(month).map((date, index) => { if (!date) return <span key={`empty-${index}`} className="min-h-20 rounded-lg bg-surface-secondary/60 sm:min-h-24" />; const row = byDate.get(date); const amount = row?.net ?? 0; return <button key={date} type="button" onClick={() => onSelect(date)} className={cn("relative min-h-20 rounded-lg border p-1.5 text-left transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-24 sm:p-2", tones[intensity(amount)], selectedDate === date ? "border-primary ring-2 ring-primary/20" : "border-border", today === date && selectedDate !== date && "border-dashed border-primary/60")}><span className="text-xs font-bold text-text-primary">{Number(date.slice(8))}</span>{today === date && <span className="ml-1 text-[9px] font-bold text-primary">오늘</span>}<strong className="mt-2 block truncate text-[10px] text-text-primary tabular-nums sm:text-xs">{shortWon(amount)}</strong><span className="mt-0.5 block text-[9px] text-text-muted sm:text-[10px]">{row?.count ?? 0}건</span></button>; })}</div></Card>;
+}
+
+const paymentNames: Record<string, string> = { card: "카드", transfer: "계좌이체", cash: "현금", other: "기타", outstanding: "미수" };
+
+export function SelectedDateDetail({ date, detail, unitId, onOpenSales }: { date: string; detail: { divisions: Array<BusinessUnitOption & { revenue: number; count: number; average: number }>; total: number; count: number; outstanding: number; refund: number; products: { name: string; revenue: number }[]; payments: { method: string; amount: number }[] }; unitId: string; onOpenSales: (unitId?: string) => void }) {
+  return <Card className="overflow-hidden"><div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary"><CalendarDays size={18} /></span><div><h2 className="font-bold text-text-primary">{date} 상세</h2><p className="text-xs text-text-muted">사업부별 매출과 당일 확인 항목</p></div></div><Button type="button" variant="secondary" onClick={() => onOpenSales()}>이 날짜 매출 전체 보기</Button></div><div className="p-5 sm:p-6"><div className="grid gap-3 lg:grid-cols-3">{detail.divisions.map((division) => <div key={division.id} className={cn("rounded-xl border p-4", unitId === division.id ? "border-primary/30 bg-primary-subtle" : "border-border bg-surface-secondary")}><div className="flex items-center justify-between gap-2"><strong className="text-sm text-text-primary">{division.name}</strong><button type="button" className="min-h-9 rounded-lg px-2 text-xs font-semibold text-primary hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" onClick={() => onOpenSales(division.id)}>내역 보기</button></div><p className="mt-3 text-xl font-bold text-text-primary tabular-nums">{won(division.revenue)}</p><p className="mt-1 text-xs text-text-muted">{division.count}건 · 객단가 {won(division.average)}</p></div>)}</div><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Summary label="총매출" value={won(detail.total)} /><Summary label="총 건수" value={`${detail.count}건`} /><Summary label="객단가" value={won(detail.count ? detail.total / detail.count : 0)} /><Summary label="미수금" value={won(detail.outstanding)} /><Summary label="환불" value={won(detail.refund)} /></div><div className="mt-5 grid gap-4 lg:grid-cols-2"><List title="결제수단 구성" rows={detail.payments.map((row) => ({ label: paymentNames[row.method] ?? row.method, value: won(row.amount) }))} empty="결제 내역이 없습니다." /><List title="TOP 상품" rows={detail.products.map((row, index) => ({ label: `${index + 1}. ${row.name}`, value: won(row.revenue) }))} empty="상품 매출이 없습니다." /></div></div></Card>;
+}
+
+function Summary({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border border-border bg-white p-4"><span className="text-xs text-text-muted">{label}</span><strong className="mt-1 block text-base text-text-primary tabular-nums">{value}</strong></div>; }
+function List({ title, rows, empty }: { title: string; rows: { label: string; value: string }[]; empty: string }) { return <div className="rounded-xl border border-border p-4"><h3 className="text-sm font-bold text-text-primary">{title}</h3>{rows.length ? <ul className="mt-3 space-y-2">{rows.map((row) => <li key={row.label} className="flex justify-between gap-3 text-sm"><span className="truncate text-text-secondary">{row.label}</span><strong className="shrink-0 text-text-primary tabular-nums">{row.value}</strong></li>)}</ul> : <p className="mt-3 text-sm text-text-muted">{empty}</p>}</div>; }
