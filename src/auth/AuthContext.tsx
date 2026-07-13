@@ -176,10 +176,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           password,
         });
         if (error) {
+          console.error("[Auth] 로그인 실패:", {
+            name: error.name,
+            message: error.message,
+            status: error.status,
+            code: error.code,
+          });
           if (error.message.toLowerCase().includes("invalid login credentials")) {
             throw new Error("이메일 또는 비밀번호가 올바르지 않습니다.");
           }
-          throw new Error("서버 연결에 실패했습니다. 잠시 후 다시 시도하세요.");
+          throw new Error(`로그인 실패: ${error.message}`);
         }
       },
       signUp: async (name, phone, email, password) => {
