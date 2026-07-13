@@ -31,6 +31,7 @@
   -webkit-font-smoothing: antialiased;
   --pm-shadow-surface: 0 1px 2px rgb(23 36 58 / 0.03), 0 8px 24px rgb(23 36 58 / 0.045);
   --pm-shadow-modal: 0 24px 64px rgb(15 23 42 / 0.2);
+  --pm-shadow-elevated: 0 18px 48px rgb(23 36 58 / 0.1);
   --pm-transition: 180ms ease-out;
 }
 
@@ -47,6 +48,14 @@ input[type="number"], input[type="date"], .tabular-nums { font-variant-numeric: 
 /* 기존 화면 구조는 유지하면서 공통 배경만 새 토큰에 맞춘다. */
 aside { background: #1e3a5f !important; }
 main.min-h-screen > section:first-child { background: #1e3a5f !important; }
+.login-shell .login-brand-panel {
+  background:
+    radial-gradient(circle at 15% 18%, rgb(111 142 174 / .2), transparent 34%),
+    linear-gradient(145deg, #1b3b60 0%, #142d4a 56%, #10253e 100%) !important;
+}
+.login-orb { position: absolute; border-radius: 9999px; filter: blur(1px); pointer-events: none; }
+.login-orb-top { width: 22rem; height: 22rem; right: -10rem; top: -8rem; background: rgb(145 176 207 / .11); }
+.login-orb-bottom { width: 18rem; height: 18rem; left: -9rem; bottom: 4rem; background: rgb(255 255 255 / .045); }
 
 @layer components {
   .data-table {
@@ -99,6 +108,7 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   .pm-modal-panel { animation: pm-modal-in 200ms ease-out; box-shadow: var(--pm-shadow-modal); }
   .pm-toast { animation: pm-toast-in 180ms ease-out; }
   .pm-skeleton { animation: pm-skeleton-pulse 1.8s ease-in-out infinite; }
+  .pm-drawer-overlay { animation: pm-fade-in 180ms ease-out; }
 }
 
 @keyframes pm-fade-in { from { opacity: 0; } to { opacity: 1; } }
@@ -106,8 +116,13 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
 @keyframes pm-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pm-skeleton-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
 
+@media (hover: hover) {
+  a, button, [role="button"] { -webkit-tap-highlight-color: transparent; }
+}
+
 @media (max-width: 639px) {
   .data-table th, .data-table td { padding: .75rem; }
+  .login-shell { background: linear-gradient(180deg, #eef3f7 0%, #f8f9fa 50%, #f6f7f9 100%); }
 }
 
 @media (prefers-reduced-motion: reduce) {

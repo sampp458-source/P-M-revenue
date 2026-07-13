@@ -52,17 +52,19 @@ export function DashboardPage() {
   return <>
     <PageHeader title="대시보드" description={`${monthLabel(month)} · ${selectedUnit} 운영 현황`} />
     <DashboardFilters month={month} unitId={unitId} months={months} units={units} onMonth={setMonth} onUnit={setUnitId} />
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <MetricCard label="총매출" value={won(metrics.total)} description="취소 제외 실제 결제액 합계" />
-      <MetricCard label="실매출" value={won(metrics.real)} description="결제액 - 환불액 · 미수금 중복 차감 없음" />
-      <MetricCard label="환불액" value={won(metrics.refund)} description={`${metrics.alerts.refundCount}건의 누적 환불`} />
-      <MetricCard label="미수금" value={won(metrics.outstanding)} description={`${metrics.alerts.outstandingCount}건 확인 필요`} />
-      <MetricCard label="목표 달성률" value={`${metrics.achievement.toFixed(1)}%`} description={`실매출 ${won(metrics.real)} / 목표 ${won(metrics.target)}`} progress={metrics.achievement} />
-      <MetricCard label="전월 대비 증감" value={`${metrics.diff >= 0 ? "+" : ""}${won(metrics.diff)}`} description={metrics.rate === null ? "전월 실매출 없음" : `${metrics.rate >= 0 ? "+" : ""}${metrics.rate.toFixed(1)}%`} />
-      <MetricCard label="오늘 매출" value={won(metrics.todayNet)} description="선택 월·사업부 조건 기준" />
-      <MetricCard label="오늘 등록 건수" value={`${metrics.todayCount}건`} description="한국 시간 등록일 기준" />
+    <div className="grid gap-4 lg:grid-cols-3">
+      <MetricCard featured tone="primary" label="오늘 매출" value={won(metrics.todayNet)} description={`오늘 등록 ${metrics.todayCount}건 · 선택 사업부 기준`} />
+      <MetricCard featured label="이번 달 실매출" value={won(metrics.real)} description="결제액 - 환불액 · 취소 매출 제외" />
+      <MetricCard featured tone="progress" label="목표 달성률" value={`${metrics.achievement.toFixed(1)}%`} description={`${won(metrics.real)} / 목표 ${won(metrics.target)}`} progress={metrics.achievement} />
     </div>
-    <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <MetricCard label="총매출" value={won(metrics.total)} description="취소 제외 결제액" />
+      <MetricCard label="환불액" value={won(metrics.refund)} description={`${metrics.alerts.refundCount}건 누적`} />
+      <MetricCard label="미수금" value={won(metrics.outstanding)} description={`${metrics.alerts.outstandingCount}건 확인 필요`} />
+      <MetricCard label="전월 대비" value={`${metrics.diff >= 0 ? "+" : ""}${won(metrics.diff)}`} description={metrics.rate === null ? "전월 실매출 없음" : `${metrics.rate >= 0 ? "+" : ""}${metrics.rate.toFixed(1)}%`} />
+      <MetricCard label="오늘 등록" value={`${metrics.todayCount}건`} description="한국 시간 기준" />
+    </div>
+    <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {metrics.divisions.map((division) => <MetricCard key={division.id} label={`${division.name} 매출`} value={won(division.value)} description={unitId && division.id !== unitId ? "현재 선택 조건 외 사업부" : "선택 월 실매출"} />)}
     </div>
     <div className={`mt-4 grid gap-4 ${unitId ? "" : "xl:grid-cols-2"}`}><RevenueTrend data={trend} />{!unitId && <BusinessUnitBreakdown rows={metrics.divisions} total={metrics.real} />}</div>
