@@ -3,11 +3,13 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { hasAuthIdentityChanged } from "./authStateLogic";
 
 export interface Profile {
   id: string;
@@ -44,18 +46,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [businessUnits, setBusinessUnits] = useState<BusinessUnit[]>([]);
   const [loading, setLoading] = useState(true);
   const [authError, setAuthError] = useState("");
+  const sessionUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let active = true;
     supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return;
       if (error) console.error("세션 확인 실패", error.message);
+      sessionUserIdRef.current = data.session?.user.id ?? null;
       setSession(data.session);
       if (!data.session) setLoading(false);
     });
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      const nextUserId = nextSession?.user.id ?? null;
+      const identityChanged = hasAuthIdentityChanged(sessionUserIdRef.current, nextUserId);
+      sessionUserIdRef.current = nextUserId;
       setSession(nextSession);
-      setLoading(Boolean(nextSession));
+      if (!nextSession) setLoading(false);
+      else if (identityChanged) setLoading(true);
     });
     return () => {
       active = false;
