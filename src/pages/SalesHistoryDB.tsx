@@ -97,7 +97,7 @@ export function SalesHistoryPage() {
     } else {
       setSales((result.data ?? []).map((sale) => ({
         id: sale.id, saleDate: sale.sale_date, businessUnitId: sale.business_unit_id, businessUnitName: sale.business_unit_name,
-        dogName: sale.dog_name, customerName: sale.customer_name, categoryName: sale.product_category_name, productName: sale.product_name,
+        dogName: sale.dog_name || "(반려견 없음)", customerName: sale.customer_name, categoryName: sale.product_category_name, productName: sale.product_name,
         originalAmount: sale.original_amount, discountAmount: sale.discount_amount, paidAmount: sale.paid_amount, refundAmount: sale.refund_amount,
         outstandingAmount: sale.outstanding_amount, netAmount: sale.net_amount, paymentMethod: sale.payment_method, customerType: sale.customer_type,
         status: sale.status, staffName: sale.staff_name, memo: sale.memo, createdBy: sale.created_by, cancellationReason: sale.cancellation_reason, createdAt: sale.created_at, updatedAt: sale.updated_at, cancelledAt: sale.cancelled_at,

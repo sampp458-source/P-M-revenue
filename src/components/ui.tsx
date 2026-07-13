@@ -13,6 +13,7 @@ import {
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
+  type Ref,
   type SelectHTMLAttributes,
   type TableHTMLAttributes,
   type TextareaHTMLAttributes,
@@ -54,11 +55,16 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     />
   );
 });
-export function SearchBox({ className = "", onClear, ...props }: InputHTMLAttributes<HTMLInputElement> & { onClear?: () => void }) {
-  const inputRef = useRef<HTMLInputElement>(null);
+export function SearchBox({ className = "", onClear, inputRef, ...props }: InputHTMLAttributes<HTMLInputElement> & { onClear?: () => void; inputRef?: Ref<HTMLInputElement> }) {
+  const internalInputRef = useRef<HTMLInputElement>(null);
   const hasValue = String(props.value ?? props.defaultValue ?? "").length > 0;
-  const clear = () => { onClear?.(); requestAnimationFrame(() => inputRef.current?.focus()); };
-  return <div className={cn("relative", className)}><Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-3.5 text-text-muted" size={16} /><Input ref={inputRef} type="search" className={cn("pl-10", hasValue && onClear ? "pr-12" : "")} {...props} />{hasValue && onClear && <button type="button" aria-label="검색어 초기화" className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" onClick={clear}><X size={16} /></button>}</div>;
+  const clear = () => { onClear?.(); requestAnimationFrame(() => internalInputRef.current?.focus()); };
+  const assignRef = (element: HTMLInputElement | null) => {
+    internalInputRef.current = element;
+    if (typeof inputRef === "function") inputRef(element);
+    else if (inputRef) inputRef.current = element;
+  };
+  return <div className={cn("relative", className)}><Search aria-hidden="true" className="pointer-events-none absolute left-3.5 top-3.5 text-text-muted" size={16} /><Input ref={assignRef} type="search" className={cn("pl-10", hasValue && onClear ? "pr-12" : "")} {...props} />{hasValue && onClear && <button type="button" aria-label="검색어 초기화" className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" onClick={clear}><X size={16} /></button>}</div>;
 }
 export function Select({
   className = "",

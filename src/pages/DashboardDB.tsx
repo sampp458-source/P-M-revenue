@@ -26,7 +26,7 @@ export function DashboardPage() {
     if (saleResult.error || targetResult.error || unitResult.error) { setSales([]); setTargets([]); setUnits([]); setError(true); setLoading(false); return; }
     setSales((saleResult.data ?? []).map((row) => ({
       id: row.id, saleDate: row.sale_date, businessUnitId: row.business_unit_id, businessUnitName: row.business_unit_name,
-      productId: row.product_id, productName: row.product_name, dogId: row.dog_id, dogName: row.dog_name,
+      productId: row.product_id, productName: row.product_name, dogId: row.dog_id, dogName: row.dog_name || "(반려견 없음)",
       customerId: row.customer_id, customerName: row.customer_name, createdBy: row.created_by, staffName: row.staff_name,
       paidAmount: row.paid_amount ?? 0, refundAmount: row.refund_amount ?? 0, outstandingAmount: row.outstanding_amount ?? 0,
       netAmount: row.net_amount ?? 0, status: row.status, createdAt: row.created_at,

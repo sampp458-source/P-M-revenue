@@ -5,7 +5,7 @@ export interface DashboardSale {
   businessUnitName: string;
   productId: string;
   productName: string;
-  dogId: string;
+  dogId: string | null;
   dogName: string;
   customerId: string | null;
   customerName: string | null;
