@@ -72,6 +72,14 @@ export function normalizeQuantity(value: number) {
   return Math.max(1, Math.trunc(value));
 }
 
+export function formatQuantityWithUnit(
+  quantity: number,
+  unitLabel: string | null | undefined,
+) {
+  const unit = (unitLabel ?? "").trim().replace(/^1\s*(?=[^0-9])/, "");
+  return `${normalizeQuantity(quantity)}${unit}`;
+}
+
 export function parseCurrencyInput(
   value: string,
   max = Number.MAX_SAFE_INTEGER,

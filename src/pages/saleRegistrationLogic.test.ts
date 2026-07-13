@@ -7,6 +7,7 @@ import {
   calculatePricingChange,
   defaultRepeatSettings,
   duplicateWarningLevel,
+  formatQuantityWithUnit,
   hasCategoryNameDuplicate,
   hasProductNameDuplicate,
   isBalancedPaymentPlan,
@@ -79,6 +80,13 @@ describe("sale registration logic", () => {
     expect(
       suggestUnitLabel({ businessUnitName: "호텔", productName: "배변 패드" }),
     ).toBe("개");
+  });
+
+  it("수량과 단위를 중복 숫자 없이 표시한다", () => {
+    expect(formatQuantityWithUnit(3, "박")).toBe("3박");
+    expect(formatQuantityWithUnit(5, "회")).toBe("5회");
+    expect(formatQuantityWithUnit(3, null)).toBe("3");
+    expect(formatQuantityWithUnit(3, "1박")).toBe("3박");
   });
 
   it("분류 없는 상품도 사업부가 일치하면 매출 선택을 허용한다", () => {

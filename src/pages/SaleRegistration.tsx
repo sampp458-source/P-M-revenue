@@ -54,6 +54,7 @@ import {
   calculatePricingChange,
   defaultRepeatSettings,
   duplicateWarningLevel,
+  formatQuantityWithUnit,
   hasProductNameDuplicate,
   isBalancedPaymentPlan,
   isProductScopeValid,
@@ -2900,10 +2901,12 @@ export function SaleFormPage() {
                         기준 계산금액
                       </p>
                       <p className="mt-1 text-xs text-text-muted">
-                        {won(form.unitPrice)} × {form.quantity}
-                        {products.find(
-                          (product) => product.id === form.productId,
-                        )?.unitLabel ?? ""}
+                        {won(form.unitPrice)} × {formatQuantityWithUnit(
+                          form.quantity,
+                          products.find(
+                            (product) => product.id === form.productId,
+                          )?.unitLabel,
+                        )}
                       </p>
                     </div>
                     <strong className="text-xl tabular-nums text-primary">
@@ -3298,9 +3301,11 @@ export function SaleFormPage() {
                 <div className="flex justify-between gap-3">
                   <dt className="text-text-muted">단가 × 수량</dt>
                   <dd className="text-right font-medium text-text-primary">
-                    {won(form.unitPrice)} × {form.quantity}
-                    {products.find((product) => product.id === form.productId)
-                      ?.unitLabel ?? ""}
+                    {won(form.unitPrice)} × {formatQuantityWithUnit(
+                      form.quantity,
+                      products.find((product) => product.id === form.productId)
+                        ?.unitLabel,
+                    )}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
