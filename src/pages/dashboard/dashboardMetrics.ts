@@ -30,6 +30,7 @@ export type BusinessUnitCode = "daycare" | "training" | "hotel";
 export interface BusinessUnitOption { id: string; name: string; code?: BusinessUnitCode | string }
 
 export type DashboardPeriod = "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "last_month" | "custom";
+export type DashboardCompare = "day" | "week" | "month" | "previous";
 export interface DashboardDateRange { from: string; to: string }
 
 const safe = (value: number | null | undefined) => Number.isFinite(value) ? Number(value) : 0;
@@ -68,13 +69,34 @@ export function previousDashboardRange(range: DashboardDateRange): DashboardDate
   return { from: moveDate(range.from, -length), to: moveDate(range.from, -1) };
 }
 
-export function dashboardComparisonRange(period: DashboardPeriod, range: DashboardDateRange): DashboardDateRange {
-  if (period !== "this_month" && period !== "last_month") return previousDashboardRange(range);
-  const start = dateFromKey(range.from);
-  return {
-    from: dateKey(new Date(start.getFullYear(), start.getMonth() - 1, 1, 12)),
-    to: dateKey(new Date(start.getFullYear(), start.getMonth(), 0, 12)),
-  };
+export function dashboardDefaultCompare(period: DashboardPeriod): DashboardCompare {
+  if (period === "today" || period === "yesterday") return "day";
+  if (period === "this_week" || period === "last_week") return "week";
+  if (period === "this_month" || period === "last_month") return "month";
+  return "previous";
+}
+
+const moveMonthClamped = (value: string, months: number) => {
+  const source = dateFromKey(value);
+  const targetMonth = new Date(source.getFullYear(), source.getMonth() + months, 1, 12);
+  const lastDay = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0, 12).getDate();
+  return dateKey(new Date(targetMonth.getFullYear(), targetMonth.getMonth(), Math.min(source.getDate(), lastDay), 12));
+};
+
+export function dashboardComparisonRange(period: DashboardPeriod, range: DashboardDateRange, compare = dashboardDefaultCompare(period)): DashboardDateRange {
+  if (compare === "previous") return previousDashboardRange(range);
+  if (compare === "day") return { from: moveDate(range.from, -1), to: moveDate(range.to, -1) };
+  if (compare === "week") return { from: moveDate(range.from, -7), to: moveDate(range.to, -7) };
+  return { from: moveMonthClamped(range.from, -1), to: moveMonthClamped(range.to, -1) };
+}
+
+export const dashboardCompareLabel = (compare: DashboardCompare) => ({ day: "전일", week: "전주", month: "전월", previous: "직전 기간" })[compare];
+
+export function formatRevenueComparison(current: number, previous: number) {
+  if (previous === 0) return current > 0 ? "신규" : "— 변화 없음";
+  const rate = ((current - previous) / previous) * 100;
+  if (Math.abs(rate) < 0.05) return "— 변화 없음";
+  return rate > 0 ? `▲ 증가 ${rate.toFixed(1)}%` : `▼ 감소 ${Math.abs(rate).toFixed(1)}%`;
 }
 
 const inRange = (value: string, range: DashboardDateRange) => value >= range.from && value <= range.to;
@@ -99,11 +121,13 @@ export function calculateRangeOverview(sales: DashboardSale[], units: BusinessUn
     return { ...unit, revenue, count: rows.length, average: rows.length ? revenue / rows.length : 0, previousRevenue, rate: previousRevenue > 0 ? ((revenue - previousRevenue) / previousRevenue) * 100 : null };
   });
   const total = sum(selected, "netAmount");
+  const previousTotal = sum(previous, "netAmount");
   return {
     range,
     previousRange,
     divisions,
     total,
+    previousTotal,
     count: selected.length,
     average: selected.length ? total / selected.length : 0,
     net: sum(selected, "netAmount"),

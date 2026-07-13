@@ -5,7 +5,9 @@ import {
   calculateRangeOverview,
   countDashboardSalesByUnit,
   dashboardComparisonRange,
+  dashboardDefaultCompare,
   dashboardPeriodRange,
+  formatRevenueComparison,
   previousDashboardRange,
   type BusinessUnitOption,
   type DashboardSale,
@@ -68,6 +70,21 @@ describe("dashboard presentation metrics", () => {
     expect(dashboardPeriodRange("last_month", "2026-07-14")).toEqual({ from: "2026-06-01", to: "2026-06-30" });
     expect(previousDashboardRange({ from: "2026-07-10", to: "2026-07-14" })).toEqual({ from: "2026-07-05", to: "2026-07-09" });
     expect(dashboardComparisonRange("this_month", { from: "2026-07-01", to: "2026-07-31" })).toEqual({ from: "2026-06-01", to: "2026-06-30" });
+    expect(dashboardComparisonRange("custom", { from: "2026-07-10", to: "2026-07-14" }, "day")).toEqual({ from: "2026-07-09", to: "2026-07-13" });
+    expect(dashboardComparisonRange("custom", { from: "2026-07-10", to: "2026-07-14" }, "week")).toEqual({ from: "2026-07-03", to: "2026-07-07" });
+    expect(dashboardComparisonRange("custom", { from: "2026-03-31", to: "2026-03-31" }, "month")).toEqual({ from: "2026-02-28", to: "2026-02-28" });
+    expect(dashboardDefaultCompare("today")).toBe("day");
+    expect(dashboardDefaultCompare("this_week")).toBe("week");
+    expect(dashboardDefaultCompare("this_month")).toBe("month");
+    expect(dashboardDefaultCompare("custom")).toBe("previous");
+  });
+
+  it("비교 증감 문구에서 0·동일·증가·감소를 안전하게 구분한다", () => {
+    expect(formatRevenueComparison(100000, 0)).toBe("신규");
+    expect(formatRevenueComparison(0, 0)).toBe("— 변화 없음");
+    expect(formatRevenueComparison(100000, 100000)).toBe("— 변화 없음");
+    expect(formatRevenueComparison(120000, 100000)).toBe("▲ 증가 20.0%");
+    expect(formatRevenueComparison(80000, 100000)).toBe("▼ 감소 20.0%");
   });
 
   it("사업부를 유치원·교육센터·호텔 순으로 집계하고 취소 매출은 제외한다", () => {
@@ -80,6 +97,7 @@ describe("dashboard presentation metrics", () => {
 
     expect(overview.divisions.map((division) => division.code)).toEqual(["daycare", "training", "hotel"]);
     expect(overview.total).toBe(600000);
+    expect(overview.previousTotal).toBe(0);
     expect(overview.count).toBe(3);
   });
 
