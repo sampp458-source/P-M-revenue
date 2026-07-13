@@ -1,33 +1,127 @@
 @import "tailwindcss";
 
 @theme {
-  --color-emerald-50: #eff4fa;
-  --color-emerald-100: #dbe7f3;
-  --color-emerald-200: #bfd2e6;
-  --color-emerald-400: #7897b8;
-  --color-emerald-700: #355f8a;
-  --color-emerald-800: #274c77;
+  --color-primary: #274c77;
+  --color-primary-hover: #1f3e63;
+  --color-primary-soft: #edf3f8;
+  --color-primary-subtle: #f5f8fb;
+  --color-app-background: #f6f7f9;
+  --color-warm-background: #f8f7f5;
+  --color-surface: #ffffff;
+  --color-surface-secondary: #fafbfc;
+  --color-border: #e7ebf0;
+  --color-border-strong: #d5dce5;
+  --color-text-primary: #17243a;
+  --color-text-secondary: #667085;
+  --color-text-muted: #98a2b3;
+  --color-success: #3f7d68;
+  --color-success-soft: #edf7f2;
+  --color-warning: #b7791f;
+  --color-warning-soft: #fff7e8;
+  --color-error: #c24d4d;
+  --color-error-soft: #fff1f1;
 }
 
-:root { font-family: Pretendard, "Noto Sans KR", system-ui, sans-serif; color: #17211d; background: #f4f6f5; font-synthesis: none; }
+:root {
+  font-family: Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #17243a;
+  background: #f6f7f9;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --pm-shadow-surface: 0 1px 2px rgb(23 36 58 / 0.03), 0 8px 24px rgb(23 36 58 / 0.045);
+  --pm-shadow-modal: 0 24px 64px rgb(15 23 42 / 0.2);
+  --pm-transition: 180ms ease-out;
+}
+
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; min-height: 100vh; }
-aside { background: #1e3a5f !important; }
-main.min-h-screen > section:first-child { background: #1e3a5f !important; }
+html { min-width: 320px; min-height: 100%; background: #f6f7f9; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: #f6f7f9; color: #17243a; line-height: 1.5; }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
-@media print { .no-print { display: none !important; } body { background: white; } }
+button:disabled { cursor: not-allowed; }
+input, select, textarea { color-scheme: light; }
+input[type="number"], input[type="date"], .tabular-nums { font-variant-numeric: tabular-nums; }
+::selection { background: #dbe7f1; color: #17243a; }
+
+/* 기존 화면 구조는 유지하면서 공통 배경만 새 토큰에 맞춘다. */
+aside { background: #1e3a5f !important; }
+main.min-h-screen > section:first-child { background: #1e3a5f !important; }
 
 @layer components {
-  .data-table { width: 100%; border-collapse: collapse; font-size: .8125rem; }
-  .data-table th { white-space: nowrap; background: #f8faf9; padding: .75rem 1rem; text-align: left; font-weight: 600; color: #64716b; border-bottom: 1px solid #e5e9e7; }
-  .data-table td { white-space: nowrap; padding: .8rem 1rem; color: #34413b; border-bottom: 1px solid #eef1ef; }
-  .data-table tbody tr:hover { background: #fafcfb; }
-  .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; border-radius: .375rem; color: #64716b; }
-  .icon-btn:hover { background: #eef3f8; color: #274c77; }
+  .data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: .8125rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .data-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    white-space: nowrap;
+    background: #fafbfc;
+    padding: .8rem 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #667085;
+    border-bottom: 1px solid #e7ebf0;
+  }
+  .data-table td {
+    white-space: nowrap;
+    padding: .9rem 1rem;
+    color: #344054;
+    border-bottom: 1px solid #eef1f4;
+    transition: background-color var(--pm-transition);
+  }
+  .data-table tbody tr:last-child td { border-bottom: 0; }
+  .data-table tbody tr:hover td { background: #f8fafc; }
+  .data-table th[data-numeric],
+  .data-table td[data-numeric],
+  .data-table .numeric { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: .75rem;
+    color: #667085;
+    transition: color var(--pm-transition), background-color var(--pm-transition), transform var(--pm-transition);
+  }
+  .icon-btn:hover { background: #edf3f8; color: #274c77; }
+  .icon-btn:active { transform: translateY(1px); }
+  .icon-btn:focus-visible { outline: 2px solid #274c77; outline-offset: 2px; }
+
+  .pm-modal-overlay { animation: pm-fade-in 180ms ease-out; }
+  .pm-modal-panel { animation: pm-modal-in 200ms ease-out; box-shadow: var(--pm-shadow-modal); }
+  .pm-toast { animation: pm-toast-in 180ms ease-out; }
+  .pm-skeleton { animation: pm-skeleton-pulse 1.8s ease-in-out infinite; }
+}
+
+@keyframes pm-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pm-modal-in { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes pm-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pm-skeleton-pulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+@media (max-width: 639px) {
+  .data-table th, .data-table td { padding: .75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
 }
 
 @media print {
+  .no-print { display: none !important; }
+  body { background: white; }
   main { max-width: none !important; padding: 0 !important; }
   section { break-inside: avoid; box-shadow: none !important; }
 }
