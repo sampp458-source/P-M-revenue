@@ -52,6 +52,39 @@ interface SaleRow extends SalesHistoryRecord {
   updatedAt: string;
 }
 
+interface SaleQueryRow {
+  id: string;
+  sale_date: string;
+  business_unit_id: string;
+  business_unit_name: string;
+  dog_id: string | null;
+  dog_name: string | null;
+  customer_id: string | null;
+  customer_name: string | null;
+  customer_phone?: string | null;
+  product_category_id: string;
+  product_category_name: string;
+  product_id: string;
+  product_name: string;
+  original_amount: number;
+  discount_amount: number;
+  paid_amount: number;
+  refund_amount: number;
+  outstanding_amount: number;
+  net_amount: number;
+  payment_method: string;
+  customer_type: string;
+  status: string;
+  staff_id: string | null;
+  staff_name: string | null;
+  memo: string | null;
+  created_by: string;
+  cancellation_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  cancelled_at: string | null;
+}
+
 interface HistoryRow { id: string; action: string; previousData: unknown; changedData: unknown; changedBy: string; createdAt: string }
 
 const paymentLabel: Record<string, string> = { card: "카드", transfer: "계좌이체", cash: "현금", outstanding: "미수" };
@@ -59,6 +92,16 @@ const statusLabel: Record<StatusFilter, string> = { "": "전체", normal: "정�
 const periodLabel: Record<PeriodFilter, string> = { today: "오늘", week: "이번 주", month: "이번 달", last_month: "지난달", custom: "직접 선택" };
 const validPeriods = new Set<PeriodFilter>(["today", "week", "month", "last_month", "custom"]);
 const validStatuses = new Set<StatusFilter>(["", "normal", "partial_refund", "full_refund", "cancelled", "outstanding"]);
+const saleFields = "id, sale_date, business_unit_id, business_unit_name, dog_id, dog_name, customer_id, customer_name, product_category_id, product_category_name, product_id, product_name, original_amount, discount_amount, paid_amount, refund_amount, outstanding_amount, net_amount, payment_method, customer_type, status, staff_id, staff_name, memo, created_by, cancellation_reason, created_at, updated_at, cancelled_at";
+const saleFieldsWithPhone = saleFields.replace("customer_name,", "customer_name, customer_phone,");
+
+async function loadSaleRows() {
+  const current = await supabase.from("sales").select(saleFieldsWithPhone).order("sale_date", { ascending: false }).order("created_at", { ascending: false });
+  if (current.error?.message.includes("customer_phone")) {
+    return supabase.from("sales").select(saleFields).order("sale_date", { ascending: false }).order("created_at", { ascending: false });
+  }
+  return current;
+}
 
 const numberFilter = (value: string | null) => {
   if (!value?.trim()) return null;
@@ -147,22 +190,19 @@ export function SalesHistoryPage() {
   const loadSales = useCallback(async () => {
     setLoading(true);
     setLoadError(false);
-    const [result, profilesResult, customersResult] = await Promise.all([supabase
-      .from("sales")
-      .select("id, sale_date, business_unit_id, business_unit_name, dog_id, dog_name, customer_id, customer_name, product_category_id, product_category_name, product_id, product_name, original_amount, discount_amount, paid_amount, refund_amount, outstanding_amount, net_amount, payment_method, customer_type, status, staff_id, staff_name, memo, created_by, cancellation_reason, created_at, updated_at, cancelled_at")
-      .order("sale_date", { ascending: false })
-      .order("created_at", { ascending: false }), supabase.rpc("get_staff_history_directory"), supabase.from("customers").select("id, phone")]);
+    const [result, profilesResult, customersResult] = await Promise.all([loadSaleRows(), supabase.rpc("get_staff_history_directory"), supabase.from("customers").select("id, phone")]);
     if (result.error || customersResult.error) {
       setSales([]);
       setLoadError(true);
     } else {
+      const saleRows = (result.data ?? []) as unknown as SaleQueryRow[];
       const customerPhones = new Map((customersResult.data ?? []).map((customer) => [customer.id, customer.phone]));
       const names = Object.fromEntries((profilesResult.data ?? []).map((row: { id: string; name: string }) => [row.id, row.name]));
-      setSales((result.data ?? []).map((sale) => ({
+      setSales(saleRows.map((sale) => ({
         id: sale.id, saleDate: sale.sale_date, businessUnitId: sale.business_unit_id, businessUnitName: sale.business_unit_name,
         dogId: sale.dog_id, customerId: sale.customer_id, productCategoryId: sale.product_category_id, productId: sale.product_id,
         dogName: sale.dog_name || "(반려견 없음)", customerName: sale.customer_name, categoryName: sale.product_category_name, productName: sale.product_name,
-        customerPhone: sale.customer_id ? customerPhones.get(sale.customer_id) ?? null : null,
+        customerPhone: sale.customer_phone ?? (sale.customer_id ? customerPhones.get(sale.customer_id) ?? null : null),
         originalAmount: sale.original_amount, discountAmount: sale.discount_amount, paidAmount: sale.paid_amount, refundAmount: sale.refund_amount,
         outstandingAmount: sale.outstanding_amount, netAmount: sale.net_amount, paymentMethod: sale.payment_method, customerType: sale.customer_type,
         status: sale.status as SaleStatus, staffId: sale.staff_id, staffName: sale.staff_name, memo: sale.memo, createdBy: sale.created_by,

@@ -21,12 +21,26 @@ export interface QuickPartyRpcPayload {
   p_breed: string | null;
 }
 
+export interface SaleReferenceSnapshot {
+  customerName: string | null;
+  customerPhone: string | null;
+  dogName: string | null;
+}
+
 export function buildQuickPartyRpcPayload({ customerName, phone, dogName, breed }: { customerName: string; phone: string; dogName: string; breed: string }): QuickPartyRpcPayload {
   return {
     p_customer_name: customerName.trim(),
     p_phone: phoneDigits(phone),
     p_dog_name: dogName.trim(),
     p_breed: breed.trim() || null,
+  };
+}
+
+export function normalizeSaleReference({ customerName, phone, dogName }: { customerName: string; phone: string; dogName: string }): SaleReferenceSnapshot {
+  return {
+    customerName: customerName.trim() || null,
+    customerPhone: phoneDigits(phone) || null,
+    dogName: dogName.trim() || null,
   };
 }
 
@@ -50,11 +64,11 @@ export function partySearchScore({ query, phoneQuery, dogName, customerName, pho
   return 99;
 }
 
-export function missingSaleRequirement({ hasParty, businessUnitId, productId, paidAmount, staffId }: { hasParty: boolean; businessUnitId: string; productId: string; paidAmount: number; staffId: string }) {
-  if (!hasParty) return "고객 또는 반려견을 선택해 주세요.";
+export function missingSaleRequirement({ businessUnitId, productId, originalAmount, paidAmount, outstandingAmount, staffId }: { businessUnitId: string; productId: string; originalAmount: number; paidAmount: number; outstandingAmount: number; staffId: string }) {
   if (!businessUnitId) return "사업부를 선택해 주세요.";
   if (!productId) return "상품을 선택해 주세요.";
-  if (!Number.isFinite(paidAmount) || paidAmount < 0) return "금액을 확인해 주세요.";
+  if (!Number.isFinite(originalAmount) || originalAmount <= 0) return "판매 금액을 입력해 주세요.";
+  if (![paidAmount, outstandingAmount].every((amount) => Number.isFinite(amount) && amount >= 0) || paidAmount + outstandingAmount <= 0) return "결제 금액 또는 미수금을 입력해 주세요.";
   if (!staffId) return "담당자를 선택해 주세요.";
   return "";
 }

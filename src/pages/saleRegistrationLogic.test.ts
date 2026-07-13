@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildQuickPartyRpcPayload, defaultRepeatSettings, duplicateWarningLevel, hasProductNameDuplicate, missingSaleRequirement, nextSaleForm, normalizeProductName, partySearchScore } from "./saleRegistrationLogic";
+import { buildQuickPartyRpcPayload, defaultRepeatSettings, duplicateWarningLevel, hasProductNameDuplicate, missingSaleRequirement, nextSaleForm, normalizeProductName, normalizeSaleReference, partySearchScore } from "./saleRegistrationLogic";
 
 describe("sale registration logic", () => {
   it("간편 등록 RPC payload를 운영 함수의 네 인자와 정확히 맞춘다", () => {
@@ -32,14 +32,22 @@ describe("sale registration logic", () => {
     expect(hasProductNameDuplicate(products, "hotel", "퍼피 클래스")).toBe(false);
   });
 
+  it("고객 참고 정보는 빈 값을 null로 두고 연락처는 숫자로만 보존한다", () => {
+    expect(normalizeSaleReference({ customerName: " 김철수 ", phone: "010-1234 5678", dogName: " " })).toEqual({
+      customerName: "김철수",
+      customerPhone: "01012345678",
+      dogName: null,
+    });
+  });
+
   it("반려견 완전 일치를 가장 먼저 정렬한다", () => {
     expect(partySearchScore({ query: "보리", phoneQuery: "", dogName: "보리", customerName: "보리 보호자", phone: "" })).toBe(0);
     expect(partySearchScore({ query: "보리", phoneQuery: "", dogName: "왕보리", customerName: "보리 보호자", phone: "" })).toBe(2);
   });
 
   it("필수 저장 조건을 순서대로 안내한다", () => {
-    expect(missingSaleRequirement({ hasParty: false, businessUnitId: "", productId: "", paidAmount: 0, staffId: "" })).toContain("고객");
-    expect(missingSaleRequirement({ hasParty: true, businessUnitId: "unit", productId: "product", paidAmount: 30000, staffId: "staff" })).toBe("");
+    expect(missingSaleRequirement({ businessUnitId: "", productId: "", originalAmount: 0, paidAmount: 0, outstandingAmount: 0, staffId: "" })).toContain("사업부");
+    expect(missingSaleRequirement({ businessUnitId: "unit", productId: "product", originalAmount: 30000, paidAmount: 0, outstandingAmount: 30000, staffId: "staff" })).toBe("");
   });
 
   it("상품 유지 설정이면 다음 등록의 상품과 기본가를 유지한다", () => {

@@ -52,6 +52,7 @@ import {
   hasProductNameDuplicate,
   missingSaleRequirement,
   nextSaleForm,
+  normalizeSaleReference,
   partySearchScore,
   type RepeatSettings,
 } from "./saleRegistrationLogic";
@@ -171,7 +172,8 @@ const loadRepeatSettings = (): RepeatSettings => {
     return defaultRepeatSettings;
   }
 };
-const emptyQuickForm = () => ({ customerName: "", phone: "", dogName: "", breed: "" });
+const emptyQuickForm = () => ({ customerName: "", phone: "", dogName: "" });
+const emptySaleReference = () => ({ customerName: "", phone: "", dogName: "" });
 const emptyQuickProductForm = (): QuickProductForm => ({ businessUnitId: "", categoryId: "", name: "", defaultPrice: 0 });
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 const digitsOnly = (value: string) => value.replace(/[^0-9]/g, "");
@@ -269,11 +271,13 @@ export function SaleFormPage() {
   const [productQuery, setProductQuery] = useState("");
   const [mobileInputActive, setMobileInputActive] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [customerSectionOpen, setCustomerSectionOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickError, setQuickError] = useState("");
   const [quickAddingToExisting, setQuickAddingToExisting] = useState(false);
   const [quickForm, setQuickForm] = useState(emptyQuickForm);
+  const [saleReference, setSaleReference] = useState(emptySaleReference);
   const [quickProductOpen, setQuickProductOpen] = useState(false);
   const [quickProductSaving, setQuickProductSaving] = useState(false);
   const [quickProductError, setQuickProductError] = useState("");
@@ -430,7 +434,7 @@ export function SaleFormPage() {
     return products.filter((product) => product.name.toLocaleLowerCase("ko").includes(keyword)).slice(0, 8);
   }, [productQuery, products]);
   const latestSelectedSale = selectedRecentSales[0] ?? null;
-  const missingRequirement = missingSaleRequirement({ hasParty: Boolean(form.customerId || form.dogId), businessUnitId: form.businessUnitId, productId: form.productId, paidAmount: form.paidAmount, staffId: form.staffId });
+  const missingRequirement = missingSaleRequirement({ businessUnitId: form.businessUnitId, productId: form.productId, originalAmount: form.originalAmount, paidAmount: form.paidAmount, outstandingAmount: form.outstandingAmount, staffId: form.staffId });
   const canSave = !missingRequirement && !saving;
   const duplicateCustomer = useMemo(() => {
     const normalized = phoneDigits(quickForm.phone);
@@ -463,6 +467,7 @@ export function SaleFormPage() {
       setRecentSelections((current) => [party, ...current.filter((item) => item.key !== key)].slice(0, 6));
     }
     setForm((current) => ({ ...current, customerId: customerId ?? "", dogId: nextDogId ?? "" }));
+    setSaleReference(emptySaleReference());
     setSearch(""); setSearchFocused(false); setTimelineExpanded(false); setError("");
     searchRef.current?.blur();
     requestAnimationFrame(() => productSectionRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }));
@@ -470,14 +475,16 @@ export function SaleFormPage() {
 
   const clearParty = () => {
     setForm((current) => ({ ...current, customerId: "", dogId: "", ...(!repeatSettings.keepProduct ? { categoryId: "", productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0, refundAmount: 0, outstandingAmount: 0 } : {}) }));
+    setSaleReference(emptySaleReference());
     setSearch(""); setTimelineExpanded(false); requestAnimationFrame(() => searchRef.current?.focus());
   };
 
   const resetAfterSave = () => {
     const defaultPrice = products.find((product) => product.id === form.productId)?.defaultPrice ?? null;
     setForm((current) => nextSaleForm(current, repeatSettings, { today: today(), defaultStaffId: profile?.id ?? "", productDefaultPrice: defaultPrice }));
+    setSaleReference(emptySaleReference()); setCustomerSectionOpen(false);
     setAdvancedOpen(false); setError(""); setSearch("");
-    requestAnimationFrame(() => searchRef.current?.focus());
+    requestAnimationFrame(() => productSectionRef.current?.scrollIntoView({ behavior: "auto", block: "start" }));
   };
 
   const resetForSameParty = () => {
@@ -488,16 +495,18 @@ export function SaleFormPage() {
 
   const resetForNewParty = () => {
     setForm((current) => nextSaleForm(current, { ...repeatSettings, keepProduct: false }, { today: today(), defaultStaffId: profile?.id ?? "", productDefaultPrice: null }));
+    setSaleReference(emptySaleReference()); setCustomerSectionOpen(false);
     setAdvancedOpen(false); setError(""); setSearch(""); setSuccessSummary(null);
-    requestAnimationFrame(() => searchRef.current?.focus());
+    requestAnimationFrame(() => productSectionRef.current?.scrollIntoView({ behavior: "auto", block: "start" }));
   };
 
   const resetAll = () => {
     setForm((current) => ({ saleDate: today(), businessUnitId: current.businessUnitId, customerId: "", dogId: "", categoryId: "", productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0, refundAmount: 0, outstandingAmount: 0, paymentMethod: "card", customerType: "new", staffId: current.staffId, memo: "" }));
-    setAdvancedOpen(false); setError(""); setSearch(""); requestAnimationFrame(() => searchRef.current?.focus());
+    setSaleReference(emptySaleReference()); setCustomerSectionOpen(false);
+    setAdvancedOpen(false); setError(""); setSearch(""); requestAnimationFrame(() => productSectionRef.current?.scrollIntoView({ behavior: "auto", block: "start" }));
   };
 
-  const hasDraft = Boolean(form.customerId || form.dogId || form.productId || form.memo.trim() || form.discountAmount || form.outstandingAmount);
+  const hasDraft = Boolean(form.customerId || form.dogId || form.productId || form.memo.trim() || form.discountAmount || form.outstandingAmount || saleReference.customerName.trim() || saleReference.phone.trim() || saleReference.dogName.trim());
   const requestNavigation = (path: string) => {
     if (hasDraft) setPendingNavigation(path);
     else navigate(path);
@@ -505,16 +514,17 @@ export function SaleFormPage() {
 
   const validate = (formElement: HTMLFormElement) => {
     const focus = (name: string) => requestAnimationFrame(() => { const field = formElement.elements.namedItem(name); if (field instanceof HTMLElement) field.focus(); });
-    if (!form.saleDate || !form.businessUnitId || (!form.customerId && !form.dogId) || !form.categoryId || !form.productId || !form.staffId) {
+    if (!form.saleDate || !form.businessUnitId || !form.categoryId || !form.productId || !form.staffId) {
       setError("필수 항목을 모두 입력해 주세요.");
-      if (!form.customerId && !form.dogId) requestAnimationFrame(() => searchRef.current?.focus());
-      else focus(!form.businessUnitId ? "businessUnitId" : !form.categoryId ? "categoryId" : !form.productId ? "productId" : !form.saleDate ? "saleDate" : "staffId");
+      focus(!form.businessUnitId ? "businessUnitId" : !form.categoryId ? "categoryId" : !form.productId ? "productId" : !form.saleDate ? "saleDate" : "staffId");
       return false;
     }
+    if (saleReference.phone && !isValidPhone(saleReference.phone)) { setError("참고 연락처는 010으로 시작하는 11자리 번호로 입력해 주세요."); setCustomerSectionOpen(true); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('input[name="saleReferencePhone"]')?.focus()); return false; }
     const selectedCategory = categories.find((item) => item.id === form.categoryId);
     const selectedProduct = products.find((item) => item.id === form.productId);
     if (selectedCategory?.businessUnitId !== form.businessUnitId || selectedProduct?.businessUnitId !== form.businessUnitId || selectedProduct?.categoryId !== form.categoryId) { setError("사업부, 상품 분류와 상품의 연결 정보를 확인해 주세요."); return false; }
     if ([form.originalAmount, form.discountAmount, form.paidAmount, form.refundAmount, form.outstandingAmount].some((amount) => !Number.isFinite(amount) || amount < 0)) { setError("금액은 0원 이상으로 입력해 주세요."); focus("originalAmount"); return false; }
+    if (form.originalAmount <= 0 || form.paidAmount + form.outstandingAmount <= 0) { setError("판매 금액과 결제 금액 또는 미수금을 입력해 주세요."); focus("originalAmount"); return false; }
     if (form.discountAmount > form.originalAmount) { setError("할인 금액은 정상 판매가를 초과할 수 없습니다."); setAdvancedOpen(true); focus("discountAmount"); return false; }
     if (form.refundAmount > form.paidAmount) { setError("환불 금액은 실제 결제 금액을 초과할 수 없습니다."); setAdvancedOpen(true); focus("refundAmount"); return false; }
     if (form.paidAmount + form.outstandingAmount > expectedAmount) { setError("결제 금액과 미수금의 합계는 할인 후 결제 예정액을 초과할 수 없습니다."); setAdvancedOpen(true); focus("outstandingAmount"); return false; }
@@ -523,13 +533,15 @@ export function SaleFormPage() {
 
   const persistSale = async () => {
     const customerId = (selectedDog?.customerId ?? form.customerId) || null;
+    const reference = normalizeSaleReference(saleReference);
     const result = await supabase.from("sales").insert({
       sale_date: form.saleDate, business_unit_id: form.businessUnitId, dog_id: form.dogId || null, customer_id: customerId,
       product_category_id: form.categoryId, product_id: form.productId, original_amount: Math.trunc(form.originalAmount),
       discount_amount: Math.trunc(form.discountAmount), paid_amount: Math.trunc(form.paidAmount), refund_amount: Math.trunc(form.refundAmount),
       outstanding_amount: Math.trunc(form.outstandingAmount), net_amount: Math.trunc(netAmount), payment_method: form.paymentMethod,
       customer_type: form.customerType, staff_id: form.staffId, memo: form.memo.trim() || null, status: "normal",
-      business_unit_name: "", dog_name: selectedDog?.name ?? null, customer_name: selectedDog?.customerName ?? selectedCustomer?.name ?? null,
+      business_unit_name: "", dog_name: selectedDog?.name ?? reference.dogName, customer_name: selectedDog?.customerName ?? selectedCustomer?.name ?? reference.customerName,
+      ...(reference.customerPhone ? { customer_phone: reference.customerPhone } : {}),
       product_category_name: "", product_name: "",
     }).select(recentSaleFields).single();
     savingRef.current = false; setSaving(false);
@@ -539,16 +551,18 @@ export function SaleFormPage() {
     }
     const savedSale = mapRecentSale(result.data as Record<string, unknown>);
     setRecentSales((current) => [savedSale, ...current].slice(0, 100));
-    const savedParty = selectedDog?.name || selectedCustomer?.name || "보호자 지정 매출";
+    const savedParty = selectedDog?.name || selectedCustomer?.name || reference.dogName || reference.customerName || "고객 정보 없는 매출";
     const savedProduct = products.find((product) => product.id === form.productId)?.name || "상품";
     setSuccessSummary({ saleId: savedSale.id, customerId: form.customerId, dogId: form.dogId, partyName: savedParty, productName: savedProduct, paidAmount: form.paidAmount, savedAt: savedSale.createdAt, staffName: staff.find((item) => item.id === form.staffId)?.name ?? profile?.name ?? "담당자 미등록" });
   };
 
   const findDuplicate = async () => {
-    const partyFilter = form.customerId ? `customer_id.eq.${form.customerId}` : `dog_id.eq.${form.dogId}`;
-    const duplicateResult = await supabase.from("sales").select(recentSaleFields)
-      .eq("product_id", form.productId).eq("sale_date", today()).neq("status", "cancelled")
-      .or(partyFilter).order("created_at", { ascending: false }).limit(10);
+    let duplicateRequest = supabase.from("sales").select(recentSaleFields)
+      .eq("product_id", form.productId).eq("sale_date", today()).neq("status", "cancelled");
+    if (form.customerId) duplicateRequest = duplicateRequest.eq("customer_id", form.customerId);
+    else if (form.dogId) duplicateRequest = duplicateRequest.eq("dog_id", form.dogId);
+    else duplicateRequest = duplicateRequest.is("customer_id", null).is("dog_id", null);
+    const duplicateResult = await duplicateRequest.order("created_at", { ascending: false }).limit(10);
     if (duplicateResult.error) return { error: duplicateResult.error.message, warning: null };
     const candidates = (duplicateResult.data ?? []).map((row) => mapRecentSale(row as Record<string, unknown>));
     const currentDuplicate = { now: Date.now(), today: today(), businessUnitId: form.businessUnitId, paidAmount: Math.trunc(form.paidAmount) };
@@ -593,15 +607,16 @@ export function SaleFormPage() {
       customerName,
       phone: quickForm.phone,
       dogName,
-      breed: quickForm.breed,
+      breed: "",
     }));
     quickSavingRef.current = false; setQuickSaving(false);
     if (result.error) { setQuickError(result.error.code === "42501" ? "권한이 없습니다." : result.error.message); return; }
     const first = ((result.data ?? []) as QuickPartyResult[])[0];
     if (!first) { setQuickError("간편 등록 결과를 확인할 수 없습니다."); return; }
     setCustomers((current) => current.some((item) => item.id === first.customer_id) ? current : [...current, { id: first.customer_id, name: first.customer_name, phone: first.customer_phone }].sort((a, b) => (a.name || "").localeCompare(b.name || "", "ko")));
-    if (first.dog_id && first.dog_name) setDogs((current) => current.some((dog) => dog.id === first.dog_id) ? current : [...current, { id: first.dog_id!, name: first.dog_name!, breed: quickForm.breed.trim() || null, birthDate: null, customerId: first.customer_id, customerName: first.customer_name, customerPhone: first.customer_phone }].sort((a, b) => a.name.localeCompare(b.name, "ko")));
+    if (first.dog_id && first.dog_name) setDogs((current) => current.some((dog) => dog.id === first.dog_id) ? current : [...current, { id: first.dog_id!, name: first.dog_name!, breed: null, birthDate: null, customerId: first.customer_id, customerName: first.customer_name, customerPhone: first.customer_phone }].sort((a, b) => a.name.localeCompare(b.name, "ko")));
     setForm((current) => ({ ...current, customerId: first.customer_id, dogId: first.dog_id ?? "" }));
+    setSaleReference(emptySaleReference());
     setQuickOpen(false); setSearch("");
     setNotice(first.customer_created ? "신규 보호자와 반려견을 등록하고 선택했습니다." : "기존 보호자에게 반려견을 연결하고 선택했습니다.");
   };
@@ -677,14 +692,15 @@ export function SaleFormPage() {
     </div>
   </section> : null;
 
-  if (loading) return <><PageHeader title="매출 등록" description="고객 선택부터 결제까지 한 화면에서 빠르게 등록합니다." /><Card><LoadingState /></Card></>;
-  if (loadError) return <><PageHeader title="매출 등록" description="고객 선택부터 결제까지 한 화면에서 빠르게 등록합니다." /><Card><ErrorState title={loadError} retry={() => void loadOptions()} /></Card></>;
+  if (loading) return <><PageHeader title="매출 등록" description="상품과 금액부터 빠르게 등록할 수 있습니다." /><Card><LoadingState /></Card></>;
+  if (loadError) return <><PageHeader title="매출 등록" description="상품과 금액부터 빠르게 등록할 수 있습니다." /><Card><ErrorState title={loadError} retry={() => void loadOptions()} /></Card></>;
 
   return <>
-    <PageHeader title="매출 등록" description="고객과 상품을 선택하면 결제 정보가 자동으로 준비됩니다." />
+    <PageHeader title="매출 등록" description="고객 정보 없이도 상품과 금액만으로 빠르게 등록할 수 있습니다." />
     <form onSubmit={submit} className="mx-auto max-w-6xl pb-28 lg:pb-4" aria-describedby={error ? "sale-form-error" : undefined} onFocusCapture={(event) => setMobileInputActive(event.target instanceof HTMLElement && event.target.matches("input, select, textarea"))} onBlurCapture={(event) => { const formElement = event.currentTarget; window.setTimeout(() => setMobileInputActive(Boolean(formElement.contains(document.activeElement) && document.activeElement instanceof HTMLElement && document.activeElement.matches("input, select, textarea"))), 0); }}>
       <Card className="relative z-20 p-5 sm:p-6">
-        <div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-primary">1 · 고객 선택</p><h2 className="mt-1 text-lg font-semibold text-text-primary">고객·반려견</h2></div>{(form.customerId || form.dogId) && <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success"><CheckCircle2 size={16} />선택 완료</span>}</div>
+        <button type="button" className="flex min-h-12 w-full items-center justify-between gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" onClick={() => setCustomerSectionOpen((value) => !value)} aria-expanded={customerSectionOpen}><span><span className="block text-xs font-semibold text-primary">선택 · 고객 정보</span><span className="mt-1 block text-lg font-semibold text-text-primary">고객 정보 추가</span><span className="mt-1 block text-xs font-normal text-text-muted">선택 사항 · 입력하지 않고 바로 매출을 저장할 수 있습니다.</span></span><span className="flex shrink-0 items-center gap-2 text-xs font-semibold text-text-secondary">{(form.customerId || form.dogId || saleReference.customerName || saleReference.dogName) ? "정보 있음" : "건너뛰기 가능"}<ChevronDown size={18} className={`transition-transform duration-200 ${customerSectionOpen ? "rotate-180" : ""}`} /></span></button>
+        {customerSectionOpen ? <div className="mt-5 border-t border-border pt-5">
         {!form.customerId && !form.dogId ? <>
           <div className="relative">
             <SearchBox inputRef={searchRef} aria-label="고객과 반려견 검색" value={search} role="combobox" aria-autocomplete="list" aria-expanded={searchFocused && Boolean(search.trim())} aria-controls="sale-party-search-results" aria-activedescendant={searchResults[highlightedResult] ? `sale-party-${searchResults[highlightedResult].key.replace(":", "-")}` : undefined} placeholder="반려견 이름, 보호자 이름 또는 연락처 검색" autoComplete="off" onFocus={() => setSearchFocused(true)} onBlur={() => setTimeout(() => setSearchFocused(false), 150)} onChange={(event) => setSearch(event.target.value)} onClear={() => setSearch("")} onKeyDown={(event) => {
@@ -697,9 +713,11 @@ export function SaleFormPage() {
               {searchLoading ? <div className="space-y-2 p-1" aria-label="검색 중"><Skeleton className="h-24" /><Skeleton className="h-24" /></div> : searchResults.length ? <div id="sale-party-search-results" role="listbox" aria-label="고객과 반려견 검색 결과" className="space-y-1">{searchResults.map((result, index) => <div key={result.key} className={cn("rounded-xl transition", highlightedResult === index && "bg-primary-subtle")}><button id={`sale-party-${result.key.replace(":", "-")}`} type="button" role="option" aria-selected={highlightedResult === index} onMouseEnter={() => setHighlightedResult(index)} onMouseDown={(event) => event.preventDefault()} onClick={() => selectParty(result.customerId, result.dogId)} className="flex min-h-24 w-full items-center gap-3 rounded-xl p-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">{result.dogName ? <Dog size={21} /> : <UserRound size={21} />}</span><span className="min-w-0 flex-1"><strong className="block truncate text-base text-text-primary"><HighlightedText text={result.dogName || result.customerName || "이름 미등록"} query={debouncedSearch} /></strong><span className="mt-1 block truncate text-sm text-text-secondary">보호자 <HighlightedText text={result.customerName || "미등록"} query={debouncedSearch} /> · {result.breed || "견종 미등록"}</span><span className="mt-1 block truncate text-xs text-text-muted"><HighlightedText text={maskedPhone(result.customerPhone)} query={debouncedSearch} /> · 반려견 {result.dogNames.length || 0}마리</span><span className="mt-1 block truncate text-xs text-primary">{result.lastSale ? `${result.lastSale.productName} · ${recentTime(result.lastSale.createdAt)}` : "최근 이용 없음"}</span></span><span className="shrink-0 text-xs font-semibold text-primary">선택</span></button>{result.customerId && <div className="flex justify-end px-3 pb-2"><button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { const customer = customers.find((item) => item.id === result.customerId); if (customer) openQuickRegistration(customer); }} className="min-h-11 rounded-xl px-3 text-xs font-semibold text-text-secondary hover:bg-white hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary">같은 보호자에게 새 반려견 추가</button></div>}</div>)}</div> : <div className="p-5 text-center"><p className="text-sm font-semibold text-text-primary">검색된 고객이 없습니다.</p><p className="mt-1 text-xs text-text-muted">다른 연락처를 확인하거나 바로 신규 등록하세요.</p><Button type="button" className="mt-4" onMouseDown={(event) => event.preventDefault()} onClick={() => openQuickRegistration()}><Plus size={16} />신규 보호자·반려견 등록</Button></div>}
             </div>}
           </div>
-          <div className="mt-5"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold text-text-secondary">최근 고객</span><Button type="button" variant="ghost" onClick={() => openQuickRegistration()}><Plus size={16} />신규 등록</Button></div>{recentParties.length ? <div className="flex snap-x gap-2 overflow-x-auto pb-2">{recentParties.map((party) => <button key={party.key} type="button" onClick={() => selectParty(party.customerId, party.dogId)} className="min-h-28 min-w-44 snap-start rounded-2xl border border-border bg-surface p-3.5 text-left transition duration-200 hover:border-primary/30 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"><strong className="block truncate text-sm text-text-primary">{party.dogName || "반려견 없음"}</strong><span className="mt-1 block truncate text-xs text-text-secondary">{party.customerName || "보호자 미등록"}</span><span className="mt-3 block truncate text-xs font-medium text-primary">{party.lastSale?.productName || "상품 이력 없음"}</span><span className="mt-1 block truncate text-[11px] text-text-muted">{party.lastSale ? recentTime(party.lastSale.createdAt) : "최근 선택"}</span></button>)}</div> : <p className="rounded-xl bg-surface-secondary p-4 text-sm text-text-muted">최근 등록 고객이 없습니다.</p>}</div>
+          <div className="mt-5"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold text-text-secondary">최근 고객</span><Button type="button" variant="ghost" onClick={() => openQuickRegistration()}><Plus size={16} />고객 DB에 저장</Button></div>{recentParties.length ? <div className="flex snap-x gap-2 overflow-x-auto pb-2">{recentParties.map((party) => <button key={party.key} type="button" onClick={() => selectParty(party.customerId, party.dogId)} className="min-h-28 min-w-44 snap-start rounded-2xl border border-border bg-surface p-3.5 text-left transition duration-200 hover:border-primary/30 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"><strong className="block truncate text-sm text-text-primary">{party.dogName || "반려견 없음"}</strong><span className="mt-1 block truncate text-xs text-text-secondary">{party.customerName || "보호자 미등록"}</span><span className="mt-3 block truncate text-xs font-medium text-primary">{party.lastSale?.productName || "상품 이력 없음"}</span><span className="mt-1 block truncate text-[11px] text-text-muted">{party.lastSale ? recentTime(party.lastSale.createdAt) : "최근 선택"}</span></button>)}</div> : <p className="rounded-xl bg-surface-secondary p-4 text-sm text-text-muted">최근 등록 고객이 없습니다.</p>}</div>
+          <div className="mt-5 rounded-2xl border border-border bg-surface-secondary p-4"><div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between"><div><h3 className="text-sm font-semibold text-text-primary">이번 매출에만 참고 정보</h3><p className="mt-1 text-xs leading-5 text-text-muted">입력해도 고객 DB에는 생성되지 않습니다. 필요한 항목만 선택해 입력하세요.</p></div><Button type="button" variant="secondary" onClick={() => openQuickRegistration()}><Plus size={16} />고객 DB에 저장하고 선택</Button></div><div className="grid gap-4 sm:grid-cols-3"><Field label="보호자명"><Input name="saleReferenceCustomerName" value={saleReference.customerName} disabled={saving} onChange={(event) => setSaleReference((current) => ({ ...current, customerName: event.target.value }))} /></Field><Field label="연락처"><Input name="saleReferencePhone" inputMode="numeric" autoComplete="tel" placeholder="010-1234-5678" value={saleReference.phone} disabled={saving} onChange={(event) => setSaleReference((current) => ({ ...current, phone: formatPhone(event.target.value) }))} /></Field><Field label="반려견명"><Input name="saleReferenceDogName" value={saleReference.dogName} disabled={saving} onChange={(event) => setSaleReference((current) => ({ ...current, dogName: event.target.value }))} /></Field></div></div>
         </> : <div className="rounded-2xl border border-primary/20 bg-primary-subtle p-4 sm:p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="flex min-w-0 items-start gap-3"><span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-white"><Dog size={24} /></span><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">현재 선택</p><strong className="mt-1 block truncate text-2xl text-text-primary">{selectedDog?.name || "반려견 없음"}</strong><p className="mt-1 text-sm text-text-secondary">{selectedDog ? `${selectedDog.breed || "견종 미등록"} · ${dogAge(selectedDog.birthDate)}` : "보호자만 지정한 매출"}</p><p className="mt-1 text-sm text-text-secondary">보호자 {selectedCustomer?.name ?? selectedDog?.customerName ?? "미등록"} · {maskedPhone(selectedCustomer?.phone ?? selectedDog?.customerPhone ?? null)}</p>{latestSelectedSale && <p className="mt-2 text-xs font-medium text-primary">최근 {latestSelectedSale.productName} · {latestSelectedSale.saleDate}</p>}</div></div><div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end"><Button type="button" variant="secondary" onClick={clearParty}>고객 변경</Button>{selectedCustomer && <Button type="button" variant="secondary" onClick={() => openQuickRegistration(selectedCustomer)}><Plus size={16} />새 반려견</Button>}<Button type="button" variant="ghost" onClick={() => requestNavigation("/customers")}><ExternalLink size={16} />고객 상세</Button></div></div>{selectableDogs.length > 0 && <div className="mt-4 border-t border-primary/10 pt-4"><p className="mb-2 text-xs font-semibold text-text-secondary">다른 반려견 선택</p><div className="flex flex-wrap gap-2"><button type="button" aria-pressed={!form.dogId} onClick={() => setForm((current) => ({ ...current, dogId: "" }))} className={cn("min-h-11 rounded-xl border px-3 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", !form.dogId ? "border-primary bg-primary text-white" : "border-border bg-white text-text-secondary")}>반려견 없음</button>{selectableDogs.map((dog) => <button type="button" aria-pressed={form.dogId === dog.id} key={dog.id} onClick={() => setForm((current) => ({ ...current, dogId: dog.id }))} className={cn("min-h-11 rounded-xl border px-3 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", form.dogId === dog.id ? "border-primary bg-primary text-white" : "border-border bg-white text-text-secondary hover:border-primary/30")}>{dog.name}</button>)}</div></div>}</div>}
         {(form.customerId || form.dogId) && <div className="mt-5 border-t border-border pt-5"><div className="mb-3 flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Clock3 size={16} className="text-primary" /><h3 className="text-sm font-semibold text-text-primary">최근 거래</h3></div><div className="flex gap-1"><Button type="button" variant="ghost" onClick={() => setTimelineExpanded((value) => !value)}>{timelineExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}{timelineExpanded ? "접기" : "최대 5건"}</Button><Button type="button" variant="ghost" onClick={() => requestNavigation("/sales")}>전체 내역</Button></div></div>{selectedRecentSales.length ? <div className="space-y-2">{selectedRecentSales.slice(0, timelineExpanded ? 5 : 2).map((sale) => <button key={sale.id} type="button" onClick={() => requestNavigation(`/sales?detail=${sale.id}`)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border border-border p-3 text-left transition duration-200 hover:border-primary/25 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"><span className="min-w-0"><strong className="block truncate text-sm text-text-primary">{sale.productName}</strong><span className="mt-1 block truncate text-xs text-text-muted">{sale.saleDate} · {sale.businessUnitName} · {sale.staffName || "담당자 미등록"}</span></span><span className="shrink-0 text-right"><strong className="block text-sm tabular-nums text-text-primary">{won(sale.paidAmount)}</strong><StatusBadge status={sale.status} /></span></button>)}</div> : <p className="rounded-xl bg-surface-secondary p-4 text-sm text-text-muted">최근 거래가 없습니다.</p>}</div>}
+        </div> : <div className="mt-4 flex min-h-12 items-center justify-between rounded-xl bg-surface-secondary px-4 text-sm text-text-secondary"><span>{selectedDog?.name || selectedCustomer?.name || saleReference.dogName || saleReference.customerName || "고객 정보 없이 등록"}</span><span className="text-xs text-text-muted">필요할 때만 펼치세요</span></div>}
       </Card>
 
       <Card className="mt-4 p-5 sm:p-6"><div ref={productSectionRef} className="scroll-mt-5"><div className="mb-5 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-primary">2 · 상품 선택</p><h2 className="mt-1 text-lg font-semibold text-text-primary">추천 상품</h2></div>{form.productId && <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success"><CheckCircle2 size={16} />선택 완료</span>}</div><div className="space-y-5">{renderProductGroup("최근 이용 상품", "최근 사용한 상품부터 표시합니다.", recommendationGroups.recent)}{renderProductGroup("자주 이용한 상품", "이 고객의 이용 빈도 기준입니다.", recommendationGroups.frequent)}{renderProductGroup("사업부 인기 상품", "현재 사업부에서 자주 등록된 상품입니다.", recommendationGroups.popular)}<section className="space-y-3"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><PackageCheck size={16} className="text-primary" /><h3 className="text-sm font-semibold text-text-primary">전체 상품 검색 및 선택</h3></div><Button type="button" variant="ghost" onClick={openQuickProductRegistration}><Plus size={16} />새 상품</Button></div><SearchBox aria-label="상품명 검색" value={productQuery} placeholder="상품명 검색" onClear={() => setProductQuery("")} onChange={(event) => setProductQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} />{productSearchResults.length > 0 ? <div className="grid gap-2 sm:grid-cols-2">{productSearchResults.map((product) => <button key={product.id} type="button" aria-pressed={form.productId === product.id} onClick={() => selectProduct(product)} className={cn("flex min-h-14 items-center justify-between rounded-xl border px-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", form.productId === product.id ? "border-primary bg-primary text-white" : "border-border hover:border-primary/30 hover:bg-primary-subtle")}><span className="truncate text-sm font-semibold">{product.name}</span><span className="ml-3 shrink-0 text-sm tabular-nums">{won(product.defaultPrice)}</span></button>)}</div> : productQuery.trim() && <div className="rounded-2xl border border-dashed border-border bg-surface-secondary p-4 text-center"><p className="text-sm text-text-secondary">검색된 상품이 없습니다.</p><Button type="button" variant="secondary" className="mt-3" onClick={openQuickProductRegistration}><Plus size={16} />“{productQuery.trim()}” 새 상품 등록</Button></div>}<div className="grid gap-4 md:grid-cols-3"><Field label="사업부" required><Select name="businessUnitId" value={form.businessUnitId} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, businessUnitId: event.target.value, categoryId: "", productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0 }))}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field><Field label="상품 분류" required><Select name="categoryId" value={form.categoryId} disabled={saving || !form.businessUnitId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value, productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0 }))}><option value="">분류 선택</option>{filteredCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field><Field label="상품" required><Select name="productId" value={form.productId} disabled={saving || !form.categoryId} onChange={(event) => { const product = products.find((item) => item.id === event.target.value); if (product) selectProduct(product); else setForm((current) => ({ ...current, productId: "", originalAmount: 0, paidAmount: 0 })); }}><option value="">상품 선택</option>{filteredProducts.map((item) => <option key={item.id} value={item.id}>{item.name} · {won(item.defaultPrice)}</option>)}</Select></Field></div></section></div></div></Card>
@@ -715,11 +733,10 @@ export function SaleFormPage() {
     <ConfirmModal open={Boolean(pendingNavigation)} title="입력 중인 화면에서 이동할까요?" description="현재 선택한 고객과 상품 정보는 저장되지 않습니다." confirmLabel="이동" cancelLabel="계속 입력" tone="primary" onClose={() => setPendingNavigation(null)} onConfirm={() => { const path = pendingNavigation; setPendingNavigation(null); if (path) navigate(path); }} />
     <Modal open={quickOpen} onClose={() => { if (!quickSavingRef.current) setQuickOpen(false); }} title="신규 보호자·반려견 등록">
       <form onSubmit={submitQuickRegistration} className="space-y-4">
-        <p className="text-sm leading-6 text-text-secondary">현장 매출에 필요한 최소 정보만 입력합니다. 상세 정보는 반려견 관리에서 보완할 수 있습니다.</p>
+        <p className="text-sm leading-6 text-text-secondary">이 정보는 고객 DB에 저장됩니다. 이번 매출에만 참고하려면 고객 정보 영역의 선택 입력을 사용하세요.</p>
         <Field label="반려견 이름" required><Input data-modal-initial name="quickDogName" value={quickForm.dogName} disabled={quickSaving} onChange={(event) => setQuickForm((current) => ({ ...current, dogName: event.target.value }))} /></Field>
         <div className="grid gap-4 sm:grid-cols-2"><Field label="보호자 이름" required><Input name="quickCustomerName" value={quickForm.customerName} disabled={quickSaving || Boolean(duplicateCustomer)} onChange={(event) => setQuickForm((current) => ({ ...current, customerName: event.target.value }))} /></Field><Field label="연락처" required><Input ref={quickPhoneRef} name="quickPhone" inputMode="numeric" autoComplete="tel" placeholder="010-1234-5678" value={quickForm.phone} disabled={quickSaving || quickAddingToExisting} onChange={(event) => { setQuickForm((current) => ({ ...current, phone: formatPhone(event.target.value) })); setQuickAddingToExisting(false); setQuickError(""); }} /></Field></div>
         {duplicateCustomer && <div className="rounded-2xl border border-warning/20 bg-warning-soft p-4"><div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 shrink-0 text-warning" size={18} /><div><strong className="text-sm text-text-primary">동일 연락처의 기존 보호자가 있습니다.</strong><p className="mt-1 text-sm text-text-secondary">보호자: {duplicateCustomer.name || "이름 미등록"}</p><p className="mt-1 text-xs text-text-muted">등록된 반려견: {dogs.filter((dog) => dog.customerId === duplicateCustomer.id).map((dog) => dog.name).join(", ") || "없음"}</p></div></div><div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => { selectParty(duplicateCustomer.id); setQuickOpen(false); }}>기존 고객 선택</Button><Button type="button" variant={quickAddingToExisting ? "primary" : "secondary"} onClick={() => { setQuickAddingToExisting(true); setQuickForm((current) => ({ ...current, customerName: duplicateCustomer.name ?? current.customerName })); }}>새 반려견 추가</Button><Button type="button" variant="ghost" onClick={() => { setQuickForm((current) => ({ ...current, phone: "", customerName: "" })); setQuickAddingToExisting(false); requestAnimationFrame(() => quickPhoneRef.current?.focus()); }}>다른 연락처 입력</Button></div></div>}
-        <Field label="견종"><Input name="quickBreed" value={quickForm.breed} disabled={quickSaving} placeholder="선택 입력" onChange={(event) => setQuickForm((current) => ({ ...current, breed: event.target.value }))} /></Field>
         {quickError && <p role="alert" className="rounded-xl bg-error-soft px-4 py-3 text-sm font-medium text-error">{quickError}</p>}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end"><Button type="button" variant="secondary" disabled={quickSaving} onClick={() => setQuickOpen(false)}>취소</Button><Button disabled={quickSaving}>{quickSaving && <LoaderCircle className="animate-spin" size={17} />}{quickSaving ? "등록 중..." : duplicateCustomer ? "반려견 등록 후 선택" : "등록 후 선택"}</Button></div>
       </form>
