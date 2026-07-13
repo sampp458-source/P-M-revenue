@@ -46,6 +46,7 @@ import { won } from "../lib/format";
 import { formatPhone, isValidPhone, phoneDigits } from "../lib/phone";
 import { supabase } from "../lib/supabase";
 import {
+  buildQuickPartyRpcPayload,
   defaultRepeatSettings,
   duplicateWarningLevel,
   missingSaleRequirement,
@@ -577,7 +578,12 @@ export function SaleFormPage() {
     if (duplicateCustomer && !quickAddingToExisting) { setQuickError("동일 연락처의 기존 보호자를 선택하거나 새 반려견 추가를 선택해 주세요."); return; }
     if (weight !== null && (!Number.isFinite(weight) || weight <= 0)) { setQuickError("몸무게는 0보다 큰 값으로 입력해 주세요."); return; }
     quickSavingRef.current = true; setQuickSaving(true); setQuickError("");
-    const result = await supabase.rpc("quick_register_sale_party", { p_customer_name: customerName, p_phone: phoneDigits(quickForm.phone), p_dog_name: dogName, p_breed: quickForm.breed.trim() || null, p_sex: quickForm.sex || null, p_birth_date: quickForm.birthDate || null, p_weight: weight });
+    const result = await supabase.rpc("quick_register_sale_party", buildQuickPartyRpcPayload({
+      customerName,
+      phone: quickForm.phone,
+      dogName,
+      breed: quickForm.breed,
+    }));
     quickSavingRef.current = false; setQuickSaving(false);
     if (result.error) { setQuickError(result.error.code === "42501" ? "권한이 없습니다." : result.error.message); return; }
     const first = ((result.data ?? []) as QuickPartyResult[])[0];

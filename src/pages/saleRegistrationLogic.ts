@@ -1,3 +1,5 @@
+import { phoneDigits } from "../lib/phone";
+
 export interface RepeatSettings {
   keepBusinessUnit: boolean;
   keepStaff: boolean;
@@ -11,6 +13,22 @@ export const defaultRepeatSettings: RepeatSettings = {
   keepProduct: false,
   keepPaymentMethod: false,
 };
+
+export interface QuickPartyRpcPayload {
+  p_customer_name: string;
+  p_phone: string;
+  p_dog_name: string;
+  p_breed: string | null;
+}
+
+export function buildQuickPartyRpcPayload({ customerName, phone, dogName, breed }: { customerName: string; phone: string; dogName: string; breed: string }): QuickPartyRpcPayload {
+  return {
+    p_customer_name: customerName.trim(),
+    p_phone: phoneDigits(phone),
+    p_dog_name: dogName.trim(),
+    p_breed: breed.trim() || null,
+  };
+}
 
 export function partySearchScore({ query, phoneQuery, dogName, customerName, phone }: { query: string; phoneQuery: string; dogName: string; customerName: string; phone: string }) {
   if (dogName === query) return 0;

@@ -1,7 +1,29 @@
 import { describe, expect, it } from "vitest";
-import { defaultRepeatSettings, duplicateWarningLevel, missingSaleRequirement, nextSaleForm, partySearchScore } from "./saleRegistrationLogic";
+import { buildQuickPartyRpcPayload, defaultRepeatSettings, duplicateWarningLevel, missingSaleRequirement, nextSaleForm, partySearchScore } from "./saleRegistrationLogic";
 
 describe("sale registration logic", () => {
+  it("간편 등록 RPC payload를 운영 함수의 네 인자와 정확히 맞춘다", () => {
+    const payload = buildQuickPartyRpcPayload({
+      customerName: " 김철수 ",
+      phone: "010-1234 5678",
+      dogName: " 보리 ",
+      breed: " ",
+    });
+
+    expect(payload).toEqual({
+      p_customer_name: "김철수",
+      p_phone: "01012345678",
+      p_dog_name: "보리",
+      p_breed: null,
+    });
+    expect(Object.keys(payload)).toEqual([
+      "p_customer_name",
+      "p_phone",
+      "p_dog_name",
+      "p_breed",
+    ]);
+  });
+
   it("반려견 완전 일치를 가장 먼저 정렬한다", () => {
     expect(partySearchScore({ query: "보리", phoneQuery: "", dogName: "보리", customerName: "보리 보호자", phone: "" })).toBe(0);
     expect(partySearchScore({ query: "보리", phoneQuery: "", dogName: "왕보리", customerName: "보리 보호자", phone: "" })).toBe(2);
