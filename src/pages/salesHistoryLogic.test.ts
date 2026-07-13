@@ -29,6 +29,11 @@ describe("salesHistoryLogic", () => {
 
   it("보호자명으로 검색한다", () => expect(filterSales([baseSale], { ...filters, query: "김철" }, "2026-07-13")).toHaveLength(1));
 
+  it("분류 없는 과거 매출도 상품명으로 검색한다", () => {
+    const uncategorized = { ...baseSale, productCategoryId: null, categoryName: "미분류", productName: "투약 추가비" };
+    expect(filterSales([uncategorized], { ...filters, query: "투약" }, "2026-07-13")).toEqual([uncategorized]);
+  });
+
   it("하이픈이 다른 연락처로 검색한다", () => expect(filterSales([baseSale], { ...filters, query: "12345678" }, "2026-07-13")).toHaveLength(1));
 
   it("상태와 미수금을 별도로 필터링한다", () => {

@@ -52,7 +52,7 @@ const menus: MenuItem[] = [
   { to: "/sales/new", label: "매출 등록", icon: ClipboardPlus, group: "업무" },
   { to: "/sales", label: "매출 내역", icon: ReceiptText, end: true, group: "업무" },
   { to: "/customers", label: "반려견 관리", icon: Dog, group: "관리" },
-  { to: "/categories", label: "상품 분류 관리", icon: Boxes, group: "관리" },
+  { to: "/categories", label: "상품 분류 관리", icon: Boxes, adminOnly: true, group: "관리" },
   { to: "/products", label: "상품 관리", icon: Package, group: "관리" },
   { to: "/reports", label: "월별 보고서", icon: BarChart3, group: "분석" },
   { to: "/settings", label: "설정", icon: Settings, group: "분석" },

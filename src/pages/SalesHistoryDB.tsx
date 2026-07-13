@@ -66,8 +66,8 @@ interface SaleQueryRow {
   customer_id: string | null;
   customer_name: string | null;
   customer_phone?: string | null;
-  product_category_id: string;
-  product_category_name: string;
+  product_category_id: string | null;
+  product_category_name: string | null;
   product_id: string;
   product_name: string;
   quantity?: number | null;
@@ -208,7 +208,7 @@ export function SalesHistoryPage() {
       setSales(saleRows.map((sale) => ({
         id: sale.id, saleDate: sale.sale_date, businessUnitId: sale.business_unit_id, businessUnitName: sale.business_unit_name,
         dogId: sale.dog_id, customerId: sale.customer_id, productCategoryId: sale.product_category_id, productId: sale.product_id,
-        dogName: sale.dog_name || "(반려견 없음)", customerName: sale.customer_name, categoryName: sale.product_category_name, productName: sale.product_name,
+        dogName: sale.dog_name || "(반려견 없음)", customerName: sale.customer_name, categoryName: sale.product_category_name || "미분류", productName: sale.product_name,
         customerPhone: sale.customer_phone ?? (sale.customer_id ? customerPhones.get(sale.customer_id) ?? null : null),
         pricingStored: sale.quantity !== undefined && sale.quantity !== null && sale.unit_price !== undefined && sale.unit_price !== null,
         quantity: sale.quantity ?? 1, unitPrice: sale.unit_price ?? sale.original_amount,
@@ -239,7 +239,7 @@ export function SalesHistoryPage() {
   const duplicateWarnings = useMemo(() => findDuplicateWarnings(sales), [sales]);
   const staffOptions = useMemo(() => [...new Map(sales.filter((sale) => sale.staffId).map((sale) => [sale.staffId as string, sale.staffName || profileNames[sale.staffId as string] || "이름 미등록"])).entries()], [profileNames, sales]);
   const registrarOptions = useMemo(() => [...new Map(sales.map((sale) => [sale.createdBy, profileNames[sale.createdBy] || sale.registrarName || "이름 미등록"])).entries()], [profileNames, sales]);
-  const categoryOptions = useMemo(() => [...new Map(sales.map((sale) => [sale.productCategoryId, sale.categoryName])).entries()], [sales]);
+  const categoryOptions = useMemo(() => [...new Map(sales.filter((sale) => sale.productCategoryId).map((sale) => [sale.productCategoryId as string, sale.categoryName])).entries()], [sales]);
   const productOptions = useMemo(() => [...new Map(sales.map((sale) => [sale.productId, sale.productName])).entries()], [sales]);
 
   const canEdit = (sale: SaleRow) => (profile?.role === "admin" && sale.status !== "cancelled") || (sale.createdBy === profile?.id && sale.status === "normal");

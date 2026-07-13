@@ -8,7 +8,7 @@ export interface SalesHistoryRecord {
   businessUnitId: string;
   dogId: string | null;
   customerId: string | null;
-  productCategoryId: string;
+  productCategoryId: string | null;
   productId: string;
   dogName: string;
   customerName: string | null;

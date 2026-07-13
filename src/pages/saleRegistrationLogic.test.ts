@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildQuickPartyRpcPayload, calculateGrossAmount, calculatePricingChange, defaultRepeatSettings, duplicateWarningLevel, findDefaultCategoryId, hasCategoryNameDuplicate, hasProductNameDuplicate, isValidPaymentPlan, missingSaleRequirement, nextSaleForm, normalizeProductName, normalizeQuantity, normalizeSaleReference, partySearchScore, suggestUnitLabel } from "./saleRegistrationLogic";
+import { buildQuickPartyRpcPayload, calculateGrossAmount, calculatePricingChange, defaultRepeatSettings, duplicateWarningLevel, hasCategoryNameDuplicate, hasProductNameDuplicate, isProductScopeValid, isValidPaymentPlan, missingSaleRequirement, nextSaleForm, normalizeProductName, normalizeQuantity, normalizeSaleReference, partySearchScore, suggestUnitLabel } from "./saleRegistrationLogic";
 
 describe("sale registration logic", () => {
   it("간편 등록 RPC payload를 운영 함수의 네 인자와 정확히 맞춘다", () => {
@@ -39,20 +39,16 @@ describe("sale registration logic", () => {
     expect(hasCategoryNameDuplicate(categories, "daycare", "장기 호텔")).toBe(false);
   });
 
-  it("사업부의 활성 기타 분류를 시스템 기본 분류로 찾는다", () => {
-    const categories = [
-      { id: "inactive", businessUnitId: "hotel", name: "기타", isActive: false },
-      { id: "default", businessUnitId: "hotel", name: " 기타 ", isActive: true },
-    ];
-
-    expect(findDefaultCategoryId(categories, "hotel")).toBe("default");
-    expect(findDefaultCategoryId(categories, "daycare")).toBe("");
-  });
-
   it("사업부와 상품 특성에 따라 단위를 제안한다", () => {
     expect(suggestUnitLabel({ businessUnitName: "호텔", productName: "호텔 1박" })).toBe("박");
     expect(suggestUnitLabel({ businessUnitName: "유치원", productName: "월권" })).toBe("회");
     expect(suggestUnitLabel({ businessUnitName: "호텔", productName: "배변 패드" })).toBe("개");
+  });
+
+  it("분류 없는 상품도 사업부가 일치하면 매출 선택을 허용한다", () => {
+    expect(isProductScopeValid({ businessUnitId: "hotel", categoryId: null }, "hotel", "")).toBe(true);
+    expect(isProductScopeValid({ businessUnitId: "hotel", categoryId: "category" }, "hotel", "category")).toBe(true);
+    expect(isProductScopeValid({ businessUnitId: "hotel", categoryId: null }, "daycare", "")).toBe(false);
   });
 
   it("고객 참고 정보는 빈 값을 null로 두고 연락처는 숫자로만 보존한다", () => {

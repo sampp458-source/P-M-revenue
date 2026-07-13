@@ -24,7 +24,7 @@ import {
 import { won } from "../lib/format";
 import { supabase } from "../lib/supabase";
 import type { Division } from "../types";
-import { findDefaultCategoryId, hasCategoryNameDuplicate, hasProductNameDuplicate, suggestUnitLabel } from "./saleRegistrationLogic";
+import { hasCategoryNameDuplicate, hasProductNameDuplicate, suggestUnitLabel } from "./saleRegistrationLogic";
 
 interface CategoryOption {
   id: string;
@@ -37,7 +37,7 @@ interface ProductRow {
   id: string;
   businessUnitId: string;
   division: Division;
-  categoryId: string;
+  categoryId: string | null;
   categoryName: string;
   name: string;
   defaultPrice: number;
@@ -149,7 +149,7 @@ export function ProductsPage() {
             businessUnitId: product.business_unit_id,
             division: unit?.name as Division,
             categoryId: product.category_id,
-            categoryName: productCategory?.name ?? "-",
+            categoryName: productCategory?.name ?? "미분류",
             name: product.name,
             defaultPrice: product.default_price,
             sortOrder: product.sort_order,
@@ -174,11 +174,10 @@ export function ProductsPage() {
   const openCreate = () => {
     setFormError("");
     const initialUnit = businessUnits[0];
-    const comparableCategories = categories.map((item) => ({ id: item.id, businessUnitId: item.business_unit_id, name: item.name, isActive: item.is_active }));
     setEditing({
       id: null,
       businessUnitId: initialUnit?.id ?? "",
-      categoryId: isAdmin ? "" : findDefaultCategoryId(comparableCategories, initialUnit?.id ?? ""),
+      categoryId: "",
       name: "",
       defaultPrice: 0,
       active: true,
@@ -196,7 +195,7 @@ export function ProductsPage() {
     setEditing({
       id: product.id,
       businessUnitId: product.businessUnitId,
-      categoryId: product.categoryId,
+      categoryId: product.categoryId ?? "",
       name: product.name,
       defaultPrice: product.defaultPrice,
       active: product.active,
@@ -216,13 +215,18 @@ export function ProductsPage() {
     const focus = (name: string) => requestAnimationFrame(() => { const field = formElement.elements.namedItem(name); if (field instanceof HTMLElement) field.focus(); });
     if (!editing) return;
     const unit = businessUnits.find((item) => item.id === editing.businessUnitId);
-    const selectedCategory = categories.find((item) => item.id === editing.categoryId);
-    if (!unit || !selectedCategory) {
-      setFormError(isAdmin ? "사업부와 상품 분류를 모두 선택해 주세요." : "기본 상품 설정을 확인할 수 없습니다. '기타' 분류 Migration 적용 여부를 확인해 주세요.");
-      focus(!unit ? "businessUnitId" : "categoryId");
+    const selectedCategory = editing.categoryId ? categories.find((item) => item.id === editing.categoryId) : undefined;
+    if (!unit) {
+      setFormError("사업부를 선택해 주세요.");
+      focus("businessUnitId");
       return;
     }
-    if (selectedCategory.business_unit_id !== unit.id) {
+    if (editing.categoryId && !selectedCategory) {
+      setFormError("선택한 상품 분류를 확인할 수 없습니다.");
+      focus("categoryId");
+      return;
+    }
+    if (selectedCategory && selectedCategory.business_unit_id !== unit.id) {
       setFormError("선택한 상품 분류가 해당 사업부에 속하지 않습니다.");
       focus("categoryId");
       return;
@@ -250,7 +254,7 @@ export function ProductsPage() {
     }
     const values = {
       business_unit_id: unit.id,
-      category_id: selectedCategory.id,
+      category_id: selectedCategory?.id ?? null,
       name: editing.name.trim(),
       default_price: Math.trunc(editing.defaultPrice),
       memo: editing.memo.trim() || null,
@@ -271,6 +275,8 @@ export function ProductsPage() {
       setFormError(
         result.error.code === "23505"
           ? "같은 사업부에 동일한 상품명이 이미 존재합니다."
+          : result.error.code === "23502" && !editing.categoryId
+            ? "분류 없이 상품을 등록하려면 선택형 분류 Migration 적용이 필요합니다."
           : result.error.code === "23503" || result.error.code === "23514"
             ? "사업부, 상품 분류 또는 판매가를 다시 확인해 주세요."
             : "상품을 저장하지 못했습니다. 잠시 후 다시 시도하세요.",
@@ -399,8 +405,8 @@ export function ProductsPage() {
       )}
       <Modal open={!!editing} onClose={() => !saving && setEditing(null)} title={editing?.id ? "상품 수정" : "상품 등록"} wide>
         {editing && <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
-          <Field label="사업부" required><Select name="businessUnitId" aria-describedby={formError ? "product-form-error" : undefined} value={editing.businessUnitId} disabled={saving} onChange={(e) => { const nextUnit = businessUnits.find((unit) => unit.id === e.target.value); const comparable = categories.map((item) => ({ id: item.id, businessUnitId: item.business_unit_id, name: item.name, isActive: item.is_active })); setEditing({ ...editing, businessUnitId: e.target.value, categoryId: isAdmin ? "" : findDefaultCategoryId(comparable, e.target.value), unitLabel: unitLabelEdited ? editing.unitLabel : suggestUnitLabel({ businessUnitName: nextUnit?.name ?? "", productName: editing.name }) }); }}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field>
-          {isAdmin && <div className="space-y-2"><Field label="상품 분류" required><Input aria-label="상품 분류 검색" placeholder="분류명 검색" value={categoryQuery} disabled={saving || !editing.businessUnitId} onChange={(e) => setCategoryQuery(e.target.value)} /><Select name="categoryId" className="mt-2" aria-describedby={formError ? "product-form-error" : undefined} value={editing.categoryId} disabled={saving || !editing.businessUnitId} onChange={(e) => { const category = categories.find((item) => item.id === e.target.value); const unit = businessUnits.find((item) => item.id === editing.businessUnitId); setEditing({ ...editing, categoryId: e.target.value, unitLabel: unitLabelEdited ? editing.unitLabel : suggestUnitLabel({ businessUnitName: unit?.name ?? "", categoryName: category?.name, productName: editing.name }) }); }}><option value="">분류 선택</option>{searchedFormCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field><Button type="button" variant="ghost" disabled={saving || !editing.businessUnitId} onClick={() => { setAddingCategory((value) => !value); setFormError(""); }}><Plus size={15} />새 분류 추가</Button>{addingCategory && <div className="flex gap-2 rounded-xl bg-slate-50 p-2"><Input aria-label="새 상품 분류명" placeholder="새 분류명" value={newCategoryName} disabled={categorySaving} onChange={(e) => setNewCategoryName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void createCategory(); } }} /><Button type="button" disabled={categorySaving} onClick={() => void createCategory()}>{categorySaving ? "추가 중..." : "추가"}</Button></div>}</div>}
+          <Field label="사업부" required><Select name="businessUnitId" aria-describedby={formError ? "product-form-error" : undefined} value={editing.businessUnitId} disabled={saving} onChange={(e) => { const nextUnit = businessUnits.find((unit) => unit.id === e.target.value); setEditing({ ...editing, businessUnitId: e.target.value, categoryId: "", unitLabel: unitLabelEdited ? editing.unitLabel : suggestUnitLabel({ businessUnitName: nextUnit?.name ?? "", productName: editing.name }) }); }}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field>
+          {isAdmin && <div className="space-y-2"><Field label="상품 분류"><Input aria-label="상품 분류 검색" placeholder="분류명 검색" value={categoryQuery} disabled={saving || !editing.businessUnitId} onChange={(e) => setCategoryQuery(e.target.value)} /><Select name="categoryId" className="mt-2" aria-describedby={formError ? "product-form-error" : undefined} value={editing.categoryId} disabled={saving || !editing.businessUnitId} onChange={(e) => { const category = categories.find((item) => item.id === e.target.value); const unit = businessUnits.find((item) => item.id === editing.businessUnitId); setEditing({ ...editing, categoryId: e.target.value, unitLabel: unitLabelEdited ? editing.unitLabel : suggestUnitLabel({ businessUnitName: unit?.name ?? "", categoryName: category?.name, productName: editing.name }) }); }}><option value="">분류 없음</option>{searchedFormCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field><Button type="button" variant="ghost" disabled={saving || !editing.businessUnitId} onClick={() => { setAddingCategory((value) => !value); setFormError(""); }}><Plus size={15} />새 분류 추가</Button>{addingCategory && <div className="flex gap-2 rounded-xl bg-slate-50 p-2"><Input aria-label="새 상품 분류명" placeholder="새 분류명" value={newCategoryName} disabled={categorySaving} onChange={(e) => setNewCategoryName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void createCategory(); } }} /><Button type="button" disabled={categorySaving} onClick={() => void createCategory()}>{categorySaving ? "추가 중..." : "추가"}</Button></div>}</div>}
           <Field label="상품명" required><Input name="name" aria-invalid={Boolean(formError && !editing.name.trim())} aria-describedby={formError ? "product-form-error" : undefined} value={editing.name} disabled={saving} onChange={(e) => { const unit = businessUnits.find((item) => item.id === editing.businessUnitId); const category = categories.find((item) => item.id === editing.categoryId); setEditing({ ...editing, name: e.target.value, unitLabel: unitLabelEdited ? editing.unitLabel : suggestUnitLabel({ businessUnitName: unit?.name ?? "", categoryName: category?.name, productName: e.target.value }) }); }} /></Field>
           <Field label="기본 판매가" required><Input name="defaultPrice" aria-describedby={formError ? "product-form-error" : undefined} type="number" min="0" step="1" value={editing.defaultPrice} disabled={saving} onChange={(e) => setEditing({ ...editing, defaultPrice: Number(e.target.value) })} /></Field>
           <Field label="단위"><Input name="unitLabel" placeholder="예: 박, 회, 개" maxLength={20} value={editing.unitLabel} disabled={saving} onChange={(e) => { setUnitLabelEdited(true); setEditing({ ...editing, unitLabel: e.target.value }); }} /><span className="mt-1 block text-xs text-slate-500">선택 입력 · 사업부와 상품명에 따라 자동 제안됩니다.</span></Field>

@@ -51,9 +51,8 @@ import {
   calculatePricingChange,
   defaultRepeatSettings,
   duplicateWarningLevel,
-  findDefaultCategoryId,
-  hasCategoryNameDuplicate,
   hasProductNameDuplicate,
+  isProductScopeValid,
   isValidPaymentPlan,
   missingSaleRequirement,
   nextSaleForm,
@@ -79,23 +78,16 @@ interface DogOption {
   customerPhone: string | null;
 }
 
-interface CategoryOption {
-  id: string;
-  businessUnitId: string;
-  name: string;
-}
-
 interface ProductOption {
   id: string;
   businessUnitId: string;
-  categoryId: string;
+  categoryId: string | null;
   name: string;
   defaultPrice: number;
 }
 
 interface QuickProductForm {
   businessUnitId: string;
-  categoryId: string;
   name: string;
   defaultPrice: number;
   unitLabel: string;
@@ -181,7 +173,7 @@ const loadRepeatSettings = (): RepeatSettings => {
 };
 const emptyQuickForm = () => ({ customerName: "", phone: "", dogName: "" });
 const emptySaleReference = () => ({ customerName: "", phone: "", dogName: "" });
-const emptyQuickProductForm = (): QuickProductForm => ({ businessUnitId: "", categoryId: "", name: "", defaultPrice: 0, unitLabel: "" });
+const emptyQuickProductForm = (): QuickProductForm => ({ businessUnitId: "", name: "", defaultPrice: 0, unitLabel: "" });
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 const digitsOnly = (value: string) => value.replace(/[^0-9]/g, "");
 const moneyText = (value: number) => Math.max(0, Math.trunc(value || 0)).toLocaleString("ko-KR");
@@ -248,7 +240,6 @@ function CurrencyInput({ name, value, disabled, max, onValue }: { name?: string;
 
 export function SaleFormPage() {
   const { businessUnits, profile } = useAuth();
-  const isAdmin = profile?.role === "admin";
   const navigate = useNavigate();
   const searchRef = useRef<HTMLInputElement>(null);
   const quickPhoneRef = useRef<HTMLInputElement>(null);
@@ -256,12 +247,10 @@ export function SaleFormPage() {
   const savingRef = useRef(false);
   const quickSavingRef = useRef(false);
   const quickProductSavingRef = useRef(false);
-  const quickCategorySavingRef = useRef(false);
   const [repeatSettings, setRepeatSettings] = useState(loadRepeatSettings);
   const repeatSettingsRef = useRef(repeatSettings);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [dogs, setDogs] = useState<DogOption[]>([]);
-  const [categories, setCategories] = useState<CategoryOption[]>([]);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [staff, setStaff] = useState<StaffOption[]>([]);
   const [recentSales, setRecentSales] = useState<RecentSale[]>([]);
@@ -293,10 +282,6 @@ export function SaleFormPage() {
   const [quickProductSaving, setQuickProductSaving] = useState(false);
   const [quickProductError, setQuickProductError] = useState("");
   const [quickProductForm, setQuickProductForm] = useState<QuickProductForm>(emptyQuickProductForm);
-  const [quickCategoryQuery, setQuickCategoryQuery] = useState("");
-  const [quickCategoryName, setQuickCategoryName] = useState("");
-  const [quickCategoryAdding, setQuickCategoryAdding] = useState(false);
-  const [quickCategorySaving, setQuickCategorySaving] = useState(false);
   const [productUnitSchemaReady, setProductUnitSchemaReady] = useState(false);
   const [quickUnitLabelEdited, setQuickUnitLabelEdited] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ sale: RecentSale; level: "strong" | "weak" } | null>(null);
@@ -310,17 +295,16 @@ export function SaleFormPage() {
 
   const loadOptions = useCallback(async () => {
     setLoading(true); setLoadError("");
-    const [customersResult, dogsResult, categoriesResult, productsResult, staffResult, salesResult, pricingSchemaResult, productUnitSchemaResult] = await Promise.all([
+    const [customersResult, dogsResult, productsResult, staffResult, salesResult, pricingSchemaResult, productUnitSchemaResult] = await Promise.all([
       supabase.from("customers").select("id, name, phone").eq("is_active", true).order("name"),
       supabase.from("dogs").select("id, name, breed, birth_date, customer_id, customers(name, phone)").eq("is_active", true).order("name"),
-      supabase.from("product_categories").select("id, business_unit_id, name").eq("is_active", true).order("sort_order").order("name"),
       supabase.from("products").select("id, business_unit_id, category_id, name, default_price").eq("is_active", true).order("sort_order").order("name"),
       supabase.rpc("get_active_staff_directory"),
       supabase.from("sales").select(recentSaleFields).order("created_at", { ascending: false }).limit(100),
       supabase.from("sales").select("quantity, unit_price").limit(1),
       supabase.from("products").select("unit_label").limit(1),
     ]);
-    if (customersResult.error || dogsResult.error || categoriesResult.error || productsResult.error || staffResult.error || salesResult.error) {
+    if (customersResult.error || dogsResult.error || productsResult.error || staffResult.error || salesResult.error) {
       setLoadError("매출 등록에 필요한 정보를 불러오지 못했습니다."); setLoading(false); return;
     }
     setCustomers(customersResult.data ?? []);
@@ -328,7 +312,6 @@ export function SaleFormPage() {
       const customer = Array.isArray(dog.customers) ? dog.customers[0] : dog.customers;
       return { id: dog.id, name: dog.name, breed: dog.breed, birthDate: dog.birth_date, customerId: dog.customer_id, customerName: customer?.name ?? null, customerPhone: customer?.phone ?? null };
     }));
-    setCategories((categoriesResult.data ?? []).map((item) => ({ id: item.id, businessUnitId: item.business_unit_id, name: item.name })));
     const productRows = (productsResult.data ?? []).map((item) => ({ id: item.id, businessUnitId: item.business_unit_id, categoryId: item.category_id, name: item.name, defaultPrice: item.default_price }));
     setProducts(productRows);
     const staffRows: StaffOption[] = ((staffResult.data ?? []) as { id: string; name: string }[]).map((item) => ({ id: item.id, name: item.name }));
@@ -341,7 +324,7 @@ export function SaleFormPage() {
       return {
         ...current,
         businessUnitId: savedProduct?.businessUnitId ?? (repeatSettingsRef.current.keepBusinessUnit && businessUnits.some((unit) => unit.id === current.businessUnitId) ? current.businessUnitId : ""),
-        categoryId: savedProduct?.categoryId ?? current.categoryId,
+        categoryId: savedProduct ? savedProduct.categoryId ?? "" : current.categoryId,
         productId: savedProduct?.id ?? current.productId,
         quantity: savedProduct ? 1 : current.quantity,
         unitPrice: savedProduct?.defaultPrice ?? current.unitPrice,
@@ -370,8 +353,7 @@ export function SaleFormPage() {
   const selectedDog = dogs.find((dog) => dog.id === form.dogId);
   const selectedCustomer = customers.find((customer) => customer.id === form.customerId);
   const selectableDogs = form.customerId ? dogs.filter((dog) => dog.customerId === form.customerId) : [];
-  const filteredCategories = categories.filter((item) => item.businessUnitId === form.businessUnitId);
-  const filteredProducts = products.filter((item) => item.businessUnitId === form.businessUnitId && item.categoryId === form.categoryId);
+  const filteredProducts = products.filter((item) => item.businessUnitId === form.businessUnitId);
   const expectedAmount = Math.max(form.originalAmount - form.discountAmount, 0);
   const netAmount = form.paidAmount - form.refundAmount;
 
@@ -472,7 +454,7 @@ export function SaleFormPage() {
       setPaidAmountEdited(false);
       return;
     }
-    setForm((current) => ({ ...current, businessUnitId: product.businessUnitId, categoryId: product.categoryId, productId: product.id, quantity: 1, unitPrice: product.defaultPrice, originalAmount: product.defaultPrice, discountAmount: 0, paidAmount: product.defaultPrice, refundAmount: 0, outstandingAmount: 0 }));
+    setForm((current) => ({ ...current, businessUnitId: product.businessUnitId, categoryId: product.categoryId ?? "", productId: product.id, quantity: 1, unitPrice: product.defaultPrice, originalAmount: product.defaultPrice, discountAmount: 0, paidAmount: product.defaultPrice, refundAmount: 0, outstandingAmount: 0 }));
     setPaidAmountEdited(false);
     setProductQuery("");
     setError("");
@@ -555,15 +537,14 @@ export function SaleFormPage() {
 
   const validate = (formElement: HTMLFormElement) => {
     const focus = (name: string) => requestAnimationFrame(() => { const field = formElement.elements.namedItem(name); if (field instanceof HTMLElement) field.focus(); });
-    if (!form.saleDate || !form.businessUnitId || !form.categoryId || !form.productId || !form.staffId) {
+    if (!form.saleDate || !form.businessUnitId || !form.productId || !form.staffId) {
       setError("필수 항목을 모두 입력해 주세요.");
-      focus(!form.businessUnitId ? "businessUnitId" : !form.categoryId ? "categoryId" : !form.productId ? "productId" : !form.saleDate ? "saleDate" : "staffId");
+      focus(!form.businessUnitId ? "businessUnitId" : !form.productId ? "productId" : !form.saleDate ? "saleDate" : "staffId");
       return false;
     }
     if (saleReference.phone && !isValidPhone(saleReference.phone)) { setError("참고 연락처는 010으로 시작하는 11자리 번호로 입력해 주세요."); setCustomerSectionOpen(true); requestAnimationFrame(() => document.querySelector<HTMLInputElement>('input[name="saleReferencePhone"]')?.focus()); return false; }
-    const selectedCategory = categories.find((item) => item.id === form.categoryId);
     const selectedProduct = products.find((item) => item.id === form.productId);
-    if (selectedCategory?.businessUnitId !== form.businessUnitId || selectedProduct?.businessUnitId !== form.businessUnitId || selectedProduct?.categoryId !== form.categoryId) { setError("사업부, 상품 분류와 상품의 연결 정보를 확인해 주세요."); return false; }
+    if (!isProductScopeValid(selectedProduct, form.businessUnitId, form.categoryId)) { setError("사업부와 상품의 연결 정보를 확인해 주세요."); return false; }
     if (!Number.isInteger(form.quantity) || form.quantity < 1 || !Number.isFinite(form.unitPrice) || form.unitPrice < 0 || form.originalAmount !== form.unitPrice * form.quantity) { setError("수량과 기준 단가를 확인해 주세요."); focus("quantity"); return false; }
     if ([form.originalAmount, form.discountAmount, form.paidAmount, form.refundAmount, form.outstandingAmount].some((amount) => !Number.isFinite(amount) || amount < 0)) { setError("금액은 0원 이상으로 입력해 주세요."); focus("unitPrice"); return false; }
     if (form.originalAmount <= 0 || form.paidAmount + form.outstandingAmount <= 0) { setError("판매 금액과 결제 금액 또는 미수금을 입력해 주세요."); focus("unitPrice"); return false; }
@@ -579,14 +560,14 @@ export function SaleFormPage() {
     const reference = normalizeSaleReference(saleReference);
     const result = await supabase.from("sales").insert({
       sale_date: form.saleDate, business_unit_id: form.businessUnitId, dog_id: form.dogId || null, customer_id: customerId,
-      product_category_id: form.categoryId, product_id: form.productId, original_amount: Math.trunc(form.originalAmount),
+      product_category_id: form.categoryId || null, product_id: form.productId, original_amount: Math.trunc(form.originalAmount),
       ...(pricingSchemaReady ? { quantity: form.quantity, unit_price: Math.trunc(form.unitPrice) } : {}),
       discount_amount: Math.trunc(form.discountAmount), paid_amount: Math.trunc(form.paidAmount), refund_amount: Math.trunc(form.refundAmount),
       outstanding_amount: Math.trunc(form.outstandingAmount), net_amount: Math.trunc(netAmount), payment_method: form.paymentMethod,
       customer_type: form.customerType, staff_id: form.staffId, memo: form.memo.trim() || null, status: "normal",
       business_unit_name: "", dog_name: selectedDog?.name ?? reference.dogName, customer_name: selectedDog?.customerName ?? selectedCustomer?.name ?? reference.customerName,
       ...(reference.customerPhone ? { customer_phone: reference.customerPhone } : {}),
-      product_category_name: "", product_name: "",
+      product_category_name: null, product_name: "",
     }).select(recentSaleFields).single();
     savingRef.current = false; setSaving(false);
     if (result.error) {
@@ -668,65 +649,17 @@ export function SaleFormPage() {
   const openQuickProductRegistration = () => {
     setQuickProductError("");
     const unit = businessUnits.find((item) => item.id === form.businessUnitId);
-    const defaultCategoryId = findDefaultCategoryId(categories, form.businessUnitId);
     setQuickProductForm({
       businessUnitId: form.businessUnitId,
-      categoryId: isAdmin ? form.categoryId : defaultCategoryId,
       name: productQuery.trim(),
       defaultPrice: 0,
       unitLabel: suggestUnitLabel({
         businessUnitName: unit?.name ?? "",
-        categoryName: categories.find((item) => item.id === (isAdmin ? form.categoryId : defaultCategoryId))?.name,
         productName: productQuery.trim(),
       }),
     });
     setQuickUnitLabelEdited(false);
-    setQuickCategoryQuery("");
-    setQuickCategoryName("");
-    setQuickCategoryAdding(false);
     setQuickProductOpen(true);
-  };
-
-  const createQuickCategory = async () => {
-    if (quickCategorySavingRef.current) return;
-    const unit = businessUnits.find((item) => item.id === quickProductForm.businessUnitId);
-    const name = quickCategoryName.trim().replace(/\s+/g, " ");
-    if (!unit) { setQuickProductError("사업부를 먼저 선택해 주세요."); return; }
-    if (!name) { setQuickProductError("새 분류명을 입력해 주세요."); return; }
-    if (hasCategoryNameDuplicate(categories, unit.id, name)) {
-      setQuickProductError("같은 사업부에 동일하거나 공백만 다른 분류명이 이미 존재합니다.");
-      return;
-    }
-    quickCategorySavingRef.current = true;
-    setQuickCategorySaving(true);
-    setQuickProductError("");
-    const result = await supabase.from("product_categories").insert({
-      business_unit_id: unit.id,
-      name,
-      is_active: true,
-      sort_order: categories.filter((item) => item.businessUnitId === unit.id).length + 1,
-    }).select("id, business_unit_id, name").single();
-    quickCategorySavingRef.current = false;
-    setQuickCategorySaving(false);
-    if (result.error) {
-      setQuickProductError(result.error.code === "23505"
-        ? "같은 사업부에 동일한 분류명이 이미 존재합니다."
-        : result.error.code === "42501"
-          ? "분류 등록 권한이 없습니다. 직원 분류 등록 정책 적용 여부를 확인해 주세요."
-          : "상품 분류를 등록하지 못했습니다. 잠시 후 다시 시도하세요.");
-      return;
-    }
-    const created: CategoryOption = { id: result.data.id, businessUnitId: result.data.business_unit_id, name: result.data.name };
-    setCategories((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name, "ko")));
-    setQuickProductForm((current) => ({
-      ...current,
-      categoryId: created.id,
-      unitLabel: quickUnitLabelEdited ? current.unitLabel : suggestUnitLabel({ businessUnitName: unit.name, categoryName: created.name, productName: current.name }),
-    }));
-    setQuickCategoryQuery("");
-    setQuickCategoryName("");
-    setQuickCategoryAdding(false);
-    setNotice("새 상품 분류를 등록하고 선택했습니다.");
   };
 
   const submitQuickProduct = async (event: FormEvent<HTMLFormElement>) => {
@@ -738,10 +671,8 @@ export function SaleFormPage() {
       if (field instanceof HTMLElement) field.focus();
     });
     const unit = businessUnits.find((item) => item.id === quickProductForm.businessUnitId);
-    const category = categories.find((item) => item.id === quickProductForm.categoryId);
     const name = quickProductForm.name.trim();
     if (!unit) { setQuickProductError("사업부를 선택해 주세요."); focus("quickProductBusinessUnitId"); return; }
-    if (!category || category.businessUnitId !== unit.id) { setQuickProductError(isAdmin ? "해당 사업부의 상품 분류를 선택해 주세요." : "기본 상품 설정을 확인할 수 없습니다. '기타' 분류 Migration 적용 여부를 확인해 주세요."); focus("quickProductCategoryId"); return; }
     if (!name) { setQuickProductError("상품명을 입력해 주세요."); focus("quickProductName"); return; }
     if (!Number.isFinite(quickProductForm.defaultPrice) || quickProductForm.defaultPrice < 0) { setQuickProductError("기본 판매가는 0원 이상으로 입력해 주세요."); focus("quickProductDefaultPrice"); return; }
     if (quickProductForm.unitLabel.trim() && !productUnitSchemaReady) { setQuickProductError("단위 저장 Migration 적용 후 단위를 입력할 수 있습니다."); focus("quickProductUnitLabel"); return; }
@@ -750,7 +681,7 @@ export function SaleFormPage() {
     quickProductSavingRef.current = true; setQuickProductSaving(true); setQuickProductError("");
     const result = await supabase.from("products").insert({
       business_unit_id: unit.id,
-      category_id: category.id,
+      category_id: null,
       name,
       default_price: Math.trunc(quickProductForm.defaultPrice),
       sort_order: products.length + 1,
@@ -762,6 +693,8 @@ export function SaleFormPage() {
     if (result.error) {
       setQuickProductError(result.error.code === "23505"
         ? "같은 사업부에 동일한 상품명이 이미 존재합니다. 기존 상품을 선택해 주세요."
+        : result.error.code === "23502"
+          ? "분류 없이 상품을 등록하려면 선택형 분류 Migration 적용이 필요합니다."
         : result.error.code === "42501"
           ? "상품 등록 권한이 없습니다. 직원 상품 등록 정책 적용 여부를 확인해 주세요."
           : "상품을 등록하지 못했습니다. 잠시 후 다시 시도하세요.");
@@ -770,7 +703,7 @@ export function SaleFormPage() {
     const created: ProductOption = {
       id: result.data.id,
       businessUnitId: result.data.business_unit_id,
-      categoryId: result.data.category_id,
+      categoryId: result.data.category_id ?? null,
       name: result.data.name,
       defaultPrice: result.data.default_price,
     };
@@ -819,7 +752,7 @@ export function SaleFormPage() {
         </div> : <div className="mt-4 flex min-h-12 items-center justify-between rounded-xl bg-surface-secondary px-4 text-sm text-text-secondary"><span>{selectedDog?.name || selectedCustomer?.name || saleReference.dogName || saleReference.customerName || "고객 정보 없이 등록"}</span><span className="text-xs text-text-muted">필요할 때만 펼치세요</span></div>}
       </Card>
 
-      <Card className="mt-4 p-5 sm:p-6"><div ref={productSectionRef} className="scroll-mt-5"><div className="mb-5 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-primary">2 · 상품 선택</p><h2 className="mt-1 text-lg font-semibold text-text-primary">추천 상품</h2></div>{form.productId && <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success"><CheckCircle2 size={16} />선택 완료</span>}</div><div className="space-y-5">{renderProductGroup("최근 이용 상품", "최근 사용한 상품부터 표시합니다.", recommendationGroups.recent)}{renderProductGroup("자주 이용한 상품", "이 고객의 이용 빈도 기준입니다.", recommendationGroups.frequent)}{renderProductGroup("사업부 인기 상품", "현재 사업부에서 자주 등록된 상품입니다.", recommendationGroups.popular)}<section className="space-y-3"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><PackageCheck size={16} className="text-primary" /><h3 className="text-sm font-semibold text-text-primary">전체 상품 검색 및 선택</h3></div><Button type="button" variant="ghost" onClick={openQuickProductRegistration}><Plus size={16} />새 상품</Button></div><SearchBox aria-label="상품명 검색" value={productQuery} placeholder="상품명 검색" onClear={() => setProductQuery("")} onChange={(event) => setProductQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} />{productSearchResults.length > 0 ? <div className="grid gap-2 sm:grid-cols-2">{productSearchResults.map((product) => <button key={product.id} type="button" aria-pressed={form.productId === product.id} onClick={() => selectProduct(product)} className={cn("flex min-h-14 items-center justify-between rounded-xl border px-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", form.productId === product.id ? "border-primary bg-primary text-white" : "border-border hover:border-primary/30 hover:bg-primary-subtle")}><span className="truncate text-sm font-semibold">{product.name}</span><span className="ml-3 shrink-0 text-sm tabular-nums">{won(product.defaultPrice)}</span></button>)}</div> : productQuery.trim() && <div className="rounded-2xl border border-dashed border-border bg-surface-secondary p-4 text-center"><p className="text-sm text-text-secondary">검색된 상품이 없습니다.</p><Button type="button" variant="secondary" className="mt-3" onClick={openQuickProductRegistration}><Plus size={16} />“{productQuery.trim()}” 새 상품 등록</Button></div>}<div className="grid gap-4 md:grid-cols-3"><Field label="사업부" required><Select name="businessUnitId" value={form.businessUnitId} disabled={saving} onChange={(event) => { setPaidAmountEdited(false); setForm((current) => ({ ...current, businessUnitId: event.target.value, categoryId: "", productId: "", quantity: 1, unitPrice: 0, originalAmount: 0, discountAmount: 0, paidAmount: 0 })); }}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field><Field label="상품 분류" required><Select name="categoryId" value={form.categoryId} disabled={saving || !form.businessUnitId} onChange={(event) => { setPaidAmountEdited(false); setForm((current) => ({ ...current, categoryId: event.target.value, productId: "", quantity: 1, unitPrice: 0, originalAmount: 0, discountAmount: 0, paidAmount: 0 })); }}><option value="">분류 선택</option>{filteredCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field><Field label="상품" required><Select name="productId" value={form.productId} disabled={saving || !form.categoryId} onChange={(event) => { const product = products.find((item) => item.id === event.target.value); if (product) selectProduct(product); else { setPaidAmountEdited(false); setForm((current) => ({ ...current, productId: "", quantity: 1, unitPrice: 0, originalAmount: 0, paidAmount: 0 })); } }}><option value="">상품 선택</option>{filteredProducts.map((item) => <option key={item.id} value={item.id}>{item.name} · {won(item.defaultPrice)}</option>)}</Select></Field></div></section></div></div></Card>
+      <Card className="mt-4 p-5 sm:p-6"><div ref={productSectionRef} className="scroll-mt-5"><div className="mb-5 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-primary">2 · 상품 선택</p><h2 className="mt-1 text-lg font-semibold text-text-primary">추천 상품</h2></div>{form.productId && <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success"><CheckCircle2 size={16} />선택 완료</span>}</div><div className="space-y-5">{renderProductGroup("최근 이용 상품", "최근 사용한 상품부터 표시합니다.", recommendationGroups.recent)}{renderProductGroup("자주 이용한 상품", "이 고객의 이용 빈도 기준입니다.", recommendationGroups.frequent)}{renderProductGroup("사업부 인기 상품", "현재 사업부에서 자주 등록된 상품입니다.", recommendationGroups.popular)}<section className="space-y-3"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><PackageCheck size={16} className="text-primary" /><h3 className="text-sm font-semibold text-text-primary">전체 상품 검색 및 선택</h3></div><Button type="button" variant="ghost" onClick={openQuickProductRegistration}><Plus size={16} />새 상품</Button></div><SearchBox aria-label="상품명 검색" value={productQuery} placeholder="상품명 검색" onClear={() => setProductQuery("")} onChange={(event) => setProductQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} />{productSearchResults.length > 0 ? <div className="grid gap-2 sm:grid-cols-2">{productSearchResults.map((product) => <button key={product.id} type="button" aria-pressed={form.productId === product.id} onClick={() => selectProduct(product)} className={cn("flex min-h-14 items-center justify-between rounded-xl border px-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", form.productId === product.id ? "border-primary bg-primary text-white" : "border-border hover:border-primary/30 hover:bg-primary-subtle")}><span className="truncate text-sm font-semibold">{product.name}</span><span className="ml-3 shrink-0 text-sm tabular-nums">{won(product.defaultPrice)}</span></button>)}</div> : productQuery.trim() && <div className="rounded-2xl border border-dashed border-border bg-surface-secondary p-4 text-center"><p className="text-sm text-text-secondary">검색된 상품이 없습니다.</p><Button type="button" variant="secondary" className="mt-3" onClick={openQuickProductRegistration}><Plus size={16} />“{productQuery.trim()}” 새 상품 등록</Button></div>}<div className="grid gap-4 md:grid-cols-2"><Field label="사업부" required><Select name="businessUnitId" value={form.businessUnitId} disabled={saving} onChange={(event) => { setPaidAmountEdited(false); setForm((current) => ({ ...current, businessUnitId: event.target.value, categoryId: "", productId: "", quantity: 1, unitPrice: 0, originalAmount: 0, discountAmount: 0, paidAmount: 0 })); }}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field><Field label="상품" required><Select name="productId" value={form.productId} disabled={saving || !form.businessUnitId} onChange={(event) => { const product = products.find((item) => item.id === event.target.value); if (product) selectProduct(product); else { setPaidAmountEdited(false); setForm((current) => ({ ...current, categoryId: "", productId: "", quantity: 1, unitPrice: 0, originalAmount: 0, paidAmount: 0 })); } }}><option value="">상품 선택</option>{filteredProducts.map((item) => <option key={item.id} value={item.id}>{item.name} · {won(item.defaultPrice)}</option>)}</Select></Field></div></section></div></div></Card>
 
       <Card className="mt-4 p-5 sm:p-6"><div className="mb-5"><p className="text-xs font-semibold text-primary">3 · 결제 확인</p><h2 className="mt-1 text-lg font-semibold text-text-primary">수량·결제 정보와 저장</h2></div><div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"><div className="space-y-5"><div className="grid gap-5 md:grid-cols-2"><Field label="기준 단가" required help="상품 기준가를 불러오며 현장에서 수정할 수 있습니다."><CurrencyInput name="unitPrice" value={form.unitPrice} disabled={saving} onValue={(value) => updatePricing(value, form.quantity)} /></Field><Field label="수량" required help="1 이상 입력하세요."><div className="grid grid-cols-[44px_minmax(0,1fr)_44px] overflow-hidden rounded-xl border border-border bg-white focus-within:ring-2 focus-within:ring-primary"><button type="button" aria-label="수량 1 감소" className="flex min-h-12 items-center justify-center text-text-secondary hover:bg-surface-secondary disabled:opacity-40" disabled={saving || form.quantity <= 1} onClick={() => updatePricing(form.unitPrice, form.quantity - 1)}><Minus size={18} /></button><Input name="quantity" type="number" inputMode="numeric" min={1} step={1} value={form.quantity} disabled={saving} onChange={(event) => updatePricing(form.unitPrice, Number(event.target.value))} className="h-12 rounded-none border-x border-y-0 text-center font-semibold tabular-nums focus:ring-0" /><button type="button" aria-label="수량 1 증가" className="flex min-h-12 items-center justify-center text-primary hover:bg-primary-subtle disabled:opacity-40" disabled={saving} onClick={() => updatePricing(form.unitPrice, form.quantity + 1)}><Plus size={18} /></button></div></Field><div className="rounded-2xl border border-primary/15 bg-primary-subtle p-4 md:col-span-2"><div className="flex items-center justify-between gap-4"><div><p className="text-xs font-semibold text-text-secondary">기준 계산금액</p><p className="mt-1 text-xs text-text-muted">{won(form.unitPrice)} × {form.quantity}</p></div><strong className="text-xl tabular-nums text-primary">{won(form.originalAmount)}</strong></div></div><Field label="실제 결제 금액" required help={paidAmountEdited ? "직접 입력한 금액은 수량을 바꿔도 유지됩니다." : "기준 계산금액에 맞춰 자동 입력됩니다."}><CurrencyInput name="paidAmount" value={form.paidAmount} disabled={saving} onValue={(value) => { setPaidAmountEdited(true); setForm((current) => ({ ...current, paidAmount: value })); }} />{paymentDifference !== 0 && <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs"><span className={paymentDifference < 0 ? "font-semibold text-warning" : "font-semibold text-primary"}>기준금액 대비 {paymentDifference > 0 ? "+" : "-"}{won(Math.abs(paymentDifference))}</span><button type="button" className="min-h-10 rounded-lg px-2 font-semibold text-primary hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" disabled={saving} onClick={useCalculatedPayment}>기준금액 적용</button></div>}</Field><Field label="결제 수단" required><Select name="paymentMethod" value={form.paymentMethod} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))}><option value="card">카드</option><option value="transfer">계좌이체</option><option value="cash">현금</option><option value="outstanding">미수</option></Select></Field><Field label="구분" required><Select name="customerType" value={form.customerType} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, customerType: event.target.value }))}><option value="new">신규</option><option value="renewal">재등록</option></Select></Field><Field label="매출 일자" required><Input name="saleDate" type="date" value={form.saleDate} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, saleDate: event.target.value }))} /></Field><Field label="담당자" required><Select name="staffId" value={form.staffId} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, staffId: event.target.value }))}>{staff.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field></div><button type="button" disabled={saving} className="flex min-h-12 w-full items-center justify-between rounded-xl border border-border bg-surface-secondary px-4 text-left text-sm font-semibold text-text-secondary transition hover:border-primary/20 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" onClick={() => setAdvancedOpen((value) => !value)} aria-expanded={advancedOpen}>할인·환불·미수금 고급 옵션<ChevronDown size={18} className={`transition-transform duration-200 ${advancedOpen ? "rotate-180" : ""}`} /></button>{advancedOpen && <div className="grid gap-5 rounded-2xl border border-border bg-surface-secondary p-4 md:grid-cols-3"><Field label="할인 금액"><CurrencyInput name="discountAmount" value={form.discountAmount} max={form.originalAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, discountAmount: value }))} /></Field><Field label="환불 금액"><CurrencyInput name="refundAmount" value={form.refundAmount} max={form.paidAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, refundAmount: value }))} /></Field><Field label="미수금"><CurrencyInput name="outstandingAmount" value={form.outstandingAmount} max={expectedAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, outstandingAmount: value }))} /></Field></div>}<Field label="메모"><Textarea name="memo" rows={3} maxLength={500} placeholder="전달할 업무 메모가 있을 때만 입력하세요." value={form.memo} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, memo: event.target.value }))} /></Field><div className="rounded-2xl border border-border bg-surface-secondary p-4"><div className="mb-3 flex items-center gap-2"><Settings2 size={16} className="text-primary" /><p className="text-sm font-semibold text-text-primary">다음 등록에 유지</p></div><div className="grid gap-1 sm:grid-cols-2">{([ ["keepBusinessUnit", "사업부"], ["keepStaff", "담당자"], ["keepProduct", "상품"], ["keepPaymentMethod", "결제수단"] ] as const).map(([key, label]) => <label key={key} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-sm text-text-secondary hover:bg-white"><input type="checkbox" className="h-4 w-4 accent-primary" checked={repeatSettings[key]} disabled={saving || (key === "keepBusinessUnit" && repeatSettings.keepProduct)} onChange={(event) => updateRepeatSetting(key, event.target.checked)} />{label} 유지</label>)}</div></div></div><aside className="h-fit rounded-2xl border border-primary/15 bg-primary-subtle p-5 lg:sticky lg:top-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">결제 요약</p><p className="mt-3 truncate text-base font-semibold text-text-primary">{selectedDog?.name || selectedCustomer?.name || "고객 미선택"}</p><p className="mt-1 truncate text-sm text-text-secondary">{products.find((product) => product.id === form.productId)?.name || "상품 미선택"}</p><div className="my-5 border-y border-primary/10 py-5"><p className="text-xs text-text-secondary">최종 결제 금액</p><strong className="mt-1 block text-3xl tabular-nums text-primary">{won(Math.max(form.paidAmount, 0))}</strong></div><dl className="space-y-2 text-sm"><div className="flex justify-between gap-3"><dt className="text-text-muted">사업부</dt><dd className="font-medium text-text-primary">{businessUnits.find((unit) => unit.id === form.businessUnitId)?.name || "-"}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">단가 × 수량</dt><dd className="text-right font-medium text-text-primary">{won(form.unitPrice)} × {form.quantity}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">기준금액 / 할인</dt><dd className="text-right font-medium text-text-primary">{won(form.originalAmount)} / {won(form.discountAmount)}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">결제수단</dt><dd className="font-medium text-text-primary">{paymentLabel[form.paymentMethod] || form.paymentMethod}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">담당자</dt><dd className="font-medium text-text-primary">{staff.find((item) => item.id === form.staffId)?.name || "-"}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">미수금</dt><dd className={cn("font-medium", form.outstandingAmount ? "text-warning" : "text-text-primary")}>{form.outstandingAmount ? won(form.outstandingAmount) : "없음"}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">메모</dt><dd className="font-medium text-text-primary">{form.memo.trim() ? "있음" : "없음"}</dd></div></dl>{error && <div id="sale-form-error" role="alert" className="mt-4 rounded-xl border border-error/15 bg-error-soft px-3 py-2.5 text-sm font-medium text-error">{error}</div>}<p className={cn("mt-4 text-sm", missingRequirement ? "text-text-secondary" : "font-semibold text-success")}>{missingRequirement || "저장할 준비가 완료되었습니다."}</p><div className="mt-4 hidden gap-2 lg:grid"><Button disabled={!canSave}>{saving && <LoaderCircle className="animate-spin" size={17} />}{saving ? "등록 중…" : `매출 저장 · ${won(Math.max(netAmount, 0))}`}</Button><Button type="button" variant="ghost" disabled={saving} onClick={resetAll}>입력 초기화</Button></div></aside></div></Card>
       {!mobileInputActive && <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden"><div className="mx-auto max-w-5xl"><p className="mb-2 truncate text-center text-xs text-text-secondary">{missingRequirement || "저장할 준비가 완료되었습니다."}</p><div className="grid grid-cols-[auto_1fr] gap-2"><Button type="button" variant="secondary" disabled={saving} onClick={resetAll}>초기화</Button><Button disabled={!canSave}>{saving && <LoaderCircle className="animate-spin" size={17} />}{saving ? "등록 중…" : `매출 저장 · ${won(Math.max(netAmount, 0))}`}</Button></div></div></div>}
@@ -844,9 +777,8 @@ export function SaleFormPage() {
     <Modal open={quickProductOpen} onClose={() => { if (!quickProductSavingRef.current) setQuickProductOpen(false); }} title="새 상품 등록">
       <form onSubmit={submitQuickProduct} className="space-y-4">
         <p className="text-sm leading-6 text-text-secondary">매출 등록에 필요한 활성 상품을 바로 추가합니다. 등록 후 현재 매출에 자동 선택됩니다.</p>
-        <Field label="사업부" required><Select data-modal-initial name="quickProductBusinessUnitId" value={quickProductForm.businessUnitId} disabled={quickProductSaving} onChange={(event) => { const unit = businessUnits.find((item) => item.id === event.target.value); setQuickProductForm((current) => ({ ...current, businessUnitId: event.target.value, categoryId: isAdmin ? "" : findDefaultCategoryId(categories, event.target.value), unitLabel: quickUnitLabelEdited ? current.unitLabel : suggestUnitLabel({ businessUnitName: unit?.name ?? "", productName: current.name }) })); setQuickCategoryQuery(""); setQuickCategoryAdding(false); }}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field>
-        {isAdmin && <div className="space-y-2"><Field label="상품 분류" required><Input aria-label="상품 분류 검색" placeholder="분류명 검색" value={quickCategoryQuery} disabled={quickProductSaving || !quickProductForm.businessUnitId} onChange={(event) => setQuickCategoryQuery(event.target.value)} /><Select name="quickProductCategoryId" className="mt-2" value={quickProductForm.categoryId} disabled={quickProductSaving || !quickProductForm.businessUnitId} onChange={(event) => { const category = categories.find((item) => item.id === event.target.value); const unit = businessUnits.find((item) => item.id === quickProductForm.businessUnitId); setQuickProductForm((current) => ({ ...current, categoryId: event.target.value, unitLabel: quickUnitLabelEdited ? current.unitLabel : suggestUnitLabel({ businessUnitName: unit?.name ?? "", categoryName: category?.name, productName: current.name }) })); }}><option value="">상품 분류 선택</option>{categories.filter((category) => category.businessUnitId === quickProductForm.businessUnitId && category.name.toLocaleLowerCase("ko").includes(quickCategoryQuery.trim().toLocaleLowerCase("ko"))).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</Select></Field><Button type="button" variant="ghost" disabled={quickProductSaving || !quickProductForm.businessUnitId} onClick={() => { setQuickCategoryAdding((value) => !value); setQuickProductError(""); }}><Plus size={15} />새 분류 추가</Button>{quickCategoryAdding && <div className="flex gap-2 rounded-xl bg-surface-secondary p-2"><Input aria-label="새 상품 분류명" placeholder="새 분류명" value={quickCategoryName} disabled={quickCategorySaving} onChange={(event) => setQuickCategoryName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void createQuickCategory(); } }} /><Button type="button" disabled={quickCategorySaving} onClick={() => void createQuickCategory()}>{quickCategorySaving ? "추가 중..." : "추가"}</Button></div>}</div>}
-        <Field label="상품명" required><Input name="quickProductName" value={quickProductForm.name} disabled={quickProductSaving} onChange={(event) => { const unit = businessUnits.find((item) => item.id === quickProductForm.businessUnitId); const category = categories.find((item) => item.id === quickProductForm.categoryId); setQuickProductForm((current) => ({ ...current, name: event.target.value, unitLabel: quickUnitLabelEdited ? current.unitLabel : suggestUnitLabel({ businessUnitName: unit?.name ?? "", categoryName: category?.name, productName: event.target.value }) })); setQuickProductError(""); }} /></Field>
+        <Field label="사업부" required><Select data-modal-initial name="quickProductBusinessUnitId" value={quickProductForm.businessUnitId} disabled={quickProductSaving} onChange={(event) => { const unit = businessUnits.find((item) => item.id === event.target.value); setQuickProductForm((current) => ({ ...current, businessUnitId: event.target.value, unitLabel: quickUnitLabelEdited ? current.unitLabel : suggestUnitLabel({ businessUnitName: unit?.name ?? "", productName: current.name }) })); }}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field>
+        <Field label="상품명" required><Input name="quickProductName" value={quickProductForm.name} disabled={quickProductSaving} onChange={(event) => { const unit = businessUnits.find((item) => item.id === quickProductForm.businessUnitId); setQuickProductForm((current) => ({ ...current, name: event.target.value, unitLabel: quickUnitLabelEdited ? current.unitLabel : suggestUnitLabel({ businessUnitName: unit?.name ?? "", productName: event.target.value }) })); setQuickProductError(""); }} /></Field>
         <Field label="기본 판매가" required><Input name="quickProductDefaultPrice" type="number" min="0" step="1" inputMode="numeric" value={quickProductForm.defaultPrice} disabled={quickProductSaving} onChange={(event) => setQuickProductForm((current) => ({ ...current, defaultPrice: Number(event.target.value) }))} /></Field>
         <Field label="단위"><Input name="quickProductUnitLabel" placeholder="예: 박, 회, 개" maxLength={20} value={quickProductForm.unitLabel} disabled={quickProductSaving} onChange={(event) => { setQuickUnitLabelEdited(true); setQuickProductForm((current) => ({ ...current, unitLabel: event.target.value })); }} /><span className="mt-1 block text-xs text-text-muted">선택 입력 · 사업부와 상품명에 따라 자동 제안됩니다.</span></Field>
         {quickProductError && <p id="quick-product-error" role="alert" className="rounded-xl bg-error-soft px-4 py-3 text-sm font-medium text-error">{quickProductError}</p>}
