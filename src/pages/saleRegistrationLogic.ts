@@ -48,6 +48,34 @@ export function normalizeProductName(value: string) {
   return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("ko");
 }
 
+export function normalizeQuantity(value: number) {
+  if (!Number.isFinite(value)) return 1;
+  return Math.max(1, Math.trunc(value));
+}
+
+export function calculateGrossAmount(unitPrice: number, quantity: number) {
+  const safeUnitPrice = Number.isFinite(unitPrice) ? Math.max(0, Math.trunc(unitPrice)) : 0;
+  return safeUnitPrice * normalizeQuantity(quantity);
+}
+
+export function calculatePricingChange({ unitPrice, quantity, paidAmount, paidAmountEdited }: { unitPrice: number; quantity: number; paidAmount: number; paidAmountEdited: boolean }) {
+  const nextQuantity = normalizeQuantity(quantity);
+  const originalAmount = calculateGrossAmount(unitPrice, nextQuantity);
+  return {
+    quantity: nextQuantity,
+    unitPrice: Math.max(0, Math.trunc(unitPrice || 0)),
+    originalAmount,
+    paidAmount: paidAmountEdited ? paidAmount : originalAmount,
+  };
+}
+
+export function isValidPaymentPlan({ originalAmount, discountAmount, paidAmount, outstandingAmount }: { originalAmount: number; discountAmount: number; paidAmount: number; outstandingAmount: number }) {
+  const expectedAmount = Math.max(originalAmount - discountAmount, 0);
+  const paymentPlanAmount = paidAmount + outstandingAmount;
+  const isSurcharge = discountAmount === 0 && paymentPlanAmount > originalAmount;
+  return paymentPlanAmount <= expectedAmount || isSurcharge;
+}
+
 export function hasProductNameDuplicate(products: { businessUnitId: string; name: string }[], businessUnitId: string, name: string) {
   const normalizedName = normalizeProductName(name);
   return Boolean(normalizedName) && products.some((product) => product.businessUnitId === businessUnitId && normalizeProductName(product.name) === normalizedName);
@@ -87,6 +115,8 @@ export interface ResettableSaleForm {
   dogId: string;
   categoryId: string;
   productId: string;
+  quantity: number;
+  unitPrice: number;
   originalAmount: number;
   discountAmount: number;
   paidAmount: number;
@@ -107,6 +137,8 @@ export function nextSaleForm(form: ResettableSaleForm, settings: RepeatSettings,
     dogId: "",
     categoryId: keepProduct ? form.categoryId : "",
     productId: keepProduct ? form.productId : "",
+    quantity: 1,
+    unitPrice: keepProduct ? options.productDefaultPrice ?? 0 : 0,
     originalAmount: keepProduct ? options.productDefaultPrice ?? 0 : 0,
     discountAmount: 0,
     paidAmount: keepProduct ? options.productDefaultPrice ?? 0 : 0,
