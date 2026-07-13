@@ -86,6 +86,18 @@ export function hasCategoryNameDuplicate(categories: { businessUnitId: string; n
   return Boolean(normalizedName) && categories.some((category) => category.businessUnitId === businessUnitId && normalizeProductName(category.name) === normalizedName);
 }
 
+export function findDefaultCategoryId(categories: { id: string; businessUnitId: string; name: string; isActive?: boolean }[], businessUnitId: string) {
+  return categories.find((category) => category.businessUnitId === businessUnitId && category.isActive !== false && normalizeProductName(category.name) === "기타")?.id ?? "";
+}
+
+export function suggestUnitLabel({ businessUnitName, categoryName, productName }: { businessUnitName: string; categoryName?: string; productName?: string }) {
+  const source = normalizeProductName(`${categoryName ?? ""} ${productName ?? ""}`);
+  if (/(용품|사료|간식|패드|장난감)/.test(source)) return "개";
+  if (businessUnitName.includes("호텔") || source.includes("호텔")) return "박";
+  if (businessUnitName.includes("유치원") || businessUnitName.includes("교육") || /(레슨|수업|교육|유치원)/.test(source)) return "회";
+  return "";
+}
+
 export function partySearchScore({ query, phoneQuery, dogName, customerName, phone }: { query: string; phoneQuery: string; dogName: string; customerName: string; phone: string }) {
   if (dogName === query) return 0;
   if (dogName.startsWith(query)) return 1;
