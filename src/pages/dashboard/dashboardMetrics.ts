@@ -15,7 +15,6 @@ export interface DashboardSale {
   refundAmount: number;
   outstandingAmount: number;
   netAmount: number;
-  paymentMethod: string;
   status: string;
   createdAt: string;
 }
@@ -95,11 +94,11 @@ export function calculateRangeOverview(sales: DashboardSale[], units: BusinessUn
   const divisions = orderedUnits.map((unit) => {
     const rows = selected.filter((sale) => sale.businessUnitId === unit.id);
     const previousRows = previous.filter((sale) => sale.businessUnitId === unit.id);
-    const revenue = sum(rows, "paidAmount");
-    const previousRevenue = sum(previousRows, "paidAmount");
+    const revenue = sum(rows, "netAmount");
+    const previousRevenue = sum(previousRows, "netAmount");
     return { ...unit, revenue, count: rows.length, average: rows.length ? revenue / rows.length : 0, previousRevenue, rate: previousRevenue > 0 ? ((revenue - previousRevenue) / previousRevenue) * 100 : null };
   });
-  const total = sum(selected, "paidAmount");
+  const total = sum(selected, "netAmount");
   return {
     range,
     previousRange,
@@ -129,20 +128,16 @@ export function calculateDailyRevenue(sales: DashboardSale[], range: DashboardDa
 
 export function calculateDateDetail(sales: DashboardSale[], units: BusinessUnitOption[], date: string) {
   const rows = sales.filter((sale) => sale.status !== "cancelled" && sale.saleDate === date);
-  const divisions = [...units].sort((left, right) => businessUnitOrder(left) - businessUnitOrder(right)).map((unit) => {
+  const coreUnits = [...units].filter((unit) => businessUnitOrder(unit) < 99).sort((left, right) => businessUnitOrder(left) - businessUnitOrder(right));
+  const coreUnitIds = new Set(coreUnits.map((unit) => unit.id));
+  const divisions = coreUnits.map((unit) => {
     const unitRows = rows.filter((sale) => sale.businessUnitId === unit.id);
-    const revenue = sum(unitRows, "paidAmount");
+    const revenue = sum(unitRows, "netAmount");
     return { ...unit, revenue, count: unitRows.length, average: unitRows.length ? revenue / unitRows.length : 0 };
   });
-  const productMap = new Map<string, { name: string; revenue: number }>();
-  const paymentMap = new Map<string, number>();
-  rows.forEach((sale) => {
-    const product = productMap.get(sale.productId) ?? { name: sale.productName, revenue: 0 };
-    product.revenue += sale.paidAmount;
-    productMap.set(sale.productId, product);
-    paymentMap.set(sale.paymentMethod, (paymentMap.get(sale.paymentMethod) ?? 0) + sale.paidAmount);
-  });
-  return { divisions, total: sum(rows, "paidAmount"), count: rows.length, outstanding: sum(rows, "outstandingAmount"), refund: sum(rows, "refundAmount"), products: [...productMap.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 3), payments: [...paymentMap.entries()].map(([method, amount]) => ({ method, amount })).sort((a, b) => b.amount - a.amount) };
+  const otherRows = rows.filter((sale) => !coreUnitIds.has(sale.businessUnitId));
+  const otherRevenue = sum(otherRows, "netAmount");
+  return { divisions, other: { revenue: otherRevenue, count: otherRows.length, average: otherRows.length ? otherRevenue / otherRows.length : 0 }, total: sum(rows, "netAmount"), count: rows.length, outstanding: sum(rows, "outstandingAmount"), refund: sum(rows, "refundAmount") };
 }
 
 export function calculateTarget(month: string, unitId: string, targets: DashboardTarget[]) {

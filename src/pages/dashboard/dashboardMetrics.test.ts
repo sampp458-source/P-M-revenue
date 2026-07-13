@@ -28,7 +28,6 @@ const sale = (overrides: Partial<DashboardSale>): DashboardSale => ({
   refundAmount: 0,
   outstandingAmount: 0,
   netAmount: 100000,
-  paymentMethod: "card",
   status: "normal",
   createdAt: "2026-07-14T01:00:00Z",
   ...overrides,
@@ -73,10 +72,10 @@ describe("dashboard presentation metrics", () => {
 
   it("사업부를 유치원·교육센터·호텔 순으로 집계하고 취소 매출은 제외한다", () => {
     const overview = calculateRangeOverview([
-      sale({ id: "daycare", paidAmount: 300000 }),
-      sale({ id: "training", businessUnitId: "training", paidAmount: 200000 }),
-      sale({ id: "hotel", businessUnitId: "hotel", paidAmount: 100000 }),
-      sale({ id: "cancelled", businessUnitId: "hotel", paidAmount: 900000, status: "cancelled" }),
+      sale({ id: "daycare", paidAmount: 350000, netAmount: 300000 }),
+      sale({ id: "training", businessUnitId: "training", paidAmount: 250000, netAmount: 200000 }),
+      sale({ id: "hotel", businessUnitId: "hotel", paidAmount: 150000, netAmount: 100000 }),
+      sale({ id: "cancelled", businessUnitId: "hotel", paidAmount: 900000, netAmount: 900000, status: "cancelled" }),
     ], units, { from: "2026-07-14", to: "2026-07-14" });
 
     expect(overview.divisions.map((division) => division.code)).toEqual(["daycare", "training", "hotel"]);
@@ -97,15 +96,25 @@ describe("dashboard presentation metrics", () => {
     ]);
   });
 
-  it("선택 날짜 상세에서 결제수단과 상품을 합산한다", () => {
+  it("선택 날짜 상세를 환불 반영 실매출로 집계한다", () => {
     const detail = calculateDateDetail([
-      sale({ id: "card-1", paidAmount: 300000, productId: "hotel-product", productName: "호텔", paymentMethod: "card" }),
-      sale({ id: "card-2", paidAmount: 200000, productId: "hotel-product", productName: "호텔", paymentMethod: "card" }),
-      sale({ id: "cash", paidAmount: 100000, productId: "training-product", productName: "교육", paymentMethod: "cash" }),
+      sale({ id: "daycare-1", paidAmount: 300000, netAmount: 300000 }),
+      sale({ id: "daycare-2", paidAmount: 250000, netAmount: 200000, refundAmount: 50000 }),
+      sale({ id: "training", businessUnitId: "training", paidAmount: 100000, netAmount: 100000 }),
     ], units, "2026-07-14");
 
     expect(detail.total).toBe(600000);
-    expect(detail.products[0]).toEqual({ name: "호텔", revenue: 500000 });
-    expect(detail.payments).toEqual([{ method: "card", amount: 500000 }, { method: "cash", amount: 100000 }]);
+    expect(detail.divisions[0]).toMatchObject({ code: "daycare", revenue: 500000, count: 2, average: 250000 });
+    expect(detail.refund).toBe(50000);
+  });
+
+  it("고정 사업부에 없는 매출을 선택 날짜의 기타 항목에 포함한다", () => {
+    const detail = calculateDateDetail([
+      sale({ id: "daycare", netAmount: 100000 }),
+      sale({ id: "other", businessUnitId: "other-unit", businessUnitName: "기타", netAmount: 50000 }),
+    ], units, "2026-07-14");
+
+    expect(detail.total).toBe(150000);
+    expect(detail.other).toEqual({ revenue: 50000, count: 1, average: 50000 });
   });
 });

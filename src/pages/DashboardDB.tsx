@@ -38,7 +38,7 @@ export function DashboardPage() {
     setLoading(true);
     setError(false);
     const [saleResult, unitResult] = await Promise.all([
-      supabase.from("sales").select("id, sale_date, business_unit_id, business_unit_name, product_id, product_name, dog_id, dog_name, customer_id, customer_name, created_by, staff_name, paid_amount, refund_amount, outstanding_amount, net_amount, payment_method, status, created_at").order("sale_date", { ascending: false }).order("created_at", { ascending: false }),
+      supabase.from("sales").select("id, sale_date, business_unit_id, business_unit_name, product_id, product_name, dog_id, dog_name, customer_id, customer_name, created_by, staff_name, paid_amount, refund_amount, outstanding_amount, net_amount, status, created_at").order("sale_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("business_units").select("id, code, name").eq("is_active", true).order("sort_order"),
     ]);
     if (saleResult.error || unitResult.error) {
@@ -65,7 +65,6 @@ export function DashboardPage() {
       refundAmount: row.refund_amount ?? 0,
       outstandingAmount: row.outstanding_amount ?? 0,
       netAmount: row.net_amount ?? 0,
-      paymentMethod: row.payment_method,
       status: row.status,
       createdAt: row.created_at,
     })));
@@ -126,8 +125,8 @@ export function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-3">{coreDivisions.map((division, index) => <BusinessUnitCard key={division.id} order={index + 1} name={division.name} revenue={division.revenue} comparison={{ rate: division.rate, previousRevenue: division.previousRevenue }} kpis={[{ label: "매출 건수", value: `${division.count.toLocaleString("ko-KR")}건` }, { label: "객단가", value: won(division.average) }, { label: "비교 기간", value: `${overview.previousRange.from.slice(5)}~${overview.previousRange.to.slice(5)}` }]} selected={unitId === division.id} onClick={() => updateQuery({ unit: unitId === division.id ? null : division.id })} />)}</div>
     </section>
     <section className="mt-7" aria-labelledby="company-summary-title">
-      <div className="mb-3"><h2 id="company-summary-title" className="text-lg font-bold text-text-primary">총매출</h2><p className="mt-1 text-xs text-text-muted">유치원·교육·호텔과 기타 사업부 매출을 모두 합산합니다.</p></div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><MetricCard label="총매출" value={won(overview.total)} description="취소 제외 결제액" /><MetricCard label="총 건수" value={`${overview.count.toLocaleString("ko-KR")}건`} description="선택 기간 기준" /><MetricCard label="평균 객단가" value={won(overview.average)} description="총매출 ÷ 총 건수" /><MetricCard label="미수금" value={won(overview.outstanding)} description="실매출에서 중복 차감하지 않음" /><MetricCard label="환불" value={won(overview.refund)} description={`실매출 ${won(overview.net)}`} /></div>
+      <div className="mb-3"><h2 id="company-summary-title" className="text-lg font-bold text-text-primary">총매출</h2><p className="mt-1 text-xs text-text-muted">유치원·교육·호텔과 기타 사업부의 실매출을 모두 합산합니다.</p></div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><MetricCard label="총 실매출" value={won(overview.total)} description="결제액 - 환불액 · 취소 제외" /><MetricCard label="총 건수" value={`${overview.count.toLocaleString("ko-KR")}건`} description="선택 기간 기준" /><MetricCard label="평균 객단가" value={won(overview.average)} description="실매출 ÷ 총 건수" /><MetricCard label="미수금" value={won(overview.outstanding)} description="실매출에서 중복 차감하지 않음" /><MetricCard label="환불" value={won(overview.refund)} description="선택 기간 환불액" /></div>
       {otherRevenue > 0 && <p className="mt-3 rounded-xl border border-warning/20 bg-warning-soft px-4 py-3 text-sm text-text-secondary">기타·비활성 사업부 매출 {won(otherRevenue)}이 총매출에 포함되어 있습니다.</p>}
     </section>
     <div className="mt-7"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={(date) => updateQuery({ day: date })} /></div>
