@@ -181,6 +181,8 @@ describe("sale registration logic", () => {
       outstandingAmount: 0,
       adjustmentNote: "",
       paymentMethod: "cash",
+      splitPaymentEnabled: false,
+      paymentRows: [],
       customerType: "renewal",
       staffId: "staff",
       memo: "memo",

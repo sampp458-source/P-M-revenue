@@ -20,6 +20,7 @@ export interface SalesHistoryRecord {
   outstandingAmount: number;
   netAmount: number;
   paymentMethod: string;
+  paymentMethods?: string[];
   status: SaleStatus;
   staffId: string | null;
   staffName: string | null;
@@ -124,7 +125,7 @@ export function filterSales<T extends SalesHistoryRecord>(sales: T[], filters: S
       && statusMatch
       && (!filters.staffId || sale.staffId === filters.staffId)
       && (!filters.createdBy || sale.createdBy === filters.createdBy)
-      && (!filters.paymentMethod || sale.paymentMethod === filters.paymentMethod)
+      && (!filters.paymentMethod || (sale.paymentMethods ?? [sale.paymentMethod]).includes(filters.paymentMethod))
       && (!filters.categoryId || sale.productCategoryId === filters.categoryId)
       && (!filters.productId || sale.productId === filters.productId)
       && (filters.minAmount === null || sale.paidAmount >= filters.minAmount)

@@ -64,6 +64,8 @@ import {
   calculateOutstandingAmount,
   isValidPaymentPlan,
 } from "./saleRegistrationLogic";
+import { paymentMethodLabels, paymentSummary, type SalePaymentRow } from "./salePaymentLogic";
+import { normalizePaymentRows, paymentRowsTotal } from "./salePaymentLogic";
 
 interface SaleRow extends SalesHistoryRecord {
   businessUnitName: string;
@@ -79,6 +81,7 @@ interface SaleRow extends SalesHistoryRecord {
   memo: string | null;
   cancellationReason: string | null;
   updatedAt: string;
+  paymentRows: SalePaymentRow[];
 }
 
 interface SaleQueryRow {
@@ -132,6 +135,7 @@ const paymentLabel: Record<string, string> = {
   transfer: "계좌이체",
   cash: "현금",
   outstanding: "미수",
+  other: "기타",
 };
 const statusLabel: Record<StatusFilter, string> = {
   "": "전체",
@@ -323,10 +327,11 @@ export function SalesHistoryPage() {
   const loadSales = useCallback(async () => {
     setLoading(true);
     setLoadError(false);
-    const [result, profilesResult, customersResult] = await Promise.all([
+    const [result, profilesResult, customersResult, paymentsResult] = await Promise.all([
       loadSaleRows(),
       supabase.rpc("get_staff_history_directory"),
       supabase.from("customers").select("id, phone"),
+      supabase.from("sale_payments").select("sale_id, payment_method, amount").order("created_at"),
     ]);
     if (result.error || customersResult.error) {
       setSales([]);
@@ -345,6 +350,13 @@ export function SalesHistoryPage() {
           row.name,
         ]),
       );
+      const paymentsBySale = new Map<string, SalePaymentRow[]>();
+      if (!paymentsResult.error)
+        (paymentsResult.data ?? []).forEach((payment) => {
+          const rows = paymentsBySale.get(payment.sale_id) ?? [];
+          rows.push({ method: payment.payment_method as SalePaymentRow["method"], amount: payment.amount });
+          paymentsBySale.set(payment.sale_id, rows);
+        });
       setSales(
         saleRows.map((sale) => ({
           id: sale.id,
@@ -383,6 +395,8 @@ export function SalesHistoryPage() {
           outstandingAmount: sale.outstanding_amount,
           netAmount: sale.net_amount,
           paymentMethod: sale.payment_method,
+          paymentRows: paymentsBySale.get(sale.id) ?? [],
+          paymentMethods: (paymentsBySale.get(sale.id) ?? []).map((row) => row.method),
           customerType: sale.customer_type,
           status: sale.status as SaleStatus,
           staffId: sale.staff_id,
@@ -558,6 +572,14 @@ export function SalesHistoryPage() {
       setActionError("수량 저장을 위한 DB 마이그레이션 적용이 필요합니다.");
       return;
     }
+    if (
+      editing.paymentRows.length > 1 &&
+      (normalizePaymentRows(editing.paymentRows).length < 2 ||
+        paymentRowsTotal(editing.paymentRows) !== editing.paidAmount)
+    ) {
+      setActionError("분할결제 수단별 금액과 총 결제금액을 확인해 주세요.");
+      return;
+    }
     setSaving(true);
     setActionError("");
     const originalAmount = Math.trunc(editing.unitPrice) * editing.quantity;
@@ -590,11 +612,23 @@ export function SalesHistoryPage() {
       .eq("id", editing.id)
       .select("id")
       .single();
-    setSaving(false);
     if (result.error) {
+      setSaving(false);
       setActionError(mapError(result.error.message, result.error.code));
       return;
     }
+    if (editing.paymentRows.length > 1) {
+      const paymentResult = await supabase.rpc("replace_sale_payments", {
+        p_sale_id: editing.id,
+        p_payments: normalizePaymentRows(editing.paymentRows).map((row) => ({ payment_method: row.method, amount: row.amount })),
+      });
+      if (paymentResult.error) {
+        setSaving(false);
+        setActionError(`분할결제 상세를 저장하지 못했습니다: ${paymentResult.error.message}`);
+        return;
+      }
+    }
+    setSaving(false);
     setEditing(null);
     setNotice("매출 정보를 수정했습니다.");
     await loadSales();
@@ -1168,10 +1202,17 @@ export function SalesHistoryPage() {
               <Detail label="실매출" value={won(selected.netAmount)} />
               <Detail
                 label="결제수단"
-                value={
-                  paymentLabel[selected.paymentMethod] || selected.paymentMethod
-                }
+                value={paymentSummary(selected.paymentRows, selected.paymentMethod, selected.paidAmount)}
               />
+              {selected.paymentRows.length > 1 && (
+                <div className="rounded-xl border border-border bg-slate-50 p-3 sm:col-span-2 lg:col-span-3">
+                  <p className="text-xs font-semibold text-text-muted">분할결제 상세</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {selected.paymentRows.map((row) => <span key={row.method} className="rounded-lg bg-white px-3 py-2 text-sm shadow-sm">{paymentMethodLabels[row.method]} <strong className="ml-1 tabular-nums">{won(row.amount)}</strong></span>)}
+                  </div>
+                  <p className="mt-2 text-xs text-text-muted">환불은 결제수단별 배분 없이 총액 기준으로 기록됩니다.</p>
+                </div>
+              )}
               <Detail
                 label="등록자"
                 value={profileNames[selected.createdBy] || "-"}
@@ -1357,7 +1398,26 @@ export function SalesHistoryPage() {
                 }
               />
             </Field>
-            <Field label="결제 금액">
+            {editing.paymentRows.length > 1 ? (
+              <div className="space-y-2 rounded-xl border border-border p-3 sm:col-span-2">
+                <p className="text-sm font-semibold">분할결제 상세</p>
+                {editing.paymentRows.map((row, index) => (
+                  <div key={row.method} className="grid grid-cols-[1fr_1.4fr] gap-2">
+                    <Select value={row.method} disabled={saving} onChange={(event) => {
+                      const paymentRows = editing.paymentRows.map((item, rowIndex) => rowIndex === index ? { ...item, method: event.target.value as SalePaymentRow["method"] } : item);
+                      const paidAmount = paymentRowsTotal(paymentRows);
+                      setEditing({ ...editing, paymentRows, paymentMethod: paymentRows[0]?.method ?? editing.paymentMethod, paidAmount, outstandingAmount: calculateOutstandingAmount(calculateFinalSaleAmount(editing.originalAmount, editing.additionalAmount, editing.discountAmount), paidAmount) });
+                    }}>{Object.entries(paymentMethodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select>
+                    <MoneyInput value={row.amount} disabled={saving} onChange={(amount) => {
+                      const paymentRows = editing.paymentRows.map((item, rowIndex) => rowIndex === index ? { ...item, amount } : item);
+                      const paidAmount = paymentRowsTotal(paymentRows);
+                      setEditing({ ...editing, paymentRows, paidAmount, outstandingAmount: calculateOutstandingAmount(calculateFinalSaleAmount(editing.originalAmount, editing.additionalAmount, editing.discountAmount), paidAmount) });
+                    }} />
+                  </div>
+                ))}
+                <p className="text-right text-sm">총 결제 <strong className="tabular-nums">{won(editing.paidAmount)}</strong></p>
+              </div>
+            ) : <Field label="결제 금액">
               <MoneyInput
                 value={editing.paidAmount}
                 disabled={saving}
@@ -1376,11 +1436,11 @@ export function SalesHistoryPage() {
                   })
                 }
               />
-            </Field>
+            </Field>}
             <Field label="미수금">
               <Input value={won(editing.outstandingAmount)} disabled />
             </Field>
-            <Field label="결제 수단">
+            {editing.paymentRows.length <= 1 && <Field label="결제 수단">
               <Select
                 value={editing.paymentMethod}
                 disabled={saving}
@@ -1394,7 +1454,7 @@ export function SalesHistoryPage() {
                   </option>
                 ))}
               </Select>
-            </Field>
+            </Field>}
             <Field label="구분">
               <Select
                 value={editing.customerType}
@@ -2062,7 +2122,7 @@ function SaleMobileCard({
           </p>
         )}
         <p className="mt-2 text-xs text-text-secondary">
-          실제 결제 {won(sale.paidAmount)} · {paymentLabel[sale.paymentMethod] || sale.paymentMethod}
+          {paymentSummary(sale.paymentRows, sale.paymentMethod, sale.paidAmount)}
         </p>
       </div>
       <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-text-muted">

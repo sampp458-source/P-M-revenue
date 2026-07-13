@@ -4,6 +4,7 @@ import {
   calculateOutstandingAmount,
   normalizeQuantity,
 } from "./saleRegistrationLogic";
+import { defaultSplitPaymentRows, type SalePaymentRow } from "./salePaymentLogic";
 
 export const saleDraftPrefix = "pnm:sales:new:draft:v1:";
 export const saleDraftMaxAgeMs = 24 * 60 * 60 * 1000;
@@ -26,6 +27,8 @@ export interface SaleRegistrationFormState {
   outstandingAmount: number;
   adjustmentNote: string;
   paymentMethod: string;
+  splitPaymentEnabled: boolean;
+  paymentRows: SalePaymentRow[];
   customerType: string;
   staffId: string;
   memo: string;
@@ -94,6 +97,17 @@ export function normalizeSaleDraftForm(value: unknown): SaleRegistrationFormStat
     outstandingAmount: calculateOutstandingAmount(finalSaleAmount, paidAmount),
     adjustmentNote: text(form.adjustmentNote),
     paymentMethod: text(form.paymentMethod) || "card",
+    splitPaymentEnabled: Boolean(form.splitPaymentEnabled),
+    paymentRows: Array.isArray(form.paymentRows)
+      ? form.paymentRows
+          .filter((row): row is Record<string, unknown> => Boolean(row && typeof row === "object"))
+          .map((row) => ({
+            method: (["card", "transfer", "cash", "other"].includes(text(row.method))
+              ? text(row.method)
+              : "card") as SalePaymentRow["method"],
+            amount: amount(row.amount),
+          }))
+      : defaultSplitPaymentRows(),
     customerType: text(form.customerType) || "new",
     staffId: text(form.staffId),
     memo: text(form.memo),

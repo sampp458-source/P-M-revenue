@@ -54,6 +54,12 @@ describe("salesHistoryLogic", () => {
     expect(filterSales([baseSale], { ...filters, minAmount: 300001 }, "2026-07-13")).toHaveLength(0);
   });
 
+  it("분할결제에 포함된 결제수단으로 필터링한다", () => {
+    const split = { ...baseSale, paymentMethods: ["cash", "card"] };
+    expect(filterSales([split], { ...filters, paymentMethod: "cash" }, "2026-07-13")).toEqual([split]);
+    expect(filterSales([split], { ...filters, paymentMethod: "transfer" }, "2026-07-13")).toHaveLength(0);
+  });
+
   it("5분 이내 동일 결제를 강한 중복으로 표시한다", () => {
     const duplicate = { ...baseSale, id: "sale-2", createdAt: "2026-07-13T01:04:00.000Z" };
     expect(findDuplicateWarnings([baseSale, duplicate]).get("sale-2")?.level).toBe("strong");

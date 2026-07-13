@@ -1,4 +1,5 @@
 import { phoneDigits } from "../lib/phone";
+import { defaultSplitPaymentRows, type SalePaymentRow } from "./salePaymentLogic";
 
 export interface RepeatSettings {
   keepBusinessUnit: boolean;
@@ -380,6 +381,8 @@ export interface ResettableSaleForm {
   outstandingAmount: number;
   adjustmentNote: string;
   paymentMethod: string;
+  splitPaymentEnabled: boolean;
+  paymentRows: SalePaymentRow[];
   customerType: string;
   staffId: string;
   memo: string;
@@ -416,6 +419,8 @@ export function nextSaleForm(
     outstandingAmount: 0,
     adjustmentNote: "",
     paymentMethod: settings.keepPaymentMethod ? form.paymentMethod : "card",
+    splitPaymentEnabled: false,
+    paymentRows: defaultSplitPaymentRows(),
     customerType: "new",
     staffId: settings.keepStaff ? form.staffId : options.defaultStaffId,
     memo: "",

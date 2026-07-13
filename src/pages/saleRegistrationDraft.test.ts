@@ -26,6 +26,11 @@ const form: SaleRegistrationFormState = {
   outstandingAmount: 20000,
   adjustmentNote: "현장 조정",
   paymentMethod: "card",
+  splitPaymentEnabled: true,
+  paymentRows: [
+    { method: "card", amount: 100000 },
+    { method: "cash", amount: 20000 },
+  ],
   customerType: "renewal",
   staffId: "staff-1",
   memo: "메모",

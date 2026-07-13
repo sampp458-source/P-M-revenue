@@ -74,6 +74,13 @@ import {
   type SaleRegistrationDraft,
   type SaleRegistrationFormState,
 } from "./saleRegistrationDraft";
+import {
+  defaultSplitPaymentRows,
+  normalizePaymentRows,
+  paymentMethodLabels,
+  paymentRowsTotal,
+  type SalePaymentMethod,
+} from "./salePaymentLogic";
 
 interface CustomerOption {
   id: string;
@@ -428,6 +435,8 @@ export function SaleFormPage() {
     paymentMethod: loadRepeatSettings().keepPaymentMethod
       ? stored(lastPaymentMethodKey) || "card"
       : "card",
+    splitPaymentEnabled: false,
+    paymentRows: defaultSplitPaymentRows(),
     customerType: "new",
     staffId: loadRepeatSettings().keepStaff
       ? stored(lastStaffKey) || profile?.id || ""
@@ -750,6 +759,10 @@ export function SaleFormPage() {
     form.discountAmount,
   );
   const netAmount = form.paidAmount - form.refundAmount;
+  const normalizedPaymentRows = useMemo(
+    () => normalizePaymentRows(form.paymentRows),
+    [form.paymentRows],
+  );
 
   const recentPartyKeys = useMemo(() => {
     const result = new Map<string, number>();
@@ -1329,6 +1342,8 @@ export function SaleFormPage() {
       outstandingAmount: 0,
       adjustmentNote: "",
       paymentMethod: "card",
+      splitPaymentEnabled: false,
+      paymentRows: defaultSplitPaymentRows(),
       customerType: "new",
       staffId: current.staffId,
       memo: "",
@@ -1490,6 +1505,15 @@ export function SaleFormPage() {
       focus("refundAmount");
       return false;
     }
+    if (
+      form.splitPaymentEnabled &&
+      (normalizedPaymentRows.length < 2 ||
+        paymentRowsTotal(normalizedPaymentRows) !== form.paidAmount)
+    ) {
+      setError("분할결제 수단별 금액과 총 결제금액을 확인해 주세요.");
+      focus("splitPaymentAmount-0");
+      return false;
+    }
     if (!isBalancedPaymentPlan(form)) {
       setError("최종 판매금액과 실제 결제·미수금 관계를 확인해 주세요.");
       focus("paidAmount");
@@ -1517,9 +1541,7 @@ export function SaleFormPage() {
   const persistSale = async () => {
     const customerId = (selectedDog?.customerId ?? form.customerId) || null;
     const reference = normalizeSaleReference(saleReference);
-    const result = await supabase
-      .from("sales")
-      .insert({
+    const salePayload = {
         sale_date: form.saleDate,
         business_unit_id: form.businessUnitId,
         dog_id: form.dogId || null,
@@ -1541,7 +1563,7 @@ export function SaleFormPage() {
         refund_amount: Math.trunc(form.refundAmount),
         outstanding_amount: Math.trunc(form.outstandingAmount),
         net_amount: Math.trunc(netAmount),
-        payment_method: form.paymentMethod,
+        payment_method: normalizedPaymentRows[0]?.method ?? form.paymentMethod,
         customer_type: form.customerType,
         staff_id: form.staffId,
         memo: form.memo.trim() || null,
@@ -1557,9 +1579,30 @@ export function SaleFormPage() {
           : {}),
         product_category_name: null,
         product_name: "",
-      })
-      .select(recentSaleFields)
-      .single();
+      };
+    const result = form.splitPaymentEnabled
+      ? await supabase
+          .rpc("create_sale_with_payments", {
+            p_sale: salePayload,
+            p_payments: normalizedPaymentRows.map((row) => ({
+              payment_method: row.method,
+              amount: row.amount,
+            })),
+          })
+          .then(async ({ data, error }) =>
+            error
+              ? { data: null, error }
+              : supabase
+                  .from("sales")
+                  .select(recentSaleFields)
+                  .eq("id", data as string)
+                  .single(),
+          )
+      : await supabase
+          .from("sales")
+          .insert(salePayload)
+          .select(recentSaleFields)
+          .single();
     savingRef.current = false;
     setSaving(false);
     if (result.error) {
@@ -2868,6 +2911,30 @@ export function SaleFormPage() {
                     </strong>
                   </div>
                 </div>
+                <label className="flex min-h-12 items-center gap-3 rounded-xl border border-border px-4 text-sm font-semibold md:col-span-2">
+                  <input
+                    type="checkbox"
+                    checked={form.splitPaymentEnabled}
+                    disabled={saving}
+                    onChange={(event) => {
+                      const enabled = event.target.checked;
+                      const rows = enabled
+                        ? defaultSplitPaymentRows().map((row, index) =>
+                            index === 1 ? { ...row, amount: form.paidAmount } : row,
+                          )
+                        : form.paymentRows;
+                      setForm((current) => ({
+                        ...current,
+                        splitPaymentEnabled: enabled,
+                        paymentRows: rows,
+                        paidAmount: enabled ? paymentRowsTotal(rows) : current.paidAmount,
+                      }));
+                      if (enabled) setPaidAmountEdited(true);
+                    }}
+                  />
+                  분할결제 사용
+                </label>
+                {!form.splitPaymentEnabled && <>
                 <Field
                   label="실제 결제 금액"
                   required
@@ -2954,6 +3021,55 @@ export function SaleFormPage() {
                     <option value="outstanding">미수</option>
                   </Select>
                 </Field>
+                </>}
+                {form.splitPaymentEnabled && (
+                  <div className="space-y-3 rounded-2xl border border-primary/20 bg-white p-4 md:col-span-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <div><strong className="text-sm">결제수단별 금액</strong><p className="mt-1 text-xs text-text-muted">0원 행은 저장하지 않으며 같은 수단은 자동 합산됩니다.</p></div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        disabled={saving || form.paymentRows.length >= 4}
+                        onClick={() => setForm((current) => ({ ...current, paymentRows: [...current.paymentRows, { method: "other", amount: 0 }] }))}
+                      ><Plus size={16} />결제수단 추가</Button>
+                    </div>
+                    {form.paymentRows.map((row, index) => (
+                      <div key={`${row.method}-${index}`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_44px] gap-2">
+                        <Select
+                          aria-label={`분할결제 ${index + 1} 결제수단`}
+                          value={row.method}
+                          disabled={saving}
+                          onChange={(event) => {
+                            const paymentRows = form.paymentRows.map((item, rowIndex) => rowIndex === index ? { ...item, method: event.target.value as SalePaymentMethod } : item);
+                            setForm((current) => ({ ...current, paymentRows, paymentMethod: paymentRows[0]?.method ?? current.paymentMethod }));
+                          }}
+                        >{Object.entries(paymentMethodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select>
+                        <CurrencyInput
+                          name={`splitPaymentAmount-${index}`}
+                          value={row.amount}
+                          disabled={saving}
+                          onValue={(amount) => {
+                            const paymentRows = form.paymentRows.map((item, rowIndex) => rowIndex === index ? { ...item, amount } : item);
+                            const paidAmount = paymentRowsTotal(paymentRows);
+                            setPaidAmountEdited(true);
+                            setForm((current) => ({
+                              ...current,
+                              paymentRows,
+                              paidAmount,
+                              outstandingAmount: calculateOutstandingAmount(expectedAmount, paidAmount),
+                            }));
+                          }}
+                        />
+                        <button type="button" aria-label={`${index + 1}번째 결제수단 삭제`} disabled={saving || form.paymentRows.length <= 2} onClick={() => {
+                          const paymentRows = form.paymentRows.filter((_, rowIndex) => rowIndex !== index);
+                          const paidAmount = paymentRowsTotal(paymentRows);
+                          setForm((current) => ({ ...current, paymentRows, paidAmount, outstandingAmount: calculateOutstandingAmount(expectedAmount, paidAmount) }));
+                        }} className="flex min-h-11 items-center justify-center rounded-xl text-text-muted hover:bg-error-soft hover:text-error disabled:opacity-40"><Minus size={18} /></button>
+                      </div>
+                    ))}
+                    <div className="flex flex-wrap justify-between gap-3 border-t pt-3 text-sm"><span>총 결제 <strong className="tabular-nums">{won(form.paidAmount)}</strong></span><span>미수금 <strong className="tabular-nums text-warning">{won(form.outstandingAmount)}</strong></span></div>
+                  </div>
+                )}
                 <Field label="구분" required>
                   <Select
                     name="customerType"
