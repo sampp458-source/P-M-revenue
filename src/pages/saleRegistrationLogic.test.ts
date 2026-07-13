@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildQuickPartyRpcPayload, calculateGrossAmount, calculatePricingChange, defaultRepeatSettings, duplicateWarningLevel, hasProductNameDuplicate, isValidPaymentPlan, missingSaleRequirement, nextSaleForm, normalizeProductName, normalizeQuantity, normalizeSaleReference, partySearchScore } from "./saleRegistrationLogic";
+import { buildQuickPartyRpcPayload, calculateGrossAmount, calculatePricingChange, defaultRepeatSettings, duplicateWarningLevel, hasCategoryNameDuplicate, hasProductNameDuplicate, isValidPaymentPlan, missingSaleRequirement, nextSaleForm, normalizeProductName, normalizeQuantity, normalizeSaleReference, partySearchScore } from "./saleRegistrationLogic";
 
 describe("sale registration logic", () => {
   it("간편 등록 RPC payload를 운영 함수의 네 인자와 정확히 맞춘다", () => {
@@ -30,6 +30,13 @@ describe("sale registration logic", () => {
     expect(normalizeProductName("  퍼피   클래스 ")).toBe("퍼피 클래스");
     expect(hasProductNameDuplicate(products, "daycare", "퍼피  클래스")).toBe(true);
     expect(hasProductNameDuplicate(products, "hotel", "퍼피 클래스")).toBe(false);
+  });
+
+  it("같은 사업부의 분류명은 공백과 대소문자 차이를 무시해 중복을 찾는다", () => {
+    const categories = [{ businessUnitId: "hotel", name: "장기 호텔" }];
+
+    expect(hasCategoryNameDuplicate(categories, "hotel", " 장기   호텔 ")).toBe(true);
+    expect(hasCategoryNameDuplicate(categories, "daycare", "장기 호텔")).toBe(false);
   });
 
   it("고객 참고 정보는 빈 값을 null로 두고 연락처는 숫자로만 보존한다", () => {

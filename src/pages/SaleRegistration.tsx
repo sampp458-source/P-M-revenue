@@ -51,6 +51,7 @@ import {
   calculatePricingChange,
   defaultRepeatSettings,
   duplicateWarningLevel,
+  hasCategoryNameDuplicate,
   hasProductNameDuplicate,
   isValidPaymentPlan,
   missingSaleRequirement,
@@ -95,6 +96,7 @@ interface QuickProductForm {
   categoryId: string;
   name: string;
   defaultPrice: number;
+  unitLabel: string;
 }
 
 interface StaffOption {
@@ -177,7 +179,7 @@ const loadRepeatSettings = (): RepeatSettings => {
 };
 const emptyQuickForm = () => ({ customerName: "", phone: "", dogName: "" });
 const emptySaleReference = () => ({ customerName: "", phone: "", dogName: "" });
-const emptyQuickProductForm = (): QuickProductForm => ({ businessUnitId: "", categoryId: "", name: "", defaultPrice: 0 });
+const emptyQuickProductForm = (): QuickProductForm => ({ businessUnitId: "", categoryId: "", name: "", defaultPrice: 0, unitLabel: "" });
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 const digitsOnly = (value: string) => value.replace(/[^0-9]/g, "");
 const moneyText = (value: number) => Math.max(0, Math.trunc(value || 0)).toLocaleString("ko-KR");
@@ -251,6 +253,7 @@ export function SaleFormPage() {
   const savingRef = useRef(false);
   const quickSavingRef = useRef(false);
   const quickProductSavingRef = useRef(false);
+  const quickCategorySavingRef = useRef(false);
   const [repeatSettings, setRepeatSettings] = useState(loadRepeatSettings);
   const repeatSettingsRef = useRef(repeatSettings);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
@@ -287,6 +290,11 @@ export function SaleFormPage() {
   const [quickProductSaving, setQuickProductSaving] = useState(false);
   const [quickProductError, setQuickProductError] = useState("");
   const [quickProductForm, setQuickProductForm] = useState<QuickProductForm>(emptyQuickProductForm);
+  const [quickCategoryQuery, setQuickCategoryQuery] = useState("");
+  const [quickCategoryName, setQuickCategoryName] = useState("");
+  const [quickCategoryAdding, setQuickCategoryAdding] = useState(false);
+  const [quickCategorySaving, setQuickCategorySaving] = useState(false);
+  const [productUnitSchemaReady, setProductUnitSchemaReady] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState<{ sale: RecentSale; level: "strong" | "weak" } | null>(null);
   const [successSummary, setSuccessSummary] = useState<SuccessSummary | null>(null);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
@@ -298,7 +306,7 @@ export function SaleFormPage() {
 
   const loadOptions = useCallback(async () => {
     setLoading(true); setLoadError("");
-    const [customersResult, dogsResult, categoriesResult, productsResult, staffResult, salesResult, pricingSchemaResult] = await Promise.all([
+    const [customersResult, dogsResult, categoriesResult, productsResult, staffResult, salesResult, pricingSchemaResult, productUnitSchemaResult] = await Promise.all([
       supabase.from("customers").select("id, name, phone").eq("is_active", true).order("name"),
       supabase.from("dogs").select("id, name, breed, birth_date, customer_id, customers(name, phone)").eq("is_active", true).order("name"),
       supabase.from("product_categories").select("id, business_unit_id, name").eq("is_active", true).order("sort_order").order("name"),
@@ -306,6 +314,7 @@ export function SaleFormPage() {
       supabase.rpc("get_active_staff_directory"),
       supabase.from("sales").select(recentSaleFields).order("created_at", { ascending: false }).limit(100),
       supabase.from("sales").select("quantity, unit_price").limit(1),
+      supabase.from("products").select("unit_label").limit(1),
     ]);
     if (customersResult.error || dogsResult.error || categoriesResult.error || productsResult.error || staffResult.error || salesResult.error) {
       setLoadError("매출 등록에 필요한 정보를 불러오지 못했습니다."); setLoading(false); return;
@@ -322,6 +331,7 @@ export function SaleFormPage() {
     setStaff(staffRows);
     setRecentSales((salesResult.data ?? []).map((row) => mapRecentSale(row as Record<string, unknown>)));
     setPricingSchemaReady(!pricingSchemaResult.error);
+    setProductUnitSchemaReady(!productUnitSchemaResult.error);
     setForm((current) => {
       const savedProduct = repeatSettingsRef.current.keepProduct ? productRows.find((item) => item.id === stored(lastProductKey)) : undefined;
       return {
@@ -658,8 +668,50 @@ export function SaleFormPage() {
       categoryId: form.categoryId,
       name: productQuery.trim(),
       defaultPrice: 0,
+      unitLabel: "",
     });
+    setQuickCategoryQuery("");
+    setQuickCategoryName("");
+    setQuickCategoryAdding(false);
     setQuickProductOpen(true);
+  };
+
+  const createQuickCategory = async () => {
+    if (quickCategorySavingRef.current) return;
+    const unit = businessUnits.find((item) => item.id === quickProductForm.businessUnitId);
+    const name = quickCategoryName.trim().replace(/\s+/g, " ");
+    if (!unit) { setQuickProductError("사업부를 먼저 선택해 주세요."); return; }
+    if (!name) { setQuickProductError("새 분류명을 입력해 주세요."); return; }
+    if (hasCategoryNameDuplicate(categories, unit.id, name)) {
+      setQuickProductError("같은 사업부에 동일하거나 공백만 다른 분류명이 이미 존재합니다.");
+      return;
+    }
+    quickCategorySavingRef.current = true;
+    setQuickCategorySaving(true);
+    setQuickProductError("");
+    const result = await supabase.from("product_categories").insert({
+      business_unit_id: unit.id,
+      name,
+      is_active: true,
+      sort_order: categories.filter((item) => item.businessUnitId === unit.id).length + 1,
+    }).select("id, business_unit_id, name").single();
+    quickCategorySavingRef.current = false;
+    setQuickCategorySaving(false);
+    if (result.error) {
+      setQuickProductError(result.error.code === "23505"
+        ? "같은 사업부에 동일한 분류명이 이미 존재합니다."
+        : result.error.code === "42501"
+          ? "분류 등록 권한이 없습니다. 직원 분류 등록 정책 적용 여부를 확인해 주세요."
+          : "상품 분류를 등록하지 못했습니다. 잠시 후 다시 시도하세요.");
+      return;
+    }
+    const created: CategoryOption = { id: result.data.id, businessUnitId: result.data.business_unit_id, name: result.data.name };
+    setCategories((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name, "ko")));
+    setQuickProductForm((current) => ({ ...current, categoryId: created.id }));
+    setQuickCategoryQuery("");
+    setQuickCategoryName("");
+    setQuickCategoryAdding(false);
+    setNotice("새 상품 분류를 등록하고 선택했습니다.");
   };
 
   const submitQuickProduct = async (event: FormEvent<HTMLFormElement>) => {
@@ -677,6 +729,7 @@ export function SaleFormPage() {
     if (!category || category.businessUnitId !== unit.id) { setQuickProductError("해당 사업부의 상품 분류를 선택해 주세요."); focus("quickProductCategoryId"); return; }
     if (!name) { setQuickProductError("상품명을 입력해 주세요."); focus("quickProductName"); return; }
     if (!Number.isFinite(quickProductForm.defaultPrice) || quickProductForm.defaultPrice < 0) { setQuickProductError("기본 판매가는 0원 이상으로 입력해 주세요."); focus("quickProductDefaultPrice"); return; }
+    if (quickProductForm.unitLabel.trim() && !productUnitSchemaReady) { setQuickProductError("단위 저장 Migration 적용 후 단위를 입력할 수 있습니다."); focus("quickProductUnitLabel"); return; }
     if (hasProductNameDuplicate(products, unit.id, name)) { setQuickProductError("같은 사업부에 동일하거나 공백만 다른 상품명이 이미 존재합니다. 기존 상품을 선택해 주세요."); focus("quickProductName"); return; }
 
     quickProductSavingRef.current = true; setQuickProductSaving(true); setQuickProductError("");
@@ -688,6 +741,7 @@ export function SaleFormPage() {
       sort_order: products.length + 1,
       is_active: true,
       memo: null,
+      ...(productUnitSchemaReady ? { unit_label: quickProductForm.unitLabel.trim() || null } : {}),
     }).select("id, business_unit_id, category_id, name, default_price").single();
     quickProductSavingRef.current = false; setQuickProductSaving(false);
     if (result.error) {
@@ -775,10 +829,11 @@ export function SaleFormPage() {
     <Modal open={quickProductOpen} onClose={() => { if (!quickProductSavingRef.current) setQuickProductOpen(false); }} title="새 상품 등록">
       <form onSubmit={submitQuickProduct} className="space-y-4">
         <p className="text-sm leading-6 text-text-secondary">매출 등록에 필요한 활성 상품을 바로 추가합니다. 등록 후 현재 매출에 자동 선택됩니다.</p>
-        <Field label="사업부" required><Select data-modal-initial name="quickProductBusinessUnitId" value={quickProductForm.businessUnitId} disabled={quickProductSaving} onChange={(event) => setQuickProductForm((current) => ({ ...current, businessUnitId: event.target.value, categoryId: "" }))}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field>
-        <Field label="상품 분류" required><Select name="quickProductCategoryId" value={quickProductForm.categoryId} disabled={quickProductSaving || !quickProductForm.businessUnitId} onChange={(event) => setQuickProductForm((current) => ({ ...current, categoryId: event.target.value }))}><option value="">상품 분류 선택</option>{categories.filter((category) => category.businessUnitId === quickProductForm.businessUnitId).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</Select></Field>
+        <Field label="사업부" required><Select data-modal-initial name="quickProductBusinessUnitId" value={quickProductForm.businessUnitId} disabled={quickProductSaving} onChange={(event) => { setQuickProductForm((current) => ({ ...current, businessUnitId: event.target.value, categoryId: "" })); setQuickCategoryQuery(""); setQuickCategoryAdding(false); }}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field>
+        <div className="space-y-2"><Field label="상품 분류" required><Input aria-label="상품 분류 검색" placeholder="분류명 검색" value={quickCategoryQuery} disabled={quickProductSaving || !quickProductForm.businessUnitId} onChange={(event) => setQuickCategoryQuery(event.target.value)} /><Select name="quickProductCategoryId" className="mt-2" value={quickProductForm.categoryId} disabled={quickProductSaving || !quickProductForm.businessUnitId} onChange={(event) => setQuickProductForm((current) => ({ ...current, categoryId: event.target.value }))}><option value="">상품 분류 선택</option>{categories.filter((category) => category.businessUnitId === quickProductForm.businessUnitId && category.name.toLocaleLowerCase("ko").includes(quickCategoryQuery.trim().toLocaleLowerCase("ko"))).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</Select></Field><Button type="button" variant="ghost" disabled={quickProductSaving || !quickProductForm.businessUnitId} onClick={() => { setQuickCategoryAdding((value) => !value); setQuickProductError(""); }}><Plus size={15} />새 분류 추가</Button>{quickCategoryAdding && <div className="flex gap-2 rounded-xl bg-surface-secondary p-2"><Input aria-label="새 상품 분류명" placeholder="새 분류명" value={quickCategoryName} disabled={quickCategorySaving} onChange={(event) => setQuickCategoryName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void createQuickCategory(); } }} /><Button type="button" disabled={quickCategorySaving} onClick={() => void createQuickCategory()}>{quickCategorySaving ? "추가 중..." : "추가"}</Button></div>}</div>
         <Field label="상품명" required><Input name="quickProductName" value={quickProductForm.name} disabled={quickProductSaving} onChange={(event) => { setQuickProductForm((current) => ({ ...current, name: event.target.value })); setQuickProductError(""); }} /></Field>
         <Field label="기본 판매가" required><Input name="quickProductDefaultPrice" type="number" min="0" step="1" inputMode="numeric" value={quickProductForm.defaultPrice} disabled={quickProductSaving} onChange={(event) => setQuickProductForm((current) => ({ ...current, defaultPrice: Number(event.target.value) }))} /></Field>
+        <Field label="단위"><Input name="quickProductUnitLabel" placeholder="예: 박, 회, 개" maxLength={20} value={quickProductForm.unitLabel} disabled={quickProductSaving} onChange={(event) => setQuickProductForm((current) => ({ ...current, unitLabel: event.target.value }))} /><span className="mt-1 block text-xs text-text-muted">선택 입력 · 단위 저장 Migration 적용 후 사용할 수 있습니다.</span></Field>
         {quickProductError && <p id="quick-product-error" role="alert" className="rounded-xl bg-error-soft px-4 py-3 text-sm font-medium text-error">{quickProductError}</p>}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end"><Button type="button" variant="secondary" disabled={quickProductSaving} onClick={() => setQuickProductOpen(false)}>취소</Button><Button disabled={quickProductSaving}>{quickProductSaving && <LoaderCircle className="animate-spin" size={17} />}{quickProductSaving ? "등록 중..." : "등록 후 선택"}</Button></div>
       </form>

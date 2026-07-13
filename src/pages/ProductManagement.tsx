@@ -24,6 +24,7 @@ import {
 import { won } from "../lib/format";
 import { supabase } from "../lib/supabase";
 import type { Division } from "../types";
+import { hasCategoryNameDuplicate, hasProductNameDuplicate } from "./saleRegistrationLogic";
 
 interface CategoryOption {
   id: string;
@@ -43,6 +44,7 @@ interface ProductRow {
   sortOrder: number;
   active: boolean;
   memo: string;
+  unitLabel: string;
 }
 
 interface ProductForm {
@@ -53,6 +55,7 @@ interface ProductForm {
   defaultPrice: number;
   active: boolean;
   memo: string;
+  unitLabel: string;
 }
 
 const pageSize = 20;
@@ -76,6 +79,11 @@ export function ProductsPage() {
   const [processing, setProcessing] = useState(false);
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState("");
+  const [categoryQuery, setCategoryQuery] = useState("");
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [unitLabelSupported, setUnitLabelSupported] = useState(false);
 
   const loadCategories = useCallback(async () => {
     const result = await supabase
@@ -90,6 +98,9 @@ export function ProductsPage() {
   const loadProducts = useCallback(async () => {
     setLoading(true);
     setLoadError(false);
+    const unitLabelCheck = await supabase.from("products").select("unit_label").limit(1);
+    const supportsUnitLabel = !unitLabelCheck.error;
+    setUnitLabelSupported(supportsUnitLabel);
     let request = supabase
       .from("products")
       .select(
@@ -112,6 +123,18 @@ export function ProductsPage() {
       setTotalCount(0);
       setLoadError(true);
     } else {
+      const unitLabelById = new Map<string, string>();
+      if (supportsUnitLabel && (result.data?.length ?? 0) > 0) {
+        const unitLabels = await supabase
+          .from("products")
+          .select("id, unit_label")
+          .in("id", (result.data ?? []).map((product) => product.id));
+        if (!unitLabels.error) {
+          unitLabels.data?.forEach((product) => {
+            if (typeof product.unit_label === "string") unitLabelById.set(product.id, product.unit_label);
+          });
+        }
+      }
       setRows(
         (result.data ?? []).map((product) => {
           const unit = Array.isArray(product.business_units)
@@ -131,6 +154,7 @@ export function ProductsPage() {
             sortOrder: product.sort_order,
             active: product.is_active,
             memo: product.memo ?? "",
+            unitLabel: unitLabelById.get(product.id) ?? "",
           };
         }),
       );
@@ -156,7 +180,11 @@ export function ProductsPage() {
       defaultPrice: 0,
       active: true,
       memo: "",
+      unitLabel: "",
     });
+    setCategoryQuery("");
+    setNewCategoryName("");
+    setAddingCategory(false);
   };
 
   const openEdit = (product: ProductRow) => {
@@ -169,7 +197,11 @@ export function ProductsPage() {
       defaultPrice: product.defaultPrice,
       active: product.active,
       memo: product.memo,
+      unitLabel: product.unitLabel,
     });
+    setCategoryQuery("");
+    setNewCategoryName("");
+    setAddingCategory(false);
   };
 
   const save = async (event: FormEvent) => {
@@ -195,12 +227,22 @@ export function ProductsPage() {
       focus("name");
       return;
     }
+    if (!editing.id && hasProductNameDuplicate(rows, unit.id, editing.name)) {
+      setFormError("같은 사업부에 동일하거나 공백만 다른 상품명이 이미 존재합니다.");
+      focus("name");
+      return;
+    }
     if (!Number.isFinite(editing.defaultPrice) || editing.defaultPrice < 0) {
       setFormError("기본 판매가는 0원 이상으로 입력해 주세요.");
       focus("defaultPrice");
       return;
     }
 
+    if (editing.unitLabel.trim() && !unitLabelSupported) {
+      setFormError("단위 저장 Migration 적용 후 단위를 입력할 수 있습니다.");
+      focus("unitLabel");
+      return;
+    }
     const values = {
       business_unit_id: unit.id,
       category_id: selectedCategory.id,
@@ -208,6 +250,7 @@ export function ProductsPage() {
       default_price: Math.trunc(editing.defaultPrice),
       memo: editing.memo.trim() || null,
       is_active: editing.active,
+      ...(unitLabelSupported ? { unit_label: editing.unitLabel.trim() || null } : {}),
     };
     setSaving(true);
     setFormError("");
@@ -232,6 +275,42 @@ export function ProductsPage() {
     setNotice(editing.id ? "상품을 수정했습니다." : "상품을 등록했습니다.");
     setEditing(null);
     await Promise.all([loadProducts(), loadCategories()]);
+  };
+
+  const createCategory = async () => {
+    if (!editing || categorySaving) return;
+    const unit = businessUnits.find((item) => item.id === editing.businessUnitId);
+    const name = newCategoryName.trim().replace(/\s+/g, " ");
+    if (!unit) { setFormError("사업부를 먼저 선택해 주세요."); return; }
+    if (!name) { setFormError("새 분류명을 입력해 주세요."); return; }
+    const comparable = categories.map((item) => ({ businessUnitId: item.business_unit_id, name: item.name }));
+    if (hasCategoryNameDuplicate(comparable, unit.id, name)) {
+      setFormError("같은 사업부에 동일하거나 공백만 다른 분류명이 이미 존재합니다.");
+      return;
+    }
+    setCategorySaving(true);
+    setFormError("");
+    const result = await supabase.from("product_categories").insert({
+      business_unit_id: unit.id,
+      name,
+      is_active: true,
+      sort_order: categories.filter((item) => item.business_unit_id === unit.id).length + 1,
+    }).select("id, business_unit_id, name, is_active").single();
+    setCategorySaving(false);
+    if (result.error) {
+      setFormError(result.error.code === "23505"
+        ? "같은 사업부에 동일한 분류명이 이미 존재합니다."
+        : result.error.code === "42501"
+          ? "분류 등록 권한이 없습니다. 직원 분류 등록 정책 적용 여부를 확인해 주세요."
+          : "상품 분류를 등록하지 못했습니다. 잠시 후 다시 시도하세요.");
+      return;
+    }
+    setCategories((current) => [...current, result.data].sort((a, b) => a.name.localeCompare(b.name, "ko")));
+    setEditing((current) => current ? { ...current, categoryId: result.data.id } : current);
+    setCategoryQuery("");
+    setNewCategoryName("");
+    setAddingCategory(false);
+    setNotice("새 상품 분류를 등록하고 선택했습니다.");
   };
 
   const deactivate = async () => {
@@ -262,13 +341,16 @@ export function ProductsPage() {
       item.business_unit_id === editing?.businessUnitId &&
       (item.is_active || item.id === editing?.categoryId),
   );
+  const searchedFormCategories = formCategories.filter((item) =>
+    item.name.toLocaleLowerCase("ko").includes(categoryQuery.trim().toLocaleLowerCase("ko")),
+  );
 
   return (
     <>
       <PageHeader
         title="상품 관리"
         description="판매 상품과 기본 판매가를 관리합니다."
-        action={isAdmin ? <Button onClick={openCreate}><Plus size={17} />상품 등록</Button> : undefined}
+        action={<Button onClick={openCreate}><Plus size={17} />상품 등록</Button>}
       />
       <FilterToolbar className="sm:grid-cols-2 lg:grid-cols-4">
           <SearchBox aria-label="상품명 검색" placeholder="상품명 검색" value={query} onClear={() => { setQuery(""); setPage(1); }} onChange={(e) => { setQuery(e.target.value); setPage(1); }} />
@@ -309,9 +391,10 @@ export function ProductsPage() {
       <Modal open={!!editing} onClose={() => !saving && setEditing(null)} title={editing?.id ? "상품 수정" : "상품 등록"} wide>
         {editing && <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
           <Field label="사업부" required><Select name="businessUnitId" aria-describedby={formError ? "product-form-error" : undefined} value={editing.businessUnitId} disabled={saving} onChange={(e) => setEditing({ ...editing, businessUnitId: e.target.value, categoryId: "" })}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field>
-          <Field label="상품 분류" required><Select name="categoryId" aria-describedby={formError ? "product-form-error" : undefined} value={editing.categoryId} disabled={saving || !editing.businessUnitId} onChange={(e) => setEditing({ ...editing, categoryId: e.target.value })}><option value="">분류 선택</option>{formCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
+          <div className="space-y-2"><Field label="상품 분류" required><Input aria-label="상품 분류 검색" placeholder="분류명 검색" value={categoryQuery} disabled={saving || !editing.businessUnitId} onChange={(e) => setCategoryQuery(e.target.value)} /><Select name="categoryId" className="mt-2" aria-describedby={formError ? "product-form-error" : undefined} value={editing.categoryId} disabled={saving || !editing.businessUnitId} onChange={(e) => setEditing({ ...editing, categoryId: e.target.value })}><option value="">분류 선택</option>{searchedFormCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field><Button type="button" variant="ghost" disabled={saving || !editing.businessUnitId} onClick={() => { setAddingCategory((value) => !value); setFormError(""); }}><Plus size={15} />새 분류 추가</Button>{addingCategory && <div className="flex gap-2 rounded-xl bg-slate-50 p-2"><Input aria-label="새 상품 분류명" placeholder="새 분류명" value={newCategoryName} disabled={categorySaving} onChange={(e) => setNewCategoryName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void createCategory(); } }} /><Button type="button" disabled={categorySaving} onClick={() => void createCategory()}>{categorySaving ? "추가 중..." : "추가"}</Button></div>}</div>
           <Field label="상품명" required><Input name="name" aria-invalid={Boolean(formError && !editing.name.trim())} aria-describedby={formError ? "product-form-error" : undefined} value={editing.name} disabled={saving} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></Field>
           <Field label="기본 판매가" required><Input name="defaultPrice" aria-describedby={formError ? "product-form-error" : undefined} type="number" min="0" step="1" value={editing.defaultPrice} disabled={saving} onChange={(e) => setEditing({ ...editing, defaultPrice: Number(e.target.value) })} /></Field>
+          <Field label="단위"><Input name="unitLabel" placeholder="예: 박, 회, 개" maxLength={20} value={editing.unitLabel} disabled={saving} onChange={(e) => setEditing({ ...editing, unitLabel: e.target.value })} /><span className="mt-1 block text-xs text-slate-500">선택 입력 · 단위 저장 Migration 적용 후 사용할 수 있습니다.</span></Field>
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={editing.active} disabled={saving} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} /> 활성 상태</label>
           <div className="sm:col-span-2"><Field label="메모"><Textarea value={editing.memo} disabled={saving} onChange={(e) => setEditing({ ...editing, memo: e.target.value })} /></Field></div>
           {formError && <p id="product-form-error" role="alert" className="text-sm text-red-600 sm:col-span-2">{formError}</p>}
