@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildQuickPartyRpcPayload, defaultRepeatSettings, duplicateWarningLevel, missingSaleRequirement, nextSaleForm, partySearchScore } from "./saleRegistrationLogic";
+import { buildQuickPartyRpcPayload, defaultRepeatSettings, duplicateWarningLevel, hasProductNameDuplicate, missingSaleRequirement, nextSaleForm, normalizeProductName, partySearchScore } from "./saleRegistrationLogic";
 
 describe("sale registration logic", () => {
   it("간편 등록 RPC payload를 운영 함수의 네 인자와 정확히 맞춘다", () => {
@@ -22,6 +22,14 @@ describe("sale registration logic", () => {
       "p_dog_name",
       "p_breed",
     ]);
+  });
+
+  it("같은 사업부의 상품명은 공백과 대소문자 차이를 무시해 중복을 찾는다", () => {
+    const products = [{ businessUnitId: "daycare", name: "퍼피 클래스" }];
+
+    expect(normalizeProductName("  퍼피   클래스 ")).toBe("퍼피 클래스");
+    expect(hasProductNameDuplicate(products, "daycare", "퍼피  클래스")).toBe(true);
+    expect(hasProductNameDuplicate(products, "hotel", "퍼피 클래스")).toBe(false);
   });
 
   it("반려견 완전 일치를 가장 먼저 정렬한다", () => {

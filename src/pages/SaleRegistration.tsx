@@ -49,6 +49,7 @@ import {
   buildQuickPartyRpcPayload,
   defaultRepeatSettings,
   duplicateWarningLevel,
+  hasProductNameDuplicate,
   missingSaleRequirement,
   nextSaleForm,
   partySearchScore,
@@ -79,6 +80,13 @@ interface CategoryOption {
 
 interface ProductOption {
   id: string;
+  businessUnitId: string;
+  categoryId: string;
+  name: string;
+  defaultPrice: number;
+}
+
+interface QuickProductForm {
   businessUnitId: string;
   categoryId: string;
   name: string;
@@ -163,7 +171,8 @@ const loadRepeatSettings = (): RepeatSettings => {
     return defaultRepeatSettings;
   }
 };
-const emptyQuickForm = () => ({ customerName: "", phone: "", dogName: "", breed: "", sex: "", birthDate: "", weight: "" });
+const emptyQuickForm = () => ({ customerName: "", phone: "", dogName: "", breed: "" });
+const emptyQuickProductForm = (): QuickProductForm => ({ businessUnitId: "", categoryId: "", name: "", defaultPrice: 0 });
 const today = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
 const digitsOnly = (value: string) => value.replace(/[^0-9]/g, "");
 const moneyText = (value: number) => Math.max(0, Math.trunc(value || 0)).toLocaleString("ko-KR");
@@ -236,6 +245,7 @@ export function SaleFormPage() {
   const productSectionRef = useRef<HTMLDivElement>(null);
   const savingRef = useRef(false);
   const quickSavingRef = useRef(false);
+  const quickProductSavingRef = useRef(false);
   const [repeatSettings, setRepeatSettings] = useState(loadRepeatSettings);
   const repeatSettingsRef = useRef(repeatSettings);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
@@ -259,12 +269,15 @@ export function SaleFormPage() {
   const [productQuery, setProductQuery] = useState("");
   const [mobileInputActive, setMobileInputActive] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [quickDetailsOpen, setQuickDetailsOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickSaving, setQuickSaving] = useState(false);
   const [quickError, setQuickError] = useState("");
   const [quickAddingToExisting, setQuickAddingToExisting] = useState(false);
   const [quickForm, setQuickForm] = useState(emptyQuickForm);
+  const [quickProductOpen, setQuickProductOpen] = useState(false);
+  const [quickProductSaving, setQuickProductSaving] = useState(false);
+  const [quickProductError, setQuickProductError] = useState("");
+  const [quickProductForm, setQuickProductForm] = useState<QuickProductForm>(emptyQuickProductForm);
   const [duplicateWarning, setDuplicateWarning] = useState<{ sale: RecentSale; level: "strong" | "weak" } | null>(null);
   const [successSummary, setSuccessSummary] = useState<SuccessSummary | null>(null);
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
@@ -566,17 +579,15 @@ export function SaleFormPage() {
 
   const openQuickRegistration = (customer?: CustomerOption) => {
     setQuickForm({ ...emptyQuickForm(), customerName: customer?.name ?? "", phone: formatPhone(customer?.phone ?? "") });
-    setQuickError(""); setQuickAddingToExisting(Boolean(customer)); setQuickDetailsOpen(false); setQuickOpen(true);
+    setQuickError(""); setQuickAddingToExisting(Boolean(customer)); setQuickOpen(true);
   };
 
   const submitQuickRegistration = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault(); if (quickSavingRef.current) return;
     const customerName = quickForm.customerName.trim(); const dogName = quickForm.dogName.trim();
-    const weight = quickForm.weight === "" ? null : Number(quickForm.weight);
     if (!customerName || !quickForm.phone || !dogName) { setQuickError("반려견 이름, 보호자 이름과 연락처를 입력해 주세요."); return; }
     if (!isValidPhone(quickForm.phone)) { setQuickError("연락처는 010으로 시작하는 11자리 번호로 입력해 주세요."); requestAnimationFrame(() => quickPhoneRef.current?.focus()); return; }
     if (duplicateCustomer && !quickAddingToExisting) { setQuickError("동일 연락처의 기존 보호자를 선택하거나 새 반려견 추가를 선택해 주세요."); return; }
-    if (weight !== null && (!Number.isFinite(weight) || weight <= 0)) { setQuickError("몸무게는 0보다 큰 값으로 입력해 주세요."); return; }
     quickSavingRef.current = true; setQuickSaving(true); setQuickError("");
     const result = await supabase.rpc("quick_register_sale_party", buildQuickPartyRpcPayload({
       customerName,
@@ -589,10 +600,70 @@ export function SaleFormPage() {
     const first = ((result.data ?? []) as QuickPartyResult[])[0];
     if (!first) { setQuickError("간편 등록 결과를 확인할 수 없습니다."); return; }
     setCustomers((current) => current.some((item) => item.id === first.customer_id) ? current : [...current, { id: first.customer_id, name: first.customer_name, phone: first.customer_phone }].sort((a, b) => (a.name || "").localeCompare(b.name || "", "ko")));
-    if (first.dog_id && first.dog_name) setDogs((current) => current.some((dog) => dog.id === first.dog_id) ? current : [...current, { id: first.dog_id!, name: first.dog_name!, breed: quickForm.breed.trim() || null, birthDate: quickForm.birthDate || null, customerId: first.customer_id, customerName: first.customer_name, customerPhone: first.customer_phone }].sort((a, b) => a.name.localeCompare(b.name, "ko")));
+    if (first.dog_id && first.dog_name) setDogs((current) => current.some((dog) => dog.id === first.dog_id) ? current : [...current, { id: first.dog_id!, name: first.dog_name!, breed: quickForm.breed.trim() || null, birthDate: null, customerId: first.customer_id, customerName: first.customer_name, customerPhone: first.customer_phone }].sort((a, b) => a.name.localeCompare(b.name, "ko")));
     setForm((current) => ({ ...current, customerId: first.customer_id, dogId: first.dog_id ?? "" }));
     setQuickOpen(false); setSearch("");
     setNotice(first.customer_created ? "신규 보호자와 반려견을 등록하고 선택했습니다." : "기존 보호자에게 반려견을 연결하고 선택했습니다.");
+  };
+
+  const openQuickProductRegistration = () => {
+    setQuickProductError("");
+    setQuickProductForm({
+      businessUnitId: form.businessUnitId,
+      categoryId: form.categoryId,
+      name: productQuery.trim(),
+      defaultPrice: 0,
+    });
+    setQuickProductOpen(true);
+  };
+
+  const submitQuickProduct = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (quickProductSavingRef.current) return;
+    const formElement = event.currentTarget;
+    const focus = (name: string) => requestAnimationFrame(() => {
+      const field = formElement.elements.namedItem(name);
+      if (field instanceof HTMLElement) field.focus();
+    });
+    const unit = businessUnits.find((item) => item.id === quickProductForm.businessUnitId);
+    const category = categories.find((item) => item.id === quickProductForm.categoryId);
+    const name = quickProductForm.name.trim();
+    if (!unit) { setQuickProductError("사업부를 선택해 주세요."); focus("quickProductBusinessUnitId"); return; }
+    if (!category || category.businessUnitId !== unit.id) { setQuickProductError("해당 사업부의 상품 분류를 선택해 주세요."); focus("quickProductCategoryId"); return; }
+    if (!name) { setQuickProductError("상품명을 입력해 주세요."); focus("quickProductName"); return; }
+    if (!Number.isFinite(quickProductForm.defaultPrice) || quickProductForm.defaultPrice < 0) { setQuickProductError("기본 판매가는 0원 이상으로 입력해 주세요."); focus("quickProductDefaultPrice"); return; }
+    if (hasProductNameDuplicate(products, unit.id, name)) { setQuickProductError("같은 사업부에 동일하거나 공백만 다른 상품명이 이미 존재합니다. 기존 상품을 선택해 주세요."); focus("quickProductName"); return; }
+
+    quickProductSavingRef.current = true; setQuickProductSaving(true); setQuickProductError("");
+    const result = await supabase.from("products").insert({
+      business_unit_id: unit.id,
+      category_id: category.id,
+      name,
+      default_price: Math.trunc(quickProductForm.defaultPrice),
+      sort_order: products.length + 1,
+      is_active: true,
+      memo: null,
+    }).select("id, business_unit_id, category_id, name, default_price").single();
+    quickProductSavingRef.current = false; setQuickProductSaving(false);
+    if (result.error) {
+      setQuickProductError(result.error.code === "23505"
+        ? "같은 사업부에 동일한 상품명이 이미 존재합니다. 기존 상품을 선택해 주세요."
+        : result.error.code === "42501"
+          ? "상품 등록 권한이 없습니다. 직원 상품 등록 정책 적용 여부를 확인해 주세요."
+          : "상품을 등록하지 못했습니다. 잠시 후 다시 시도하세요.");
+      return;
+    }
+    const created: ProductOption = {
+      id: result.data.id,
+      businessUnitId: result.data.business_unit_id,
+      categoryId: result.data.category_id,
+      name: result.data.name,
+      defaultPrice: result.data.default_price,
+    };
+    setProducts((current) => [...current, created].sort((a, b) => a.name.localeCompare(b.name, "ko")));
+    selectProduct(created);
+    setQuickProductOpen(false);
+    setNotice("새 상품을 등록하고 선택했습니다.");
   };
 
   const renderProductGroup = (title: string, description: string, items: ProductRecommendation[]) => items.length ? <section className="space-y-2" aria-label={title}>
@@ -631,7 +702,7 @@ export function SaleFormPage() {
         {(form.customerId || form.dogId) && <div className="mt-5 border-t border-border pt-5"><div className="mb-3 flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Clock3 size={16} className="text-primary" /><h3 className="text-sm font-semibold text-text-primary">최근 거래</h3></div><div className="flex gap-1"><Button type="button" variant="ghost" onClick={() => setTimelineExpanded((value) => !value)}>{timelineExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}{timelineExpanded ? "접기" : "최대 5건"}</Button><Button type="button" variant="ghost" onClick={() => requestNavigation("/sales")}>전체 내역</Button></div></div>{selectedRecentSales.length ? <div className="space-y-2">{selectedRecentSales.slice(0, timelineExpanded ? 5 : 2).map((sale) => <button key={sale.id} type="button" onClick={() => requestNavigation(`/sales?detail=${sale.id}`)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border border-border p-3 text-left transition duration-200 hover:border-primary/25 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"><span className="min-w-0"><strong className="block truncate text-sm text-text-primary">{sale.productName}</strong><span className="mt-1 block truncate text-xs text-text-muted">{sale.saleDate} · {sale.businessUnitName} · {sale.staffName || "담당자 미등록"}</span></span><span className="shrink-0 text-right"><strong className="block text-sm tabular-nums text-text-primary">{won(sale.paidAmount)}</strong><StatusBadge status={sale.status} /></span></button>)}</div> : <p className="rounded-xl bg-surface-secondary p-4 text-sm text-text-muted">최근 거래가 없습니다.</p>}</div>}
       </Card>
 
-      <Card className="mt-4 p-5 sm:p-6"><div ref={productSectionRef} className="scroll-mt-5"><div className="mb-5 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-primary">2 · 상품 선택</p><h2 className="mt-1 text-lg font-semibold text-text-primary">추천 상품</h2></div>{form.productId && <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success"><CheckCircle2 size={16} />선택 완료</span>}</div><div className="space-y-5">{renderProductGroup("최근 이용 상품", "최근 사용한 상품부터 표시합니다.", recommendationGroups.recent)}{renderProductGroup("자주 이용한 상품", "이 고객의 이용 빈도 기준입니다.", recommendationGroups.frequent)}{renderProductGroup("사업부 인기 상품", "현재 사업부에서 자주 등록된 상품입니다.", recommendationGroups.popular)}<section className="space-y-3"><div className="flex items-center gap-2"><PackageCheck size={16} className="text-primary" /><h3 className="text-sm font-semibold text-text-primary">전체 상품 검색 및 선택</h3></div><SearchBox aria-label="상품명 검색" value={productQuery} placeholder="상품명 검색" onClear={() => setProductQuery("")} onChange={(event) => setProductQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} />{productSearchResults.length > 0 && <div className="grid gap-2 sm:grid-cols-2">{productSearchResults.map((product) => <button key={product.id} type="button" aria-pressed={form.productId === product.id} onClick={() => selectProduct(product)} className={cn("flex min-h-14 items-center justify-between rounded-xl border px-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", form.productId === product.id ? "border-primary bg-primary text-white" : "border-border hover:border-primary/30 hover:bg-primary-subtle")}><span className="truncate text-sm font-semibold">{product.name}</span><span className="ml-3 shrink-0 text-sm tabular-nums">{won(product.defaultPrice)}</span></button>)}</div>}<div className="grid gap-4 md:grid-cols-3"><Field label="사업부" required><Select name="businessUnitId" value={form.businessUnitId} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, businessUnitId: event.target.value, categoryId: "", productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0 }))}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field><Field label="상품 분류" required><Select name="categoryId" value={form.categoryId} disabled={saving || !form.businessUnitId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value, productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0 }))}><option value="">분류 선택</option>{filteredCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field><Field label="상품" required><Select name="productId" value={form.productId} disabled={saving || !form.categoryId} onChange={(event) => { const product = products.find((item) => item.id === event.target.value); if (product) selectProduct(product); else setForm((current) => ({ ...current, productId: "", originalAmount: 0, paidAmount: 0 })); }}><option value="">상품 선택</option>{filteredProducts.map((item) => <option key={item.id} value={item.id}>{item.name} · {won(item.defaultPrice)}</option>)}</Select></Field></div></section></div></div></Card>
+      <Card className="mt-4 p-5 sm:p-6"><div ref={productSectionRef} className="scroll-mt-5"><div className="mb-5 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-primary">2 · 상품 선택</p><h2 className="mt-1 text-lg font-semibold text-text-primary">추천 상품</h2></div>{form.productId && <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success"><CheckCircle2 size={16} />선택 완료</span>}</div><div className="space-y-5">{renderProductGroup("최근 이용 상품", "최근 사용한 상품부터 표시합니다.", recommendationGroups.recent)}{renderProductGroup("자주 이용한 상품", "이 고객의 이용 빈도 기준입니다.", recommendationGroups.frequent)}{renderProductGroup("사업부 인기 상품", "현재 사업부에서 자주 등록된 상품입니다.", recommendationGroups.popular)}<section className="space-y-3"><div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2"><PackageCheck size={16} className="text-primary" /><h3 className="text-sm font-semibold text-text-primary">전체 상품 검색 및 선택</h3></div><Button type="button" variant="ghost" onClick={openQuickProductRegistration}><Plus size={16} />새 상품</Button></div><SearchBox aria-label="상품명 검색" value={productQuery} placeholder="상품명 검색" onClear={() => setProductQuery("")} onChange={(event) => setProductQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} />{productSearchResults.length > 0 ? <div className="grid gap-2 sm:grid-cols-2">{productSearchResults.map((product) => <button key={product.id} type="button" aria-pressed={form.productId === product.id} onClick={() => selectProduct(product)} className={cn("flex min-h-14 items-center justify-between rounded-xl border px-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", form.productId === product.id ? "border-primary bg-primary text-white" : "border-border hover:border-primary/30 hover:bg-primary-subtle")}><span className="truncate text-sm font-semibold">{product.name}</span><span className="ml-3 shrink-0 text-sm tabular-nums">{won(product.defaultPrice)}</span></button>)}</div> : productQuery.trim() && <div className="rounded-2xl border border-dashed border-border bg-surface-secondary p-4 text-center"><p className="text-sm text-text-secondary">검색된 상품이 없습니다.</p><Button type="button" variant="secondary" className="mt-3" onClick={openQuickProductRegistration}><Plus size={16} />“{productQuery.trim()}” 새 상품 등록</Button></div>}<div className="grid gap-4 md:grid-cols-3"><Field label="사업부" required><Select name="businessUnitId" value={form.businessUnitId} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, businessUnitId: event.target.value, categoryId: "", productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0 }))}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field><Field label="상품 분류" required><Select name="categoryId" value={form.categoryId} disabled={saving || !form.businessUnitId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value, productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0 }))}><option value="">분류 선택</option>{filteredCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field><Field label="상품" required><Select name="productId" value={form.productId} disabled={saving || !form.categoryId} onChange={(event) => { const product = products.find((item) => item.id === event.target.value); if (product) selectProduct(product); else setForm((current) => ({ ...current, productId: "", originalAmount: 0, paidAmount: 0 })); }}><option value="">상품 선택</option>{filteredProducts.map((item) => <option key={item.id} value={item.id}>{item.name} · {won(item.defaultPrice)}</option>)}</Select></Field></div></section></div></div></Card>
 
       <Card className="mt-4 p-5 sm:p-6"><div className="mb-5"><p className="text-xs font-semibold text-primary">3 · 결제 확인</p><h2 className="mt-1 text-lg font-semibold text-text-primary">결제 정보와 저장</h2></div><div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"><div className="space-y-5"><div className="grid gap-5 md:grid-cols-2"><Field label="정상 판매가" required help="상품 기본가를 불러오며 수정할 수 있습니다."><CurrencyInput name="originalAmount" value={form.originalAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, originalAmount: value }))} /></Field><Field label="실제 결제 금액" required><CurrencyInput name="paidAmount" value={form.paidAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, paidAmount: value }))} /></Field><Field label="결제 수단" required><Select name="paymentMethod" value={form.paymentMethod} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))}><option value="card">카드</option><option value="transfer">계좌이체</option><option value="cash">현금</option><option value="outstanding">미수</option></Select></Field><Field label="구분" required><Select name="customerType" value={form.customerType} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, customerType: event.target.value }))}><option value="new">신규</option><option value="renewal">재등록</option></Select></Field><Field label="매출 일자" required><Input name="saleDate" type="date" value={form.saleDate} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, saleDate: event.target.value }))} /></Field><Field label="담당자" required><Select name="staffId" value={form.staffId} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, staffId: event.target.value }))}>{staff.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field></div><button type="button" disabled={saving} className="flex min-h-12 w-full items-center justify-between rounded-xl border border-border bg-surface-secondary px-4 text-left text-sm font-semibold text-text-secondary transition hover:border-primary/20 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" onClick={() => setAdvancedOpen((value) => !value)} aria-expanded={advancedOpen}>할인·환불·미수금 고급 옵션<ChevronDown size={18} className={`transition-transform duration-200 ${advancedOpen ? "rotate-180" : ""}`} /></button>{advancedOpen && <div className="grid gap-5 rounded-2xl border border-border bg-surface-secondary p-4 md:grid-cols-3"><Field label="할인 금액"><CurrencyInput name="discountAmount" value={form.discountAmount} max={form.originalAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, discountAmount: value }))} /></Field><Field label="환불 금액"><CurrencyInput name="refundAmount" value={form.refundAmount} max={form.paidAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, refundAmount: value }))} /></Field><Field label="미수금"><CurrencyInput name="outstandingAmount" value={form.outstandingAmount} max={expectedAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, outstandingAmount: value }))} /></Field></div>}<Field label="메모"><Textarea name="memo" rows={3} maxLength={500} placeholder="전달할 업무 메모가 있을 때만 입력하세요." value={form.memo} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, memo: event.target.value }))} /></Field><div className="rounded-2xl border border-border bg-surface-secondary p-4"><div className="mb-3 flex items-center gap-2"><Settings2 size={16} className="text-primary" /><p className="text-sm font-semibold text-text-primary">다음 등록에 유지</p></div><div className="grid gap-1 sm:grid-cols-2">{([ ["keepBusinessUnit", "사업부"], ["keepStaff", "담당자"], ["keepProduct", "상품"], ["keepPaymentMethod", "결제수단"] ] as const).map(([key, label]) => <label key={key} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-sm text-text-secondary hover:bg-white"><input type="checkbox" className="h-4 w-4 accent-primary" checked={repeatSettings[key]} disabled={saving || (key === "keepBusinessUnit" && repeatSettings.keepProduct)} onChange={(event) => updateRepeatSetting(key, event.target.checked)} />{label} 유지</label>)}</div></div></div><aside className="h-fit rounded-2xl border border-primary/15 bg-primary-subtle p-5 lg:sticky lg:top-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">결제 요약</p><p className="mt-3 truncate text-base font-semibold text-text-primary">{selectedDog?.name || selectedCustomer?.name || "고객 미선택"}</p><p className="mt-1 truncate text-sm text-text-secondary">{products.find((product) => product.id === form.productId)?.name || "상품 미선택"}</p><div className="my-5 border-y border-primary/10 py-5"><p className="text-xs text-text-secondary">최종 결제 금액</p><strong className="mt-1 block text-3xl tabular-nums text-primary">{won(Math.max(form.paidAmount, 0))}</strong></div><dl className="space-y-2 text-sm"><div className="flex justify-between gap-3"><dt className="text-text-muted">사업부</dt><dd className="font-medium text-text-primary">{businessUnits.find((unit) => unit.id === form.businessUnitId)?.name || "-"}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">원가 / 할인</dt><dd className="text-right font-medium text-text-primary">{won(form.originalAmount)} / {won(form.discountAmount)}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">결제수단</dt><dd className="font-medium text-text-primary">{paymentLabel[form.paymentMethod] || form.paymentMethod}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">담당자</dt><dd className="font-medium text-text-primary">{staff.find((item) => item.id === form.staffId)?.name || "-"}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">미수금</dt><dd className={cn("font-medium", form.outstandingAmount ? "text-warning" : "text-text-primary")}>{form.outstandingAmount ? won(form.outstandingAmount) : "없음"}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">메모</dt><dd className="font-medium text-text-primary">{form.memo.trim() ? "있음" : "없음"}</dd></div></dl>{error && <div id="sale-form-error" role="alert" className="mt-4 rounded-xl border border-error/15 bg-error-soft px-3 py-2.5 text-sm font-medium text-error">{error}</div>}<p className={cn("mt-4 text-sm", missingRequirement ? "text-text-secondary" : "font-semibold text-success")}>{missingRequirement || "저장할 준비가 완료되었습니다."}</p><div className="mt-4 hidden gap-2 lg:grid"><Button disabled={!canSave}>{saving && <LoaderCircle className="animate-spin" size={17} />}{saving ? "등록 중…" : `매출 저장 · ${won(Math.max(netAmount, 0))}`}</Button><Button type="button" variant="ghost" disabled={saving} onClick={resetAll}>입력 초기화</Button></div></aside></div></Card>
       {!mobileInputActive && <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden"><div className="mx-auto max-w-5xl"><p className="mb-2 truncate text-center text-xs text-text-secondary">{missingRequirement || "저장할 준비가 완료되었습니다."}</p><div className="grid grid-cols-[auto_1fr] gap-2"><Button type="button" variant="secondary" disabled={saving} onClick={resetAll}>초기화</Button><Button disabled={!canSave}>{saving && <LoaderCircle className="animate-spin" size={17} />}{saving ? "등록 중…" : `매출 저장 · ${won(Math.max(netAmount, 0))}`}</Button></div></div></div>}
@@ -648,10 +719,21 @@ export function SaleFormPage() {
         <Field label="반려견 이름" required><Input data-modal-initial name="quickDogName" value={quickForm.dogName} disabled={quickSaving} onChange={(event) => setQuickForm((current) => ({ ...current, dogName: event.target.value }))} /></Field>
         <div className="grid gap-4 sm:grid-cols-2"><Field label="보호자 이름" required><Input name="quickCustomerName" value={quickForm.customerName} disabled={quickSaving || Boolean(duplicateCustomer)} onChange={(event) => setQuickForm((current) => ({ ...current, customerName: event.target.value }))} /></Field><Field label="연락처" required><Input ref={quickPhoneRef} name="quickPhone" inputMode="numeric" autoComplete="tel" placeholder="010-1234-5678" value={quickForm.phone} disabled={quickSaving || quickAddingToExisting} onChange={(event) => { setQuickForm((current) => ({ ...current, phone: formatPhone(event.target.value) })); setQuickAddingToExisting(false); setQuickError(""); }} /></Field></div>
         {duplicateCustomer && <div className="rounded-2xl border border-warning/20 bg-warning-soft p-4"><div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 shrink-0 text-warning" size={18} /><div><strong className="text-sm text-text-primary">동일 연락처의 기존 보호자가 있습니다.</strong><p className="mt-1 text-sm text-text-secondary">보호자: {duplicateCustomer.name || "이름 미등록"}</p><p className="mt-1 text-xs text-text-muted">등록된 반려견: {dogs.filter((dog) => dog.customerId === duplicateCustomer.id).map((dog) => dog.name).join(", ") || "없음"}</p></div></div><div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => { selectParty(duplicateCustomer.id); setQuickOpen(false); }}>기존 고객 선택</Button><Button type="button" variant={quickAddingToExisting ? "primary" : "secondary"} onClick={() => { setQuickAddingToExisting(true); setQuickForm((current) => ({ ...current, customerName: duplicateCustomer.name ?? current.customerName })); }}>새 반려견 추가</Button><Button type="button" variant="ghost" onClick={() => { setQuickForm((current) => ({ ...current, phone: "", customerName: "" })); setQuickAddingToExisting(false); requestAnimationFrame(() => quickPhoneRef.current?.focus()); }}>다른 연락처 입력</Button></div></div>}
-        <button type="button" className="flex min-h-11 w-full items-center justify-between rounded-xl border border-border bg-surface-secondary px-4 text-sm font-semibold text-text-secondary" onClick={() => setQuickDetailsOpen((value) => !value)} aria-expanded={quickDetailsOpen}>추가 정보 <span className="flex items-center gap-1 text-xs font-normal text-text-muted">선택 사항 <ChevronDown size={16} className={`transition-transform ${quickDetailsOpen ? "rotate-180" : ""}`} /></span></button>
-        {quickDetailsOpen && <div className="grid gap-4 rounded-2xl border border-border bg-surface-secondary p-4 sm:grid-cols-2"><Field label="견종"><Input value={quickForm.breed} disabled={quickSaving} onChange={(event) => setQuickForm((current) => ({ ...current, breed: event.target.value }))} /></Field><Field label="성별"><Select value={quickForm.sex} disabled={quickSaving} onChange={(event) => setQuickForm((current) => ({ ...current, sex: event.target.value }))}><option value="">미지정</option><option value="male">수컷</option><option value="female">암컷</option></Select></Field><Field label="생년월일"><Input type="date" value={quickForm.birthDate} disabled={quickSaving} onChange={(event) => setQuickForm((current) => ({ ...current, birthDate: event.target.value }))} /></Field><Field label="몸무게(kg)"><Input type="number" min="0.01" step="0.01" inputMode="decimal" value={quickForm.weight} disabled={quickSaving} onChange={(event) => setQuickForm((current) => ({ ...current, weight: event.target.value }))} /></Field></div>}
+        <Field label="견종"><Input name="quickBreed" value={quickForm.breed} disabled={quickSaving} placeholder="선택 입력" onChange={(event) => setQuickForm((current) => ({ ...current, breed: event.target.value }))} /></Field>
         {quickError && <p role="alert" className="rounded-xl bg-error-soft px-4 py-3 text-sm font-medium text-error">{quickError}</p>}
         <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end"><Button type="button" variant="secondary" disabled={quickSaving} onClick={() => setQuickOpen(false)}>취소</Button><Button disabled={quickSaving}>{quickSaving && <LoaderCircle className="animate-spin" size={17} />}{quickSaving ? "등록 중..." : duplicateCustomer ? "반려견 등록 후 선택" : "등록 후 선택"}</Button></div>
+      </form>
+    </Modal>
+
+    <Modal open={quickProductOpen} onClose={() => { if (!quickProductSavingRef.current) setQuickProductOpen(false); }} title="새 상품 등록">
+      <form onSubmit={submitQuickProduct} className="space-y-4">
+        <p className="text-sm leading-6 text-text-secondary">매출 등록에 필요한 활성 상품을 바로 추가합니다. 등록 후 현재 매출에 자동 선택됩니다.</p>
+        <Field label="사업부" required><Select data-modal-initial name="quickProductBusinessUnitId" value={quickProductForm.businessUnitId} disabled={quickProductSaving} onChange={(event) => setQuickProductForm((current) => ({ ...current, businessUnitId: event.target.value, categoryId: "" }))}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field>
+        <Field label="상품 분류" required><Select name="quickProductCategoryId" value={quickProductForm.categoryId} disabled={quickProductSaving || !quickProductForm.businessUnitId} onChange={(event) => setQuickProductForm((current) => ({ ...current, categoryId: event.target.value }))}><option value="">상품 분류 선택</option>{categories.filter((category) => category.businessUnitId === quickProductForm.businessUnitId).map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</Select></Field>
+        <Field label="상품명" required><Input name="quickProductName" value={quickProductForm.name} disabled={quickProductSaving} onChange={(event) => { setQuickProductForm((current) => ({ ...current, name: event.target.value })); setQuickProductError(""); }} /></Field>
+        <Field label="기본 판매가" required><Input name="quickProductDefaultPrice" type="number" min="0" step="1" inputMode="numeric" value={quickProductForm.defaultPrice} disabled={quickProductSaving} onChange={(event) => setQuickProductForm((current) => ({ ...current, defaultPrice: Number(event.target.value) }))} /></Field>
+        {quickProductError && <p id="quick-product-error" role="alert" className="rounded-xl bg-error-soft px-4 py-3 text-sm font-medium text-error">{quickProductError}</p>}
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end"><Button type="button" variant="secondary" disabled={quickProductSaving} onClick={() => setQuickProductOpen(false)}>취소</Button><Button disabled={quickProductSaving}>{quickProductSaving && <LoaderCircle className="animate-spin" size={17} />}{quickProductSaving ? "등록 중..." : "등록 후 선택"}</Button></div>
       </form>
     </Modal>
 

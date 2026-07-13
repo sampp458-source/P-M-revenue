@@ -30,6 +30,15 @@ export function buildQuickPartyRpcPayload({ customerName, phone, dogName, breed 
   };
 }
 
+export function normalizeProductName(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLocaleLowerCase("ko");
+}
+
+export function hasProductNameDuplicate(products: { businessUnitId: string; name: string }[], businessUnitId: string, name: string) {
+  const normalizedName = normalizeProductName(name);
+  return Boolean(normalizedName) && products.some((product) => product.businessUnitId === businessUnitId && normalizeProductName(product.name) === normalizedName);
+}
+
 export function partySearchScore({ query, phoneQuery, dogName, customerName, phone }: { query: string; phoneQuery: string; dogName: string; customerName: string; phone: string }) {
   if (dogName === query) return 0;
   if (dogName.startsWith(query)) return 1;
