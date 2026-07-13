@@ -9,22 +9,25 @@ import {
 } from "react";
 import {
   AlertTriangle,
+  CheckCircle2,
   ChevronDown,
+  ChevronUp,
   Clock3,
   Dog,
+  ExternalLink,
   LoaderCircle,
   PackageCheck,
   Plus,
   ReceiptText,
   Settings2,
   UserRound,
-  X,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   Button,
   Card,
+  ConfirmModal,
   ErrorState,
   Field,
   Input,
@@ -127,6 +130,23 @@ interface PartySearchResult {
   lastSale: RecentSale | null;
 }
 
+interface ProductRecommendation {
+  product: ProductOption;
+  lastUsed: string | null;
+  useCount: number;
+}
+
+interface SuccessSummary {
+  saleId: string;
+  customerId: string;
+  dogId: string;
+  partyName: string;
+  productName: string;
+  paidAmount: number;
+  savedAt: string;
+  staffName: string;
+}
+
 const lastBusinessUnitKey = "pm-last-sale-business-unit";
 const lastStaffKey = "pm-last-sale-staff";
 const lastPaymentMethodKey = "pm-last-sale-payment-method";
@@ -165,6 +185,15 @@ const recentTime = (date: string) => {
     ? `오늘 ${value.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Seoul" })}`
     : value.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric", timeZone: "Asia/Seoul" });
 };
+const paymentLabel: Record<string, string> = { card: "카드", transfer: "계좌이체", cash: "현금", outstanding: "미수" };
+
+function HighlightedText({ text, query }: { text: string; query: string }) {
+  const keyword = query.trim();
+  if (!keyword) return <>{text}</>;
+  const index = text.toLocaleLowerCase("ko").indexOf(keyword.toLocaleLowerCase("ko"));
+  if (index < 0) return <>{text}</>;
+  return <>{text.slice(0, index)}<mark className="rounded bg-warning-soft px-0.5 text-inherit">{text.slice(index, index + keyword.length)}</mark>{text.slice(index + keyword.length)}</>;
+}
 const mapRecentSale = (row: Record<string, unknown>): RecentSale => ({
   id: String(row.id), saleDate: String(row.sale_date), createdAt: String(row.created_at),
   customerId: row.customer_id ? String(row.customer_id) : null, customerName: row.customer_name ? String(row.customer_name) : null,
@@ -203,6 +232,7 @@ export function SaleFormPage() {
   const navigate = useNavigate();
   const searchRef = useRef<HTMLInputElement>(null);
   const quickPhoneRef = useRef<HTMLInputElement>(null);
+  const productSectionRef = useRef<HTMLDivElement>(null);
   const savingRef = useRef(false);
   const quickSavingRef = useRef(false);
   const [repeatSettings, setRepeatSettings] = useState(loadRepeatSettings);
@@ -224,6 +254,9 @@ export function SaleFormPage() {
   const [searchFocused, setSearchFocused] = useState(false);
   const [highlightedResult, setHighlightedResult] = useState(0);
   const [recentSelections, setRecentSelections] = useState<PartySearchResult[]>([]);
+  const [timelineExpanded, setTimelineExpanded] = useState(false);
+  const [productQuery, setProductQuery] = useState("");
+  const [mobileInputActive, setMobileInputActive] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [quickDetailsOpen, setQuickDetailsOpen] = useState(false);
   const [quickOpen, setQuickOpen] = useState(false);
@@ -232,6 +265,8 @@ export function SaleFormPage() {
   const [quickAddingToExisting, setQuickAddingToExisting] = useState(false);
   const [quickForm, setQuickForm] = useState(emptyQuickForm);
   const [duplicateWarning, setDuplicateWarning] = useState<{ sale: RecentSale; level: "strong" | "weak" } | null>(null);
+  const [successSummary, setSuccessSummary] = useState<SuccessSummary | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [form, setForm] = useState({
     saleDate: today(), businessUnitId: loadRepeatSettings().keepBusinessUnit ? stored(lastBusinessUnitKey) : "", customerId: "", dogId: "", categoryId: "", productId: "",
     originalAmount: 0, discountAmount: 0, paidAmount: 0, refundAmount: 0, outstandingAmount: 0,
@@ -334,7 +369,8 @@ export function SaleFormPage() {
 
   const recentParties = useMemo<PartySearchResult[]>(() => {
     const seen = new Set<string>();
-    const fromSales = recentSales.flatMap((sale) => {
+    const orderedSales = [...recentSales.filter((sale) => sale.createdBy === profile?.id), ...recentSales.filter((sale) => sale.createdBy !== profile?.id)];
+    const fromSales = orderedSales.flatMap((sale) => {
       const key = sale.customerId ? `customer:${sale.customerId}` : sale.dogId ? `dog:${sale.dogId}` : "";
       if (!key || seen.has(key)) return [];
       seen.add(key);
@@ -344,21 +380,41 @@ export function SaleFormPage() {
     });
     const fromSelections = recentSelections.filter((party) => !seen.has(party.key));
     return [...fromSales, ...fromSelections].slice(0, 6);
-  }, [customers, dogs, recentSales, recentSelections]);
+  }, [customers, dogs, profile?.id, recentSales, recentSelections]);
 
-  const selectedRecentSales = useMemo(() => recentSales.filter((sale) => form.customerId ? sale.customerId === form.customerId : form.dogId ? sale.dogId === form.dogId : false).slice(0, 5), [form.customerId, form.dogId, recentSales]);
-  const recentProducts = useMemo(() => {
-    const ids: string[] = [];
-    const add = (productId: string) => { if (productId && !ids.includes(productId) && products.some((product) => product.id === productId)) ids.push(productId); };
-    selectedRecentSales.forEach((sale) => add(sale.productId));
-    recentSales.filter((sale) => sale.createdBy === profile?.id).forEach((sale) => add(sale.productId));
-    const frequent = [...recentSales.reduce((map, sale) => {
-      if (!form.businessUnitId || sale.businessUnitId === form.businessUnitId) map.set(sale.productId, (map.get(sale.productId) ?? 0) + 1);
-      return map;
-    }, new Map<string, number>()).entries()].sort((a, b) => b[1] - a[1]);
-    frequent.forEach(([productId]) => add(productId));
-    return ids.slice(0, 4).map((id) => products.find((product) => product.id === id)).filter((product): product is ProductOption => Boolean(product));
-  }, [form.businessUnitId, products, profile?.id, recentSales, selectedRecentSales]);
+  const selectedPartySales = useMemo(() => recentSales.filter((sale) => form.customerId ? sale.customerId === form.customerId : form.dogId ? sale.dogId === form.dogId : false), [form.customerId, form.dogId, recentSales]);
+  const selectedRecentSales = selectedPartySales.slice(0, 5);
+  const recommendationGroups = useMemo(() => {
+    const toRecommendations = (sales: RecentSale[], excluded = new Set<string>(), limit = 4): ProductRecommendation[] => {
+      const stats = new Map<string, { count: number; lastUsed: string }>();
+      sales.forEach((sale) => {
+        if (excluded.has(sale.productId)) return;
+        const current = stats.get(sale.productId);
+        stats.set(sale.productId, { count: (current?.count ?? 0) + 1, lastUsed: current?.lastUsed ?? sale.saleDate });
+      });
+      return [...stats.entries()].map(([productId, stat]) => ({ product: products.find((product) => product.id === productId), ...stat }))
+        .filter((item): item is { product: ProductOption; count: number; lastUsed: string } => Boolean(item.product))
+        .sort((a, b) => b.count - a.count || b.lastUsed.localeCompare(a.lastUsed))
+        .slice(0, limit).map((item) => ({ product: item.product, useCount: item.count, lastUsed: item.lastUsed }));
+    };
+    const recent: ProductRecommendation[] = [];
+    const recentIds = new Set<string>();
+    selectedPartySales.forEach((sale) => {
+      if (recent.length >= 4 || recentIds.has(sale.productId)) return;
+      const product = products.find((item) => item.id === sale.productId);
+      if (product) { recentIds.add(product.id); recent.push({ product, lastUsed: sale.saleDate, useCount: selectedPartySales.filter((item) => item.productId === product.id).length }); }
+    });
+    const frequent = toRecommendations(selectedPartySales, recentIds);
+    const usedIds = new Set([...recentIds, ...frequent.map((item) => item.product.id)]);
+    const popularSource = recentSales.filter((sale) => !form.businessUnitId || sale.businessUnitId === form.businessUnitId);
+    const popular = toRecommendations(popularSource, usedIds);
+    return { recent, frequent, popular };
+  }, [form.businessUnitId, products, recentSales, selectedPartySales]);
+  const productSearchResults = useMemo(() => {
+    const keyword = productQuery.trim().toLocaleLowerCase("ko");
+    if (!keyword) return [];
+    return products.filter((product) => product.name.toLocaleLowerCase("ko").includes(keyword)).slice(0, 8);
+  }, [productQuery, products]);
   const latestSelectedSale = selectedRecentSales[0] ?? null;
   const missingRequirement = missingSaleRequirement({ hasParty: Boolean(form.customerId || form.dogId), businessUnitId: form.businessUnitId, productId: form.productId, paidAmount: form.paidAmount, staffId: form.staffId });
   const canSave = !missingRequirement && !saving;
@@ -368,8 +424,14 @@ export function SaleFormPage() {
   }, [customers, quickForm.phone]);
 
   const selectProduct = (product: ProductOption) => {
+    if (form.productId === product.id) {
+      setForm((current) => ({ ...current, productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0, refundAmount: 0, outstandingAmount: 0 }));
+      return;
+    }
     setForm((current) => ({ ...current, businessUnitId: product.businessUnitId, categoryId: product.categoryId, productId: product.id, originalAmount: product.defaultPrice, discountAmount: 0, paidAmount: product.defaultPrice, refundAmount: 0, outstandingAmount: 0 }));
+    setProductQuery("");
     setError("");
+    requestAnimationFrame(() => document.querySelector<HTMLSelectElement>('select[name="paymentMethod"]')?.focus());
   };
 
   const updateRepeatSetting = (key: keyof RepeatSettings, checked: boolean) => {
@@ -387,12 +449,14 @@ export function SaleFormPage() {
       setRecentSelections((current) => [party, ...current.filter((item) => item.key !== key)].slice(0, 6));
     }
     setForm((current) => ({ ...current, customerId: customerId ?? "", dogId: nextDogId ?? "" }));
-    setSearch(""); setSearchFocused(false); setError("");
+    setSearch(""); setSearchFocused(false); setTimelineExpanded(false); setError("");
+    searchRef.current?.blur();
+    requestAnimationFrame(() => productSectionRef.current?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }));
   };
 
   const clearParty = () => {
-    setForm((current) => ({ ...current, customerId: "", dogId: "" }));
-    setSearch(""); requestAnimationFrame(() => searchRef.current?.focus());
+    setForm((current) => ({ ...current, customerId: "", dogId: "", ...(!repeatSettings.keepProduct ? { categoryId: "", productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0, refundAmount: 0, outstandingAmount: 0 } : {}) }));
+    setSearch(""); setTimelineExpanded(false); requestAnimationFrame(() => searchRef.current?.focus());
   };
 
   const resetAfterSave = () => {
@@ -402,9 +466,27 @@ export function SaleFormPage() {
     requestAnimationFrame(() => searchRef.current?.focus());
   };
 
+  const resetForSameParty = () => {
+    setForm((current) => ({ ...current, categoryId: "", productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0, refundAmount: 0, outstandingAmount: 0, memo: "" }));
+    setAdvancedOpen(false); setError(""); setSuccessSummary(null);
+    requestAnimationFrame(() => productSectionRef.current?.scrollIntoView({ behavior: "auto", block: "start" }));
+  };
+
+  const resetForNewParty = () => {
+    setForm((current) => nextSaleForm(current, { ...repeatSettings, keepProduct: false }, { today: today(), defaultStaffId: profile?.id ?? "", productDefaultPrice: null }));
+    setAdvancedOpen(false); setError(""); setSearch(""); setSuccessSummary(null);
+    requestAnimationFrame(() => searchRef.current?.focus());
+  };
+
   const resetAll = () => {
     setForm((current) => ({ saleDate: today(), businessUnitId: current.businessUnitId, customerId: "", dogId: "", categoryId: "", productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0, refundAmount: 0, outstandingAmount: 0, paymentMethod: "card", customerType: "new", staffId: current.staffId, memo: "" }));
     setAdvancedOpen(false); setError(""); setSearch(""); requestAnimationFrame(() => searchRef.current?.focus());
+  };
+
+  const hasDraft = Boolean(form.customerId || form.dogId || form.productId || form.memo.trim() || form.discountAmount || form.outstandingAmount);
+  const requestNavigation = (path: string) => {
+    if (hasDraft) setPendingNavigation(path);
+    else navigate(path);
   };
 
   const validate = (formElement: HTMLFormElement) => {
@@ -441,11 +523,24 @@ export function SaleFormPage() {
       setError(result.error.code === "42501" ? "권한이 없습니다." : result.error.message.includes("마감된 월") ? "마감된 월에는 매출을 등록할 수 없습니다." : result.error.code === "23503" || result.error.code === "23514" ? "입력한 금액 또는 선택 항목을 다시 확인해 주세요." : `매출 저장 실패: ${result.error.message}`);
       return;
     }
-    setRecentSales((current) => [mapRecentSale(result.data as Record<string, unknown>), ...current].slice(0, 100));
+    const savedSale = mapRecentSale(result.data as Record<string, unknown>);
+    setRecentSales((current) => [savedSale, ...current].slice(0, 100));
     const savedParty = selectedDog?.name || selectedCustomer?.name || "보호자 지정 매출";
     const savedProduct = products.find((product) => product.id === form.productId)?.name || "상품";
-    setNotice(`${savedParty} · ${savedProduct} · ${won(form.paidAmount)} 저장 완료`);
-    resetAfterSave();
+    setSuccessSummary({ saleId: savedSale.id, customerId: form.customerId, dogId: form.dogId, partyName: savedParty, productName: savedProduct, paidAmount: form.paidAmount, savedAt: savedSale.createdAt, staffName: staff.find((item) => item.id === form.staffId)?.name ?? profile?.name ?? "담당자 미등록" });
+  };
+
+  const findDuplicate = async () => {
+    const partyFilter = form.customerId ? `customer_id.eq.${form.customerId}` : `dog_id.eq.${form.dogId}`;
+    const duplicateResult = await supabase.from("sales").select(recentSaleFields)
+      .eq("product_id", form.productId).eq("sale_date", today()).neq("status", "cancelled")
+      .or(partyFilter).order("created_at", { ascending: false }).limit(10);
+    if (duplicateResult.error) return { error: duplicateResult.error.message, warning: null };
+    const candidates = (duplicateResult.data ?? []).map((row) => mapRecentSale(row as Record<string, unknown>));
+    const currentDuplicate = { now: Date.now(), today: today(), businessUnitId: form.businessUnitId, paidAmount: Math.trunc(form.paidAmount) };
+    const strong = candidates.find((sale) => duplicateWarningLevel(sale, currentDuplicate) === "strong");
+    const weak = candidates.find((sale) => duplicateWarningLevel(sale, currentDuplicate) === "weak");
+    return { error: null, warning: strong || weak ? { sale: strong ?? weak!, level: strong ? "strong" as const : "weak" as const } : null };
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
@@ -453,16 +548,18 @@ export function SaleFormPage() {
     setError("");
     if (!validate(event.currentTarget)) return;
     savingRef.current = true; setSaving(true);
-    const partyFilter = form.customerId ? `customer_id.eq.${form.customerId}` : `dog_id.eq.${form.dogId}`;
-    const duplicateResult = await supabase.from("sales").select(recentSaleFields)
-      .eq("product_id", form.productId).eq("sale_date", today()).neq("status", "cancelled")
-      .or(partyFilter).order("created_at", { ascending: false }).limit(10);
-    if (duplicateResult.error) { savingRef.current = false; setSaving(false); setError(`중복 매출 확인 실패: ${duplicateResult.error.message}`); return; }
-    const candidates = (duplicateResult.data ?? []).map((row) => mapRecentSale(row as Record<string, unknown>));
-    const currentDuplicate = { now: Date.now(), today: today(), businessUnitId: form.businessUnitId, paidAmount: Math.trunc(form.paidAmount) };
-    const strong = candidates.find((sale) => duplicateWarningLevel(sale, currentDuplicate) === "strong");
-    const weak = candidates.find((sale) => duplicateWarningLevel(sale, currentDuplicate) === "weak");
-    if (strong || weak) { savingRef.current = false; setSaving(false); setDuplicateWarning({ sale: strong ?? weak!, level: strong ? "strong" : "weak" }); return; }
+    const duplicate = await findDuplicate();
+    if (duplicate.error) { savingRef.current = false; setSaving(false); setError(`중복 매출 확인 실패: ${duplicate.error}`); return; }
+    if (duplicate.warning) { savingRef.current = false; setSaving(false); setDuplicateWarning(duplicate.warning); return; }
+    await persistSale();
+  };
+
+  const confirmDuplicate = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true; setSaving(true);
+    const recheck = await findDuplicate();
+    if (recheck.error) { savingRef.current = false; setSaving(false); setDuplicateWarning(null); setError(`중복 매출 재확인 실패: ${recheck.error}`); return; }
+    setDuplicateWarning(null);
     await persistSale();
   };
 
@@ -492,61 +589,53 @@ export function SaleFormPage() {
     setNotice(first.customer_created ? "신규 보호자와 반려견을 등록하고 선택했습니다." : "기존 보호자에게 반려견을 연결하고 선택했습니다.");
   };
 
+  const renderProductGroup = (title: string, description: string, items: ProductRecommendation[]) => items.length ? <section className="space-y-2" aria-label={title}>
+    <div><h3 className="text-sm font-semibold text-text-primary">{title}</h3><p className="mt-0.5 text-xs text-text-muted">{description}</p></div>
+    <div className="flex snap-x gap-2 overflow-x-auto pb-2">
+      {items.map(({ product, lastUsed, useCount }) => <button key={product.id} type="button" aria-pressed={form.productId === product.id} onClick={() => selectProduct(product)} className={cn("min-h-24 min-w-48 snap-start rounded-2xl border p-3.5 text-left transition duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2", form.productId === product.id ? "border-primary bg-primary text-white shadow-sm" : "border-border bg-surface hover:border-primary/30 hover:bg-primary-subtle")}>
+        <strong className="block truncate text-sm">{product.name}</strong>
+        <span className={cn("mt-2 block text-base font-bold tabular-nums", form.productId === product.id ? "text-white" : "text-text-primary")}>{won(product.defaultPrice)}</span>
+        <span className={cn("mt-1 block truncate text-xs", form.productId === product.id ? "text-blue-100" : "text-text-muted")}>{businessUnits.find((unit) => unit.id === product.businessUnitId)?.name || "사업부"}{lastUsed ? ` · ${lastUsed}` : useCount ? ` · ${useCount}회` : ""}</span>
+      </button>)}
+    </div>
+  </section> : null;
+
   if (loading) return <><PageHeader title="매출 등록" description="고객 선택부터 결제까지 한 화면에서 빠르게 등록합니다." /><Card><LoadingState /></Card></>;
   if (loadError) return <><PageHeader title="매출 등록" description="고객 선택부터 결제까지 한 화면에서 빠르게 등록합니다." /><Card><ErrorState title={loadError} retry={() => void loadOptions()} /></Card></>;
 
   return <>
-    <PageHeader title="매출 등록" description="반려견 이름을 먼저 검색하면 가장 빠르게 등록할 수 있습니다." />
-    <form onSubmit={submit} className="mx-auto max-w-5xl pb-24 lg:pb-0">
-      <Card className="relative z-10 p-5 sm:p-6">
-        <div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">Step 1</p><h2 className="mt-1 text-lg font-semibold text-text-primary">고객·반려견 선택</h2></div>{(form.customerId || form.dogId) && <Button type="button" variant="ghost" onClick={clearParty}><X size={16} />선택 해제</Button>}</div>
+    <PageHeader title="매출 등록" description="고객과 상품을 선택하면 결제 정보가 자동으로 준비됩니다." />
+    <form onSubmit={submit} className="mx-auto max-w-6xl pb-28 lg:pb-4" aria-describedby={error ? "sale-form-error" : undefined} onFocusCapture={(event) => setMobileInputActive(event.target instanceof HTMLElement && event.target.matches("input, select, textarea"))} onBlurCapture={(event) => { const formElement = event.currentTarget; window.setTimeout(() => setMobileInputActive(Boolean(formElement.contains(document.activeElement) && document.activeElement instanceof HTMLElement && document.activeElement.matches("input, select, textarea"))), 0); }}>
+      <Card className="relative z-20 p-5 sm:p-6">
+        <div className="mb-4 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-primary">1 · 고객 선택</p><h2 className="mt-1 text-lg font-semibold text-text-primary">고객·반려견</h2></div>{(form.customerId || form.dogId) && <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success"><CheckCircle2 size={16} />선택 완료</span>}</div>
         {!form.customerId && !form.dogId ? <>
           <div className="relative">
-            <SearchBox inputRef={searchRef} value={search} role="combobox" aria-autocomplete="list" aria-expanded={searchFocused && Boolean(search.trim())} aria-controls="sale-party-search-results" aria-activedescendant={searchResults[highlightedResult] ? `sale-party-${searchResults[highlightedResult].key.replace(":", "-")}` : undefined} placeholder="반려견 이름, 보호자 이름 또는 전화번호 검색" autoComplete="off" onFocus={() => setSearchFocused(true)} onBlur={() => setTimeout(() => setSearchFocused(false), 120)} onChange={(event) => setSearch(event.target.value)} onClear={() => setSearch("")} onKeyDown={(event) => {
+            <SearchBox inputRef={searchRef} aria-label="고객과 반려견 검색" value={search} role="combobox" aria-autocomplete="list" aria-expanded={searchFocused && Boolean(search.trim())} aria-controls="sale-party-search-results" aria-activedescendant={searchResults[highlightedResult] ? `sale-party-${searchResults[highlightedResult].key.replace(":", "-")}` : undefined} placeholder="반려견 이름, 보호자 이름 또는 연락처 검색" autoComplete="off" onFocus={() => setSearchFocused(true)} onBlur={() => setTimeout(() => setSearchFocused(false), 150)} onChange={(event) => setSearch(event.target.value)} onClear={() => setSearch("")} onKeyDown={(event) => {
               if (event.key === "ArrowDown" && searchResults.length) { event.preventDefault(); setHighlightedResult((value) => Math.min(searchResults.length - 1, value + 1)); }
               else if (event.key === "ArrowUp" && searchResults.length) { event.preventDefault(); setHighlightedResult((value) => Math.max(0, value - 1)); }
               else if (event.key === "Enter") { event.preventDefault(); const selected = searchResults[highlightedResult]; if (selected) selectParty(selected.customerId, selected.dogId); }
-              else if (event.key === "Escape") { event.preventDefault(); setSearchFocused(false); }
-            }} className="[&_input]:h-13 [&_input]:text-[15px]" />
-            {searchFocused && search.trim() && <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-[420px] overflow-auto rounded-2xl border border-border bg-white p-2 shadow-[var(--pm-shadow-elevated)]">
-              {searchLoading ? <div className="space-y-2 p-1" aria-label="검색 중"><Skeleton className="h-16" /><Skeleton className="h-16" /></div> : searchResults.length ? <div id="sale-party-search-results" role="listbox" aria-label="고객과 반려견 검색 결과">{searchResults.map((result, index) => <button id={`sale-party-${result.key.replace(":", "-")}`} key={result.key} type="button" role="option" aria-selected={highlightedResult === index} onMouseEnter={() => setHighlightedResult(index)} onMouseDown={(event) => event.preventDefault()} onClick={() => selectParty(result.customerId, result.dogId)} className={cn("flex w-full items-center gap-3 rounded-xl p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", highlightedResult === index ? "bg-primary-subtle" : "hover:bg-primary-subtle")}><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">{result.dogName ? <Dog size={20} /> : <UserRound size={20} />}</span><span className="min-w-0 flex-1"><strong className="block truncate text-[15px] text-text-primary">{result.dogName || result.customerName || "이름 미등록"}</strong><span className="mt-0.5 block truncate text-xs text-text-secondary">보호자 {result.customerName || "미등록"} · {result.breed || "견종 미등록"} · {maskedPhone(result.customerPhone)}</span><span className="mt-1 block truncate text-[11px] text-text-muted">{result.dogNames.length > 1 ? `다른 반려견 ${result.dogNames.length - 1}마리 · ` : ""}{result.lastSale ? `최근 ${recentTime(result.lastSale.createdAt)} · ${result.lastSale.businessUnitName}` : "최근 이용 없음"}</span></span></button>)}</div> : <div className="p-5 text-center"><p className="text-sm font-medium text-text-primary">검색 결과가 없습니다.</p><p className="mt-1 text-xs text-text-muted">새 보호자와 반려견을 바로 등록할 수 있습니다.</p><Button type="button" className="mt-4" onMouseDown={(event) => event.preventDefault()} onClick={() => openQuickRegistration()}><Plus size={16} />신규 보호자·반려견 등록</Button></div>}
+              else if (event.key === "Escape") { event.preventDefault(); setSearchFocused(false); searchRef.current?.blur(); }
+            }} className="[&_input]:h-14 [&_input]:text-base" />
+            {searchFocused && search.trim() && <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-[min(430px,65dvh)] overflow-auto rounded-2xl border border-border bg-white p-2 shadow-[var(--pm-shadow-elevated)]">
+              {searchLoading ? <div className="space-y-2 p-1" aria-label="검색 중"><Skeleton className="h-24" /><Skeleton className="h-24" /></div> : searchResults.length ? <div id="sale-party-search-results" role="listbox" aria-label="고객과 반려견 검색 결과" className="space-y-1">{searchResults.map((result, index) => <div key={result.key} className={cn("rounded-xl transition", highlightedResult === index && "bg-primary-subtle")}><button id={`sale-party-${result.key.replace(":", "-")}`} type="button" role="option" aria-selected={highlightedResult === index} onMouseEnter={() => setHighlightedResult(index)} onMouseDown={(event) => event.preventDefault()} onClick={() => selectParty(result.customerId, result.dogId)} className="flex min-h-24 w-full items-center gap-3 rounded-xl p-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"><span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary">{result.dogName ? <Dog size={21} /> : <UserRound size={21} />}</span><span className="min-w-0 flex-1"><strong className="block truncate text-base text-text-primary"><HighlightedText text={result.dogName || result.customerName || "이름 미등록"} query={debouncedSearch} /></strong><span className="mt-1 block truncate text-sm text-text-secondary">보호자 <HighlightedText text={result.customerName || "미등록"} query={debouncedSearch} /> · {result.breed || "견종 미등록"}</span><span className="mt-1 block truncate text-xs text-text-muted"><HighlightedText text={maskedPhone(result.customerPhone)} query={debouncedSearch} /> · 반려견 {result.dogNames.length || 0}마리</span><span className="mt-1 block truncate text-xs text-primary">{result.lastSale ? `${result.lastSale.productName} · ${recentTime(result.lastSale.createdAt)}` : "최근 이용 없음"}</span></span><span className="shrink-0 text-xs font-semibold text-primary">선택</span></button>{result.customerId && <div className="flex justify-end px-3 pb-2"><button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => { const customer = customers.find((item) => item.id === result.customerId); if (customer) openQuickRegistration(customer); }} className="min-h-11 rounded-xl px-3 text-xs font-semibold text-text-secondary hover:bg-white hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary">같은 보호자에게 새 반려견 추가</button></div>}</div>)}</div> : <div className="p-5 text-center"><p className="text-sm font-semibold text-text-primary">검색된 고객이 없습니다.</p><p className="mt-1 text-xs text-text-muted">다른 연락처를 확인하거나 바로 신규 등록하세요.</p><Button type="button" className="mt-4" onMouseDown={(event) => event.preventDefault()} onClick={() => openQuickRegistration()}><Plus size={16} />신규 보호자·반려견 등록</Button></div>}
             </div>}
           </div>
-          <div className="mt-4"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold text-text-muted">최근 고객</span><Button type="button" variant="ghost" onClick={() => openQuickRegistration()}><Plus size={16} />신규 등록</Button></div>{recentParties.length ? <div className="flex gap-2 overflow-x-auto pb-1">{recentParties.map((party, index) => <button key={party.key} type="button" onClick={() => selectParty(party.customerId, party.dogId)} className={cn("min-h-24 min-w-40 flex-1 rounded-xl border border-border bg-surface p-3 text-left transition hover:border-primary/25 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", index >= 4 && "hidden xl:block")}><strong className="block truncate text-sm text-text-primary">{party.dogName || "(반려견 없음)"}</strong><span className="mt-1 block truncate text-xs text-text-secondary">{party.customerName || "보호자 미등록"}</span><span className="mt-2 block truncate text-[11px] text-text-muted">{party.lastSale ? recentTime(party.lastSale.createdAt) : "최근 선택"}</span><span className="mt-0.5 block truncate text-[11px] text-primary">{party.lastSale?.productName || "상품 이력 없음"}</span></button>)}</div> : <p className="text-xs text-text-muted">최근 등록 고객이 없습니다.</p>}</div>
-        </> : <div className="rounded-2xl border border-primary/20 bg-primary-subtle p-4 sm:p-5"><p className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-primary">현재 선택</p><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div className="flex items-center gap-3"><span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-white"><Dog size={24} /></span><div><strong className="text-xl text-text-primary">{selectedDog?.name || "반려견 미지정"}</strong><p className="mt-0.5 text-sm text-text-secondary">{selectedDog ? `${selectedDog.breed || "견종 미등록"} · ${dogAge(selectedDog.birthDate)}` : "보호자만 지정한 매출"}</p><p className="mt-1 text-sm text-text-secondary">보호자 {selectedCustomer?.name ?? selectedDog?.customerName ?? "미등록"} · {maskedPhone(selectedCustomer?.phone ?? selectedDog?.customerPhone ?? null)}</p>{latestSelectedSale && <p className="mt-1.5 text-xs text-primary">최근 이용 {latestSelectedSale.saleDate} · {latestSelectedSale.productName}</p>}</div></div><div className="flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={clearParty}>다른 고객 선택</Button>{selectedCustomer && <Button type="button" variant="secondary" onClick={() => openQuickRegistration(selectedCustomer)}><Plus size={16} />새 반려견 추가</Button>}</div></div>{selectableDogs.length > 0 && <div className="mt-4 border-t border-primary/10 pt-4"><p className="mb-2 text-xs font-semibold text-text-secondary">연결된 반려견</p><div className="flex flex-wrap gap-2"><button type="button" aria-pressed={!form.dogId} onClick={() => setForm((current) => ({ ...current, dogId: "" }))} className={cn("min-h-11 rounded-xl border px-3 text-sm font-medium", !form.dogId ? "border-primary bg-primary text-white" : "border-border bg-white text-text-secondary")}>반려견 미지정</button>{selectableDogs.map((dog) => <button type="button" aria-pressed={form.dogId === dog.id} key={dog.id} onClick={() => setForm((current) => ({ ...current, dogId: dog.id }))} className={cn("min-h-11 rounded-xl border px-3 text-sm font-medium", form.dogId === dog.id ? "border-primary bg-primary text-white" : "border-border bg-white text-text-secondary hover:border-primary/25")}>{dog.name}</button>)}</div></div>}</div>}
-        {(form.customerId || form.dogId) && <div className="mt-5 border-t border-border pt-5"><div className="mb-3 flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Clock3 size={16} className="text-primary" /><h3 className="text-sm font-semibold text-text-primary">최근 거래</h3><span className="text-xs text-text-muted">최대 5건</span></div><Button type="button" variant="ghost" onClick={() => navigate("/sales")}>전체 보기</Button></div>{selectedRecentSales.length ? <div className="grid gap-2 md:grid-cols-2">{selectedRecentSales.map((sale) => <button key={sale.id} type="button" onClick={() => navigate("/sales")} className="flex items-center justify-between gap-3 rounded-xl border border-border p-3 text-left transition hover:border-primary/20 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"><span className="min-w-0"><strong className="block truncate text-sm text-text-primary">{sale.productName}</strong><span className="mt-1 block text-xs text-text-muted">{sale.saleDate} · {sale.businessUnitName} · {sale.staffName || "담당자 미등록"}</span><span className="mt-1 block text-[11px] text-text-muted">{sale.status === "partial_refund" ? "부분 환불 처리" : sale.status === "full_refund" ? "환불 완료" : sale.status === "cancelled" ? "취소된 매출" : "환불 없음"}</span></span><span className="shrink-0 text-right"><strong className="block text-sm tabular-nums text-text-primary">{won(sale.paidAmount)}</strong><StatusBadge status={sale.status} /></span></button>)}</div> : <p className="rounded-xl bg-surface-secondary p-4 text-sm text-text-muted">최근 거래가 없습니다.</p>}</div>}
+          <div className="mt-5"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-semibold text-text-secondary">최근 고객</span><Button type="button" variant="ghost" onClick={() => openQuickRegistration()}><Plus size={16} />신규 등록</Button></div>{recentParties.length ? <div className="flex snap-x gap-2 overflow-x-auto pb-2">{recentParties.map((party) => <button key={party.key} type="button" onClick={() => selectParty(party.customerId, party.dogId)} className="min-h-28 min-w-44 snap-start rounded-2xl border border-border bg-surface p-3.5 text-left transition duration-200 hover:border-primary/30 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"><strong className="block truncate text-sm text-text-primary">{party.dogName || "반려견 없음"}</strong><span className="mt-1 block truncate text-xs text-text-secondary">{party.customerName || "보호자 미등록"}</span><span className="mt-3 block truncate text-xs font-medium text-primary">{party.lastSale?.productName || "상품 이력 없음"}</span><span className="mt-1 block truncate text-[11px] text-text-muted">{party.lastSale ? recentTime(party.lastSale.createdAt) : "최근 선택"}</span></button>)}</div> : <p className="rounded-xl bg-surface-secondary p-4 text-sm text-text-muted">최근 등록 고객이 없습니다.</p>}</div>
+        </> : <div className="rounded-2xl border border-primary/20 bg-primary-subtle p-4 sm:p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="flex min-w-0 items-start gap-3"><span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-primary text-white"><Dog size={24} /></span><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-[0.14em] text-primary">현재 선택</p><strong className="mt-1 block truncate text-2xl text-text-primary">{selectedDog?.name || "반려견 없음"}</strong><p className="mt-1 text-sm text-text-secondary">{selectedDog ? `${selectedDog.breed || "견종 미등록"} · ${dogAge(selectedDog.birthDate)}` : "보호자만 지정한 매출"}</p><p className="mt-1 text-sm text-text-secondary">보호자 {selectedCustomer?.name ?? selectedDog?.customerName ?? "미등록"} · {maskedPhone(selectedCustomer?.phone ?? selectedDog?.customerPhone ?? null)}</p>{latestSelectedSale && <p className="mt-2 text-xs font-medium text-primary">최근 {latestSelectedSale.productName} · {latestSelectedSale.saleDate}</p>}</div></div><div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end"><Button type="button" variant="secondary" onClick={clearParty}>고객 변경</Button>{selectedCustomer && <Button type="button" variant="secondary" onClick={() => openQuickRegistration(selectedCustomer)}><Plus size={16} />새 반려견</Button>}<Button type="button" variant="ghost" onClick={() => requestNavigation("/customers")}><ExternalLink size={16} />고객 상세</Button></div></div>{selectableDogs.length > 0 && <div className="mt-4 border-t border-primary/10 pt-4"><p className="mb-2 text-xs font-semibold text-text-secondary">다른 반려견 선택</p><div className="flex flex-wrap gap-2"><button type="button" aria-pressed={!form.dogId} onClick={() => setForm((current) => ({ ...current, dogId: "" }))} className={cn("min-h-11 rounded-xl border px-3 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", !form.dogId ? "border-primary bg-primary text-white" : "border-border bg-white text-text-secondary")}>반려견 없음</button>{selectableDogs.map((dog) => <button type="button" aria-pressed={form.dogId === dog.id} key={dog.id} onClick={() => setForm((current) => ({ ...current, dogId: dog.id }))} className={cn("min-h-11 rounded-xl border px-3 text-sm font-medium transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", form.dogId === dog.id ? "border-primary bg-primary text-white" : "border-border bg-white text-text-secondary hover:border-primary/30")}>{dog.name}</button>)}</div></div>}</div>}
+        {(form.customerId || form.dogId) && <div className="mt-5 border-t border-border pt-5"><div className="mb-3 flex items-center justify-between gap-3"><div className="flex items-center gap-2"><Clock3 size={16} className="text-primary" /><h3 className="text-sm font-semibold text-text-primary">최근 거래</h3></div><div className="flex gap-1"><Button type="button" variant="ghost" onClick={() => setTimelineExpanded((value) => !value)}>{timelineExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}{timelineExpanded ? "접기" : "최대 5건"}</Button><Button type="button" variant="ghost" onClick={() => requestNavigation("/sales")}>전체 내역</Button></div></div>{selectedRecentSales.length ? <div className="space-y-2">{selectedRecentSales.slice(0, timelineExpanded ? 5 : 2).map((sale) => <button key={sale.id} type="button" onClick={() => requestNavigation(`/sales?detail=${sale.id}`)} className="flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border border-border p-3 text-left transition duration-200 hover:border-primary/25 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"><span className="min-w-0"><strong className="block truncate text-sm text-text-primary">{sale.productName}</strong><span className="mt-1 block truncate text-xs text-text-muted">{sale.saleDate} · {sale.businessUnitName} · {sale.staffName || "담당자 미등록"}</span></span><span className="shrink-0 text-right"><strong className="block text-sm tabular-nums text-text-primary">{won(sale.paidAmount)}</strong><StatusBadge status={sale.status} /></span></button>)}</div> : <p className="rounded-xl bg-surface-secondary p-4 text-sm text-text-muted">최근 거래가 없습니다.</p>}</div>}
       </Card>
 
-      <Card className="mt-4 p-5 sm:p-6"><div className="mb-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">Step 2</p><h2 className="mt-1 text-lg font-semibold text-text-primary">상품 선택</h2></div>{recentProducts.length > 0 && <div className="mb-5"><div className="mb-2 flex items-center gap-2"><PackageCheck size={16} className="text-primary" /><p className="text-xs font-semibold text-text-secondary">빠른 상품 선택</p></div><div className="flex gap-2 overflow-x-auto pb-1">{recentProducts.map((product) => <button key={product.id} type="button" aria-pressed={form.productId === product.id} onClick={() => selectProduct(product)} className={cn("min-h-20 min-w-44 rounded-xl border p-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", form.productId === product.id ? "border-primary bg-primary text-white" : "border-border bg-surface hover:border-primary/25 hover:bg-primary-subtle")}><strong className={cn("block truncate text-sm", form.productId === product.id ? "text-white" : "text-text-primary")}>{product.name}</strong><span className={cn("mt-1.5 block text-xs", form.productId === product.id ? "text-blue-100/80" : "text-text-muted")}>{businessUnits.find((unit) => unit.id === product.businessUnitId)?.name || "사업부"} · {won(product.defaultPrice)}</span></button>)}</div></div>}<div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        <Field label="사업부" required><Select name="businessUnitId" value={form.businessUnitId} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, businessUnitId: event.target.value, categoryId: "", productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0 }))}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field>
-        <Field label="상품 분류" required><Select name="categoryId" value={form.categoryId} disabled={saving || !form.businessUnitId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value, productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0 }))}><option value="">분류 선택</option>{filteredCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field>
-        <Field label="상품" required><Select name="productId" value={form.productId} disabled={saving || !form.categoryId} onChange={(event) => { const product = products.find((item) => item.id === event.target.value); if (product) selectProduct(product); else setForm((current) => ({ ...current, productId: "", originalAmount: 0, paidAmount: 0 })); }}><option value="">상품 선택</option>{filteredProducts.map((item) => <option key={item.id} value={item.id}>{item.name} · {won(item.defaultPrice)}</option>)}</Select></Field>
-      </div></Card>
+      <Card className="mt-4 p-5 sm:p-6"><div ref={productSectionRef} className="scroll-mt-5"><div className="mb-5 flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-primary">2 · 상품 선택</p><h2 className="mt-1 text-lg font-semibold text-text-primary">추천 상품</h2></div>{form.productId && <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-success"><CheckCircle2 size={16} />선택 완료</span>}</div><div className="space-y-5">{renderProductGroup("최근 이용 상품", "최근 사용한 상품부터 표시합니다.", recommendationGroups.recent)}{renderProductGroup("자주 이용한 상품", "이 고객의 이용 빈도 기준입니다.", recommendationGroups.frequent)}{renderProductGroup("사업부 인기 상품", "현재 사업부에서 자주 등록된 상품입니다.", recommendationGroups.popular)}<section className="space-y-3"><div className="flex items-center gap-2"><PackageCheck size={16} className="text-primary" /><h3 className="text-sm font-semibold text-text-primary">전체 상품 검색 및 선택</h3></div><SearchBox aria-label="상품명 검색" value={productQuery} placeholder="상품명 검색" onClear={() => setProductQuery("")} onChange={(event) => setProductQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") event.preventDefault(); }} />{productSearchResults.length > 0 && <div className="grid gap-2 sm:grid-cols-2">{productSearchResults.map((product) => <button key={product.id} type="button" aria-pressed={form.productId === product.id} onClick={() => selectProduct(product)} className={cn("flex min-h-14 items-center justify-between rounded-xl border px-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", form.productId === product.id ? "border-primary bg-primary text-white" : "border-border hover:border-primary/30 hover:bg-primary-subtle")}><span className="truncate text-sm font-semibold">{product.name}</span><span className="ml-3 shrink-0 text-sm tabular-nums">{won(product.defaultPrice)}</span></button>)}</div>}<div className="grid gap-4 md:grid-cols-3"><Field label="사업부" required><Select name="businessUnitId" value={form.businessUnitId} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, businessUnitId: event.target.value, categoryId: "", productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0 }))}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field><Field label="상품 분류" required><Select name="categoryId" value={form.categoryId} disabled={saving || !form.businessUnitId} onChange={(event) => setForm((current) => ({ ...current, categoryId: event.target.value, productId: "", originalAmount: 0, discountAmount: 0, paidAmount: 0 }))}><option value="">분류 선택</option>{filteredCategories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field><Field label="상품" required><Select name="productId" value={form.productId} disabled={saving || !form.categoryId} onChange={(event) => { const product = products.find((item) => item.id === event.target.value); if (product) selectProduct(product); else setForm((current) => ({ ...current, productId: "", originalAmount: 0, paidAmount: 0 })); }}><option value="">상품 선택</option>{filteredProducts.map((item) => <option key={item.id} value={item.id}>{item.name} · {won(item.defaultPrice)}</option>)}</Select></Field></div></section></div></div></Card>
 
-      {(form.customerId || form.dogId) && <div className="sticky bottom-4 z-10 mt-4 hidden items-center justify-between gap-4 rounded-2xl border border-primary/15 bg-white/95 px-5 py-4 shadow-lg backdrop-blur lg:flex"><div className="min-w-0"><p className="truncate text-sm font-semibold text-text-primary">{selectedDog?.name || selectedCustomer?.name || "선택 고객"} · {products.find((product) => product.id === form.productId)?.name || "상품을 선택해 주세요"}</p><p className="mt-1 text-xs text-text-secondary">{missingRequirement || "선택이 완료되었습니다. 바로 저장할 수 있습니다."}</p></div><Button className="min-w-52" disabled={!canSave}>{saving && <LoaderCircle className="animate-spin" size={17} />}{saving ? "등록 중…" : `매출 저장 · ${won(Math.max(netAmount, 0))}`}</Button></div>}
-
-      <Card className="mt-4 p-5 sm:p-6"><div className="mb-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">Step 3</p><h2 className="mt-1 text-lg font-semibold text-text-primary">결제 정보</h2></div><div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        <Field label="정상 판매가" required help="상품 기본가를 불러오며 수정할 수 있습니다."><CurrencyInput name="originalAmount" value={form.originalAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, originalAmount: value }))} /></Field>
-        <Field label="실제 결제 금액" required><CurrencyInput name="paidAmount" value={form.paidAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, paidAmount: value }))} /></Field>
-        <Field label="실매출" help="실제 결제 금액 - 환불 금액"><div className="flex min-h-11 items-center justify-between rounded-xl border border-primary/15 bg-primary-subtle px-4"><span className="text-xs font-medium text-text-secondary">자동 계산</span><strong className="tabular-nums text-primary">{won(Math.max(netAmount, 0))}</strong></div></Field>
-        <Field label="결제 수단" required><Select name="paymentMethod" value={form.paymentMethod} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))}><option value="card">카드</option><option value="transfer">계좌이체</option><option value="cash">현금</option><option value="outstanding">미수</option></Select></Field>
-        <Field label="구분" required><Select name="customerType" value={form.customerType} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, customerType: event.target.value }))}><option value="new">신규</option><option value="renewal">재등록</option></Select></Field>
-        <Field label="매출 일자" required><Input name="saleDate" type="date" value={form.saleDate} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, saleDate: event.target.value }))} /></Field>
-        <div className="md:col-span-2 lg:col-span-3"><button type="button" disabled={saving} className="flex min-h-12 w-full items-center justify-between rounded-xl border border-border bg-surface-secondary px-4 text-left text-sm font-semibold text-text-secondary transition hover:border-primary/20 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" onClick={() => setAdvancedOpen((value) => !value)} aria-expanded={advancedOpen}>할인·환불·미수금 고급 옵션<ChevronDown size={18} className={`transition-transform duration-200 ${advancedOpen ? "rotate-180" : ""}`} /></button></div>
-        {advancedOpen && <div className="grid gap-5 rounded-2xl border border-border bg-surface-secondary p-4 md:col-span-2 md:grid-cols-2 lg:col-span-3 lg:grid-cols-3"><Field label="할인 금액"><CurrencyInput name="discountAmount" value={form.discountAmount} max={form.originalAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, discountAmount: value }))} /></Field><Field label="환불 금액"><CurrencyInput name="refundAmount" value={form.refundAmount} max={form.paidAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, refundAmount: value }))} /></Field><Field label="미수금"><CurrencyInput name="outstandingAmount" value={form.outstandingAmount} max={expectedAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, outstandingAmount: value }))} /></Field></div>}
-      </div></Card>
-
-      <Card className="mt-4 p-5 sm:p-6"><div className="mb-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">Step 4</p><h2 className="mt-1 text-lg font-semibold text-text-primary">담당자·다음 등록 설정</h2></div><div className="grid gap-5 md:grid-cols-2"><Field label="담당자" required><Select name="staffId" value={form.staffId} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, staffId: event.target.value }))}>{staff.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field><div className="md:row-span-2"><Field label="메모"><Textarea name="memo" rows={4} maxLength={500} placeholder="전달할 업무 메모가 있을 때만 입력하세요." value={form.memo} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, memo: event.target.value }))} /></Field></div><div className="rounded-2xl border border-border bg-surface-secondary p-4"><div className="mb-3 flex items-center gap-2"><Settings2 size={16} className="text-primary" /><p className="text-sm font-semibold text-text-primary">다음 등록에 유지</p></div><div className="grid gap-1.5 sm:grid-cols-2">{([
-          ["keepBusinessUnit", "사업부 유지"], ["keepStaff", "담당자 유지"], ["keepProduct", "상품 유지"], ["keepPaymentMethod", "결제수단 유지"],
-        ] as const).map(([key, label]) => <label key={key} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-sm text-text-secondary hover:bg-white"><input type="checkbox" className="h-4 w-4 accent-primary" checked={repeatSettings[key]} disabled={saving || (key === "keepBusinessUnit" && repeatSettings.keepProduct)} onChange={(event) => updateRepeatSetting(key, event.target.checked)} />{label}</label>)}</div>{repeatSettings.keepProduct && <p className="mt-2 text-xs text-text-muted">상품 유지 시 사업부와 기본 금액도 함께 유지됩니다.</p>}</div></div>
-        {error && <div id="sale-form-error" role="alert" className="mt-5 rounded-xl border border-error/15 bg-error-soft px-4 py-3 text-sm font-medium text-error">{error}</div>}
-        <div className="mt-5 flex items-center justify-between gap-4 rounded-xl bg-primary-subtle px-4 py-3"><p className={cn("text-sm", missingRequirement ? "text-text-secondary" : "font-semibold text-primary")}>{missingRequirement || "저장할 준비가 완료되었습니다."}</p><span className="hidden text-sm font-semibold tabular-nums text-primary sm:block">{won(Math.max(netAmount, 0))}</span></div>
-        <div className="mt-4 hidden justify-end gap-2 lg:flex"><Button type="button" variant="secondary" disabled={saving} onClick={resetAll}>입력 초기화</Button><Button className="min-w-44" disabled={!canSave}>{saving && <LoaderCircle className="animate-spin" size={17} />}{saving ? "등록 중…" : `매출 저장 · ${won(Math.max(netAmount, 0))}`}</Button></div>
-      </Card>
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden"><div className="mx-auto max-w-5xl"><p className="mb-2 truncate text-center text-xs text-text-secondary">{missingRequirement || "저장할 준비가 완료되었습니다."}</p><div className="grid grid-cols-[auto_1fr] gap-2"><Button type="button" variant="secondary" disabled={saving} onClick={resetAll}>초기화</Button><Button disabled={!canSave}>{saving && <LoaderCircle className="animate-spin" size={17} />}{saving ? "등록 중…" : `매출 저장 · ${won(Math.max(netAmount, 0))}`}</Button></div></div></div>
+      <Card className="mt-4 p-5 sm:p-6"><div className="mb-5"><p className="text-xs font-semibold text-primary">3 · 결제 확인</p><h2 className="mt-1 text-lg font-semibold text-text-primary">결제 정보와 저장</h2></div><div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]"><div className="space-y-5"><div className="grid gap-5 md:grid-cols-2"><Field label="정상 판매가" required help="상품 기본가를 불러오며 수정할 수 있습니다."><CurrencyInput name="originalAmount" value={form.originalAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, originalAmount: value }))} /></Field><Field label="실제 결제 금액" required><CurrencyInput name="paidAmount" value={form.paidAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, paidAmount: value }))} /></Field><Field label="결제 수단" required><Select name="paymentMethod" value={form.paymentMethod} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, paymentMethod: event.target.value }))}><option value="card">카드</option><option value="transfer">계좌이체</option><option value="cash">현금</option><option value="outstanding">미수</option></Select></Field><Field label="구분" required><Select name="customerType" value={form.customerType} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, customerType: event.target.value }))}><option value="new">신규</option><option value="renewal">재등록</option></Select></Field><Field label="매출 일자" required><Input name="saleDate" type="date" value={form.saleDate} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, saleDate: event.target.value }))} /></Field><Field label="담당자" required><Select name="staffId" value={form.staffId} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, staffId: event.target.value }))}>{staff.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</Select></Field></div><button type="button" disabled={saving} className="flex min-h-12 w-full items-center justify-between rounded-xl border border-border bg-surface-secondary px-4 text-left text-sm font-semibold text-text-secondary transition hover:border-primary/20 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary" onClick={() => setAdvancedOpen((value) => !value)} aria-expanded={advancedOpen}>할인·환불·미수금 고급 옵션<ChevronDown size={18} className={`transition-transform duration-200 ${advancedOpen ? "rotate-180" : ""}`} /></button>{advancedOpen && <div className="grid gap-5 rounded-2xl border border-border bg-surface-secondary p-4 md:grid-cols-3"><Field label="할인 금액"><CurrencyInput name="discountAmount" value={form.discountAmount} max={form.originalAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, discountAmount: value }))} /></Field><Field label="환불 금액"><CurrencyInput name="refundAmount" value={form.refundAmount} max={form.paidAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, refundAmount: value }))} /></Field><Field label="미수금"><CurrencyInput name="outstandingAmount" value={form.outstandingAmount} max={expectedAmount} disabled={saving} onValue={(value) => setForm((current) => ({ ...current, outstandingAmount: value }))} /></Field></div>}<Field label="메모"><Textarea name="memo" rows={3} maxLength={500} placeholder="전달할 업무 메모가 있을 때만 입력하세요." value={form.memo} disabled={saving} onChange={(event) => setForm((current) => ({ ...current, memo: event.target.value }))} /></Field><div className="rounded-2xl border border-border bg-surface-secondary p-4"><div className="mb-3 flex items-center gap-2"><Settings2 size={16} className="text-primary" /><p className="text-sm font-semibold text-text-primary">다음 등록에 유지</p></div><div className="grid gap-1 sm:grid-cols-2">{([ ["keepBusinessUnit", "사업부"], ["keepStaff", "담당자"], ["keepProduct", "상품"], ["keepPaymentMethod", "결제수단"] ] as const).map(([key, label]) => <label key={key} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 text-sm text-text-secondary hover:bg-white"><input type="checkbox" className="h-4 w-4 accent-primary" checked={repeatSettings[key]} disabled={saving || (key === "keepBusinessUnit" && repeatSettings.keepProduct)} onChange={(event) => updateRepeatSetting(key, event.target.checked)} />{label} 유지</label>)}</div></div></div><aside className="h-fit rounded-2xl border border-primary/15 bg-primary-subtle p-5 lg:sticky lg:top-5"><p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">결제 요약</p><p className="mt-3 truncate text-base font-semibold text-text-primary">{selectedDog?.name || selectedCustomer?.name || "고객 미선택"}</p><p className="mt-1 truncate text-sm text-text-secondary">{products.find((product) => product.id === form.productId)?.name || "상품 미선택"}</p><div className="my-5 border-y border-primary/10 py-5"><p className="text-xs text-text-secondary">최종 결제 금액</p><strong className="mt-1 block text-3xl tabular-nums text-primary">{won(Math.max(form.paidAmount, 0))}</strong></div><dl className="space-y-2 text-sm"><div className="flex justify-between gap-3"><dt className="text-text-muted">사업부</dt><dd className="font-medium text-text-primary">{businessUnits.find((unit) => unit.id === form.businessUnitId)?.name || "-"}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">원가 / 할인</dt><dd className="text-right font-medium text-text-primary">{won(form.originalAmount)} / {won(form.discountAmount)}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">결제수단</dt><dd className="font-medium text-text-primary">{paymentLabel[form.paymentMethod] || form.paymentMethod}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">담당자</dt><dd className="font-medium text-text-primary">{staff.find((item) => item.id === form.staffId)?.name || "-"}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">미수금</dt><dd className={cn("font-medium", form.outstandingAmount ? "text-warning" : "text-text-primary")}>{form.outstandingAmount ? won(form.outstandingAmount) : "없음"}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">메모</dt><dd className="font-medium text-text-primary">{form.memo.trim() ? "있음" : "없음"}</dd></div></dl>{error && <div id="sale-form-error" role="alert" className="mt-4 rounded-xl border border-error/15 bg-error-soft px-3 py-2.5 text-sm font-medium text-error">{error}</div>}<p className={cn("mt-4 text-sm", missingRequirement ? "text-text-secondary" : "font-semibold text-success")}>{missingRequirement || "저장할 준비가 완료되었습니다."}</p><div className="mt-4 hidden gap-2 lg:grid"><Button disabled={!canSave}>{saving && <LoaderCircle className="animate-spin" size={17} />}{saving ? "등록 중…" : `매출 저장 · ${won(Math.max(netAmount, 0))}`}</Button><Button type="button" variant="ghost" disabled={saving} onClick={resetAll}>입력 초기화</Button></div></aside></div></Card>
+      {!mobileInputActive && <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden"><div className="mx-auto max-w-5xl"><p className="mb-2 truncate text-center text-xs text-text-secondary">{missingRequirement || "저장할 준비가 완료되었습니다."}</p><div className="grid grid-cols-[auto_1fr] gap-2"><Button type="button" variant="secondary" disabled={saving} onClick={resetAll}>초기화</Button><Button disabled={!canSave}>{saving && <LoaderCircle className="animate-spin" size={17} />}{saving ? "등록 중…" : `매출 저장 · ${won(Math.max(netAmount, 0))}`}</Button></div></div></div>}
     </form>
 
-    {notice && <Toast title="저장 완료" message={notice} tone="success" onClose={() => setNotice("")} />}
+    {notice && <Toast title="선택 완료" message={notice} tone="success" onClose={() => setNotice("")} />}
+    <Modal open={Boolean(successSummary)} onClose={() => { if (!saving) resetAfterSave(); setSuccessSummary(null); }} title="매출 등록 완료">
+      {successSummary && <div><div className="rounded-2xl bg-success-soft p-5 text-center"><span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-success text-white"><CheckCircle2 size={24} /></span><p className="mt-3 text-sm font-semibold text-success">정상적으로 등록했습니다.</p><strong className="mt-2 block text-xl text-text-primary">{successSummary.partyName}</strong><p className="mt-1 text-sm text-text-secondary">{successSummary.productName}</p><p className="mt-3 text-2xl font-bold tabular-nums text-primary">{won(successSummary.paidAmount)}</p></div><dl className="mt-4 space-y-2 rounded-2xl border border-border p-4 text-sm"><div className="flex justify-between gap-3"><dt className="text-text-muted">등록 시각</dt><dd className="text-right font-medium text-text-primary">{new Date(successSummary.savedAt).toLocaleString("ko-KR")}</dd></div><div className="flex justify-between gap-3"><dt className="text-text-muted">담당자</dt><dd className="font-medium text-text-primary">{successSummary.staffName}</dd></div></dl><div className="mt-5 grid gap-2 sm:grid-cols-2"><Button type="button" data-modal-initial onClick={resetForSameParty}>같은 고객 추가 등록</Button><Button type="button" variant="secondary" onClick={resetForNewParty}>새 고객 등록</Button><Button type="button" variant="secondary" onClick={() => navigate(`/sales?detail=${successSummary.saleId}`)}>매출 내역 보기</Button><Button type="button" variant="ghost" onClick={() => { resetAfterSave(); setSuccessSummary(null); }}>닫기</Button></div></div>}
+    </Modal>
+    <ConfirmModal open={Boolean(pendingNavigation)} title="입력 중인 화면에서 이동할까요?" description="현재 선택한 고객과 상품 정보는 저장되지 않습니다." confirmLabel="이동" cancelLabel="계속 입력" tone="primary" onClose={() => setPendingNavigation(null)} onConfirm={() => { const path = pendingNavigation; setPendingNavigation(null); if (path) navigate(path); }} />
     <Modal open={quickOpen} onClose={() => { if (!quickSavingRef.current) setQuickOpen(false); }} title="신규 보호자·반려견 등록">
       <form onSubmit={submitQuickRegistration} className="space-y-4">
         <p className="text-sm leading-6 text-text-secondary">현장 매출에 필요한 최소 정보만 입력합니다. 상세 정보는 반려견 관리에서 보완할 수 있습니다.</p>
@@ -561,7 +650,7 @@ export function SaleFormPage() {
     </Modal>
 
     <Modal open={Boolean(duplicateWarning)} onClose={() => { if (!savingRef.current) setDuplicateWarning(null); }} title={duplicateWarning?.level === "strong" ? "중복 가능성이 있습니다" : "오늘 등록된 같은 상품이 있습니다"}>
-      {duplicateWarning && <div><div className="rounded-2xl border border-warning/20 bg-warning-soft p-4"><div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 shrink-0 text-warning" size={20} /><div><p className="text-sm font-semibold text-text-primary">{duplicateWarning.level === "strong" ? "비슷한 매출이 최근 5분 안에 등록되었습니다." : "같은 고객과 상품의 매출이 오늘 이미 등록되었습니다."}</p><p className="mt-2 text-sm leading-6 text-text-secondary">{duplicateWarning.sale.saleDate} · {duplicateWarning.sale.dogName || "(반려견 없음)"}<br />{duplicateWarning.sale.businessUnitName} · {duplicateWarning.sale.productName} · {won(duplicateWarning.sale.paidAmount)}<br />등록자: {duplicateWarning.sale.staffName || "미등록"}</p></div></div></div><div className="mt-5 grid gap-2 sm:grid-cols-3"><Button type="button" variant="secondary" onClick={() => { setDuplicateWarning(null); navigate("/sales"); }}><ReceiptText size={16} />기존 내역 보기</Button><Button type="button" variant="secondary" onClick={() => setDuplicateWarning(null)}>취소</Button><Button type="button" disabled={saving} onClick={() => { if (savingRef.current) return; savingRef.current = true; setDuplicateWarning(null); setSaving(true); void persistSale(); }}>{saving && <LoaderCircle className="animate-spin" size={17} />}{duplicateWarning.level === "strong" ? "그래도 등록" : "계속 등록"}</Button></div></div>}
+      {duplicateWarning && <div><div className="rounded-2xl border border-warning/20 bg-warning-soft p-4"><div className="flex items-start gap-3"><AlertTriangle className="mt-0.5 shrink-0 text-warning" size={20} /><div><p className="text-sm font-semibold text-text-primary">{duplicateWarning.level === "strong" ? "비슷한 매출이 최근 5분 안에 등록되었습니다." : "같은 고객과 상품의 매출이 오늘 이미 등록되었습니다."}</p><p className="mt-2 text-sm leading-6 text-text-secondary">{duplicateWarning.sale.saleDate} · {duplicateWarning.sale.dogName || "(반려견 없음)"}<br />{duplicateWarning.sale.businessUnitName} · {duplicateWarning.sale.productName} · {won(duplicateWarning.sale.paidAmount)}<br />등록자: {duplicateWarning.sale.staffName || "미등록"}</p></div></div></div><div className="mt-5 grid gap-2 sm:grid-cols-3"><Button type="button" variant="secondary" onClick={() => { const saleId = duplicateWarning.sale.id; setDuplicateWarning(null); navigate(`/sales?detail=${saleId}`); }}><ReceiptText size={16} />기존 내역 보기</Button><Button type="button" variant="secondary" disabled={saving} onClick={() => setDuplicateWarning(null)}>취소</Button><Button type="button" disabled={saving} onClick={() => void confirmDuplicate()}>{saving && <LoaderCircle className="animate-spin" size={17} />}{duplicateWarning.level === "strong" ? "그래도 등록" : "계속 등록"}</Button></div></div>}
     </Modal>
   </>;
 }

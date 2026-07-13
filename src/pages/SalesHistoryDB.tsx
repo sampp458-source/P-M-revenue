@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Eye, Pencil, Undo2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   Badge,
@@ -59,6 +60,7 @@ const statusLabel: Record<string, string> = { normal: "정상", partial_refund: 
 
 export function SalesHistoryPage() {
   const { profile } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -162,13 +164,24 @@ export function SalesHistoryPage() {
     setCancelling(null); setCancellationReason(""); setNotice("매출을 취소했습니다."); await loadSales();
   };
 
-  const openDetail = async (sale: SaleRow) => {
+  const openDetail = useCallback(async (sale: SaleRow) => {
     setSelected(sale); setHistory([]); setHistoryLoading(true); setHistoryError(false);
     const result = await supabase.from("sale_history").select("id, action, previous_data, changed_data, changed_by, created_at").eq("sale_id", sale.id).order("created_at", { ascending: true });
     if (result.error) setHistoryError(true);
     else setHistory((result.data ?? []).map((row) => ({ id: row.id, action: row.action, previousData: row.previous_data, changedData: row.changed_data, changedBy: row.changed_by, createdAt: row.created_at })));
     setHistoryLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    const detailId = searchParams.get("detail");
+    if (!detailId) return;
+    const sale = sales.find((item) => item.id === detailId);
+    const next = new URLSearchParams(searchParams);
+    next.delete("detail");
+    setSearchParams(next, { replace: true });
+    if (sale) void openDetail(sale);
+  }, [loading, openDetail, sales, searchParams, setSearchParams]);
 
   const reopenSale = async () => {
     if (!reopening) return;
