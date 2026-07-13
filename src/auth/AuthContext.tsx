@@ -9,7 +9,10 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
-import { hasAuthIdentityChanged } from "./authStateLogic";
+import {
+  hasAuthIdentityChanged,
+  shouldIgnoreInitialEmptySession,
+} from "./authStateLogic";
 
 export interface Profile {
   id: string;
@@ -50,8 +53,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    let initialSessionResolved = false;
     supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return;
+      initialSessionResolved = true;
       if (error) console.error("세션 확인 실패", error.message);
       sessionUserIdRef.current = data.session?.user.id ?? null;
       setSession(data.session);
@@ -59,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       const nextUserId = nextSession?.user.id ?? null;
+      if (shouldIgnoreInitialEmptySession(initialSessionResolved, nextUserId)) return;
       const identityChanged = hasAuthIdentityChanged(sessionUserIdRef.current, nextUserId);
       sessionUserIdRef.current = nextUserId;
       setSession(nextSession);

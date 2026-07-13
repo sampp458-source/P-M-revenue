@@ -33,6 +33,7 @@ import {
 } from "react-router-dom";
 import { Button, Input } from "./components/ui";
 import { useAuth } from "./auth/AuthContext";
+import { safeReturnTo } from "./auth/authStateLogic";
 import { ReportsPage } from "./pages/ReportsDB";
 import { DashboardPage } from "./pages/DashboardDB";
 import { SaleFormPage as LegacySaleFormPage } from "./pages/Sales";
@@ -74,16 +75,14 @@ export default function App() {
     <Routes>
       <Route
         path="/login"
-        element={
-          loggedIn ? <Navigate to="/dashboard" replace /> : <LoginPage />
-        }
+        element={<LoginRoute loggedIn={loggedIn} />}
       />
       <Route path="/signup" element={loggedIn ? <Navigate to="/dashboard" replace /> : <SignupPage />} />
       <Route path="/find-account" element={<FindAccountPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
-        element={loggedIn ? <AppLayout /> : <Navigate to="/login" replace />}
+        element={<ProtectedLayout loggedIn={loggedIn} />}
       >
         {menus.map(() => null)}
         <Route index element={<Navigate to="/dashboard" replace />} />
@@ -101,6 +100,21 @@ export default function App() {
       <Route path="*" element={<NotFound loggedIn={loggedIn} />} />
     </Routes>
   );
+}
+
+function LoginRoute({ loggedIn }: { loggedIn: boolean }) {
+  const location = useLocation();
+  const returnTo = safeReturnTo(
+    (location.state as { returnTo?: unknown } | null)?.returnTo,
+  );
+  return loggedIn ? <Navigate to={returnTo} replace /> : <LoginPage />;
+}
+
+function ProtectedLayout({ loggedIn }: { loggedIn: boolean }) {
+  const location = useLocation();
+  if (loggedIn) return <AppLayout />;
+  const returnTo = `${location.pathname}${location.search}${location.hash}`;
+  return <Navigate to="/login" replace state={{ returnTo }} />;
 }
 
 function LoginPage() {
