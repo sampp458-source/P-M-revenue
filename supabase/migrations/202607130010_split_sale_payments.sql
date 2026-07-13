@@ -27,33 +27,14 @@ drop policy if exists sale_payments_insert on public.sale_payments;
 drop policy if exists sale_payments_update on public.sale_payments;
 drop policy if exists sale_payments_delete on public.sale_payments;
 
+revoke insert, update, delete on public.sale_payments from anon, authenticated;
+grant select on public.sale_payments to authenticated;
+
 create policy sale_payments_select on public.sale_payments
   for select to authenticated using (public.is_active_user());
 
-create policy sale_payments_insert on public.sale_payments
-  for insert to authenticated with check (
-    public.is_active_user()
-    and exists (
-      select 1 from public.sales s
-      where s.id = sale_payments.sale_id
-        and (public.is_admin() or s.created_by = auth.uid())
-        and s.status <> 'cancelled'
-        and not public.is_month_closed(s.sale_date)
-        and sale_payments.created_by = s.created_by
-    )
-  );
-
-create policy sale_payments_delete on public.sale_payments
-  for delete to authenticated using (
-    public.is_active_user()
-    and exists (
-      select 1 from public.sales s
-      where s.id = sale_payments.sale_id
-        and (public.is_admin() or (s.created_by = auth.uid() and s.status = 'normal'))
-        and s.status <> 'cancelled'
-        and not public.is_month_closed(s.sale_date)
-    )
-  );
+-- 결제 상세 쓰기는 아래 Trigger/RPC만 수행한다.
+-- authenticated 역할에는 INSERT/UPDATE/DELETE 정책을 만들지 않는다.
 
 insert into public.sale_payments (sale_id, payment_method, amount, created_by, created_at)
 select
@@ -70,6 +51,7 @@ on conflict (sale_id, payment_method) do nothing;
 create or replace function public.sync_single_sale_payment()
 returns trigger
 language plpgsql
+security definer
 set search_path = public
 as $$
 declare
@@ -195,7 +177,7 @@ create or replace function public.create_sale_with_payments(
 )
 returns uuid
 language plpgsql
-security invoker
+security definer
 set search_path = public
 as $$
 declare
@@ -239,14 +221,14 @@ begin
     nullif(p_sale->>'adjustment_note', ''),
     coalesce((p_sale->>'discount_amount')::integer, 0),
     payment_total,
-    coalesce((p_sale->>'refund_amount')::integer, 0),
+    0,
     coalesce((p_sale->>'outstanding_amount')::integer, 0),
-    coalesce((p_sale->>'net_amount')::integer, payment_total),
+    payment_total,
     representative_method,
     p_sale->>'customer_type',
     nullif(p_sale->>'staff_id', '')::uuid,
     nullif(p_sale->>'memo', ''),
-    coalesce(p_sale->>'status', 'normal'),
+    'normal',
     coalesce(p_sale->>'business_unit_name', ''),
     coalesce(p_sale->>'dog_name', ''),
     nullif(p_sale->>'customer_name', ''),
@@ -274,7 +256,7 @@ create or replace function public.replace_sale_payments(
 )
 returns void
 language plpgsql
-security invoker
+security definer
 set search_path = public
 as $$
 declare
