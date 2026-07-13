@@ -63,6 +63,13 @@ import {
   suggestUnitLabel,
   type RepeatSettings,
 } from "./saleRegistrationLogic";
+import {
+  readSaleDraft,
+  removeSaleDraft,
+  writeSaleDraft,
+  type SaleRegistrationDraft,
+  type SaleRegistrationFormState,
+} from "./saleRegistrationDraft";
 
 interface CustomerOption {
   id: string;
@@ -169,6 +176,13 @@ const recentSaleFields =
 
 const stored = (key: string) =>
   typeof window === "undefined" ? "" : (localStorage.getItem(key) ?? "");
+const draftStorage = () => {
+  try {
+    return typeof window === "undefined" ? null : window.sessionStorage;
+  } catch {
+    return null;
+  }
+};
 const loadRepeatSettings = (): RepeatSettings => {
   try {
     return {
@@ -324,6 +338,13 @@ export function SaleFormPage() {
   const savingRef = useRef(false);
   const quickSavingRef = useRef(false);
   const quickProductSavingRef = useRef(false);
+  const draftLoadedRef = useRef(false);
+  const latestDraftRef = useRef<Omit<
+    SaleRegistrationDraft,
+    "version" | "updatedAt"
+  > | null>(null);
+  const draftPersistenceActiveRef = useRef(false);
+  const clearedDraftFingerprintRef = useRef<string | null>(null);
   const [repeatSettings, setRepeatSettings] = useState(loadRepeatSettings);
   const repeatSettingsRef = useRef(repeatSettings);
   const [customers, setCustomers] = useState<CustomerOption[]>([]);
@@ -377,7 +398,9 @@ export function SaleFormPage() {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(
     null,
   );
-  const [form, setForm] = useState({
+  const [draftReady, setDraftReady] = useState(false);
+  const [draftSuppressed, setDraftSuppressed] = useState(false);
+  const [form, setForm] = useState<SaleRegistrationFormState>({
     saleDate: today(),
     businessUnitId: loadRepeatSettings().keepBusinessUnit
       ? stored(lastBusinessUnitKey)
@@ -504,7 +527,48 @@ export function SaleFormPage() {
     setPricingSchemaReady(!pricingSchemaResult.error);
     setProductUnitSchemaReady(!productUnitSchemaResult.error);
     setAmountAdjustmentSchemaReady(!amountAdjustmentSchemaResult.error);
-    setForm((current) => {
+    const storage = draftStorage();
+    const savedDraft =
+      !draftLoadedRef.current && profile?.id && storage
+        ? readSaleDraft(storage, profile.id)
+        : null;
+    draftLoadedRef.current = true;
+    if (savedDraft) {
+      const savedProduct = productRows.find(
+        (item) => item.id === savedDraft.form.productId,
+      );
+      const savedBusinessUnit = businessUnits.some(
+        (unit) => unit.id === savedDraft.form.businessUnitId,
+      );
+      const savedCustomer = (customersResult.data ?? []).find(
+        (customer) => customer.id === savedDraft.form.customerId,
+      );
+      const savedDog = (dogsResult.data ?? []).find(
+        (dog) => dog.id === savedDraft.form.dogId,
+      );
+      const savedStaff = staffRows.some(
+        (item) => item.id === savedDraft.form.staffId,
+      );
+      setForm({
+        ...savedDraft.form,
+        businessUnitId: savedProduct?.businessUnitId ??
+          (savedBusinessUnit ? savedDraft.form.businessUnitId : ""),
+        categoryId: savedProduct?.categoryId ?? "",
+        productId: savedProduct?.id ?? "",
+        customerId:
+          savedDog?.customer_id ?? savedCustomer?.id ?? "",
+        dogId: savedDog?.id ?? "",
+        staffId: savedStaff
+          ? savedDraft.form.staffId
+          : (profile?.id ?? staffRows[0]?.id ?? ""),
+      });
+      setSaleReference(savedDraft.saleReference);
+      setCustomerSectionOpen(savedDraft.ui.customerSectionOpen);
+      setAdvancedOpen(savedDraft.ui.advancedOpen);
+      setPaidAmountEdited(savedDraft.ui.paidAmountEdited);
+      setNotice("이전 입력 내용을 복원했습니다.");
+    } else {
+      setForm((current) => {
       const savedProduct = repeatSettingsRef.current.keepProduct
         ? productRows.find((item) => item.id === stored(lastProductKey))
         : undefined;
@@ -531,8 +595,10 @@ export function SaleFormPage() {
             ? current.staffId
             : (profile?.id ?? staffRows[0]?.id ?? ""),
       };
-    });
-    setPaidAmountEdited(false);
+      });
+      setPaidAmountEdited(false);
+    }
+    setDraftReady(true);
     setLoading(false);
   }, [businessUnits, profile?.id]);
 
@@ -559,6 +625,11 @@ export function SaleFormPage() {
     return () => window.clearTimeout(timer);
   }, [search]);
   useEffect(() => {
+    if (notice !== "이전 입력 내용을 복원했습니다.") return;
+    const timer = window.setTimeout(() => setNotice(""), 3500);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+  useEffect(() => {
     if (repeatSettings.keepBusinessUnit && form.businessUnitId)
       localStorage.setItem(lastBusinessUnitKey, form.businessUnitId);
     else if (!repeatSettings.keepBusinessUnit)
@@ -579,6 +650,64 @@ export function SaleFormPage() {
       localStorage.setItem(lastProductKey, form.productId);
     else localStorage.removeItem(lastProductKey);
   }, [form.productId, repeatSettings.keepProduct]);
+
+  const draftPayload = useMemo(
+    () => ({
+      form,
+      saleReference,
+      ui: { customerSectionOpen, advancedOpen, paidAmountEdited },
+    }),
+    [advancedOpen, customerSectionOpen, form, paidAmountEdited, saleReference],
+  );
+  const draftFingerprint = JSON.stringify(draftPayload);
+  latestDraftRef.current = draftPayload;
+  draftPersistenceActiveRef.current = Boolean(
+    draftReady && !draftSuppressed && profile?.id,
+  );
+
+  useEffect(() => {
+    if (!draftReady || draftSuppressed || !profile?.id) return;
+    const storage = draftStorage();
+    if (!storage) return;
+    const timer = window.setTimeout(() => {
+      if (draftFingerprint === clearedDraftFingerprintRef.current) {
+        removeSaleDraft(storage, profile.id);
+        return;
+      }
+      writeSaleDraft(storage, profile.id, draftPayload);
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [draftFingerprint, draftPayload, draftReady, draftSuppressed, profile?.id]);
+
+  useEffect(
+    () => () => {
+      if (!draftPersistenceActiveRef.current || !profile?.id) return;
+      const storage = draftStorage();
+      const draft = latestDraftRef.current;
+      if (!storage || !draft) return;
+      const fingerprint = JSON.stringify(draft);
+      if (fingerprint === clearedDraftFingerprintRef.current)
+        removeSaleDraft(storage, profile.id);
+      else writeSaleDraft(storage, profile.id, draft);
+    },
+    [profile?.id],
+  );
+
+  const removeCurrentDraft = useCallback(() => {
+    const storage = draftStorage();
+    if (storage && profile?.id) removeSaleDraft(storage, profile.id);
+  }, [profile?.id]);
+
+  const resumeDraftAfterReset = () => {
+    draftPersistenceActiveRef.current = false;
+    setDraftSuppressed(false);
+    window.requestAnimationFrame(() => {
+      const latest = latestDraftRef.current;
+      clearedDraftFingerprintRef.current = latest ? JSON.stringify(latest) : null;
+      removeCurrentDraft();
+      draftPersistenceActiveRef.current = Boolean(profile?.id);
+    });
+  };
 
   const selectedDog = dogs.find((dog) => dog.id === form.dogId);
   const selectedCustomer = customers.find(
@@ -1065,6 +1194,7 @@ export function SaleFormPage() {
     setAdvancedOpen(false);
     setError("");
     setSearch("");
+    resumeDraftAfterReset();
     requestAnimationFrame(() =>
       productSectionRef.current?.scrollIntoView({
         behavior: "auto",
@@ -1093,6 +1223,7 @@ export function SaleFormPage() {
     setAdvancedOpen(false);
     setError("");
     setSuccessSummary(null);
+    resumeDraftAfterReset();
     requestAnimationFrame(() =>
       productSectionRef.current?.scrollIntoView({
         behavior: "auto",
@@ -1120,6 +1251,7 @@ export function SaleFormPage() {
     setError("");
     setSearch("");
     setSuccessSummary(null);
+    resumeDraftAfterReset();
     requestAnimationFrame(() =>
       productSectionRef.current?.scrollIntoView({
         behavior: "auto",
@@ -1156,6 +1288,7 @@ export function SaleFormPage() {
     setAdvancedOpen(false);
     setError("");
     setSearch("");
+    resumeDraftAfterReset();
     requestAnimationFrame(() =>
       productSectionRef.current?.scrollIntoView({
         behavior: "auto",
@@ -1361,6 +1494,9 @@ export function SaleFormPage() {
       return;
     }
     const savedSale = mapRecentSale(result.data as Record<string, unknown>);
+    draftPersistenceActiveRef.current = false;
+    setDraftSuppressed(true);
+    removeCurrentDraft();
     setRecentSales((current) => [savedSale, ...current].slice(0, 100));
     const savedParty =
       selectedDog?.name ||
@@ -3017,7 +3153,11 @@ export function SaleFormPage() {
 
       {notice && (
         <Toast
-          title="선택 완료"
+          title={
+            notice === "이전 입력 내용을 복원했습니다."
+              ? "임시저장 복원"
+              : "선택 완료"
+          }
           message={notice}
           tone="success"
           onClose={() => setNotice("")}
@@ -3105,7 +3245,7 @@ export function SaleFormPage() {
       <ConfirmModal
         open={Boolean(pendingNavigation)}
         title="입력 중인 화면에서 이동할까요?"
-        description="현재 선택한 고객과 상품 정보는 저장되지 않습니다."
+        description="현재 입력 내용은 이 탭에 임시저장되며 돌아오면 자동으로 복원됩니다."
         confirmLabel="이동"
         cancelLabel="계속 입력"
         tone="primary"

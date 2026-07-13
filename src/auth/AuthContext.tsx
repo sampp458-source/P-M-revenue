@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { clearAllSaleDrafts } from "../pages/saleRegistrationDraft";
 import {
   hasAuthIdentityChanged,
   shouldIgnoreInitialEmptySession,
@@ -217,6 +218,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut: async () => {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
+        try {
+          clearAllSaleDrafts(window.sessionStorage);
+        } catch {
+          // Session storage restrictions must not prevent logout.
+        }
       },
     }),
     [authError, businessUnits, loading, profile, session],

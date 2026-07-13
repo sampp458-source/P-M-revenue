@@ -267,7 +267,16 @@ export function SalesHistoryPage() {
   const maxAmount = numberFilter(searchParams.get("max"));
   const requestedPage = Math.max(1, Number(searchParams.get("page")) || 1);
   const [debouncedQuery, setDebouncedQuery] = useState(query);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const hasAdvancedFilters = [
+    "staff",
+    "createdBy",
+    "payment",
+    "category",
+    "product",
+    "min",
+    "max",
+  ].some((key) => searchParams.has(key));
+  const [advancedOpen, setAdvancedOpen] = useState(hasAdvancedFilters);
   const mobileLayout = useMobileLayout();
   const [selected, setSelected] = useState<SaleRow | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
@@ -286,14 +295,18 @@ export function SalesHistoryPage() {
   const pageSize = 20;
 
   const updateParams = useCallback(
-    (updates: Record<string, string | null>, resetPage = true) => {
+    (
+      updates: Record<string, string | null>,
+      resetPage = true,
+      replace = false,
+    ) => {
       const next = new URLSearchParams(searchParams);
       Object.entries(updates).forEach(([key, value]) => {
         if (value) next.set(key, value);
         else next.delete(key);
       });
       if (resetPage) next.delete("page");
-      setSearchParams(next, { replace: true });
+      setSearchParams(next, { replace });
     },
     [searchParams, setSearchParams],
   );
@@ -302,6 +315,10 @@ export function SalesHistoryPage() {
     const timer = window.setTimeout(() => setDebouncedQuery(query), 150);
     return () => window.clearTimeout(timer);
   }, [query]);
+
+  useEffect(() => {
+    if (hasAdvancedFilters) setAdvancedOpen(true);
+  }, [hasAdvancedFilters]);
 
   const loadSales = useCallback(async () => {
     setLoading(true);
@@ -682,12 +699,16 @@ export function SalesHistoryPage() {
 
   const closeDetail = () => {
     setSelected(null);
-    updateParams({ detail: null }, false);
+    updateParams({ detail: null }, false, true);
   };
 
   useEffect(() => {
     if (requestedPage <= totalPages) return;
-    updateParams({ page: totalPages > 1 ? String(totalPages) : null }, false);
+    updateParams(
+      { page: totalPages > 1 ? String(totalPages) : null },
+      false,
+      true,
+    );
   }, [requestedPage, totalPages, updateParams]);
 
   const handleSearchKey = (event: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -851,7 +872,7 @@ export function SalesHistoryPage() {
               onKeyDown={handleSearchKey}
               onClear={() => updateParams({ q: null })}
               onChange={(event) =>
-                updateParams({ q: event.target.value || null })
+                updateParams({ q: event.target.value || null }, true, true)
               }
             />
             {query !== debouncedQuery && (
