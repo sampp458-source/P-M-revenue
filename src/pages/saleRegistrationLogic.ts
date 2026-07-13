@@ -71,6 +71,40 @@ export function normalizeQuantity(value: number) {
   return Math.max(1, Math.trunc(value));
 }
 
+export function parseCurrencyInput(
+  value: string,
+  max = Number.MAX_SAFE_INTEGER,
+) {
+  const digits = value.replace(/[^0-9]/g, "");
+  return Math.min(Number(digits || 0), Math.max(0, Math.trunc(max)));
+}
+
+export function recentProductIdsForUser(
+  sales: Array<{
+    productId: string;
+    createdBy: string;
+    status: string;
+  }>,
+  userId: string | null | undefined,
+  limit = 8,
+) {
+  if (!userId || limit <= 0) return [];
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const sale of sales) {
+    if (
+      sale.createdBy !== userId ||
+      sale.status === "cancelled" ||
+      seen.has(sale.productId)
+    )
+      continue;
+    seen.add(sale.productId);
+    result.push(sale.productId);
+    if (result.length >= limit) break;
+  }
+  return result;
+}
+
 export function calculateGrossAmount(unitPrice: number, quantity: number) {
   const safeUnitPrice = Number.isFinite(unitPrice)
     ? Math.max(0, Math.trunc(unitPrice))

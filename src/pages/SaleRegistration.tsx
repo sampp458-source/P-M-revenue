@@ -6,6 +6,7 @@ import {
   useState,
   type ChangeEvent,
   type FormEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
 import {
   AlertTriangle,
@@ -59,13 +60,16 @@ import {
   missingSaleRequirement,
   nextSaleForm,
   normalizeSaleReference,
+  parseCurrencyInput,
   partySearchScore,
+  recentProductIdsForUser,
   suggestUnitLabel,
   type RepeatSettings,
 } from "./saleRegistrationLogic";
 import {
   readSaleDraft,
   removeSaleDraft,
+  saleInputFingerprint,
   writeSaleDraft,
   type SaleRegistrationDraft,
   type SaleRegistrationFormState,
@@ -285,22 +289,21 @@ function CurrencyInput({
   disabled,
   max,
   onValue,
+  onKeyDown,
 }: {
   name?: string;
   value: number;
   disabled?: boolean;
   max?: number;
   onValue: (value: number) => void;
+  onKeyDown?: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const change = (event: ChangeEvent<HTMLInputElement>) => {
     const raw = event.currentTarget.value;
     const cursor = event.currentTarget.selectionStart ?? raw.length;
     const digitsOnRight = digitsOnly(raw.slice(cursor)).length;
-    const next = Math.min(
-      Number(digitsOnly(raw) || 0),
-      max ?? Number.MAX_SAFE_INTEGER,
-    );
+    const next = parseCurrencyInput(raw, max);
     onValue(next);
     requestAnimationFrame(() => {
       const input = ref.current;
@@ -324,6 +327,7 @@ function CurrencyInput({
       value={moneyText(value)}
       disabled={disabled}
       onChange={change}
+      onKeyDown={onKeyDown}
       className="text-right font-semibold tabular-nums"
     />
   );
@@ -335,6 +339,7 @@ export function SaleFormPage() {
   const searchRef = useRef<HTMLInputElement>(null);
   const quickPhoneRef = useRef<HTMLInputElement>(null);
   const productSectionRef = useRef<HTMLDivElement>(null);
+  const saleFormRef = useRef<HTMLFormElement>(null);
   const savingRef = useRef(false);
   const quickSavingRef = useRef(false);
   const quickProductSavingRef = useRef(false);
@@ -367,6 +372,7 @@ export function SaleFormPage() {
   );
   const [timelineExpanded, setTimelineExpanded] = useState(false);
   const [productQuery, setProductQuery] = useState("");
+  const [highlightedProduct, setHighlightedProduct] = useState(0);
   const [mobileInputActive, setMobileInputActive] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [paidAmountEdited, setPaidAmountEdited] = useState(false);
@@ -400,6 +406,7 @@ export function SaleFormPage() {
   );
   const [draftReady, setDraftReady] = useState(false);
   const [draftSuppressed, setDraftSuppressed] = useState(false);
+  const [dirtyBaseline, setDirtyBaseline] = useState<string | null>(null);
   const [form, setForm] = useState<SaleRegistrationFormState>({
     saleDate: today(),
     businessUnitId: loadRepeatSettings().keepBusinessUnit
@@ -600,6 +607,13 @@ export function SaleFormPage() {
     }
     setDraftReady(true);
     setLoading(false);
+    window.requestAnimationFrame(() => {
+      const latest = latestDraftRef.current;
+      if (latest)
+        setDirtyBaseline(
+          saleInputFingerprint(latest.form, latest.saleReference),
+        );
+    });
   }, [businessUnits, profile?.id]);
 
   useEffect(() => {
@@ -660,6 +674,12 @@ export function SaleFormPage() {
     [advancedOpen, customerSectionOpen, form, paidAmountEdited, saleReference],
   );
   const draftFingerprint = JSON.stringify(draftPayload);
+  const dirtyFingerprint = saleInputFingerprint(form, saleReference);
+  const isDirty = Boolean(
+    dirtyBaseline !== null &&
+      dirtyFingerprint !== dirtyBaseline &&
+      !draftSuppressed,
+  );
   latestDraftRef.current = draftPayload;
   draftPersistenceActiveRef.current = Boolean(
     draftReady && !draftSuppressed && profile?.id,
@@ -700,10 +720,15 @@ export function SaleFormPage() {
 
   const resumeDraftAfterReset = () => {
     draftPersistenceActiveRef.current = false;
+    setDirtyBaseline(null);
     setDraftSuppressed(false);
     window.requestAnimationFrame(() => {
       const latest = latestDraftRef.current;
       clearedDraftFingerprintRef.current = latest ? JSON.stringify(latest) : null;
+      if (latest)
+        setDirtyBaseline(
+          saleInputFingerprint(latest.form, latest.saleReference),
+        );
       removeCurrentDraft();
       draftPersistenceActiveRef.current = Boolean(profile?.id);
     });
@@ -929,6 +954,25 @@ export function SaleFormPage() {
           lastUsed: item.lastUsed,
         }));
     };
+    const mySales = recentSales.filter(
+      (sale) => sale.createdBy === profile?.id && sale.status !== "cancelled",
+    );
+    const myRecent = recentProductIdsForUser(recentSales, profile?.id).flatMap(
+      (productId): ProductRecommendation[] => {
+        const product = products.find((item) => item.id === productId);
+        const lastSale = mySales.find((sale) => sale.productId === productId);
+        return product && lastSale
+          ? [
+              {
+                product,
+                lastUsed: lastSale.saleDate,
+                useCount: mySales.filter((item) => item.productId === productId)
+                  .length,
+              },
+            ]
+          : [];
+      },
+    );
     const recent: ProductRecommendation[] = [];
     const recentIds = new Set<string>();
     selectedPartySales.forEach((sale) => {
@@ -955,8 +999,14 @@ export function SaleFormPage() {
         !form.businessUnitId || sale.businessUnitId === form.businessUnitId,
     );
     const popular = toRecommendations(popularSource, usedIds);
-    return { recent, frequent, popular };
-  }, [form.businessUnitId, products, recentSales, selectedPartySales]);
+    return { myRecent, recent, frequent, popular };
+  }, [
+    form.businessUnitId,
+    products,
+    profile?.id,
+    recentSales,
+    selectedPartySales,
+  ]);
   const productSearchResults = useMemo(() => {
     const keyword = productQuery.trim().toLocaleLowerCase("ko");
     if (!keyword) return [];
@@ -966,6 +1016,7 @@ export function SaleFormPage() {
       )
       .slice(0, 8);
   }, [productQuery, products]);
+  useEffect(() => setHighlightedProduct(0), [productQuery]);
   const latestSelectedSale = selectedRecentSales[0] ?? null;
   const missingRequirement = missingSaleRequirement({
     businessUnitId: form.businessUnitId,
@@ -1024,7 +1075,7 @@ export function SaleFormPage() {
     setError("");
     requestAnimationFrame(() =>
       document
-        .querySelector<HTMLSelectElement>('select[name="paymentMethod"]')
+        .querySelector<HTMLInputElement>('input[name="quantity"]')
         ?.focus(),
     );
   };
@@ -1297,23 +1348,53 @@ export function SaleFormPage() {
     );
   };
 
-  const hasDraft = Boolean(
-    form.customerId ||
-      form.dogId ||
-      form.productId ||
-      form.memo.trim() ||
-      form.additionalAmount ||
-      form.discountAmount ||
-      form.outstandingAmount ||
-      form.adjustmentNote.trim() ||
-      saleReference.customerName.trim() ||
-      saleReference.phone.trim() ||
-      saleReference.dogName.trim(),
-  );
   const requestNavigation = (path: string) => {
-    if (hasDraft) setPendingNavigation(path);
+    if (isDirty) setPendingNavigation(path);
     else navigate(path);
   };
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const warnBeforeUnload = (event: BeforeUnloadEvent) => {
+      const storage = draftStorage();
+      const draft = latestDraftRef.current;
+      if (storage && draft && profile?.id)
+        writeSaleDraft(storage, profile.id, draft);
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeUnload);
+    return () => window.removeEventListener("beforeunload", warnBeforeUnload);
+  }, [isDirty, profile?.id]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const interceptInternalLink = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return;
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const anchor = target.closest<HTMLAnchorElement>("a[href]");
+      if (!anchor || anchor.target === "_blank" || anchor.hasAttribute("download"))
+        return;
+      const destination = new URL(anchor.href, window.location.href);
+      if (destination.origin !== window.location.origin) return;
+      const current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      const next = `${destination.pathname}${destination.search}${destination.hash}`;
+      if (next === current) return;
+      event.preventDefault();
+      setPendingNavigation(next);
+    };
+    document.addEventListener("click", interceptInternalLink, true);
+    return () => document.removeEventListener("click", interceptInternalLink, true);
+  }, [isDirty]);
 
   const validate = (formElement: HTMLFormElement) => {
     const focus = (name: string) =>
@@ -1495,6 +1576,7 @@ export function SaleFormPage() {
     }
     const savedSale = mapRecentSale(result.data as Record<string, unknown>);
     draftPersistenceActiveRef.current = false;
+    setDirtyBaseline(dirtyFingerprint);
     setDraftSuppressed(true);
     removeCurrentDraft();
     setRecentSales((current) => [savedSale, ...current].slice(0, 100));
@@ -1912,6 +1994,7 @@ export function SaleFormPage() {
         description="고객 정보 없이도 상품과 금액만으로 빠르게 등록할 수 있습니다."
       />
       <form
+        ref={saleFormRef}
         onSubmit={submit}
         className="mx-auto max-w-6xl pb-28 lg:pb-4"
         aria-describedby={error ? "sale-form-error" : undefined}
@@ -2483,6 +2566,11 @@ export function SaleFormPage() {
             </div>
             <div className="space-y-5">
               {renderProductGroup(
+                "내 최근 사용 상품",
+                "내가 최근 등록한 상품을 빠르게 선택합니다.",
+                recommendationGroups.myRecent,
+              )}
+              {renderProductGroup(
                 "최근 이용 상품",
                 "최근 사용한 상품부터 표시합니다.",
                 recommendationGroups.recent,
@@ -2520,21 +2608,49 @@ export function SaleFormPage() {
                   onClear={() => setProductQuery("")}
                   onChange={(event) => setProductQuery(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") event.preventDefault();
+                    if (event.nativeEvent.isComposing) return;
+                    if (event.key === "ArrowDown") {
+                      event.preventDefault();
+                      setHighlightedProduct((current) =>
+                        Math.min(
+                          current + 1,
+                          Math.max(0, productSearchResults.length - 1),
+                        ),
+                      );
+                    }
+                    if (event.key === "ArrowUp") {
+                      event.preventDefault();
+                      setHighlightedProduct((current) => Math.max(0, current - 1));
+                    }
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      const product = productSearchResults[highlightedProduct];
+                      if (product) selectProduct(product);
+                    }
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setProductQuery("");
+                    }
                   }}
                 />
                 {productSearchResults.length > 0 ? (
                   <div className="grid gap-2 sm:grid-cols-2">
-                    {productSearchResults.map((product) => (
+                    {productSearchResults.map((product, index) => (
                       <button
                         key={product.id}
                         type="button"
                         aria-pressed={form.productId === product.id}
+                        aria-current={
+                          index === highlightedProduct ? "true" : undefined
+                        }
                         onClick={() => selectProduct(product)}
+                        onMouseEnter={() => setHighlightedProduct(index)}
                         className={cn(
                           "flex min-h-14 items-center justify-between rounded-xl border px-4 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                           form.productId === product.id
                             ? "border-primary bg-primary text-white"
+                            : index === highlightedProduct
+                              ? "border-primary/40 bg-primary-subtle"
                             : "border-border hover:border-primary/30 hover:bg-primary-subtle",
                         )}
                       >
@@ -2660,6 +2776,14 @@ export function SaleFormPage() {
                     value={form.unitPrice}
                     disabled={saving}
                     onValue={(value) => updatePricing(value, form.quantity)}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" || event.nativeEvent.isComposing)
+                        return;
+                      event.preventDefault();
+                      document
+                        .querySelector<HTMLInputElement>('input[name="quantity"]')
+                        ?.focus();
+                    }}
                   />
                 </Field>
                 <Field
@@ -2698,6 +2822,19 @@ export function SaleFormPage() {
                           Number(event.target.value),
                         )
                       }
+                      onKeyDown={(event) => {
+                        if (
+                          event.key !== "Enter" ||
+                          event.nativeEvent.isComposing
+                        )
+                          return;
+                        event.preventDefault();
+                        document
+                          .querySelector<HTMLInputElement>(
+                            'input[name="paidAmount"]',
+                          )
+                          ?.focus();
+                      }}
                       className="h-12 rounded-none border-x border-y-0 text-center font-semibold tabular-nums focus:ring-0"
                     />
                     <button
@@ -2759,6 +2896,16 @@ export function SaleFormPage() {
                         ),
                       }));
                     }}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" || event.nativeEvent.isComposing)
+                        return;
+                      event.preventDefault();
+                      document
+                        .querySelector<HTMLSelectElement>(
+                          'select[name="paymentMethod"]',
+                        )
+                        ?.focus();
+                    }}
                   />
                   {paymentDifference !== 0 && (
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -2794,6 +2941,12 @@ export function SaleFormPage() {
                         paymentMethod: event.target.value,
                       }))
                     }
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" || event.nativeEvent.isComposing)
+                        return;
+                      event.preventDefault();
+                      if (!saving) saleFormRef.current?.requestSubmit();
+                    }}
                   >
                     <option value="card">카드</option>
                     <option value="transfer">계좌이체</option>
@@ -3244,8 +3397,8 @@ export function SaleFormPage() {
       </Modal>
       <ConfirmModal
         open={Boolean(pendingNavigation)}
-        title="입력 중인 화면에서 이동할까요?"
-        description="현재 입력 내용은 이 탭에 임시저장되며 돌아오면 자동으로 복원됩니다."
+        title="저장되지 않은 입력이 있습니다."
+        description="정말 이동하시겠습니까? 현재 입력 내용은 이 탭에 임시저장됩니다."
         confirmLabel="이동"
         cancelLabel="계속 입력"
         tone="primary"

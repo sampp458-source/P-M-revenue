@@ -17,6 +17,8 @@ import {
   normalizeProductName,
   normalizeQuantity,
   normalizeSaleReference,
+  parseCurrencyInput,
+  recentProductIdsForUser,
   partySearchScore,
   suggestUnitLabel,
 } from "./saleRegistrationLogic";
@@ -205,6 +207,28 @@ describe("sale registration logic", () => {
     expect(normalizeQuantity(0)).toBe(1);
     expect(normalizeQuantity(3.8)).toBe(3);
     expect(calculateGrossAmount(50000, 3)).toBe(150000);
+  });
+
+  it("금액 입력은 붙여넣은 문자와 음수 기호를 제거하고 상한을 지킨다", () => {
+    expect(parseCurrencyInput("50,000원")).toBe(50000);
+    expect(parseCurrencyInput("-12 345")).toBe(12345);
+    expect(parseCurrencyInput("abc")).toBe(0);
+    expect(parseCurrencyInput("99999", 50000)).toBe(50000);
+  });
+
+  it("현재 사용자의 최근 상품은 취소를 제외하고 중복 없이 최신순으로 고른다", () => {
+    expect(
+      recentProductIdsForUser(
+        [
+          { productId: "hotel", createdBy: "me", status: "normal" },
+          { productId: "hotel", createdBy: "me", status: "normal" },
+          { productId: "cancelled", createdBy: "me", status: "cancelled" },
+          { productId: "daycare", createdBy: "other", status: "normal" },
+          { productId: "training", createdBy: "me", status: "normal" },
+        ],
+        "me",
+      ),
+    ).toEqual(["hotel", "training"]);
   });
 
   it("직접 수정한 결제금액은 수량 변경 후에도 덮어쓰지 않는다", () => {

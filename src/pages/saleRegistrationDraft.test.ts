@@ -3,6 +3,7 @@ import {
   clearAllSaleDrafts,
   parseSaleDraft,
   readSaleDraft,
+  saleInputFingerprint,
   saleDraftKey,
   writeSaleDraft,
   type SaleRegistrationFormState,
@@ -63,6 +64,7 @@ describe("sale registration draft", () => {
     const restored = parseSaleDraft(
       JSON.stringify({
         version: 1,
+        updatedAt: "2026-07-13T12:00:00.000Z",
         form: {
           ...form,
           quantity: 0,
@@ -72,6 +74,7 @@ describe("sale registration draft", () => {
           paidAmount: 1000,
         },
       }),
+      new Date("2026-07-13T13:00:00.000Z").getTime(),
     );
     expect(restored?.form.quantity).toBe(1);
     expect(restored?.form.unitPrice).toBe(0);
@@ -88,6 +91,29 @@ describe("sale registration draft", () => {
     storage.setItem(saleDraftKey("user-1"), JSON.stringify({ version: 2, form }));
     expect(readSaleDraft(storage, "user-1")).toBeNull();
     expect(storage.getItem(saleDraftKey("user-1"))).toBeNull();
+  });
+
+  it("24시간이 지난 draft는 복원하지 않고 입력 기준선은 UI 상태를 제외한다", () => {
+    const oldDraft = JSON.stringify({
+      version: 1,
+      updatedAt: "2026-07-12T00:00:00.000Z",
+      form,
+      saleReference: { customerName: "", phone: "", dogName: "" },
+    });
+    expect(
+      parseSaleDraft(oldDraft, new Date("2026-07-13T00:00:01.000Z").getTime()),
+    ).toBeNull();
+    const baseline = saleInputFingerprint(form, {
+      customerName: "",
+      phone: "",
+      dogName: "",
+    });
+    expect(
+      saleInputFingerprint(
+        { ...form, paidAmount: form.paidAmount + 1 },
+        { customerName: "", phone: "", dogName: "" },
+      ),
+    ).not.toBe(baseline);
   });
 
   it("로그아웃 정리는 모든 사용자의 매출 draft만 제거한다", () => {

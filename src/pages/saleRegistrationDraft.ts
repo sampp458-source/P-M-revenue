@@ -6,6 +6,7 @@ import {
 } from "./saleRegistrationLogic";
 
 export const saleDraftPrefix = "pnm:sales:new:draft:v1:";
+export const saleDraftMaxAgeMs = 24 * 60 * 60 * 1000;
 const saleDraftVersion = 1;
 
 export interface SaleRegistrationFormState {
@@ -99,9 +100,27 @@ export function normalizeSaleDraftForm(value: unknown): SaleRegistrationFormStat
   };
 }
 
-export function parseSaleDraft(value: string): SaleRegistrationDraft | null {
+export function saleInputFingerprint(
+  form: SaleRegistrationFormState,
+  saleReference: SaleReferenceDraft,
+) {
+  return JSON.stringify({ form, saleReference });
+}
+
+export function parseSaleDraft(
+  value: string,
+  now = Date.now(),
+): SaleRegistrationDraft | null {
   const parsed = JSON.parse(value) as Record<string, unknown>;
   if (parsed.version !== saleDraftVersion) return null;
+  const updatedAt = text(parsed.updatedAt);
+  const updatedAtTime = Date.parse(updatedAt);
+  if (
+    !updatedAt ||
+    !Number.isFinite(updatedAtTime) ||
+    now - updatedAtTime > saleDraftMaxAgeMs
+  )
+    return null;
   const form = normalizeSaleDraftForm(parsed.form);
   if (!form) return null;
   const reference =
@@ -114,7 +133,7 @@ export function parseSaleDraft(value: string): SaleRegistrationDraft | null {
       : {};
   return {
     version: saleDraftVersion,
-    updatedAt: text(parsed.updatedAt),
+    updatedAt,
     form,
     saleReference: {
       customerName: text(reference.customerName),
