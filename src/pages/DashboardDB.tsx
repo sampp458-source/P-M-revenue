@@ -4,7 +4,7 @@ import { Button, ErrorState, PageHeader } from "../components/ui";
 import { won } from "../lib/format";
 import { supabase } from "../lib/supabase";
 import { BusinessUnitCard, DashboardSkeleton, MetricCard, RecentSales } from "./dashboard/DashboardSections";
-import { DailyRevenueTrend, DashboardComparisonControls, DashboardPeriodFilters, SalesHeatmapCalendar, SelectedDateDetail } from "./dashboard/DashboardRangeSections";
+import { DailyRevenueTrend, DashboardPeriodFilters, SalesHeatmapCalendar, SelectedDateDetail } from "./dashboard/DashboardRangeSections";
 import { calculateDailyRevenue, calculateDateDetail, calculateRangeOverview, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodRange, formatRevenueComparison, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale } from "./dashboard/dashboardMetrics";
 
 const validPeriods = new Set<DashboardPeriod>(["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "custom"]);
@@ -125,10 +125,9 @@ export function DashboardPage() {
   if (error) return <ErrorState title="대시보드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." retry={() => void load()} />;
   return <>
     <PageHeader title="대시보드" description="대표가 사업부와 날짜 흐름을 빠르게 읽는 경영 현황" />
-    <DashboardPeriodFilters period={period} range={range} unitName={selectedUnitName} onPeriod={selectPeriod} onCustom={selectCustomRange} onMoveDay={moveSingleDay} />
+    <DashboardPeriodFilters period={period} range={range} unitName={selectedUnitName} compare={compare} onPeriod={selectPeriod} onCustom={selectCustomRange} onMoveDay={moveSingleDay} onCompare={(nextCompare) => updateQuery({ compare: nextCompare })} />
     <section aria-labelledby="business-unit-overview-title">
       <div className="mb-3 flex items-end justify-between gap-3"><div><h2 id="business-unit-overview-title" className="text-lg font-bold text-text-primary">사업부 현황</h2><p className="mt-1 text-xs text-text-muted">카드를 선택하면 아래 추이와 캘린더가 해당 사업부 기준으로 바뀝니다.</p></div>{unitId && <Button type="button" variant="ghost" onClick={() => updateQuery({ unit: null })}>전체 보기</Button>}</div>
-      <DashboardComparisonControls compare={compare} custom={period === "custom"} onCompare={(nextCompare) => updateQuery({ compare: nextCompare })} />
       <div className="grid gap-4 lg:grid-cols-3">{coreDivisions.map((division, index) => <BusinessUnitCard key={division.id} order={index + 1} name={division.name} revenue={division.revenue} previousRevenue={division.previousRevenue} compareLabel={compareLabel} share={overview.total > 0 ? (division.revenue / overview.total) * 100 : 0} count={division.count} average={division.average} selected={unitId === division.id} onClick={() => updateQuery({ unit: unitId === division.id ? null : division.id })} />)}</div>
     </section>
     <section className="mt-7" aria-labelledby="company-summary-title">

@@ -71,6 +71,25 @@ function dateKey(value: Date) {
   return `${year}-${month}-${day}`;
 }
 
+export function shiftDateKey(value: string, days: number) {
+  const date = dateFromKey(value);
+  date.setDate(date.getDate() + days);
+  return dateKey(date);
+}
+
+export function businessUnitDisplayOrder(name: string) {
+  const normalized = name.trim().toLocaleLowerCase("ko");
+  if (normalized.includes("유치원") || normalized.includes("daycare")) return 0;
+  if (
+    normalized.includes("교육") ||
+    normalized.includes("training") ||
+    normalized.includes("center")
+  )
+    return 1;
+  if (normalized.includes("호텔") || normalized.includes("hotel")) return 2;
+  return 99;
+}
+
 export function periodRange(period: PeriodFilter, today: string, startDate = "", endDate = "") {
   const base = dateFromKey(today);
   if (period === "today") return { start: today, end: today };
@@ -143,6 +162,19 @@ export function calculateTodayActivity(sales: SalesHistoryRecord[], today: strin
     refundAmount: activeToday.reduce((total, sale) => total + sale.refundAmount, 0),
     outstandingAmount: activeToday.reduce((total, sale) => total + sale.outstandingAmount, 0),
     cancelledCount: cancelled.length,
+  };
+}
+
+export function calculateSalesSummary(sales: SalesHistoryRecord[]) {
+  const active = sales.filter((sale) => sale.status !== "cancelled");
+  return {
+    count: active.length,
+    netAmount: active.reduce((total, sale) => total + sale.netAmount, 0),
+    refundAmount: active.reduce((total, sale) => total + sale.refundAmount, 0),
+    outstandingAmount: active.reduce(
+      (total, sale) => total + sale.outstandingAmount,
+      0,
+    ),
   };
 }
 

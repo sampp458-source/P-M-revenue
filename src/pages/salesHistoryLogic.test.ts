@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateTodayActivity,
+  calculateSalesSummary,
+  businessUnitDisplayOrder,
   filterSales,
   findDuplicateWarnings,
   hasOutstanding,
   normalizePhone,
+  shiftDateKey,
   type SalesHistoryFilters,
   type SalesHistoryRecord,
 } from "./salesHistoryLogic";
@@ -81,5 +84,36 @@ describe("salesHistoryLogic", () => {
     expect(calculateTodayActivity([refunded, cancelled], "2026-07-13")).toEqual({
       registeredCount: 2, netAmount: 250000, refundAmount: 50000, outstandingAmount: 0, cancelledCount: 1,
     });
+  });
+
+  it("조회 요약은 취소 매출을 건수와 금액에서 제외한다", () => {
+    const cancelled = {
+      ...baseSale,
+      id: "sale-2",
+      status: "cancelled" as const,
+      netAmount: 300000,
+      refundAmount: 10000,
+      outstandingAmount: 50000,
+    };
+    expect(calculateSalesSummary([baseSale, cancelled])).toEqual({
+      count: 1,
+      netAmount: 300000,
+      refundAmount: 0,
+      outstandingAmount: 0,
+    });
+  });
+
+  it("사업부를 유치원, 교육, 호텔 순서로 정렬할 수 있다", () => {
+    expect(
+      ["호텔", "유치원", "교육센터"].sort(
+        (left, right) =>
+          businessUnitDisplayOrder(left) - businessUnitDisplayOrder(right),
+      ),
+    ).toEqual(["유치원", "교육센터", "호텔"]);
+  });
+
+  it("단일 조회 날짜를 하루씩 이동한다", () => {
+    expect(shiftDateKey("2026-07-01", -1)).toBe("2026-06-30");
+    expect(shiftDateKey("2026-07-31", 1)).toBe("2026-08-01");
   });
 });

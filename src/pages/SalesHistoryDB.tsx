@@ -8,6 +8,10 @@ import {
 } from "react";
 import {
   AlertTriangle,
+  Building2,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Eye,
   LoaderCircle,
@@ -46,11 +50,15 @@ import { koDate, won } from "../lib/format";
 import { supabase } from "../lib/supabase";
 import {
   calculateTodayActivity,
+  calculateSalesSummary,
+  businessUnitDisplayOrder,
   filterSales,
   findDuplicateWarnings,
   hasOutstanding,
   koreanDate,
   normalizePhone,
+  periodRange,
+  shiftDateKey,
   todayRegisteredSales,
   type DuplicateWarning,
   type PeriodFilter,
@@ -427,11 +435,17 @@ export function SalesHistoryPage() {
   }, [loadSales]);
 
   const units = useMemo(
-    () => [
-      ...new Map(
-        sales.map((sale) => [sale.businessUnitId, sale.businessUnitName]),
-      ).entries(),
-    ],
+    () =>
+      [
+        ...new Map(
+          sales.map((sale) => [sale.businessUnitId, sale.businessUnitName]),
+        ).entries(),
+      ].sort(
+        (left, right) =>
+          businessUnitDisplayOrder(left[1]) -
+            businessUnitDisplayOrder(right[1]) ||
+          left[1].localeCompare(right[1], "ko"),
+      ),
     [sales],
   );
   const today = koreanDate(new Date());
@@ -471,6 +485,18 @@ export function SalesHistoryPage() {
     () => filterSales(sales, filters, today),
     [filters, sales, today],
   );
+  const activeRange = useMemo(
+    () => periodRange(period, today, startDate, endDate),
+    [endDate, period, startDate, today],
+  );
+  const contextSummary = useMemo(
+    () => calculateSalesSummary(filtered),
+    [filtered],
+  );
+  const selectedUnitName =
+    units.find(([id]) => id === unitId)?.[1] ?? "전체 사업부";
+  const singleDay =
+    Boolean(activeRange.start) && activeRange.start === activeRange.end;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const page = Math.min(requestedPage, totalPages);
   const rows = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -780,13 +806,17 @@ export function SalesHistoryPage() {
     setSearchParams(next, { replace: true });
   };
 
+  const moveSingleDay = (days: number) => {
+    if (!singleDay) return;
+    const nextDate = shiftDateKey(activeRange.start, days);
+    updateParams({ period: "custom", start: nextDate, end: nextDate });
+  };
+
   const filterChips: Array<{
     key: string;
     label: string;
     clear: Record<string, string | null>;
   }> = [];
-  if (query)
-    filterChips.push({ key: "q", label: `검색: ${query}`, clear: { q: null } });
   if (period !== "month")
     filterChips.push({
       key: "period",
@@ -859,6 +889,8 @@ export function SalesHistoryPage() {
       label: `최대: ${won(maxAmount)}`,
       clear: { max: null },
     });
+  if (query)
+    filterChips.push({ key: "q", label: `검색: ${query}`, clear: { q: null } });
 
   const advancedFields = (
     <AdvancedFilterFields
@@ -889,33 +921,30 @@ export function SalesHistoryPage() {
           </Button>
         }
       />
-      <TodayActivityCards activity={todayActivity} />
-      <TodayRegistered
-        rows={recentToday}
-        profileId={profile?.id ?? null}
-        onOpen={showDetail}
-        onViewAll={() => updateParams({ period: "today" })}
+      <SalesHistoryContext
+        range={activeRange}
+        unitName={selectedUnitName}
+        summary={contextSummary}
+        singleDay={singleDay}
+        onMoveDay={moveSingleDay}
+        onClearDate={() =>
+          updateParams({ period: null, start: null, end: null })
+        }
+        onClearUnit={() => updateParams({ unit: null })}
       />
+      {period === "today" && (
+        <>
+          <TodayActivityCards activity={todayActivity} />
+          <TodayRegistered
+            rows={recentToday}
+            profileId={profile?.id ?? null}
+            onOpen={showDetail}
+            onViewAll={() => updateParams({ period: "today" })}
+          />
+        </>
+      )}
       <FilterToolbar className="gap-4">
-        <div className="grid gap-3 lg:grid-cols-[minmax(280px,1fr)_170px_170px_170px_auto]">
-          <div>
-            <SearchBox
-              aria-label="매출 내역 검색"
-              placeholder="반려견명, 보호자명, 연락처, 상품명으로 검색"
-              value={query}
-              onKeyDown={handleSearchKey}
-              onClear={() => updateParams({ q: null })}
-              onChange={(event) =>
-                updateParams({ q: event.target.value || null }, true, true)
-              }
-            />
-            {query !== debouncedQuery && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-text-muted">
-                <LoaderCircle className="animate-spin" size={13} />
-                검색 중
-              </p>
-            )}
-          </div>
+        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-[160px_160px_160px_minmax(280px,1fr)_auto]">
           <Select
             aria-label="조회 기간"
             value={period}
@@ -961,6 +990,24 @@ export function SalesHistoryPage() {
               </option>
             ))}
           </Select>
+          <div>
+            <SearchBox
+              aria-label="매출 내역 검색"
+              placeholder="반려견, 보호자, 연락처, 상품 검색"
+              value={query}
+              onKeyDown={handleSearchKey}
+              onClear={() => updateParams({ q: null })}
+              onChange={(event) =>
+                updateParams({ q: event.target.value || null }, true, true)
+              }
+            />
+            {query !== debouncedQuery && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-text-muted">
+                <LoaderCircle className="animate-spin" size={13} />
+                검색 중
+              </p>
+            )}
+          </div>
           <Button
             type="button"
             variant="secondary"
@@ -1147,11 +1194,17 @@ export function SalesHistoryPage() {
           </>
         ) : (
           <EmptyState
-            title="조회된 매출이 없습니다"
+            title={
+              sales.length === 0
+                ? "아직 등록된 매출이 없습니다"
+                : "현재 조건에 맞는 매출이 없습니다"
+            }
             description={
-              query
+              sales.length === 0
+                ? "첫 매출을 등록하면 날짜와 사업부 기준으로 내역을 확인할 수 있습니다."
+                : query
                 ? `“${query}” 검색어와 현재 필터 조건에 맞는 매출이 없습니다.`
-                : "필터 조건을 확인해 주세요."
+                : "날짜·사업부 또는 적용된 필터를 조정해 주세요."
             }
           />
         )}
@@ -1580,6 +1633,120 @@ export function SalesHistoryPage() {
       />
       {notice && <Toast message={notice} onClose={() => setNotice("")} />}
     </>
+  );
+}
+
+function SalesHistoryContext({
+  range,
+  unitName,
+  summary,
+  singleDay,
+  onMoveDay,
+  onClearDate,
+  onClearUnit,
+}: {
+  range: { start: string; end: string };
+  unitName: string;
+  summary: ReturnType<typeof calculateSalesSummary>;
+  singleDay: boolean;
+  onMoveDay: (days: number) => void;
+  onClearDate: () => void;
+  onClearUnit: () => void;
+}) {
+  const rangeLabel =
+    range.start && range.end
+      ? range.start === range.end
+        ? koDate(range.start)
+        : `${koDate(range.start)} ~ ${koDate(range.end)}`
+      : "전체 기간";
+  const metrics = [
+    ["실매출", won(summary.netAmount)],
+    ["매출 건수", `${summary.count.toLocaleString("ko-KR")}건`],
+    ["미수금", won(summary.outstandingAmount)],
+    ["환불", won(summary.refundAmount)],
+  ] as const;
+
+  return (
+    <Card className="mb-5 overflow-hidden border-primary/15">
+      <div className="flex flex-col gap-4 border-b border-border bg-primary-subtle px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white text-primary shadow-sm">
+            <CalendarDays size={19} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-text-secondary">
+              현재 조회 기준
+            </p>
+            <h2 className="mt-0.5 truncate text-base font-bold text-text-primary tabular-nums sm:text-lg">
+              {rangeLabel}
+            </h2>
+            <p className="mt-0.5 flex items-center gap-1.5 text-xs font-semibold text-primary">
+              <Building2 size={13} aria-hidden="true" />
+              {unitName}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {singleDay && (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                className="px-3"
+                aria-label="이전 날짜 매출 보기"
+                onClick={() => onMoveDay(-1)}
+              >
+                <ChevronLeft size={16} />
+                이전 날
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="px-3"
+                aria-label="다음 날짜 매출 보기"
+                onClick={() => onMoveDay(1)}
+              >
+                다음 날
+                <ChevronRight size={16} />
+              </Button>
+            </>
+          )}
+          {unitName !== "전체 사업부" && (
+            <Button type="button" variant="ghost" onClick={onClearUnit}>
+              전체 사업부
+            </Button>
+          )}
+          <Button type="button" variant="ghost" onClick={onClearDate}>
+            이번 달
+          </Button>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 divide-x divide-y divide-border sm:grid-cols-4 sm:divide-y-0">
+        {metrics.map(([label, value], index) => (
+          <div
+            key={label}
+            className={cn(
+              "min-w-0 px-4 py-4 sm:px-5",
+              index === 0 && "bg-white",
+            )}
+          >
+            <span className="block text-[11px] font-semibold text-text-muted">
+              {label}
+            </span>
+            <strong
+              className={cn(
+                "mt-1 block truncate font-bold text-text-primary tabular-nums",
+                index === 0 ? "text-xl sm:text-2xl" : "text-base sm:text-lg",
+                label === "미수금" && summary.outstandingAmount > 0 &&
+                  "text-warning",
+              )}
+            >
+              {value}
+            </strong>
+          </div>
+        ))}
+      </div>
+    </Card>
   );
 }
 
