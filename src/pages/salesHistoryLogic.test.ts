@@ -6,7 +6,9 @@ import {
   filterSales,
   findDuplicateWarnings,
   hasOutstanding,
+  isRefundDateAllowed,
   normalizePhone,
+  refundRemainingAmount,
   shiftDateKey,
   type SalesHistoryFilters,
   type SalesHistoryRecord,
@@ -115,5 +117,22 @@ describe("salesHistoryLogic", () => {
   it("단일 조회 날짜를 하루씩 이동한다", () => {
     expect(shiftDateKey("2026-07-01", -1)).toBe("2026-06-30");
     expect(shiftDateKey("2026-07-31", 1)).toBe("2026-08-01");
+  });
+
+  it("누적 환불액을 제외한 남은 환불 가능액을 계산한다", () => {
+    expect(refundRemainingAmount(1000000, 200000)).toBe(800000);
+    expect(refundRemainingAmount(1000000, 1200000)).toBe(0);
+  });
+
+  it("환불 처리일은 매출일 이후부터 오늘까지만 허용한다", () => {
+    expect(
+      isRefundDateAllowed("2026-07-14", "2026-06-20", "2026-07-14"),
+    ).toBe(true);
+    expect(
+      isRefundDateAllowed("2026-06-19", "2026-06-20", "2026-07-14"),
+    ).toBe(false);
+    expect(
+      isRefundDateAllowed("2026-07-15", "2026-06-20", "2026-07-14"),
+    ).toBe(false);
   });
 });

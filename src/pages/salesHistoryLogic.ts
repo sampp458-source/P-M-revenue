@@ -178,6 +178,20 @@ export function calculateSalesSummary(sales: SalesHistoryRecord[]) {
   };
 }
 
+export function refundRemainingAmount(paidAmount: number, refundAmount: number) {
+  return Math.max(0, paidAmount - refundAmount);
+}
+
+export function isRefundDateAllowed(
+  refundDate: string,
+  saleDate: string,
+  today: string,
+) {
+  return Boolean(
+    refundDate && refundDate >= saleDate && refundDate <= today,
+  );
+}
+
 export function todayRegisteredSales<T extends SalesHistoryRecord>(sales: T[], today: string, currentUserId: string | null): T[] {
   return sales
     .filter((sale) => koreanDate(sale.createdAt) === today)

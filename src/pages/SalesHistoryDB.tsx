@@ -55,9 +55,11 @@ import {
   filterSales,
   findDuplicateWarnings,
   hasOutstanding,
+  isRefundDateAllowed,
   koreanDate,
   normalizePhone,
   periodRange,
+  refundRemainingAmount,
   shiftDateKey,
   todayRegisteredSales,
   type DuplicateWarning,
@@ -136,6 +138,17 @@ interface HistoryRow {
   changedData: unknown;
   changedBy: string;
   createdAt: string;
+}
+
+interface RefundRow {
+  id: string;
+  refundDate: string | null;
+  amount: number;
+  reason: string | null;
+  createdBy: string | null;
+  createdAt: string;
+  isLegacy: boolean;
+  voidedAt: string | null;
 }
 
 const paymentLabel: Record<string, string> = {
@@ -294,12 +307,17 @@ export function SalesHistoryPage() {
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(false);
+  const [refundHistory, setRefundHistory] = useState<RefundRow[]>([]);
+  const [refundHistoryLoading, setRefundHistoryLoading] = useState(false);
+  const [refundHistoryError, setRefundHistoryError] = useState(false);
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
   const [editing, setEditing] = useState<SaleRow | null>(null);
   const [refunding, setRefunding] = useState<SaleRow | null>(null);
   const [cancelling, setCancelling] = useState<SaleRow | null>(null);
   const [reopening, setReopening] = useState<SaleRow | null>(null);
   const [refundAmount, setRefundAmount] = useState(0);
+  const [refundDate, setRefundDate] = useState("");
+  const [refundReason, setRefundReason] = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -560,11 +578,20 @@ export function SalesHistoryPage() {
   const canEdit = (sale: SaleRow) =>
     (profile?.role === "admin" && sale.status !== "cancelled") ||
     (sale.createdBy === profile?.id && sale.status === "normal");
+  const startRefund = (sale: SaleRow) => {
+    setActionError("");
+    setRefundAmount(0);
+    setRefundDate(today);
+    setRefundReason("");
+    setRefunding(sale);
+  };
   const mapError = (message: string, code?: string) =>
     code === "42501"
       ? "권한이 없습니다."
       : message.includes("마감된 월")
         ? "마감된 월의 매출은 변경할 수 없습니다."
+        : message.includes("환불")
+          ? message
         : "매출 정보를 변경하지 못했습니다.";
 
   const saveEdit = async (event: FormEvent) => {
@@ -662,28 +689,65 @@ export function SalesHistoryPage() {
 
   const applyRefund = async () => {
     if (!refunding) return;
-    if (refundAmount <= 0 || refundAmount > refunding.paidAmount) {
-      setActionError("환불 금액은 0원보다 크고 결제 금액 이하여야 합니다.");
+    const remainingAmount = refundRemainingAmount(
+      refunding.paidAmount,
+      refunding.refundAmount,
+    );
+    if (refundAmount <= 0 || refundAmount > remainingAmount) {
+      setActionError("환불 금액은 남은 환불 가능액 이하여야 합니다.");
+      return;
+    }
+    if (!refundDate) {
+      setActionError("환불 처리일을 입력해 주세요.");
+      return;
+    }
+    if (!isRefundDateAllowed(refundDate, refunding.saleDate, today)) {
+      setActionError("환불 처리일은 매출일 이후부터 오늘까지 선택할 수 있습니다.");
       return;
     }
     setSaving(true);
     setActionError("");
-    const result = await supabase
-      .from("sales")
-      .update({ refund_amount: Math.trunc(refundAmount) })
-      .eq("id", refunding.id)
-      .select("id")
-      .single();
-    setSaving(false);
+    const result = await supabase.rpc("record_sale_refund", {
+      p_sale_id: refunding.id,
+      p_refund_date: refundDate,
+      p_amount: Math.trunc(refundAmount),
+      p_reason: refundReason.trim() || null,
+    });
+    let usedLegacyFallback = false;
     if (result.error) {
-      setActionError(mapError(result.error.message, result.error.code));
-      return;
+      const missingRpc =
+        result.error.code === "PGRST202" ||
+        result.error.message.includes("record_sale_refund");
+      if (!missingRpc) {
+        setSaving(false);
+        setActionError(mapError(result.error.message, result.error.code));
+        return;
+      }
+      const legacyResult = await supabase
+        .from("sales")
+        .update({
+          refund_amount: refunding.refundAmount + Math.trunc(refundAmount),
+        })
+        .eq("id", refunding.id)
+        .select("id")
+        .single();
+      if (legacyResult.error) {
+        setSaving(false);
+        setActionError(
+          mapError(legacyResult.error.message, legacyResult.error.code),
+        );
+        return;
+      }
+      usedLegacyFallback = true;
     }
+    setSaving(false);
     setRefunding(null);
     setNotice(
-      refundAmount === refunding.paidAmount
-        ? "전액 환불을 처리했습니다."
-        : "부분 환불을 처리했습니다.",
+      usedLegacyFallback
+        ? "환불을 처리했습니다. 환불 처리일 기록은 관리자 DB 적용 후 제공됩니다."
+        : refundAmount === remainingAmount
+          ? "전액 환불을 처리했습니다."
+          : "부분 환불을 처리했습니다.",
     );
     await loadSales();
   };
@@ -719,13 +783,28 @@ export function SalesHistoryPage() {
   const openDetail = useCallback(async (sale: SaleRow) => {
     setSelected(sale);
     setHistory([]);
+    setRefundHistory([]);
     setHistoryLoading(true);
+    setRefundHistoryLoading(true);
     setHistoryError(false);
-    const result = await supabase
-      .from("sale_history")
-      .select("id, action, previous_data, changed_data, changed_by, created_at")
-      .eq("sale_id", sale.id)
-      .order("created_at", { ascending: true });
+    setRefundHistoryError(false);
+    const [result, refundResult] = await Promise.all([
+      supabase
+        .from("sale_history")
+        .select(
+          "id, action, previous_data, changed_data, changed_by, created_at",
+        )
+        .eq("sale_id", sale.id)
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("sale_refunds")
+        .select(
+          "id, refund_date, amount, reason, created_by, created_at, is_legacy, voided_at",
+        )
+        .eq("sale_id", sale.id)
+        .order("refund_date", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true }),
+    ]);
     if (result.error) setHistoryError(true);
     else
       setHistory(
@@ -738,7 +817,22 @@ export function SalesHistoryPage() {
           createdAt: row.created_at,
         })),
       );
+    if (refundResult.error) setRefundHistoryError(true);
+    else
+      setRefundHistory(
+        (refundResult.data ?? []).map((row) => ({
+          id: row.id,
+          refundDate: row.refund_date,
+          amount: row.amount,
+          reason: row.reason,
+          createdBy: row.created_by,
+          createdAt: row.created_at,
+          isLegacy: row.is_legacy,
+          voidedAt: row.voided_at,
+        })),
+      );
     setHistoryLoading(false);
+    setRefundHistoryLoading(false);
   }, []);
 
   useEffect(() => {
@@ -1143,9 +1237,7 @@ export function SalesHistoryPage() {
                   setEditing({ ...sale });
                 }}
                 onRefund={(sale) => {
-                  setActionError("");
-                  setRefundAmount(sale.refundAmount || 0);
-                  setRefunding(sale);
+                  startRefund(sale);
                 }}
                 onCancel={(sale) => {
                   setActionError("");
@@ -1175,9 +1267,7 @@ export function SalesHistoryPage() {
                     setEditing({ ...sale });
                   }}
                   onRefund={() => {
-                    setActionError("");
-                    setRefundAmount(sale.refundAmount || 0);
-                    setRefunding(sale);
+                    startRefund(sale);
                   }}
                   onCancel={() => {
                     setActionError("");
@@ -1296,6 +1386,67 @@ export function SalesHistoryPage() {
                 label="금액 조정 메모"
                 value={selected.adjustmentNote || "-"}
               />
+            </div>
+            <div className="mt-6 border-t pt-5">
+              <h3 className="mb-1 font-semibold">환불 처리 내역</h3>
+              <p className="mb-3 text-xs text-text-muted">
+                실제 환불 처리일과 금액을 시간순으로 표시합니다.
+              </p>
+              {refundHistoryLoading ? (
+                <LoadingState />
+              ) : refundHistoryError ? (
+                <p className="text-sm text-error">
+                  환불 처리 내역을 불러오지 못했습니다.
+                </p>
+              ) : refundHistory.length ? (
+                <div className="space-y-2">
+                  {refundHistory.map((refund) => (
+                    <div
+                      key={refund.id}
+                      className={cn(
+                        "rounded-xl border border-border bg-surface-secondary p-4",
+                        Boolean(refund.voidedAt) && "opacity-60",
+                      )}
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <strong className="text-sm text-text-primary tabular-nums">
+                              {refund.refundDate
+                                ? koDate(refund.refundDate)
+                                : "처리일 미확인"}
+                            </strong>
+                            {refund.isLegacy && <Badge>기존 기록</Badge>}
+                            {refund.voidedAt && <Badge>취소됨</Badge>}
+                          </div>
+                          <p className="mt-1 text-xs text-text-secondary">
+                            {refund.reason || "환불 사유 미입력"}
+                          </p>
+                        </div>
+                        <strong
+                          className={cn(
+                            "text-base text-error tabular-nums",
+                            Boolean(refund.voidedAt) && "line-through",
+                          )}
+                        >
+                          -{won(refund.amount)}
+                        </strong>
+                      </div>
+                      <p className="mt-3 text-xs text-text-muted">
+                        처리자 {refund.createdBy
+                          ? profileNames[refund.createdBy] || "이름 미등록"
+                          : "확인 불가"} · 기록 {new Date(
+                          refund.createdAt,
+                        ).toLocaleString("ko-KR")}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="rounded-xl bg-surface-secondary p-4 text-sm text-text-muted">
+                  기록된 환불 내역이 없습니다.
+                </p>
+              )}
             </div>
             <div className="mt-6 border-t pt-5">
               <h3 className="mb-3 font-semibold">변경 이력</h3>
@@ -1563,20 +1714,94 @@ export function SalesHistoryPage() {
         onClose={() => !saving && setRefunding(null)}
         title="환불 처리"
       >
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (!saving) void applyRefund();
-          }}
-        >
-          <Field label="누적 환불 금액" required>
-            <MoneyInput
-              value={refundAmount}
-              disabled={saving}
-              max={refunding?.paidAmount}
-              onChange={setRefundAmount}
-            />
-          </Field>
+        <form onSubmit={(event) => {
+          event.preventDefault();
+          if (!saving) void applyRefund();
+        }}>
+          {refunding && (
+            <>
+              <div className="mb-4 grid grid-cols-3 gap-2 rounded-xl bg-surface-secondary p-3">
+                <RefundSummary
+                  label="환불 누계"
+                  value={won(refunding.refundAmount)}
+                />
+                <RefundSummary
+                  label="환불 가능"
+                  value={won(
+                    refundRemainingAmount(
+                      refunding.paidAmount,
+                      refunding.refundAmount,
+                    ),
+                  )}
+                />
+                <RefundSummary
+                  label="처리 후 잔액"
+                  value={won(
+                    Math.max(
+                      0,
+                      refundRemainingAmount(
+                        refunding.paidAmount,
+                        refunding.refundAmount,
+                      ) - refundAmount,
+                    ),
+                  )}
+                />
+              </div>
+              <Field label="이번 환불 금액" required>
+                <div className="flex gap-2">
+                  <div className="min-w-0 flex-1">
+                    <MoneyInput
+                      value={refundAmount}
+                      disabled={saving}
+                      max={refundRemainingAmount(
+                        refunding.paidAmount,
+                        refunding.refundAmount,
+                      )}
+                      onChange={setRefundAmount}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="shrink-0 px-3"
+                    disabled={saving}
+                    onClick={() =>
+                      setRefundAmount(
+                        refundRemainingAmount(
+                          refunding.paidAmount,
+                          refunding.refundAmount,
+                        ),
+                      )
+                    }
+                  >
+                    전액 입력
+                  </Button>
+                </div>
+              </Field>
+              <div className="mt-4">
+                <Field label="환불 처리일" required>
+                  <Input
+                    type="date"
+                    value={refundDate}
+                    min={refunding.saleDate}
+                    max={today}
+                    disabled={saving}
+                    onChange={(event) => setRefundDate(event.target.value)}
+                  />
+                </Field>
+              </div>
+              <div className="mt-4">
+                <Field label="환불 사유">
+                  <Textarea
+                    value={refundReason}
+                    disabled={saving}
+                    placeholder="선택 입력"
+                    onChange={(event) => setRefundReason(event.target.value)}
+                  />
+                </Field>
+              </div>
+            </>
+          )}
           {actionError && (
             <p role="alert" className="mt-3 text-sm text-red-600">
               {actionError}
@@ -2391,6 +2616,19 @@ function MoneyInput({
       disabled={disabled}
       onChange={(event) => onChange(Number(event.target.value) || 0)}
     />
+  );
+}
+
+function RefundSummary({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <span className="block text-[10px] font-semibold text-text-muted">
+        {label}
+      </span>
+      <strong className="mt-1 block truncate text-xs text-text-primary tabular-nums sm:text-sm">
+        {value}
+      </strong>
+    </div>
   );
 }
 

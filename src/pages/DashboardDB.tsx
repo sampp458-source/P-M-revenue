@@ -102,9 +102,13 @@ export function DashboardPage() {
     const normalized = nextRange.from <= nextRange.to ? nextRange : { from: nextRange.to, to: nextRange.from };
     updateQuery({ period: "custom", from: normalized.from, to: normalized.to, day: normalized.to, compare: "previous" });
   };
-  const moveSingleDay = (days: number) => {
-    const date = shiftDay(range.from, days);
-    updateQuery({ period: "custom", from: date, to: date, day: date, compare: "day" });
+  const moveRange = (direction: number) => {
+    const start = new Date(`${range.from}T12:00:00`);
+    const end = new Date(`${range.to}T12:00:00`);
+    const length = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+    const from = shiftDay(range.from, length * direction);
+    const to = shiftDay(range.to, length * direction);
+    updateQuery({ period: "custom", from, to, day: to, compare });
   };
 
   const comparisonRange = useMemo(() => dashboardComparisonRange(period, range, compare), [compare, period, range]);
@@ -125,7 +129,7 @@ export function DashboardPage() {
   if (error) return <ErrorState title="대시보드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." retry={() => void load()} />;
   return <>
     <PageHeader title="대시보드" description="대표가 사업부와 날짜 흐름을 빠르게 읽는 경영 현황" />
-    <DashboardPeriodFilters period={period} range={range} unitName={selectedUnitName} compare={compare} onPeriod={selectPeriod} onCustom={selectCustomRange} onMoveDay={moveSingleDay} onCompare={(nextCompare) => updateQuery({ compare: nextCompare })} />
+    <DashboardPeriodFilters period={period} range={range} unitName={selectedUnitName} compare={compare} onPeriod={selectPeriod} onCustom={selectCustomRange} onMovePeriod={moveRange} onCompare={(nextCompare) => updateQuery({ compare: nextCompare })} />
     <section aria-labelledby="business-unit-overview-title">
       <div className="mb-3 flex items-end justify-between gap-3"><div><h2 id="business-unit-overview-title" className="text-lg font-bold text-text-primary">사업부 현황</h2><p className="mt-1 text-xs text-text-muted">카드를 선택하면 아래 추이와 캘린더가 해당 사업부 기준으로 바뀝니다.</p></div>{unitId && <Button type="button" variant="ghost" onClick={() => updateQuery({ unit: null })}>전체 보기</Button>}</div>
       <div className="grid gap-4 lg:grid-cols-3">{coreDivisions.map((division, index) => <BusinessUnitCard key={division.id} order={index + 1} name={division.name} revenue={division.revenue} previousRevenue={division.previousRevenue} compareLabel={compareLabel} share={overview.total > 0 ? (division.revenue / overview.total) * 100 : 0} count={division.count} average={division.average} selected={unitId === division.id} onClick={() => updateQuery({ unit: unitId === division.id ? null : division.id })} />)}</div>
