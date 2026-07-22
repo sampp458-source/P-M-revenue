@@ -5,6 +5,7 @@ import {
   useState,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
 } from "react";
 import {
   AlertTriangle,
@@ -76,6 +77,11 @@ import {
 } from "./saleRegistrationLogic";
 import { paymentMethodLabels, paymentSummary, type SalePaymentRow } from "./salePaymentLogic";
 import { normalizePaymentRows, paymentRowsTotal } from "./salePaymentLogic";
+import {
+  detailPaymentRows,
+  formatQuantityWithUnit,
+  refundDetailKinds,
+} from "./salesDetailLogic";
 
 interface SaleRow extends SalesHistoryRecord {
   businessUnitName: string;
@@ -92,6 +98,7 @@ interface SaleRow extends SalesHistoryRecord {
   cancellationReason: string | null;
   updatedAt: string;
   paymentRows: SalePaymentRow[];
+  unitLabel: string | null;
 }
 
 interface SaleQueryRow {
@@ -353,11 +360,18 @@ export function SalesHistoryPage() {
   const loadSales = useCallback(async () => {
     setLoading(true);
     setLoadError(false);
-    const [result, profilesResult, customersResult, paymentsResult] = await Promise.all([
+    const [
+      result,
+      profilesResult,
+      customersResult,
+      paymentsResult,
+      productUnitsResult,
+    ] = await Promise.all([
       loadSaleRows(),
       supabase.rpc("get_staff_history_directory"),
       supabase.from("customers").select("id, phone"),
       supabase.from("sale_payments").select("sale_id, payment_method, amount").order("created_at"),
+      supabase.from("products").select("id, unit_label"),
     ]);
     if (result.error || customersResult.error) {
       setSales([]);
@@ -382,6 +396,11 @@ export function SalesHistoryPage() {
           const rows = paymentsBySale.get(payment.sale_id) ?? [];
           rows.push({ method: payment.payment_method as SalePaymentRow["method"], amount: payment.amount });
           paymentsBySale.set(payment.sale_id, rows);
+        });
+      const productUnits = new Map<string, string | null>();
+      if (!productUnitsResult.error)
+        (productUnitsResult.data ?? []).forEach((product) => {
+          productUnits.set(product.id, product.unit_label ?? null);
         });
       setSales(
         saleRows.map((sale) => ({
@@ -422,6 +441,7 @@ export function SalesHistoryPage() {
           netAmount: sale.net_amount,
           paymentMethod: sale.payment_method,
           paymentRows: paymentsBySale.get(sale.id) ?? [],
+          unitLabel: productUnits.get(sale.product_id) ?? null,
           paymentMethods: (paymentsBySale.get(sale.id) ?? []).map((row) => row.method),
           customerType: sale.customer_type,
           status: sale.status as SaleStatus,
@@ -1311,182 +1331,38 @@ export function SalesHistoryPage() {
       )}
       <Modal open={!!selected} onClose={closeDetail} title="매출 상세" wide>
         {selected && (
-          <>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <Detail label="사업부" value={selected.businessUnitName} />
-              <Detail label="반려견" value={selected.dogName} />
-              <Detail
-                label="보호자"
-                value={selected.customerName || "미등록"}
-              />
-              <Detail label="상품 분류" value={selected.categoryName} />
-              <Detail label="상품" value={selected.productName} />
-              <Detail label="수량" value={`${selected.quantity}`} />
-              <Detail label="기준 단가" value={won(selected.unitPrice)} />
-              <Detail
-                label="기준 계산금액"
-                value={won(selected.originalAmount)}
-              />
-              <Detail label="추가금액" value={won(selected.additionalAmount)} />
-              <Detail label="할인액" value={won(selected.discountAmount)} />
-              <Detail
-                label="최종 판매금액"
-                value={won(
-                  calculateFinalSaleAmount(
-                    selected.originalAmount,
-                    selected.additionalAmount,
-                    selected.discountAmount,
-                  ),
-                )}
-              />
-              <Detail label="결제액" value={won(selected.paidAmount)} />
-              <Detail label="미수금" value={won(selected.outstandingAmount)} />
-              <Detail label="환불액" value={won(selected.refundAmount)} />
-              <Detail label="실매출" value={won(selected.netAmount)} />
-              <Detail
-                label="결제수단"
-                value={paymentSummary(selected.paymentRows, selected.paymentMethod, selected.paidAmount)}
-              />
-              {selected.paymentRows.length > 1 && (
-                <div className="rounded-xl border border-border bg-slate-50 p-3 sm:col-span-2 lg:col-span-3">
-                  <p className="text-xs font-semibold text-text-muted">분할결제 상세</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {selected.paymentRows.map((row) => <span key={row.method} className="rounded-lg bg-white px-3 py-2 text-sm shadow-sm">{paymentMethodLabels[row.method]} <strong className="ml-1 tabular-nums">{won(row.amount)}</strong></span>)}
-                  </div>
-                  <p className="mt-2 text-xs text-text-muted">환불은 결제수단별 배분 없이 총액 기준으로 기록됩니다.</p>
-                </div>
-              )}
-              <Detail
-                label="등록자"
-                value={profileNames[selected.createdBy] || "-"}
-              />
-              <Detail label="담당자" value={selected.staffName || "-"} />
-              <Detail
-                label="등록일"
-                value={new Date(selected.createdAt).toLocaleString("ko-KR")}
-              />
-              <Detail
-                label="수정일"
-                value={new Date(selected.updatedAt).toLocaleString("ko-KR")}
-              />
-              <Detail
-                label="취소 여부"
-                value={
-                  selected.status === "cancelled"
-                    ? `취소 (${selected.cancelledAt ? new Date(selected.cancelledAt).toLocaleString("ko-KR") : "-"})`
-                    : "아니오"
-                }
-              />
-              <Detail
-                label="취소 사유"
-                value={selected.cancellationReason || "-"}
-              />
-              <Detail label="메모" value={selected.memo || "-"} />
-              <Detail
-                label="금액 조정 메모"
-                value={selected.adjustmentNote || "-"}
-              />
-            </div>
-            <div className="mt-6 border-t pt-5">
-              <h3 className="mb-1 font-semibold">환불 처리 내역</h3>
-              <p className="mb-3 text-xs text-text-muted">
-                실제 환불 처리일과 금액을 시간순으로 표시합니다.
-              </p>
-              {refundHistoryLoading ? (
-                <LoadingState />
-              ) : refundHistoryError ? (
-                <p className="text-sm text-error">
-                  환불 처리 내역을 불러오지 못했습니다.
-                </p>
-              ) : refundHistory.length ? (
-                <div className="space-y-2">
-                  {refundHistory.map((refund) => (
-                    <div
-                      key={refund.id}
-                      className={cn(
-                        "rounded-xl border border-border bg-surface-secondary p-4",
-                        Boolean(refund.voidedAt) && "opacity-60",
-                      )}
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <strong className="text-sm text-text-primary tabular-nums">
-                              {refund.refundDate
-                                ? koDate(refund.refundDate)
-                                : "처리일 미확인"}
-                            </strong>
-                            {refund.isLegacy && <Badge>기존 기록</Badge>}
-                            {refund.voidedAt && <Badge>취소됨</Badge>}
-                          </div>
-                          <p className="mt-1 text-xs text-text-secondary">
-                            {refund.reason || "환불 사유 미입력"}
-                          </p>
-                        </div>
-                        <strong
-                          className={cn(
-                            "text-base text-error tabular-nums",
-                            Boolean(refund.voidedAt) && "line-through",
-                          )}
-                        >
-                          -{won(refund.amount)}
-                        </strong>
-                      </div>
-                      <p className="mt-3 text-xs text-text-muted">
-                        처리자 {refund.createdBy
-                          ? profileNames[refund.createdBy] || "이름 미등록"
-                          : "확인 불가"} · 기록 {new Date(
-                          refund.createdAt,
-                        ).toLocaleString("ko-KR")}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="rounded-xl bg-surface-secondary p-4 text-sm text-text-muted">
-                  기록된 환불 내역이 없습니다.
-                </p>
-              )}
-            </div>
-            <div className="mt-6 border-t pt-5">
-              <h3 className="mb-3 font-semibold">변경 이력</h3>
-              {historyLoading ? (
-                <LoadingState />
-              ) : historyError ? (
-                <p className="text-sm text-red-600">
-                  매출 변경 이력을 불러오지 못했습니다.
-                </p>
-              ) : history.length ? (
-                <div className="space-y-3">
-                  {history.map((item) => (
-                    <div key={item.id} className="rounded-lg border p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <Badge>{item.action}</Badge>
-                        <span className="text-xs text-slate-500">
-                          {profileNames[item.changedBy] || item.changedBy} ·{" "}
-                          {new Date(item.createdAt).toLocaleString("ko-KR")}
-                        </span>
-                      </div>
-                      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                        <JsonData
-                          label="previous_data"
-                          value={item.previousData}
-                        />
-                        <JsonData
-                          label="changed_data"
-                          value={item.changedData}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-slate-500">
-                  기록된 변경 이력이 없습니다.
-                </p>
-              )}
-            </div>
-          </>
+          <SaleDetailContent
+            sale={selected}
+            profileNames={profileNames}
+            history={history}
+            historyLoading={historyLoading}
+            historyError={historyError}
+            refunds={refundHistory}
+            refundsLoading={refundHistoryLoading}
+            refundsError={refundHistoryError}
+            admin={profile?.role === "admin"}
+            editable={canEdit(selected)}
+            onEdit={() => {
+              closeDetail();
+              setActionError("");
+              setEditing({ ...selected });
+            }}
+            onRefund={() => {
+              closeDetail();
+              startRefund(selected);
+            }}
+            onCancel={() => {
+              closeDetail();
+              setActionError("");
+              setCancellationReason("");
+              setCancelling(selected);
+            }}
+            onReopen={() => {
+              closeDetail();
+              setActionError("");
+              setReopening(selected);
+            }}
+          />
         )}
       </Modal>
       <Modal
@@ -1859,6 +1735,289 @@ export function SalesHistoryPage() {
       {notice && <Toast message={notice} onClose={() => setNotice("")} />}
     </>
   );
+}
+
+function SaleDetailContent({
+  sale,
+  profileNames,
+  history,
+  historyLoading,
+  historyError,
+  refunds,
+  refundsLoading,
+  refundsError,
+  admin,
+  editable,
+  onEdit,
+  onRefund,
+  onCancel,
+  onReopen,
+}: {
+  sale: SaleRow;
+  profileNames: Record<string, string>;
+  history: HistoryRow[];
+  historyLoading: boolean;
+  historyError: boolean;
+  refunds: RefundRow[];
+  refundsLoading: boolean;
+  refundsError: boolean;
+  admin: boolean;
+  editable: boolean;
+  onEdit: () => void;
+  onRefund: () => void;
+  onCancel: () => void;
+  onReopen: () => void;
+}) {
+  const finalSaleAmount = calculateFinalSaleAmount(
+    sale.originalAmount,
+    sale.additionalAmount,
+    sale.discountAmount,
+  );
+  const payments = detailPaymentRows(
+    sale.paymentRows,
+    sale.paymentMethod,
+    sale.paidAmount,
+  );
+  const paymentTotal = payments.reduce((total, row) => total + row.amount, 0);
+  const refundKinds = refundDetailKinds(refunds, sale.status);
+  const canRefund = admin && sale.status !== "cancelled" && sale.refundAmount < sale.paidAmount;
+  const hasActions = editable || admin;
+  const customerType = sale.customerType === "new" ? "신규" : sale.customerType === "renewal" ? "재등록" : sale.customerType || "미지정";
+
+  return (
+    <div className="space-y-0">
+      <section className="rounded-2xl border border-primary/15 bg-primary-subtle p-4 sm:p-5" aria-labelledby="sale-summary-title">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge status={sale.status} />
+              {hasOutstanding(sale) && <StatusBadge status="outstanding" />}
+              {sale.refundAmount > 0 && <Badge tone="amber">환불 있음</Badge>}
+            </div>
+            <h3 id="sale-summary-title" className="mt-3 break-words text-xl font-bold tracking-[-0.02em] text-text-primary sm:text-2xl">
+              {sale.productName}
+            </h3>
+            <p className="mt-1 text-sm text-text-secondary">
+              {sale.businessUnitName} · {koDate(sale.saleDate)}
+            </p>
+          </div>
+          <div className="shrink-0 border-t border-primary/15 pt-4 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 sm:text-right">
+            <p className="text-xs font-semibold text-text-secondary">최종 실매출</p>
+            <strong className="mt-1 block text-3xl font-bold tracking-[-0.03em] text-primary tabular-nums">
+              {won(sale.netAmount)}
+            </strong>
+            {(sale.outstandingAmount > 0 || sale.refundAmount > 0) && (
+              <p className="mt-2 text-xs text-text-secondary tabular-nums">
+                미수 {won(sale.outstandingAmount)} · 환불 {won(sale.refundAmount)}
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <DetailSection title="판매 항목">
+        <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <strong className="block break-words text-base text-text-primary">{sale.productName}</strong>
+            <span className="mt-1 block text-xs text-text-muted">{sale.categoryName}</span>
+          </div>
+          <p className="shrink-0 text-base font-semibold text-text-primary tabular-nums">
+            {won(sale.unitPrice)} × {formatQuantityWithUnit(sale.quantity, sale.unitLabel)}
+          </p>
+        </div>
+        <dl className="mt-3 space-y-2">
+          <DetailAmountRow label="기준금액" value={sale.originalAmount} />
+          {sale.additionalAmount > 0 && <DetailAmountRow label="추가금액" value={sale.additionalAmount} />}
+          {sale.discountAmount > 0 && <DetailAmountRow label="할인금액" value={-sale.discountAmount} />}
+          {sale.additionalAmount === 0 && sale.discountAmount === 0 && (
+            <p className="text-xs text-text-muted">추가금액과 할인금액 없음</p>
+          )}
+          <DetailAmountRow label="최종 판매금액" value={finalSaleAmount} emphasized />
+        </dl>
+        {sale.adjustmentNote && (
+          <p className="mt-3 rounded-xl bg-surface-secondary px-3 py-2.5 text-sm leading-6 text-text-secondary">
+            <span className="font-semibold text-text-primary">조정 메모</span> · {sale.adjustmentNote}
+          </p>
+        )}
+      </DetailSection>
+
+      <DetailSection title="결제 내역" description={payments.length > 1 ? "분할결제" : "단일결제"}>
+        {payments.length > 0 ? (
+          <dl className="divide-y divide-border">
+            {payments.map((payment) => (
+              <DetailAmountRow
+                key={payment.method}
+                label={paymentMethodLabels[payment.method]}
+                value={payment.amount}
+                className="py-3 first:pt-0"
+              />
+            ))}
+            <DetailAmountRow label="결제 합계" value={paymentTotal} emphasized className="pt-3" />
+          </dl>
+        ) : (
+          <p className="text-sm text-text-muted">기록된 결제 내역이 없습니다.</p>
+        )}
+      </DetailSection>
+
+      <DetailSection title="환불 내역">
+        {refundsLoading ? (
+          <LoadingState />
+        ) : refundsError ? (
+          <p role="alert" className="text-sm text-error">환불 처리 내역을 불러오지 못했습니다.</p>
+        ) : refunds.length ? (
+          <ol className="space-y-3">
+            {refunds.map((refund) => {
+              const kind = refundKinds.get(refund.id) ?? "partial";
+              return (
+                <li key={refund.id} className={cn("rounded-xl border border-border bg-surface-secondary p-4", kind === "voided" && "opacity-60")}>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong className="text-sm text-text-primary tabular-nums">
+                          {refund.refundDate ? koDate(refund.refundDate) : "처리일 미확인"}
+                        </strong>
+                        <Badge tone={kind === "full" ? "red" : kind === "partial" ? "amber" : "gray"}>
+                          {kind === "full" ? "전체환불" : kind === "partial" ? "부분환불" : "취소된 환불"}
+                        </Badge>
+                        {refund.isLegacy && <Badge>기존 기록</Badge>}
+                      </div>
+                      <p className="mt-2 break-words text-sm text-text-secondary">{refund.reason || "환불 사유 미입력"}</p>
+                    </div>
+                    <strong className={cn("shrink-0 text-base text-error tabular-nums", kind === "voided" && "line-through")}>
+                      -{won(refund.amount)}
+                    </strong>
+                  </div>
+                  <p className="mt-3 text-xs leading-5 text-text-muted">
+                    처리자 {refund.createdBy ? profileNames[refund.createdBy] || "이름 미등록" : "확인 불가"} · 기록 {new Date(refund.createdAt).toLocaleString("ko-KR")}
+                  </p>
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <p className="text-sm text-text-muted">환불 내역 없음</p>
+        )}
+      </DetailSection>
+
+      <DetailSection title="최종 정산">
+        <dl className="space-y-2">
+          <DetailAmountRow label="최종 판매금액" value={finalSaleAmount} />
+          <DetailAmountRow label="실제 결제금액" value={sale.paidAmount} />
+          <DetailAmountRow label="환불 누계" value={sale.refundAmount} />
+          <DetailAmountRow label="미수금" value={sale.outstandingAmount} warning={sale.outstandingAmount > 0} />
+          <DetailAmountRow label="최종 실매출" value={sale.netAmount} emphasized />
+        </dl>
+      </DetailSection>
+
+      <DetailSection title="고객·반려견 정보">
+        <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+          <DetailText label="보호자" value={sale.customerName?.trim() || "보호자 이름 없음"} />
+          <DetailText label="연락처" value={sale.customerPhone?.trim() || "연락처 없음"} />
+          <DetailText label="반려견" value={sale.dogName || "(반려견 없음)"} />
+          <DetailText label="고객 구분" value={customerType} />
+        </dl>
+      </DetailSection>
+
+      <DetailSection title="등록 정보와 메모">
+        <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
+          <DetailText label="담당자" value={sale.staffName || "담당자 미지정"} />
+          <DetailText label="등록자" value={profileNames[sale.createdBy] || sale.registrarName || "이름 미등록"} />
+          <DetailText label="등록 시각" value={new Date(sale.createdAt).toLocaleString("ko-KR")} />
+          <DetailText label="수정 시각" value={new Date(sale.updatedAt).toLocaleString("ko-KR")} />
+          {sale.status === "cancelled" && (
+            <>
+              <DetailText label="취소 시각" value={sale.cancelledAt ? new Date(sale.cancelledAt).toLocaleString("ko-KR") : "확인 불가"} />
+              <DetailText label="취소 사유" value={sale.cancellationReason || "사유 미입력"} />
+            </>
+          )}
+        </dl>
+        {(sale.memo || sale.adjustmentNote) ? (
+          <div className="mt-4 space-y-3 border-t border-border pt-4">
+            {sale.memo && <DetailMemo label="일반 메모" value={sale.memo} />}
+            {sale.adjustmentNote && <DetailMemo label="금액 조정 메모" value={sale.adjustmentNote} />}
+          </div>
+        ) : (
+          <p className="mt-4 border-t border-border pt-4 text-sm text-text-muted">등록된 메모가 없습니다.</p>
+        )}
+      </DetailSection>
+
+      <DetailSection title="변경 이력" compact>
+        {historyLoading ? (
+          <LoadingState />
+        ) : historyError ? (
+          <p role="alert" className="text-sm text-error">매출 변경 이력을 불러오지 못했습니다.</p>
+        ) : history.length ? (
+          <details className="group rounded-xl border border-border">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              전체 변경 이력 {history.length}건
+              <span className="text-xs font-medium text-text-muted group-open:hidden">펼치기</span>
+              <span className="hidden text-xs font-medium text-text-muted group-open:inline">접기</span>
+            </summary>
+            <div className="space-y-3 border-t border-border p-3 sm:p-4">
+              {history.map((item) => (
+                <div key={item.id} className="rounded-xl bg-surface-secondary p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <Badge>{item.action}</Badge>
+                    <span className="text-xs text-text-muted">
+                      {profileNames[item.changedBy] || item.changedBy} · {new Date(item.createdAt).toLocaleString("ko-KR")}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <JsonData label="previous_data" value={item.previousData} />
+                    <JsonData label="changed_data" value={item.changedData} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        ) : (
+          <p className="text-sm text-text-muted">기록된 변경 이력이 없습니다.</p>
+        )}
+      </DetailSection>
+
+      {hasActions && (
+        <section className="border-t border-border pt-5" aria-labelledby="sale-actions-title">
+          <h3 id="sale-actions-title" className="text-sm font-semibold text-text-primary">거래 관리</h3>
+          <p className="mt-1 text-xs text-text-muted">권한과 거래 상태에 따라 가능한 작업만 표시합니다.</p>
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            {editable && <Button type="button" variant="secondary" onClick={onEdit}><Pencil size={15} />수정</Button>}
+            {canRefund && <Button type="button" variant="secondary" onClick={onRefund}>환불</Button>}
+            {admin && sale.status !== "cancelled" && <Button type="button" variant="secondary" onClick={onCancel}><Undo2 size={15} />취소</Button>}
+            {admin && sale.status === "cancelled" && <Button type="button" variant="secondary" onClick={onReopen}><RotateCcw size={15} />취소 복구</Button>}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function DetailSection({ title, description, compact = false, children }: { title: string; description?: string; compact?: boolean; children: ReactNode }) {
+  return (
+    <section className={cn("border-t border-border", compact ? "py-5" : "py-6")}>
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+        <h3 className="text-base font-semibold text-text-primary">{title}</h3>
+        {description && <span className="text-xs font-medium text-text-muted">{description}</span>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function DetailAmountRow({ label, value, emphasized = false, warning = false, className }: { label: string; value: number; emphasized?: boolean; warning?: boolean; className?: string }) {
+  return (
+    <div className={cn("flex items-baseline justify-between gap-4", emphasized && "border-t border-border pt-3", className)}>
+      <dt className={cn("text-sm text-text-secondary", emphasized && "font-semibold text-text-primary")}>{label}</dt>
+      <dd className={cn("shrink-0 text-right text-sm font-semibold text-text-primary tabular-nums", emphasized && "text-lg text-primary", warning && "text-warning")}>{won(value)}</dd>
+    </div>
+  );
+}
+
+function DetailText({ label, value }: { label: string; value: string }) {
+  return <div className="min-w-0"><dt className="text-xs font-medium text-text-muted">{label}</dt><dd className="mt-1 break-words text-sm font-medium text-text-primary">{value}</dd></div>;
+}
+
+function DetailMemo({ label, value }: { label: string; value: string }) {
+  return <div><p className="text-xs font-semibold text-text-muted">{label}</p><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-text-secondary">{value}</p></div>;
 }
 
 function SalesHistoryContext({
@@ -2632,20 +2791,11 @@ function RefundSummary({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border p-3">
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className="mt-1 font-medium">{value}</p>
-    </div>
-  );
-}
-
 function JsonData({ label, value }: { label: string; value: unknown }) {
   return (
     <div>
-      <p className="mb-1 text-xs font-medium text-slate-500">{label}</p>
-      <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-md bg-slate-50 p-2 text-xs text-slate-700">
+      <p className="mb-1 text-xs font-medium text-text-muted">{label}</p>
+      <pre className="max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-surface p-2 text-xs text-text-secondary ring-1 ring-inset ring-border">
         {value == null ? "-" : JSON.stringify(value, null, 2)}
       </pre>
     </div>
