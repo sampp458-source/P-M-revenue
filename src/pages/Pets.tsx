@@ -25,6 +25,7 @@ import { useAuth } from "../auth/AuthContext";
 import { supabase } from "../lib/supabase";
 import { useData } from "../store/DataContext";
 import type { Customer, Division, Pet } from "../types";
+import { hasCustomerIdentity } from "./customerIdentity";
 
 const divisions: Division[] = ["유치원", "교육센터", "호텔"];
 
@@ -326,7 +327,7 @@ export function CustomerList() {
     if (saving) return;
     const name = form.name.trim();
     const phone = form.phone.trim();
-    if (!name && !phone) {
+    if (!hasCustomerIdentity(name, phone)) {
       setSaveError("보호자명 또는 연락처 중 하나는 입력해 주세요.");
       const formElement = event.currentTarget as HTMLFormElement;
       requestAnimationFrame(() => { const field = formElement.elements.namedItem("customerName"); if (field instanceof HTMLElement) field.focus(); });

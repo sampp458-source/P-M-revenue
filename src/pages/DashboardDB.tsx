@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 import { Button, ErrorState, PageHeader } from "../components/ui";
 import { won } from "../lib/format";
 import { supabase } from "../lib/supabase";
 import { BusinessUnitCard, DashboardSkeleton, MetricCard, RecentSales } from "./dashboard/DashboardSections";
-import { DailyRevenueTrend, DashboardPeriodFilters, SalesHeatmapCalendar, SelectedDateDetail } from "./dashboard/DashboardRangeSections";
-import { calculateDailyRevenue, calculateDateDetail, calculateRangeOverview, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodRange, formatRevenueComparison, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale } from "./dashboard/dashboardMetrics";
+import { DailyRevenueTrend, DashboardPeriodFilters, SalesHeatmapCalendar } from "./dashboard/DashboardRangeSections";
+import { DashboardDateDrawer } from "./dashboard/DashboardDateDrawer";
+import { calculateDailyRevenue, calculateRangeOverview, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodRange, dashboardSalesForDate, formatRevenueComparison, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale } from "./dashboard/dashboardMetrics";
 
 const validPeriods = new Set<DashboardPeriod>(["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "custom"]);
 const validComparisons = new Set<DashboardCompare>(["day", "week", "month", "previous"]);
@@ -21,12 +23,15 @@ const monthRange = (month: string): DashboardDateRange => {
 };
 
 export function DashboardPage() {
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [sales, setSales] = useState<DashboardSale[]>([]);
   const [units, setUnits] = useState<BusinessUnitOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [dateDrawerOpen, setDateDrawerOpen] = useState(false);
+  const isAdmin = profile?.role === "admin";
   const today = koreanToday();
   const periodParam = searchParams.get("period") as DashboardPeriod | null;
   const period = periodParam && validPeriods.has(periodParam) ? periodParam : "today";
@@ -41,7 +46,7 @@ export function DashboardPage() {
     setLoading(true);
     setError(false);
     const [saleResult, unitResult] = await Promise.all([
-      supabase.from("sales").select("id, sale_date, business_unit_id, business_unit_name, product_id, product_name, dog_id, dog_name, customer_id, customer_name, created_by, staff_name, paid_amount, refund_amount, outstanding_amount, net_amount, status, created_at").order("sale_date", { ascending: false }).order("created_at", { ascending: false }),
+      supabase.from("sales").select("id, sale_date, business_unit_id, business_unit_name, product_id, product_name, dog_id, dog_name, customer_id, customer_name, created_by, staff_name, payment_method, paid_amount, refund_amount, outstanding_amount, net_amount, status, created_at").order("sale_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("business_units").select("id, code, name").eq("is_active", true).order("sort_order"),
     ]);
     if (saleResult.error || unitResult.error) {
@@ -64,6 +69,7 @@ export function DashboardPage() {
       customerName: row.customer_name,
       createdBy: row.created_by,
       staffName: row.staff_name,
+      paymentMethod: row.payment_method,
       paidAmount: row.paid_amount ?? 0,
       refundAmount: row.refund_amount ?? 0,
       outstandingAmount: row.outstanding_amount ?? 0,
@@ -112,7 +118,17 @@ export function DashboardPage() {
   };
 
   const comparisonRange = useMemo(() => dashboardComparisonRange(period, range, compare), [compare, period, range]);
-  const overview = useMemo(() => calculateRangeOverview(sales, units, range, comparisonRange), [comparisonRange, range, sales, units]);
+  const visibleRange = useMemo(
+    () => isAdmin ? range : { from: selectedDate, to: selectedDate },
+    [isAdmin, range, selectedDate],
+  );
+  const visibleComparisonRange = useMemo(
+    () => isAdmin
+      ? comparisonRange
+      : dashboardComparisonRange("today", visibleRange, "day"),
+    [comparisonRange, isAdmin, visibleRange],
+  );
+  const overview = useMemo(() => calculateRangeOverview(sales, units, visibleRange, visibleComparisonRange), [sales, units, visibleComparisonRange, visibleRange]);
   const coreDivisions = overview.divisions.filter((division) => coreCodes.has(division.code as BusinessUnitCode));
   const representedTotal = coreDivisions.reduce((total, division) => total + division.revenue, 0);
   const otherRevenue = Math.max(0, overview.total - representedTotal);
@@ -121,27 +137,39 @@ export function DashboardPage() {
   const daily = useMemo(() => calculateDailyRevenue(sales, range, unitId), [range, sales, unitId]);
   const calendarData = useMemo(() => calculateDailyRevenue(sales, monthRange(calendarMonth), unitId), [calendarMonth, sales, unitId]);
   const calendarTotalData = useMemo(() => calculateDailyRevenue(sales, monthRange(calendarMonth)), [calendarMonth, sales]);
-  const dateDetail = useMemo(() => calculateDateDetail(sales, units, selectedDate), [sales, selectedDate, units]);
+  const selectedDateSales = useMemo(
+    () => dashboardSalesForDate(sales, selectedDate, unitId),
+    [sales, selectedDate, unitId],
+  );
+  const selectedDateSummary = useMemo(
+    () => calculateDailyRevenue(sales, { from: selectedDate, to: selectedDate }, unitId)[0],
+    [sales, selectedDate, unitId],
+  );
   const recent = useMemo(() => sales.filter((sale) => sale.saleDate >= range.from && sale.saleDate <= range.to).sort((left, right) => right.saleDate.localeCompare(left.saleDate) || right.createdAt.localeCompare(left.createdAt)).slice(0, 5), [range.from, range.to, sales]);
   const openSales = (date = selectedDate, targetUnit = "") => navigate(`/sales?period=custom&start=${date}&end=${date}${targetUnit ? `&unit=${targetUnit}` : ""}`);
+  const selectCalendarDate = (date: string) => {
+    updateQuery({ day: date });
+    setDateDrawerOpen(true);
+  };
+  const openSale = (saleId: string) => navigate(`/sales?period=custom&start=${selectedDate}&end=${selectedDate}${unitId ? `&unit=${unitId}` : ""}&detail=${saleId}`);
 
   if (loading) return <DashboardSkeleton />;
   if (error) return <ErrorState title="대시보드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." retry={() => void load()} />;
   return <>
-    <PageHeader title="대시보드" description="대표가 사업부와 날짜 흐름을 빠르게 읽는 경영 현황" />
-    <DashboardPeriodFilters period={period} range={range} unitName={selectedUnitName} compare={compare} onPeriod={selectPeriod} onCustom={selectCustomRange} onMovePeriod={moveRange} onCompare={(nextCompare) => updateQuery({ compare: nextCompare })} />
+    <PageHeader title="대시보드" description={isAdmin ? "대표가 사업부와 날짜 흐름을 빠르게 읽는 경영 현황" : "오늘과 선택 날짜의 업무 매출을 빠르게 확인합니다."} />
+    {isAdmin && <DashboardPeriodFilters period={period} range={range} unitName={selectedUnitName} compare={compare} onPeriod={selectPeriod} onCustom={selectCustomRange} onMovePeriod={moveRange} onCompare={(nextCompare) => updateQuery({ compare: nextCompare })} />}
     <section aria-labelledby="business-unit-overview-title">
-      <div className="mb-3 flex items-end justify-between gap-3"><div><h2 id="business-unit-overview-title" className="text-lg font-bold text-text-primary">사업부 현황</h2><p className="mt-1 text-xs text-text-muted">카드를 선택하면 아래 추이와 캘린더가 해당 사업부 기준으로 바뀝니다.</p></div>{unitId && <Button type="button" variant="ghost" onClick={() => updateQuery({ unit: null })}>전체 보기</Button>}</div>
-      <div className="grid gap-4 lg:grid-cols-3">{coreDivisions.map((division, index) => <BusinessUnitCard key={division.id} order={index + 1} name={division.name} revenue={division.revenue} previousRevenue={division.previousRevenue} compareLabel={compareLabel} share={overview.total > 0 ? (division.revenue / overview.total) * 100 : 0} count={division.count} average={division.average} selected={unitId === division.id} onClick={() => updateQuery({ unit: unitId === division.id ? null : division.id })} />)}</div>
+      <div className="mb-3 flex items-end justify-between gap-3"><div><h2 id="business-unit-overview-title" className="text-lg font-bold text-text-primary">사업부 현황</h2><p className="mt-1 text-xs text-text-muted">{isAdmin ? "카드를 선택하면 아래 추이와 캘린더가 해당 사업부 기준으로 바뀝니다." : `${selectedDate} 기준 · 카드를 선택하면 날짜 상세도 함께 필터링됩니다.`}</p></div>{unitId && <Button type="button" variant="ghost" onClick={() => updateQuery({ unit: null })}>전체 보기</Button>}</div>
+      <div className="grid gap-4 lg:grid-cols-3">{coreDivisions.map((division, index) => <BusinessUnitCard key={division.id} order={index + 1} name={division.name} revenue={division.revenue} previousRevenue={division.previousRevenue} compareLabel={compareLabel} share={overview.total > 0 ? (division.revenue / overview.total) * 100 : 0} count={division.count} average={division.average} restricted={!isAdmin} selected={unitId === division.id} onClick={() => updateQuery({ unit: unitId === division.id ? null : division.id })} />)}</div>
     </section>
-    <section className="mt-7" aria-labelledby="company-summary-title">
+    {isAdmin && <section className="mt-7" aria-labelledby="company-summary-title">
       <div className="mb-3"><h2 id="company-summary-title" className="text-lg font-bold text-text-primary">총매출</h2><p className="mt-1 text-xs text-text-muted">유치원·교육·호텔과 기타 사업부의 실매출을 모두 합산합니다.</p></div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><MetricCard label="총 실매출" value={won(overview.total)} description={`${compareLabel} 대비 · ${formatRevenueComparison(overview.total, overview.previousTotal)}`} /><MetricCard label="총 건수" value={`${overview.count.toLocaleString("ko-KR")}건`} description="선택 기간 기준" /><MetricCard label="평균 객단가" value={won(overview.average)} description="실매출 ÷ 총 건수" /><MetricCard label="미수금" value={won(overview.outstanding)} description="실매출에서 중복 차감하지 않음" /><MetricCard label="환불" value={won(overview.refund)} description="선택 기간 환불액" /></div>
       {otherRevenue > 0 && <p className="mt-3 rounded-xl border border-warning/20 bg-warning-soft px-4 py-3 text-sm text-text-secondary">기타·비활성 사업부 매출 {won(otherRevenue)}이 총매출에 포함되어 있습니다.</p>}
-    </section>
-    <div className="mt-7"><SalesHeatmapCalendar month={calendarMonth} data={calendarData} totalData={calendarTotalData} unitName={selectedUnitName} today={today} selectedDate={selectedDate} onMonth={setCalendarMonth} onSelect={(date) => updateQuery({ day: date })} /></div>
-    <div className="mt-4"><SelectedDateDetail date={selectedDate} detail={dateDetail} unitId={unitId} onOpenSales={(targetUnit) => openSales(selectedDate, targetUnit)} /></div>
-    <div className="mt-4"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={(date) => updateQuery({ day: date })} /></div>
-    <div className="mt-4"><RecentSales rows={recent} onOpen={() => navigate(`/sales?period=custom&start=${range.from}&end=${range.to}${unitId ? `&unit=${unitId}` : ""}`)} /></div>
+    </section>}
+    <div className="mt-7"><SalesHeatmapCalendar month={calendarMonth} data={calendarData} totalData={calendarTotalData} unitName={selectedUnitName} today={today} selectedDate={selectedDate} hideAmounts={!isAdmin} onMonth={setCalendarMonth} onSelect={selectCalendarDate} /></div>
+    {isAdmin && <div className="mt-4"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={(date) => updateQuery({ day: date })} /></div>}
+    {isAdmin && <div className="mt-4"><RecentSales rows={recent} onOpen={() => navigate(`/sales?period=custom&start=${range.from}&end=${range.to}${unitId ? `&unit=${unitId}` : ""}`)} /></div>}
+    <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} summary={selectedDateSummary} rows={selectedDateSales} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onOpenSales={() => openSales(selectedDate, unitId)} />
   </>;
 }

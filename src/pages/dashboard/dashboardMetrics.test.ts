@@ -7,6 +7,7 @@ import {
   dashboardComparisonRange,
   dashboardDefaultCompare,
   dashboardPeriodRange,
+  dashboardSalesForDate,
   formatRevenueComparison,
   previousDashboardRange,
   type BusinessUnitOption,
@@ -26,6 +27,7 @@ const sale = (overrides: Partial<DashboardSale>): DashboardSale => ({
   customerName: null,
   createdBy: "staff",
   staffName: "직원",
+  paymentMethod: "card",
   paidAmount: 100000,
   refundAmount: 0,
   outstandingAmount: 0,
@@ -124,6 +126,18 @@ describe("dashboard presentation metrics", () => {
     expect(detail.total).toBe(600000);
     expect(detail.divisions[0]).toMatchObject({ code: "daycare", revenue: 500000, count: 2, average: 250000 });
     expect(detail.refund).toBe(50000);
+  });
+
+  it("날짜 Drawer 거래를 사업부로 필터링하고 최신 등록순으로 정렬한다", () => {
+    const rows = dashboardSalesForDate([
+      sale({ id: "older", createdAt: "2026-07-14T01:00:00Z" }),
+      sale({ id: "newer", createdAt: "2026-07-14T03:00:00Z" }),
+      sale({ id: "cancelled", status: "cancelled", createdAt: "2026-07-14T02:00:00Z" }),
+      sale({ id: "hotel", businessUnitId: "hotel" }),
+      sale({ id: "other-day", saleDate: "2026-07-13" }),
+    ], "2026-07-14", "daycare");
+
+    expect(rows.map((row) => row.id)).toEqual(["newer", "cancelled", "older"]);
   });
 
   it("고정 사업부에 없는 매출을 선택 날짜의 기타 항목에 포함한다", () => {

@@ -23,6 +23,7 @@ import {
 } from "../components/ui";
 import { koDate } from "../lib/format";
 import { supabase } from "../lib/supabase";
+import { hasCustomerIdentity } from "./customerIdentity";
 import { CustomerList } from "./Pets";
 
 interface OwnerOption {
@@ -199,7 +200,7 @@ export function PetManagementPage() {
     if (ownerSaving || profile?.role !== "admin") return;
     const name = ownerForm.name.trim();
     const phone = ownerForm.phone.trim();
-    if (!name && !phone) {
+    if (!hasCustomerIdentity(name, phone)) {
       setOwnerError("보호자명 또는 연락처 중 하나는 입력해 주세요.");
       const formElement = event.currentTarget as HTMLFormElement;
       requestAnimationFrame(() => { const field = formElement.elements.namedItem("ownerName"); if (field instanceof HTMLElement) field.focus(); });

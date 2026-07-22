@@ -11,6 +11,7 @@ export interface DashboardSale {
   customerName: string | null;
   createdBy: string;
   staffName: string | null;
+  paymentMethod: string;
   paidAmount: number;
   refundAmount: number;
   outstandingAmount: number;
@@ -148,6 +149,20 @@ export function calculateDailyRevenue(sales: DashboardSale[], range: DashboardDa
     result.push({ date: cursor, revenue: sum(dayRows, "paidAmount"), net: sum(dayRows, "netAmount"), count: dayRows.length, refund: sum(dayRows, "refundAmount"), outstanding: sum(dayRows, "outstandingAmount") });
   }
   return result;
+}
+
+export function dashboardSalesForDate(
+  sales: DashboardSale[],
+  date: string,
+  unitId = "",
+) {
+  return sales
+    .filter(
+      (sale) =>
+        sale.saleDate === date &&
+        (!unitId || sale.businessUnitId === unitId),
+    )
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
 export function calculateDateDetail(sales: DashboardSale[], units: BusinessUnitOption[], date: string) {
