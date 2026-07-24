@@ -82,6 +82,13 @@ import {
   formatQuantityWithUnit,
   refundDetailKinds,
 } from "./salesDetailLogic";
+import {
+  buildSalePartyUpdate,
+  findCustomerPhoneDuplicate,
+  findDogNameDuplicate,
+  hasCustomerIdentity,
+  normalizeCustomerPhone,
+} from "./customerIdentity";
 
 interface SaleRow extends SalesHistoryRecord {
   businessUnitName: string;
@@ -156,6 +163,19 @@ interface RefundRow {
   createdAt: string;
   isLegacy: boolean;
   voidedAt: string | null;
+}
+
+interface PartyCustomer {
+  id: string;
+  name: string | null;
+  phone: string | null;
+}
+
+interface PartyDog {
+  id: string;
+  customerId: string | null;
+  name: string;
+  breed: string | null;
 }
 
 const paymentLabel: Record<string, string> = {
@@ -318,6 +338,16 @@ export function SalesHistoryPage() {
   const [refundHistoryLoading, setRefundHistoryLoading] = useState(false);
   const [refundHistoryError, setRefundHistoryError] = useState(false);
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
+  const [partyCustomers, setPartyCustomers] = useState<PartyCustomer[]>([]);
+  const [partyDogs, setPartyDogs] = useState<PartyDog[]>([]);
+  const [partySearch, setPartySearch] = useState("");
+  const [partySaving, setPartySaving] = useState(false);
+  const [partyModal, setPartyModal] = useState<"customer" | "dog" | null>(null);
+  const [newCustomer, setNewCustomer] = useState({ name: "", phone: "" });
+  const [newDog, setNewDog] = useState({ name: "", breed: "" });
+  const [partyError, setPartyError] = useState("");
+  const [duplicatePartyDog, setDuplicatePartyDog] = useState<PartyDog | null>(null);
+  const [allowDuplicatePartyDog, setAllowDuplicatePartyDog] = useState(false);
   const [editing, setEditing] = useState<SaleRow | null>(null);
   const [refunding, setRefunding] = useState<SaleRow | null>(null);
   const [cancelling, setCancelling] = useState<SaleRow | null>(null);
@@ -366,12 +396,14 @@ export function SalesHistoryPage() {
       customersResult,
       paymentsResult,
       productUnitsResult,
+      dogsResult,
     ] = await Promise.all([
       loadSaleRows(),
       supabase.rpc("get_staff_history_directory"),
-      supabase.from("customers").select("id, phone"),
+      supabase.from("customers").select("id, name, phone, is_active").order("name"),
       supabase.from("sale_payments").select("sale_id, payment_method, amount").order("created_at"),
       supabase.from("products").select("id, unit_label"),
+      supabase.from("dogs").select("id, customer_id, name, breed").eq("is_active", true).order("name"),
     ]);
     if (result.error || customersResult.error) {
       setSales([]);
@@ -384,6 +416,18 @@ export function SalesHistoryPage() {
           customer.phone,
         ]),
       );
+      setPartyCustomers(
+        (customersResult.data ?? []).filter((customer) => customer.is_active),
+      );
+      if (!dogsResult.error)
+        setPartyDogs(
+          (dogsResult.data ?? []).map((dog) => ({
+            id: dog.id,
+            customerId: dog.customer_id,
+            name: dog.name,
+            breed: dog.breed,
+          })),
+        );
       const names = Object.fromEntries(
         (profilesResult.data ?? []).map((row: { id: string; name: string }) => [
           row.id,
@@ -598,6 +642,154 @@ export function SalesHistoryPage() {
   const canEdit = (sale: SaleRow) =>
     (profile?.role === "admin" && sale.status !== "cancelled") ||
     (sale.createdBy === profile?.id && sale.status === "normal");
+  const visiblePartyCustomers = useMemo(() => {
+    const keyword = partySearch.trim().toLocaleLowerCase("ko");
+    return partyCustomers.filter(
+      (customer) =>
+        customer.id === editing?.customerId ||
+        !keyword ||
+        [customer.name, customer.phone].some((value) =>
+          value?.toLocaleLowerCase("ko").includes(keyword),
+        ),
+    );
+  }, [editing?.customerId, partyCustomers, partySearch]);
+  const editingPartyDogs = useMemo(
+    () =>
+      partyDogs.filter(
+        (dog) =>
+          Boolean(editing?.customerId) && dog.customerId === editing?.customerId,
+      ),
+    [editing?.customerId, partyDogs],
+  );
+  const openEditSale = (sale: SaleRow) => {
+    setActionError("");
+    setPartyError("");
+    setPartySearch("");
+    setPartyModal(null);
+    setDuplicatePartyDog(null);
+    setAllowDuplicatePartyDog(false);
+    setEditing({ ...sale });
+  };
+  const savePartyLink = async () => {
+    if (!editing || partySaving) return;
+    if (editing.dogId) {
+      const dog = partyDogs.find((item) => item.id === editing.dogId);
+      if (!dog || dog.customerId !== editing.customerId) {
+        setPartyError("선택한 보호자와 반려견의 연결 정보를 확인해 주세요.");
+        return;
+      }
+    }
+    setPartySaving(true);
+    setPartyError("");
+    const result = await supabase
+      .from("sales")
+      .update(buildSalePartyUpdate(editing.customerId ?? "", editing.dogId ?? ""))
+      .eq("id", editing.id)
+      .select("customer_id, dog_id, customer_name, customer_phone, dog_name")
+      .single();
+    setPartySaving(false);
+    if (result.error) {
+      setPartyError(mapError(result.error.message, result.error.code));
+      return;
+    }
+    setEditing((current) =>
+      current
+        ? {
+            ...current,
+            customerId: result.data.customer_id,
+            dogId: result.data.dog_id,
+            customerName: result.data.customer_name,
+            customerPhone: result.data.customer_phone,
+            dogName: result.data.dog_name || "(반려견 없음)",
+          }
+        : current,
+    );
+    setNotice("고객·반려견 연결 정보를 저장했습니다.");
+    await loadSales();
+  };
+  const savePartyCustomer = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (partySaving || !editing) return;
+    const name = newCustomer.name.trim();
+    const phone = normalizeCustomerPhone(newCustomer.phone);
+    if (!hasCustomerIdentity(name, phone)) {
+      setPartyError("보호자명 또는 연락처 중 하나는 입력해 주세요.");
+      return;
+    }
+    const duplicate = findCustomerPhoneDuplicate(partyCustomers, phone);
+    if (duplicate) {
+      setEditing({ ...editing, customerId: duplicate.id, dogId: null });
+      setPartyModal(null);
+      setPartySearch(`${duplicate.name || "이름 미등록"} ${duplicate.phone || ""}`.trim());
+      setNotice("동일 연락처의 기존 보호자를 선택했습니다.");
+      return;
+    }
+    setPartySaving(true);
+    setPartyError("");
+    const result = await supabase
+      .from("customers")
+      .insert({ name: name || null, phone: phone || null, is_active: true })
+      .select("id, name, phone")
+      .single();
+    setPartySaving(false);
+    if (result.error) {
+      setPartyError(result.error.code === "42501" ? "보호자 등록 권한이 없습니다." : "보호자를 등록하지 못했습니다.");
+      return;
+    }
+    setPartyCustomers((current) => [...current, result.data]);
+    setEditing({ ...editing, customerId: result.data.id, dogId: null });
+    setPartySearch(`${result.data.name || "이름 미등록"} ${result.data.phone || ""}`.trim());
+    setPartyModal(null);
+    setNotice("새 보호자를 등록하고 선택했습니다.");
+  };
+  const savePartyDog = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (partySaving || !editing?.customerId) return;
+    const name = newDog.name.trim();
+    if (!name) {
+      setPartyError("반려견 이름을 입력해 주세요.");
+      return;
+    }
+    const duplicate = findDogNameDuplicate(
+      partyDogs,
+      editing.customerId,
+      name,
+    );
+    if (duplicate && !allowDuplicatePartyDog) {
+      setDuplicatePartyDog(duplicate);
+      setPartyError("같은 보호자에게 동일한 이름의 반려견이 있습니다.");
+      return;
+    }
+    setPartySaving(true);
+    setPartyError("");
+    const result = await supabase
+      .from("dogs")
+      .insert({
+        customer_id: editing.customerId,
+        name,
+        breed: newDog.breed.trim() || null,
+        is_active: true,
+      })
+      .select("id, customer_id, name, breed")
+      .single();
+    setPartySaving(false);
+    if (result.error) {
+      setPartyError(result.error.code === "42501" ? "반려견 등록 권한이 없습니다." : "반려견을 등록하지 못했습니다.");
+      return;
+    }
+    const created = {
+      id: result.data.id,
+      customerId: result.data.customer_id,
+      name: result.data.name,
+      breed: result.data.breed,
+    };
+    setPartyDogs((current) => [...current, created]);
+    setEditing({ ...editing, dogId: created.id });
+    setPartyModal(null);
+    setDuplicatePartyDog(null);
+    setAllowDuplicatePartyDog(false);
+    setNotice("새 반려견을 등록하고 선택했습니다.");
+  };
   const startRefund = (sale: SaleRow) => {
     setActionError("");
     setRefundAmount(0);
@@ -1253,8 +1445,7 @@ export function SalesHistoryPage() {
                 canEdit={canEdit}
                 onOpen={showDetail}
                 onEdit={(sale) => {
-                  setActionError("");
-                  setEditing({ ...sale });
+                  openEditSale(sale);
                 }}
                 onRefund={(sale) => {
                   startRefund(sale);
@@ -1283,8 +1474,7 @@ export function SalesHistoryPage() {
                   editable={canEdit(sale)}
                   onOpen={() => showDetail(sale)}
                   onEdit={() => {
-                    setActionError("");
-                    setEditing({ ...sale });
+                    openEditSale(sale);
                   }}
                   onRefund={() => {
                     startRefund(sale);
@@ -1344,8 +1534,7 @@ export function SalesHistoryPage() {
             editable={canEdit(selected)}
             onEdit={() => {
               closeDetail();
-              setActionError("");
-              setEditing({ ...selected });
+              openEditSale(selected);
             }}
             onRefund={() => {
               closeDetail();
@@ -1366,13 +1555,45 @@ export function SalesHistoryPage() {
         )}
       </Modal>
       <Modal
-        open={!!editing}
+        open={!!editing && !partyModal}
         onClose={() => !saving && setEditing(null)}
         title="매출 수정"
         wide
       >
         {editing && (
           <form onSubmit={saveEdit} className="grid gap-4 sm:grid-cols-2">
+            <section className="rounded-2xl border border-border bg-surface-secondary p-4 sm:col-span-2" aria-labelledby="sale-party-editor-title">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 id="sale-party-editor-title" className="text-sm font-semibold text-text-primary">고객·반려견 정보</h3>
+                  <p className="mt-1 text-xs text-text-muted">고객 연결만 별도로 저장되며 매출 금액과 결제 정보는 변경되지 않습니다.</p>
+                </div>
+                <Button type="button" variant="ghost" disabled={partySaving} onClick={() => setEditing({ ...editing, customerId: null, dogId: null })}>연결 해제</Button>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2 sm:col-span-2">
+                  <SearchBox aria-label="보호자 이름 또는 연락처 검색" placeholder="보호자 이름 또는 연락처 검색" value={partySearch} onClear={() => setPartySearch("")} onChange={(event) => setPartySearch(event.target.value)} />
+                </div>
+                <Field label="보호자">
+                  <Select value={editing.customerId ?? ""} disabled={partySaving} onChange={(event) => { const customerId = event.target.value || null; const currentDog = partyDogs.find((dog) => dog.id === editing.dogId); setEditing({ ...editing, customerId, dogId: currentDog?.customerId === customerId ? editing.dogId : null }); setPartyError(""); }}>
+                    <option value="">보호자 미등록</option>
+                    {editing.customerId && !partyCustomers.some((customer) => customer.id === editing.customerId) && <option value={editing.customerId}>{editing.customerName || "기존 보호자"} · {editing.customerPhone || "연락처 없음"}</option>}
+                    {visiblePartyCustomers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name || "이름 미등록"} · {customer.phone || "연락처 미등록"}</option>)}
+                  </Select>
+                </Field>
+                <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving} onClick={() => { setNewCustomer({ name: partySearch, phone: "" }); setPartyError(""); setPartyModal("customer"); }}><Plus size={16} />새 보호자 등록</Button></div>
+                <Field label="반려견">
+                  <Select value={editing.dogId ?? ""} disabled={partySaving || !editing.customerId} onChange={(event) => setEditing({ ...editing, dogId: event.target.value || null })}>
+                    <option value="">(반려견 없음)</option>
+                    {editing.dogId && !editingPartyDogs.some((dog) => dog.id === editing.dogId) && <option value={editing.dogId}>{editing.dogName}</option>}
+                    {editingPartyDogs.map((dog) => <option key={dog.id} value={dog.id}>{dog.name}{dog.breed ? ` · ${dog.breed}` : ""}</option>)}
+                  </Select>
+                </Field>
+                <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving || !editing.customerId} onClick={() => { setNewDog({ name: "", breed: "" }); setPartyError(""); setDuplicatePartyDog(null); setAllowDuplicatePartyDog(false); setPartyModal("dog"); }}><Plus size={16} />새 반려견 등록</Button></div>
+              </div>
+              {partyError && <p role="alert" className="mt-3 text-sm text-error">{partyError}</p>}
+              <div className="mt-4 flex justify-end"><Button type="button" disabled={partySaving} onClick={() => void savePartyLink()}>{partySaving ? "연결 저장 중..." : "연결 정보 저장"}</Button></div>
+            </section>
             <Field label="매출 일자" required>
               <Input
                 type="date"
@@ -1584,6 +1805,24 @@ export function SalesHistoryPage() {
             </Button>
           </form>
         )}
+      </Modal>
+      <Modal open={partyModal === "customer"} onClose={() => !partySaving && setPartyModal(null)} title="새 보호자 등록">
+        <form onSubmit={savePartyCustomer} className="space-y-4">
+          <Field label="보호자명" help="이름 또는 연락처 중 하나는 필수입니다."><Input data-modal-initial value={newCustomer.name} disabled={partySaving} onChange={(event) => setNewCustomer({ ...newCustomer, name: event.target.value })} /></Field>
+          <Field label="연락처"><Input inputMode="tel" value={newCustomer.phone} disabled={partySaving} onChange={(event) => setNewCustomer({ ...newCustomer, phone: event.target.value })} /></Field>
+          {partyError && <p role="alert" className="text-sm text-error">{partyError}</p>}
+          <div className="grid grid-cols-2 gap-2"><Button type="button" variant="secondary" disabled={partySaving} onClick={() => setPartyModal(null)}>취소</Button><Button disabled={partySaving}>{partySaving ? "등록 중..." : "등록 후 선택"}</Button></div>
+        </form>
+      </Modal>
+      <Modal open={partyModal === "dog"} onClose={() => !partySaving && setPartyModal(null)} title="새 반려견 등록">
+        <form onSubmit={savePartyDog} className="space-y-4">
+          <p className="text-sm text-text-secondary">선택한 보호자에게 새 반려견을 등록합니다.</p>
+          <Field label="반려견명" required><Input data-modal-initial value={newDog.name} disabled={partySaving} onChange={(event) => { setNewDog({ ...newDog, name: event.target.value }); setDuplicatePartyDog(null); setAllowDuplicatePartyDog(false); }} /></Field>
+          <Field label="견종"><Input value={newDog.breed} disabled={partySaving} onChange={(event) => setNewDog({ ...newDog, breed: event.target.value })} /></Field>
+          {duplicatePartyDog && !allowDuplicatePartyDog && <div className="rounded-xl bg-warning-soft p-3 text-sm text-text-secondary"><p>같은 보호자에게 <strong className="text-text-primary">{duplicatePartyDog.name}</strong>이(가) 이미 있습니다.</p><div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => { if (editing) setEditing({ ...editing, dogId: duplicatePartyDog.id }); setPartyModal(null); setDuplicatePartyDog(null); }}>기존 반려견 선택</Button><Button type="button" variant="ghost" onClick={() => { setAllowDuplicatePartyDog(true); setPartyError(""); }}>그래도 새로 등록</Button></div></div>}
+          {partyError && <p role="alert" className="text-sm text-error">{partyError}</p>}
+          <div className="grid grid-cols-2 gap-2"><Button type="button" variant="secondary" disabled={partySaving} onClick={() => setPartyModal(null)}>취소</Button><Button disabled={partySaving}>{partySaving ? "등록 중..." : "등록 후 선택"}</Button></div>
+        </form>
       </Modal>
       <Modal
         open={!!refunding}

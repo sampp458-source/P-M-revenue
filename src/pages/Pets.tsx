@@ -25,7 +25,11 @@ import { useAuth } from "../auth/AuthContext";
 import { supabase } from "../lib/supabase";
 import { useData } from "../store/DataContext";
 import type { Customer, Division, Pet } from "../types";
-import { hasCustomerIdentity } from "./customerIdentity";
+import {
+  findCustomerPhoneDuplicate,
+  hasCustomerIdentity,
+  normalizeCustomerPhone,
+} from "./customerIdentity";
 
 const divisions: Division[] = ["유치원", "교육센터", "호텔"];
 
@@ -269,7 +273,11 @@ interface CustomerRow {
   created_at: string;
 }
 
-export function CustomerList() {
+export function CustomerList({
+  onAddDog,
+}: {
+  onAddDog?: (customer: Pick<CustomerRow, "id" | "name" | "phone">) => void;
+} = {}) {
   const { profile } = useAuth();
   const isAdmin = profile?.role === "admin";
   const pageSize = 10;
@@ -326,12 +334,36 @@ export function CustomerList() {
     event.preventDefault();
     if (saving) return;
     const name = form.name.trim();
-    const phone = form.phone.trim();
+    const phone = normalizeCustomerPhone(form.phone);
     if (!hasCustomerIdentity(name, phone)) {
       setSaveError("보호자명 또는 연락처 중 하나는 입력해 주세요.");
       const formElement = event.currentTarget as HTMLFormElement;
       requestAnimationFrame(() => { const field = formElement.elements.namedItem("customerName"); if (field instanceof HTMLElement) field.focus(); });
       return;
+    }
+    if (editingCustomer && !isAdmin) {
+      setSaveError("보호자 수정 권한이 없습니다.");
+      return;
+    }
+    if (!editingCustomer && phone) {
+      const duplicateResult = await supabase
+        .from("customers")
+        .select("id, name, phone")
+        .not("phone", "is", null);
+      if (duplicateResult.error) {
+        setSaveError("보호자 중복 여부를 확인하지 못했습니다.");
+        return;
+      }
+      const duplicate = findCustomerPhoneDuplicate(
+        duplicateResult.data ?? [],
+        phone,
+      );
+      if (duplicate) {
+        setSaveError(
+          `동일 연락처의 기존 보호자(${duplicate.name || "이름 미등록"})가 있습니다. 기존 보호자를 확인해 주세요.`,
+        );
+        return;
+      }
     }
 
     setSaving(true);
@@ -348,7 +380,11 @@ export function CustomerList() {
           .eq("id", editingCustomer.id)
           .select("id")
           .single()
-      : await supabase.from("customers").insert(values).select("id").single();
+      : await supabase
+          .from("customers")
+          .insert({ ...values, is_active: true })
+          .select("id")
+          .single();
     setSaving(false);
 
     if (result.error) {
@@ -420,10 +456,10 @@ export function CustomerList() {
             검색 결과 보호자 {totalCount}명
           </p>
         </div>
-        {isAdmin && <Button onClick={() => setCreating(true)}>
+        <Button onClick={() => setCreating(true)}>
           <Plus size={17} />
           보호자 등록
-        </Button>}
+        </Button>
       </div>
       {loading ? (
         <LoadingState />
@@ -454,7 +490,9 @@ export function CustomerList() {
                   </td>
                   <td>{koDate(customer.created_at)}</td>
                   <td>
-                    {isAdmin ? <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {customer.is_active && onAddDog && <Button variant="secondary" className="min-h-8 px-2 py-1 text-xs" onClick={() => onAddDog(customer)}><Plus size={14} />반려견 추가</Button>}
+                      {isAdmin ? <>
                       <button
                         className="icon-btn"
                         title="보호자 수정"
@@ -479,7 +517,8 @@ export function CustomerList() {
                           비활성화
                         </Button>
                       )}
-                    </div> : <span className="text-sm text-slate-400">조회 전용</span>}
+                      </> : !onAddDog && <span className="text-sm text-slate-400">조회 전용</span>}
+                    </div>
                   </td>
                 </tr>
               ))}

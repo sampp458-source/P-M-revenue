@@ -23,7 +23,12 @@ import {
 } from "../components/ui";
 import { koDate } from "../lib/format";
 import { supabase } from "../lib/supabase";
-import { hasCustomerIdentity } from "./customerIdentity";
+import {
+  findCustomerPhoneDuplicate,
+  findDogNameDuplicate,
+  hasCustomerIdentity,
+  normalizeCustomerPhone,
+} from "./customerIdentity";
 import { CustomerList } from "./Pets";
 
 interface OwnerOption {
@@ -88,6 +93,8 @@ export function PetManagementPage() {
   const [ownerSaving, setOwnerSaving] = useState(false);
   const [ownerError, setOwnerError] = useState("");
   const [deactivating, setDeactivating] = useState<DogRow | null>(null);
+  const [duplicateDog, setDuplicateDog] = useState<DogRow | null>(null);
+  const [allowDuplicateDog, setAllowDuplicateDog] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -174,6 +181,8 @@ export function PetManagementPage() {
   const openEdit = (dog: DogRow) => {
     setFormError("");
     setOwnerSearch("");
+    setDuplicateDog(null);
+    setAllowDuplicateDog(false);
     setEditing({
       id: dog.id,
       customerId: dog.customerId ?? "",
@@ -187,7 +196,6 @@ export function PetManagementPage() {
   };
 
   const openOwnerCreate = () => {
-    if (profile?.role !== "admin") return;
     const initial = ownerSearch.trim();
     const looksLikePhone = /^[0-9\-\s]+$/.test(initial);
     setOwnerError("");
@@ -197,13 +205,21 @@ export function PetManagementPage() {
 
   const saveOwner = async (event: FormEvent) => {
     event.preventDefault();
-    if (ownerSaving || profile?.role !== "admin") return;
+    if (ownerSaving) return;
     const name = ownerForm.name.trim();
-    const phone = ownerForm.phone.trim();
+    const phone = normalizeCustomerPhone(ownerForm.phone);
     if (!hasCustomerIdentity(name, phone)) {
       setOwnerError("보호자명 또는 연락처 중 하나는 입력해 주세요.");
       const formElement = event.currentTarget as HTMLFormElement;
       requestAnimationFrame(() => { const field = formElement.elements.namedItem("ownerName"); if (field instanceof HTMLElement) field.focus(); });
+      return;
+    }
+    const duplicate = findCustomerPhoneDuplicate(owners, phone);
+    if (duplicate) {
+      setEditing((current) => current ? { ...current, customerId: duplicate.id } : current);
+      setOwnerSearch(`${duplicate.name || "이름 미등록"} ${duplicate.phone || ""}`.trim());
+      setOwnerCreating(false);
+      setNotice("동일 연락처의 기존 보호자를 선택했습니다.");
       return;
     }
     setOwnerSaving(true); setOwnerError("");
@@ -232,6 +248,11 @@ export function PetManagementPage() {
       focus("name");
       return;
     }
+    if (!editing.id && profile?.role === "staff" && !editing.customerId) {
+      setFormError("직원은 보호자를 선택한 뒤 반려견을 등록할 수 있습니다.");
+      focus("customerId");
+      return;
+    }
     const weight = editing.weight === "" ? null : Number(editing.weight);
     if (weight !== null && (!Number.isFinite(weight) || weight <= 0)) {
       setFormError("체중은 0보다 큰 값으로 입력해 주세요.");
@@ -242,6 +263,18 @@ export function PetManagementPage() {
       setFormError("선택한 보호자 정보를 확인할 수 없습니다.");
       focus("customerId");
       return;
+    }
+    if (!editing.id && !allowDuplicateDog) {
+      const duplicate = findDogNameDuplicate(
+        dogs,
+        editing.customerId,
+        editing.name,
+      );
+      if (duplicate) {
+        setDuplicateDog(duplicate);
+        setFormError("같은 보호자에게 동일한 이름의 반려견이 있습니다.");
+        return;
+      }
     }
     const values = {
       customer_id: editing.customerId || null,
@@ -269,6 +302,8 @@ export function PetManagementPage() {
       return;
     }
     setNotice(editing.id ? "반려견 정보를 수정했습니다." : "반려견을 등록했습니다.");
+    setDuplicateDog(null);
+    setAllowDuplicateDog(false);
     setEditing(null);
     await loadData();
   };
@@ -297,13 +332,13 @@ export function PetManagementPage() {
       <PageHeader
         title="반려견 관리"
         description="반려견을 기준으로 보호자 연결 정보와 기본 정보를 관리합니다."
-        action={view === "dogs" && profile?.role === "admin" ? <Button onClick={() => { setFormError(""); setOwnerSearch(""); setEditing(emptyForm()); }}><Plus size={17} />반려견 등록</Button> : undefined}
+        action={view === "dogs" ? <Button onClick={() => { setFormError(""); setOwnerSearch(""); setDuplicateDog(null); setAllowDuplicateDog(false); setEditing(emptyForm()); }}><Plus size={17} />반려견 등록</Button> : undefined}
       />
       <div className="mb-4 flex gap-2" aria-label="관리 대상 선택">
         <Button variant={view === "dogs" ? "primary" : "secondary"} onClick={() => setView("dogs")}>반려견 목록</Button>
         <Button variant={view === "customers" ? "primary" : "secondary"} onClick={() => setView("customers")}>보호자 목록</Button>
       </div>
-      {view === "customers" ? <CustomerList /> : <>
+      {view === "customers" ? <CustomerList onAddDog={(customer) => { setView("dogs"); setFormError(""); setOwnerSearch(`${customer.name || "이름 미등록"} ${customer.phone || ""}`.trim()); setDuplicateDog(null); setAllowDuplicateDog(false); setEditing({ ...emptyForm(), customerId: customer.id }); }} /> : <>
         <FilterToolbar className="sm:grid-cols-3">
             <SearchBox aria-label="반려견 검색" placeholder="반려견명, 보호자명, 연락처 또는 견종 검색" value={query} onClear={() => { setQuery(""); setPage(1); }} onChange={(e) => { setQuery(e.target.value); setPage(1); }} />
             <Select value={breed} onChange={(e) => { setBreed(e.target.value); setPage(1); }}><option value="">전체 견종</option>{breeds.map((item) => <option key={item}>{item}</option>)}</Select>
@@ -324,14 +359,15 @@ export function PetManagementPage() {
       </>}
       <Modal open={!!editing && !ownerCreating} onClose={() => !saving && setEditing(null)} title={editing?.id ? "반려견 수정" : "반려견 등록"} wide>
         {editing && <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2 sm:col-span-2"><Field label="보호자 연결 (선택)"><SearchBox aria-label="보호자 이름 또는 연락처 검색" placeholder="보호자 이름 또는 연락처 검색" value={ownerSearch} onClear={() => setOwnerSearch("")} onChange={(event) => setOwnerSearch(event.target.value)} /></Field><div className="flex gap-2"><Select className="flex-1" name="customerId" aria-describedby={formError ? "dog-form-error" : undefined} value={editing.customerId} disabled={saving} onChange={(e) => setEditing({ ...editing, customerId: e.target.value })}><option value="">보호자 미등록</option>{visibleOwners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name || "이름 미등록"} · {owner.phone || "연락처 미등록"}</option>)}</Select>{profile?.role === "admin" && <Button type="button" variant="secondary" disabled={saving} onClick={openOwnerCreate}><Plus size={16} />새 보호자</Button>}</div>{ownerSearch.trim() && visibleOwners.length === 0 && <p className="text-sm text-slate-500">검색된 활성 보호자가 없습니다.{profile?.role === "admin" ? " 새 보호자를 등록할 수 있습니다." : ""}</p>}</div>
-          <Field label="반려견명" required><Input name="name" aria-invalid={Boolean(formError && !editing.name.trim())} aria-describedby={formError ? "dog-form-error" : undefined} value={editing.name} disabled={saving} onChange={(e) => setEditing({ ...editing, name: e.target.value })} /></Field>
+          <div className="space-y-2 sm:col-span-2"><Field label={profile?.role === "staff" && !editing.id ? "보호자 연결" : "보호자 연결 (선택)"}><SearchBox aria-label="보호자 이름 또는 연락처 검색" placeholder="보호자 이름 또는 연락처 검색" value={ownerSearch} onClear={() => setOwnerSearch("")} onChange={(event) => setOwnerSearch(event.target.value)} /></Field><div className="grid gap-2 sm:grid-cols-[1fr_auto]"><Select className="min-w-0" name="customerId" aria-describedby={formError ? "dog-form-error" : undefined} value={editing.customerId} disabled={saving} onChange={(e) => { setDuplicateDog(null); setAllowDuplicateDog(false); setEditing({ ...editing, customerId: e.target.value }); }}><option value="">보호자 미등록</option>{visibleOwners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name || "이름 미등록"} · {owner.phone || "연락처 미등록"}</option>)}</Select><Button type="button" variant="secondary" disabled={saving} onClick={openOwnerCreate}><Plus size={16} />새 보호자</Button></div>{ownerSearch.trim() && visibleOwners.length === 0 && <p className="text-sm text-text-muted">검색된 활성 보호자가 없습니다. 새 보호자를 바로 등록할 수 있습니다.</p>}</div>
+          <Field label="반려견명" required><Input name="name" aria-invalid={Boolean(formError && !editing.name.trim())} aria-describedby={formError ? "dog-form-error" : undefined} value={editing.name} disabled={saving} onChange={(e) => { setDuplicateDog(null); setAllowDuplicateDog(false); setEditing({ ...editing, name: e.target.value }); }} /></Field>
           <Field label="견종"><Input list="dog-breeds" value={editing.breed} disabled={saving} onChange={(e) => setEditing({ ...editing, breed: e.target.value })} /><datalist id="dog-breeds">{breeds.map((item) => <option key={item} value={item} />)}</datalist></Field>
           <Field label="성별"><Select value={editing.sex} disabled={saving} onChange={(e) => setEditing({ ...editing, sex: e.target.value as DogForm["sex"] })}><option value="">선택</option><option value="male">수컷</option><option value="female">암컷</option></Select></Field>
           <Field label="생년월일"><Input type="date" value={editing.birthDate} disabled={saving} onChange={(e) => setEditing({ ...editing, birthDate: e.target.value })} /></Field>
           <Field label="체중(kg)"><Input name="weight" aria-describedby={formError ? "dog-form-error" : undefined} type="number" min="0.01" step="0.01" value={editing.weight} disabled={saving} onChange={(e) => setEditing({ ...editing, weight: e.target.value })} /></Field>
           <div className="sm:col-span-2"><Field label="메모"><Textarea rows={3} value={editing.memo} disabled={saving} onChange={(e) => setEditing({ ...editing, memo: e.target.value })} /></Field></div>
-          {formError && <p id="dog-form-error" role="alert" className="text-sm text-red-600 sm:col-span-2">{formError}</p>}<Button className="sm:col-span-2" disabled={saving}>{saving ? "저장 중..." : "저장"}</Button>
+          {duplicateDog && !allowDuplicateDog && <div className="rounded-xl bg-warning-soft p-3 text-sm text-text-secondary sm:col-span-2"><p>같은 보호자에게 <strong className="text-text-primary">{duplicateDog.name}</strong>이(가) 이미 등록되어 있습니다.</p><div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => { setQuery(duplicateDog.name); setEditing(null); setDuplicateDog(null); }}>기존 반려견 보기</Button><Button type="button" variant="ghost" onClick={() => { setAllowDuplicateDog(true); setFormError(""); }}>그래도 새로 등록</Button></div></div>}
+          {formError && <p id="dog-form-error" role="alert" className="text-sm text-error sm:col-span-2">{formError}</p>}<Button className="sm:col-span-2" disabled={saving}>{saving ? "저장 중..." : "저장"}</Button>
         </form>}
       </Modal>
       <Modal open={ownerCreating} onClose={() => !ownerSaving && setOwnerCreating(false)} title="새 보호자 등록">
