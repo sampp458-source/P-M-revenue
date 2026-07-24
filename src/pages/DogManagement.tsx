@@ -24,6 +24,10 @@ import {
 import { koDate } from "../lib/format";
 import { supabase } from "../lib/supabase";
 import {
+  logSupabaseError,
+  partyMutationError,
+} from "../lib/supabaseError";
+import {
   findCustomerPhoneDuplicate,
   findDogNameDuplicate,
   hasCustomerIdentity,
@@ -226,7 +230,13 @@ export function PetManagementPage() {
     const result = await supabase.from("customers").insert({ name: name || null, phone: phone || null, memo: ownerForm.memo.trim() || null, is_active: true }).select("id, name, phone, is_active").single();
     setOwnerSaving(false);
     if (result.error) {
-      setOwnerError(result.error.code === "42501" ? "보호자 등록 권한이 없습니다." : "보호자를 등록하지 못했습니다. 입력 내용을 확인해 주세요.");
+      logSupabaseError("반려견 관리 보호자 등록", result.error, result.status);
+      setOwnerError(
+        partyMutationError(
+          result.error,
+          "보호자를 등록하지 못했습니다. 입력 내용을 확인해 주세요.",
+        ),
+      );
       return;
     }
     const created = result.data;
@@ -292,12 +302,18 @@ export function PetManagementPage() {
       : await supabase.from("dogs").insert({ ...values, is_active: true }).select("id").single();
     setSaving(false);
     if (result.error) {
+      logSupabaseError(
+        editing.id ? "반려견 정보 수정" : "반려견 등록",
+        result.error,
+        result.status,
+      );
       setFormError(
-        result.error.code === "42501"
-          ? "권한이 없습니다."
-          : editing.id
+        partyMutationError(
+          result.error,
+          editing.id
             ? "반려견 정보를 수정하지 못했습니다."
             : "반려견을 저장하지 못했습니다.",
+        ),
       );
       return;
     }

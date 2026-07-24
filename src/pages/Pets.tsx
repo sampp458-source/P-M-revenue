@@ -23,6 +23,10 @@ import {
 import { koDate, net, won } from "../lib/format";
 import { useAuth } from "../auth/AuthContext";
 import { supabase } from "../lib/supabase";
+import {
+  logSupabaseError,
+  partyMutationError,
+} from "../lib/supabaseError";
 import { useData } from "../store/DataContext";
 import type { Customer, Division, Pet } from "../types";
 import {
@@ -388,10 +392,18 @@ export function CustomerList({
     setSaving(false);
 
     if (result.error) {
+      logSupabaseError(
+        editingCustomer ? "보호자 정보 수정" : "보호자 등록",
+        result.error,
+        result.status,
+      );
       setSaveError(
-        editingCustomer
-          ? "보호자 정보를 수정하지 못했습니다. 입력 내용을 확인해 주세요."
-          : "보호자를 등록하지 못했습니다. 입력 내용을 확인해 주세요.",
+        partyMutationError(
+          result.error,
+          editingCustomer
+            ? "보호자 정보를 수정하지 못했습니다. 입력 내용을 확인해 주세요."
+            : "보호자를 등록하지 못했습니다. 입력 내용을 확인해 주세요.",
+        ),
       );
       return;
     }

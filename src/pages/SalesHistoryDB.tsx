@@ -50,6 +50,10 @@ import {
 import { koDate, won } from "../lib/format";
 import { supabase } from "../lib/supabase";
 import {
+  logSupabaseError,
+  partyMutationError,
+} from "../lib/supabaseError";
+import {
   calculateTodayActivity,
   calculateSalesSummary,
   businessUnitDisplayOrder,
@@ -83,7 +87,7 @@ import {
   refundDetailKinds,
 } from "./salesDetailLogic";
 import {
-  buildSalePartyUpdate,
+  buildSalePartyRpcPayload,
   findCustomerPhoneDuplicate,
   findDogNameDuplicate,
   hasCustomerIdentity,
@@ -143,6 +147,14 @@ interface SaleQueryRow {
   created_at: string;
   updated_at: string;
   cancelled_at: string | null;
+}
+
+interface LinkedSalePartyRow {
+  customer_id: string | null;
+  dog_id: string | null;
+  customer_name: string | null;
+  customer_phone: string | null;
+  dog_name: string | null;
 }
 
 interface HistoryRow {
@@ -672,6 +684,12 @@ export function SalesHistoryPage() {
   };
   const savePartyLink = async () => {
     if (!editing || partySaving) return;
+    if (editing.status !== "normal") {
+      setPartyError(
+        "취소 또는 환불 처리된 매출의 고객 정보는 변경할 수 없습니다.",
+      );
+      return;
+    }
     if (editing.dogId) {
       const dog = partyDogs.find((item) => item.id === editing.dogId);
       if (!dog || dog.customerId !== editing.customerId) {
@@ -682,25 +700,36 @@ export function SalesHistoryPage() {
     setPartySaving(true);
     setPartyError("");
     const result = await supabase
-      .from("sales")
-      .update(buildSalePartyUpdate(editing.customerId ?? "", editing.dogId ?? ""))
-      .eq("id", editing.id)
-      .select("customer_id, dog_id, customer_name, customer_phone, dog_name")
+      .rpc(
+        "link_sale_party",
+        buildSalePartyRpcPayload(
+          editing.id,
+          editing.customerId ?? "",
+          editing.dogId ?? "",
+        ),
+      )
       .single();
     setPartySaving(false);
     if (result.error) {
-      setPartyError(mapError(result.error.message, result.error.code));
+      logSupabaseError("매출 고객·반려견 연결", result.error, result.status);
+      setPartyError(
+        partyMutationError(
+          result.error,
+          "고객·반려견 연결 정보를 저장하지 못했습니다.",
+        ),
+      );
       return;
     }
+    const linkedParty = result.data as LinkedSalePartyRow;
     setEditing((current) =>
       current
         ? {
             ...current,
-            customerId: result.data.customer_id,
-            dogId: result.data.dog_id,
-            customerName: result.data.customer_name,
-            customerPhone: result.data.customer_phone,
-            dogName: result.data.dog_name || "(반려견 없음)",
+            customerId: linkedParty.customer_id,
+            dogId: linkedParty.dog_id,
+            customerName: linkedParty.customer_name,
+            customerPhone: linkedParty.customer_phone,
+            dogName: linkedParty.dog_name || "(반려견 없음)",
           }
         : current,
     );
@@ -733,7 +762,13 @@ export function SalesHistoryPage() {
       .single();
     setPartySaving(false);
     if (result.error) {
-      setPartyError(result.error.code === "42501" ? "보호자 등록 권한이 없습니다." : "보호자를 등록하지 못했습니다.");
+      logSupabaseError("매출 수정 중 보호자 등록", result.error, result.status);
+      setPartyError(
+        partyMutationError(
+          result.error,
+          "보호자를 등록하지 못했습니다. 입력 내용을 확인해 주세요.",
+        ),
+      );
       return;
     }
     setPartyCustomers((current) => [...current, result.data]);
@@ -774,7 +809,13 @@ export function SalesHistoryPage() {
       .single();
     setPartySaving(false);
     if (result.error) {
-      setPartyError(result.error.code === "42501" ? "반려견 등록 권한이 없습니다." : "반려견을 등록하지 못했습니다.");
+      logSupabaseError("매출 수정 중 반려견 등록", result.error, result.status);
+      setPartyError(
+        partyMutationError(
+          result.error,
+          "반려견을 등록하지 못했습니다. 입력 내용을 확인해 주세요.",
+        ),
+      );
       return;
     }
     const created = {
@@ -1566,33 +1607,37 @@ export function SalesHistoryPage() {
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h3 id="sale-party-editor-title" className="text-sm font-semibold text-text-primary">고객·반려견 정보</h3>
-                  <p className="mt-1 text-xs text-text-muted">고객 연결만 별도로 저장되며 매출 금액과 결제 정보는 변경되지 않습니다.</p>
+                  <p className="mt-1 text-xs text-text-muted">
+                    {editing.status === "normal"
+                      ? "고객 연결만 별도로 저장되며 매출 금액과 결제 정보는 변경되지 않습니다."
+                      : "취소 또는 환불 처리된 매출의 고객 정보는 변경할 수 없습니다."}
+                  </p>
                 </div>
-                <Button type="button" variant="ghost" disabled={partySaving} onClick={() => setEditing({ ...editing, customerId: null, dogId: null })}>연결 해제</Button>
+                <Button type="button" variant="ghost" disabled={partySaving || editing.status !== "normal"} onClick={() => setEditing({ ...editing, customerId: null, dogId: null })}>연결 해제</Button>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2 sm:col-span-2">
-                  <SearchBox aria-label="보호자 이름 또는 연락처 검색" placeholder="보호자 이름 또는 연락처 검색" value={partySearch} onClear={() => setPartySearch("")} onChange={(event) => setPartySearch(event.target.value)} />
+                  <SearchBox aria-label="보호자 이름 또는 연락처 검색" placeholder="보호자 이름 또는 연락처 검색" value={partySearch} disabled={editing.status !== "normal"} onClear={() => setPartySearch("")} onChange={(event) => setPartySearch(event.target.value)} />
                 </div>
                 <Field label="보호자">
-                  <Select value={editing.customerId ?? ""} disabled={partySaving} onChange={(event) => { const customerId = event.target.value || null; const currentDog = partyDogs.find((dog) => dog.id === editing.dogId); setEditing({ ...editing, customerId, dogId: currentDog?.customerId === customerId ? editing.dogId : null }); setPartyError(""); }}>
+                  <Select value={editing.customerId ?? ""} disabled={partySaving || editing.status !== "normal"} onChange={(event) => { const customerId = event.target.value || null; const currentDog = partyDogs.find((dog) => dog.id === editing.dogId); setEditing({ ...editing, customerId, dogId: currentDog?.customerId === customerId ? editing.dogId : null }); setPartyError(""); }}>
                     <option value="">보호자 미등록</option>
                     {editing.customerId && !partyCustomers.some((customer) => customer.id === editing.customerId) && <option value={editing.customerId}>{editing.customerName || "기존 보호자"} · {editing.customerPhone || "연락처 없음"}</option>}
                     {visiblePartyCustomers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name || "이름 미등록"} · {customer.phone || "연락처 미등록"}</option>)}
                   </Select>
                 </Field>
-                <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving} onClick={() => { setNewCustomer({ name: partySearch, phone: "" }); setPartyError(""); setPartyModal("customer"); }}><Plus size={16} />새 보호자 등록</Button></div>
+                <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving || editing.status !== "normal"} onClick={() => { setNewCustomer({ name: partySearch, phone: "" }); setPartyError(""); setPartyModal("customer"); }}><Plus size={16} />새 보호자 등록</Button></div>
                 <Field label="반려견">
-                  <Select value={editing.dogId ?? ""} disabled={partySaving || !editing.customerId} onChange={(event) => setEditing({ ...editing, dogId: event.target.value || null })}>
+                  <Select value={editing.dogId ?? ""} disabled={partySaving || editing.status !== "normal" || !editing.customerId} onChange={(event) => setEditing({ ...editing, dogId: event.target.value || null })}>
                     <option value="">(반려견 없음)</option>
                     {editing.dogId && !editingPartyDogs.some((dog) => dog.id === editing.dogId) && <option value={editing.dogId}>{editing.dogName}</option>}
                     {editingPartyDogs.map((dog) => <option key={dog.id} value={dog.id}>{dog.name}{dog.breed ? ` · ${dog.breed}` : ""}</option>)}
                   </Select>
                 </Field>
-                <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving || !editing.customerId} onClick={() => { setNewDog({ name: "", breed: "" }); setPartyError(""); setDuplicatePartyDog(null); setAllowDuplicatePartyDog(false); setPartyModal("dog"); }}><Plus size={16} />새 반려견 등록</Button></div>
+                <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving || editing.status !== "normal" || !editing.customerId} onClick={() => { setNewDog({ name: "", breed: "" }); setPartyError(""); setDuplicatePartyDog(null); setAllowDuplicatePartyDog(false); setPartyModal("dog"); }}><Plus size={16} />새 반려견 등록</Button></div>
               </div>
               {partyError && <p role="alert" className="mt-3 text-sm text-error">{partyError}</p>}
-              <div className="mt-4 flex justify-end"><Button type="button" disabled={partySaving} onClick={() => void savePartyLink()}>{partySaving ? "연결 저장 중..." : "연결 정보 저장"}</Button></div>
+              <div className="mt-4 flex justify-end"><Button type="button" disabled={partySaving || editing.status !== "normal"} onClick={() => void savePartyLink()}>{partySaving ? "연결 저장 중..." : "연결 정보 저장"}</Button></div>
             </section>
             <Field label="매출 일자" required>
               <Input

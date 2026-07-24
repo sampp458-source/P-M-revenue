@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildSalePartyUpdate,
+  buildSalePartyRpcPayload,
   findCustomerPhoneDuplicate,
   findDogNameDuplicate,
   hasCustomerIdentity,
@@ -45,16 +45,22 @@ describe("customer identity", () => {
     expect(findDogNameDuplicate(dogs, "customer-2", "보리")).toBeNull();
   });
 
-  it("고객 연결 UPDATE에는 금액과 결제 필드를 포함하지 않는다", () => {
-    expect(buildSalePartyUpdate("customer-1", "dog-1")).toEqual({
-      customer_id: "customer-1",
-      dog_id: "dog-1",
-      customer_name: null,
-      customer_phone: null,
-      dog_name: null,
+  it("고객 연결 RPC에는 매출 ID와 고객·반려견 ID만 전달한다", () => {
+    expect(
+      buildSalePartyRpcPayload("sale-1", "customer-1", "dog-1"),
+    ).toEqual({
+      p_sale_id: "sale-1",
+      p_customer_id: "customer-1",
+      p_dog_id: "dog-1",
     });
-    expect(Object.keys(buildSalePartyUpdate("", ""))).not.toContain(
-      "paid_amount",
-    );
+    const payload = buildSalePartyRpcPayload("sale-1", "", "");
+    expect(payload).toEqual({
+      p_sale_id: "sale-1",
+      p_customer_id: null,
+      p_dog_id: null,
+    });
+    expect(Object.keys(payload)).not.toContain("paid_amount");
+    expect(Object.keys(payload)).not.toContain("product_id");
+    expect(Object.keys(payload)).not.toContain("sale_date");
   });
 });

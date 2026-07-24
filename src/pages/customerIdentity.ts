@@ -46,12 +46,14 @@ export function findDogNameDuplicate<T extends DogIdentityRecord>(
   );
 }
 
-export function buildSalePartyUpdate(customerId: string, dogId: string) {
+export function buildSalePartyRpcPayload(
+  saleId: string,
+  customerId: string,
+  dogId: string,
+) {
   return {
-    customer_id: customerId || null,
-    dog_id: dogId || null,
-    customer_name: null,
-    customer_phone: null,
-    dog_name: null,
+    p_sale_id: saleId,
+    p_customer_id: customerId || null,
+    p_dog_id: dogId || null,
   };
 }
