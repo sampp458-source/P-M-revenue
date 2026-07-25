@@ -748,6 +748,13 @@ export function SaleFormPage() {
   const selectedCustomer = customers.find(
     (customer) => customer.id === form.customerId,
   );
+  const selectedProduct = products.find(
+    (product) => product.id === form.productId,
+  );
+  const selectedBusinessUnit = businessUnits.find(
+    (unit) => unit.id === form.businessUnitId,
+  );
+  const selectedStaff = staff.find((item) => item.id === form.staffId);
   const selectableDogs = form.customerId
     ? dogs.filter((dog) => dog.customerId === form.customerId)
     : [];
@@ -2063,7 +2070,7 @@ export function SaleFormPage() {
           );
         }}
       >
-        <Card className="sale-registration-step relative z-20 p-5 sm:p-6">
+        <Card className="sale-registration-step relative z-20 p-5 transition-colors duration-200 focus-within:border-primary/25 sm:p-6">
           <button
             type="button"
             className="flex min-h-12 w-full items-center justify-between gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -2072,7 +2079,7 @@ export function SaleFormPage() {
           >
             <span>
               <span className="block text-xs font-semibold text-primary">
-                선택 · 고객 정보
+                1 · 고객·반려견
               </span>
               <span className="mt-1 block text-lg font-semibold text-text-primary">
                 고객 정보 추가
@@ -2590,7 +2597,7 @@ export function SaleFormPage() {
           )}
         </Card>
 
-        <Card className="sale-registration-step mt-4 p-5 sm:p-6">
+        <Card className="sale-registration-step mt-4 p-5 transition-colors duration-200 focus-within:border-primary/25 sm:p-6">
           <div ref={productSectionRef} className="scroll-mt-5">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
@@ -2609,6 +2616,27 @@ export function SaleFormPage() {
               )}
             </div>
             <div className="space-y-5">
+              {form.productId && (
+                <div className="flex flex-col gap-3 rounded-2xl border border-primary/20 bg-primary-subtle p-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold text-primary">
+                      현재 선택
+                    </p>
+                    <strong className="mt-1 block truncate text-base text-text-primary">
+                      {selectedProduct?.name || "상품 미선택"}
+                    </strong>
+                    <p className="mt-1 truncate text-xs text-text-secondary">
+                      {selectedBusinessUnit?.name || "사업부 미선택"}
+                      {selectedProduct?.unitLabel
+                        ? ` · 단위 ${selectedProduct.unitLabel}`
+                        : ""}
+                    </p>
+                  </div>
+                  <strong className="shrink-0 text-lg text-primary tabular-nums">
+                    {won(selectedProduct?.defaultPrice ?? 0)}
+                  </strong>
+                </div>
+              )}
               {renderProductGroup(
                 "내 최근 사용 상품",
                 "내가 최근 등록한 상품을 빠르게 선택합니다.",
@@ -2698,12 +2726,28 @@ export function SaleFormPage() {
                             : "border-border hover:border-primary/30 hover:bg-primary-subtle",
                         )}
                       >
-                        <span className="truncate text-sm font-semibold">
-                          {product.name}
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold">
+                            {product.name}
+                          </span>
+                          <span
+                            className={cn(
+                              "mt-0.5 block truncate text-[11px]",
+                              form.productId === product.id
+                                ? "text-blue-100"
+                                : "text-text-muted",
+                            )}
+                          >
+                            {businessUnits.find(
+                              (unit) => unit.id === product.businessUnitId,
+                            )?.name || "사업부 미지정"}
+                            {product.unitLabel
+                              ? ` · 단위 ${product.unitLabel}`
+                              : ""}
+                          </span>
                         </span>
                         <span className="ml-3 shrink-0 text-sm tabular-nums">
                           {won(product.defaultPrice)}
-                          {product.unitLabel ? ` / ${product.unitLabel}` : ""}
                         </span>
                       </button>
                     ))}
@@ -2795,125 +2839,283 @@ export function SaleFormPage() {
                     </Select>
                   </Field>
                 </div>
+                <div className="border-t border-border pt-5">
+                  <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-primary">
+                        상품 수량
+                      </p>
+                      <h3 className="mt-1 text-base font-semibold text-text-primary">
+                        단가와 이용 수량
+                      </h3>
+                    </div>
+                    <p className="text-xs text-text-muted">
+                      상품 기준가를 불러오며 현장에서 수정할 수 있습니다.
+                    </p>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <Field label="기준 단가" required>
+                      <CurrencyInput
+                        name="unitPrice"
+                        value={form.unitPrice}
+                        disabled={saving}
+                        onValue={(value) => updatePricing(value, form.quantity)}
+                        onKeyDown={(event) => {
+                          if (
+                            event.key !== "Enter" ||
+                            event.nativeEvent.isComposing
+                          )
+                            return;
+                          event.preventDefault();
+                          document
+                            .querySelector<HTMLInputElement>(
+                              'input[name="quantity"]',
+                            )
+                            ?.focus();
+                        }}
+                      />
+                    </Field>
+                    <Field
+                      label="수량"
+                      required
+                      help={
+                        selectedProduct?.unitLabel
+                          ? `1 이상 입력하세요. 단위: ${selectedProduct.unitLabel}`
+                          : "1 이상 입력하세요."
+                      }
+                    >
+                      <div className="grid grid-cols-[48px_minmax(0,1fr)_48px] overflow-hidden rounded-xl border border-border bg-white focus-within:ring-2 focus-within:ring-primary">
+                        <button
+                          type="button"
+                          aria-label="수량 1 감소"
+                          className="flex min-h-12 items-center justify-center text-text-secondary transition-colors duration-150 hover:bg-surface-secondary disabled:opacity-40"
+                          disabled={saving || form.quantity <= 1}
+                          onClick={() =>
+                            updatePricing(form.unitPrice, form.quantity - 1)
+                          }
+                        >
+                          <Minus size={18} />
+                        </button>
+                        <div className="relative">
+                          <Input
+                            name="quantity"
+                            type="number"
+                            inputMode="numeric"
+                            min={1}
+                            step={1}
+                            value={form.quantity}
+                            disabled={saving}
+                            onChange={(event) =>
+                              updatePricing(
+                                form.unitPrice,
+                                Number(event.target.value),
+                              )
+                            }
+                            onKeyDown={(event) => {
+                              if (
+                                event.key !== "Enter" ||
+                                event.nativeEvent.isComposing
+                              )
+                                return;
+                              event.preventDefault();
+                              document
+                                .querySelector<HTMLInputElement>(
+                                  'input[name="paidAmount"]',
+                                )
+                                ?.focus();
+                            }}
+                            className="h-12 rounded-none border-x border-y-0 pr-12 text-center font-semibold tabular-nums focus:ring-0"
+                          />
+                          {selectedProduct?.unitLabel && (
+                            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-semibold text-text-muted">
+                              {selectedProduct.unitLabel}
+                            </span>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          aria-label="수량 1 증가"
+                          className="flex min-h-12 items-center justify-center text-primary transition-colors duration-150 hover:bg-primary-subtle disabled:opacity-40"
+                          disabled={saving}
+                          onClick={() =>
+                            updatePricing(form.unitPrice, form.quantity + 1)
+                          }
+                        >
+                          <Plus size={18} />
+                        </button>
+                      </div>
+                    </Field>
+                    <div className="rounded-2xl border border-primary/15 bg-primary-subtle p-4 md:col-span-2">
+                      <div className="flex items-center justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-semibold text-text-secondary">
+                            기준 계산금액
+                          </p>
+                          <p className="mt-1 text-xs text-text-muted">
+                            {formatQuantityWithUnit(
+                              form.quantity,
+                              selectedProduct?.unitLabel,
+                            )}{" "}
+                            × {won(form.unitPrice)}
+                          </p>
+                        </div>
+                        <strong className="text-xl tabular-nums text-primary">
+                          {won(form.originalAmount)}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </section>
             </div>
           </div>
         </Card>
 
-        <Card className="sale-registration-step mt-4 p-5 sm:p-6">
-          <div className="mb-5">
-            <p className="text-xs font-semibold text-primary">3 · 결제 확인</p>
-            <h2 className="mt-1 text-lg font-semibold text-text-primary">
-              수량·결제 정보와 저장
-            </h2>
-          </div>
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <div className="space-y-5">
-              <div className="grid gap-5 md:grid-cols-2">
-                <Field
-                  label="기준 단가"
-                  required
-                  help="상품 기준가를 불러오며 현장에서 수정할 수 있습니다."
+        <Card className="sale-registration-step mt-4 overflow-hidden p-0">
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="min-w-0 space-y-8 p-5 sm:p-6 lg:p-8">
+              {error && (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-error/20 bg-error-soft px-4 py-3 text-sm font-medium text-error lg:hidden"
                 >
-                  <CurrencyInput
-                    name="unitPrice"
-                    value={form.unitPrice}
-                    disabled={saving}
-                    onValue={(value) => updatePricing(value, form.quantity)}
-                    onKeyDown={(event) => {
-                      if (event.key !== "Enter" || event.nativeEvent.isComposing)
-                        return;
-                      event.preventDefault();
-                      document
-                        .querySelector<HTMLInputElement>('input[name="quantity"]')
-                        ?.focus();
-                    }}
+                  {error}
+                </div>
+              )}
+              <section aria-labelledby="sale-adjustment-title">
+                <div className="mb-4">
+                  <p className="text-xs font-semibold text-primary">
+                    3 · 금액 조정
+                  </p>
+                  <h2
+                    id="sale-adjustment-title"
+                    className="mt-1 text-lg font-semibold text-text-primary"
+                  >
+                    기준금액에서 필요한 부분만 조정
+                  </h2>
+                  <p className="mt-1 text-xs text-text-muted">
+                    추가금과 할인이 없으면 바로 결제로 넘어가세요.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={saving}
+                  className="flex min-h-12 w-full items-center justify-between rounded-xl border border-border bg-surface-secondary px-4 text-left text-sm font-semibold text-text-secondary transition duration-150 hover:border-primary/20 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  onClick={() => setAdvancedOpen((value) => !value)}
+                  aria-expanded={advancedOpen}
+                >
+                  <span>
+                    {form.additionalAmount || form.discountAmount
+                      ? `추가 ${won(form.additionalAmount)} · 할인 ${won(form.discountAmount)}`
+                      : "추가금·할인 없음"}
+                  </span>
+                  <ChevronDown
+                    size={18}
+                    className={`transition-transform duration-200 ${advancedOpen ? "rotate-180" : ""}`}
                   />
-                </Field>
-                <Field
-                  label="수량"
-                  required
-                  help={
-                    products.find((product) => product.id === form.productId)
-                      ?.unitLabel
-                      ? `1 이상 입력하세요. 단위: ${products.find((product) => product.id === form.productId)?.unitLabel}`
-                      : "1 이상 입력하세요."
-                  }
-                >
-                  <div className="grid grid-cols-[44px_minmax(0,1fr)_44px] overflow-hidden rounded-xl border border-border bg-white focus-within:ring-2 focus-within:ring-primary">
-                    <button
-                      type="button"
-                      aria-label="수량 1 감소"
-                      className="flex min-h-12 items-center justify-center text-text-secondary hover:bg-surface-secondary disabled:opacity-40"
-                      disabled={saving || form.quantity <= 1}
-                      onClick={() =>
-                        updatePricing(form.unitPrice, form.quantity - 1)
-                      }
-                    >
-                      <Minus size={18} />
-                    </button>
-                    <Input
-                      name="quantity"
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      step={1}
-                      value={form.quantity}
-                      disabled={saving}
-                      onChange={(event) =>
-                        updatePricing(
-                          form.unitPrice,
-                          Number(event.target.value),
-                        )
-                      }
-                      onKeyDown={(event) => {
-                        if (
-                          event.key !== "Enter" ||
-                          event.nativeEvent.isComposing
-                        )
-                          return;
-                        event.preventDefault();
-                        document
-                          .querySelector<HTMLInputElement>(
-                            'input[name="paidAmount"]',
-                          )
-                          ?.focus();
-                      }}
-                      className="h-12 rounded-none border-x border-y-0 text-center font-semibold tabular-nums focus:ring-0"
-                    />
-                    <button
-                      type="button"
-                      aria-label="수량 1 증가"
-                      className="flex min-h-12 items-center justify-center text-primary hover:bg-primary-subtle disabled:opacity-40"
-                      disabled={saving}
-                      onClick={() =>
-                        updatePricing(form.unitPrice, form.quantity + 1)
-                      }
-                    >
-                      <Plus size={18} />
-                    </button>
-                  </div>
-                </Field>
-                <div className="rounded-2xl border border-primary/15 bg-primary-subtle p-4 md:col-span-2">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold text-text-secondary">
-                        기준 계산금액
-                      </p>
+                </button>
+                {advancedOpen && (
+                  <div className="mt-3 grid gap-5 rounded-2xl border border-border bg-surface-secondary p-4 md:grid-cols-2">
+                    <Field label="추가 금액">
+                      <CurrencyInput
+                        name="additionalAmount"
+                        value={form.additionalAmount}
+                        disabled={saving}
+                        onValue={(value) =>
+                          updateAmountAdjustment(value, form.discountAmount)
+                        }
+                      />
+                    </Field>
+                    <Field label="할인 금액">
+                      <CurrencyInput
+                        name="discountAmount"
+                        value={form.discountAmount}
+                        max={form.originalAmount + form.additionalAmount}
+                        disabled={saving}
+                        onValue={(value) =>
+                          updateAmountAdjustment(form.additionalAmount, value)
+                        }
+                      />
+                    </Field>
+                    <div className="rounded-xl border border-primary/10 bg-white p-4 md:col-span-2">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-sm font-semibold text-text-secondary">
+                          최종 판매금액
+                        </span>
+                        <strong className="text-xl tabular-nums text-primary">
+                          {won(expectedAmount)}
+                        </strong>
+                      </div>
                       <p className="mt-1 text-xs text-text-muted">
-                        {won(form.unitPrice)} × {formatQuantityWithUnit(
-                          form.quantity,
-                          products.find(
-                            (product) => product.id === form.productId,
-                          )?.unitLabel,
-                        )}
+                        기준금액 + 추가금액 - 할인금액
                       </p>
                     </div>
-                    <strong className="text-xl tabular-nums text-primary">
-                      {won(form.originalAmount)}
-                    </strong>
+                    <div className="md:col-span-2">
+                      <Field label="조정 메모">
+                        <Textarea
+                          name="adjustmentNote"
+                          rows={2}
+                          maxLength={500}
+                          placeholder="예: 픽드랍 추가, 추가시간, 직원 할인"
+                          value={form.adjustmentNote}
+                          disabled={saving}
+                          onChange={(event) =>
+                            setForm((current) => ({
+                              ...current,
+                              adjustmentNote: event.target.value,
+                            }))
+                          }
+                        />
+                      </Field>
+                    </div>
+                    <Field label="환불 금액">
+                      <CurrencyInput
+                        name="refundAmount"
+                        value={form.refundAmount}
+                        max={form.paidAmount}
+                        disabled={saving}
+                        onValue={(value) =>
+                          setForm((current) => ({
+                            ...current,
+                            refundAmount: value,
+                          }))
+                        }
+                      />
+                    </Field>
+                    <Field
+                      label="미수금"
+                      help="최종 판매금액에서 실제 결제금액을 뺀 값입니다."
+                    >
+                      <Input
+                        name="outstandingAmount"
+                        value={won(form.outstandingAmount)}
+                        disabled
+                        className="text-right font-semibold tabular-nums"
+                      />
+                    </Field>
                   </div>
+                )}
+              </section>
+
+              <section
+                aria-labelledby="sale-payment-title"
+                className="border-t border-border pt-7"
+              >
+                <div className="mb-5">
+                  <p className="text-xs font-semibold text-primary">
+                    4 · 결제
+                  </p>
+                  <h2
+                    id="sale-payment-title"
+                    className="mt-1 text-lg font-semibold text-text-primary"
+                  >
+                    받은 금액과 결제수단
+                  </h2>
+                  <p className="mt-1 text-xs text-text-muted">
+                    결제 부족분은 기존 정책대로 미수금으로 계산됩니다.
+                  </p>
                 </div>
+                <div className="grid gap-5 md:grid-cols-2">
                 <label className="flex min-h-12 items-center gap-3 rounded-xl border border-border px-4 text-sm font-semibold md:col-span-2">
                   <input
                     type="checkbox"
@@ -2970,11 +3172,21 @@ export function SaleFormPage() {
                       if (event.key !== "Enter" || event.nativeEvent.isComposing)
                         return;
                       event.preventDefault();
-                      document
-                        .querySelector<HTMLSelectElement>(
-                          'select[name="paymentMethod"]',
-                        )
-                        ?.focus();
+                      const activePaymentButton =
+                        document.querySelector<HTMLButtonElement>(
+                          '[data-payment-method-button][aria-pressed="true"]',
+                        );
+                      if (
+                        activePaymentButton &&
+                        window.matchMedia("(min-width: 640px)").matches
+                      )
+                        activePaymentButton.focus();
+                      else
+                        document
+                          .querySelector<HTMLSelectElement>(
+                            'select[name="paymentMethod"]',
+                          )
+                          ?.focus();
                     }}
                   />
                   {paymentDifference !== 0 && (
@@ -3001,10 +3213,56 @@ export function SaleFormPage() {
                   )}
                 </Field>
                 <Field label="결제 수단" required>
+                  <div
+                    className="hidden grid-cols-4 gap-1 rounded-xl border border-border bg-surface-secondary p-1 sm:grid"
+                    aria-label="결제 수단 빠른 선택"
+                  >
+                    {(
+                      [
+                        ["card", "카드"],
+                        ["transfer", "계좌"],
+                        ["cash", "현금"],
+                        ["outstanding", "미수"],
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        data-payment-method-button
+                        aria-pressed={form.paymentMethod === value}
+                        disabled={saving}
+                        onClick={() =>
+                          setForm((current) => ({
+                            ...current,
+                            paymentMethod: value,
+                          }))
+                        }
+                        onKeyDown={(event) => {
+                          if (
+                            event.key !== "Enter" ||
+                            event.nativeEvent.isComposing
+                          )
+                            return;
+                          event.preventDefault();
+                          if (!saving)
+                            saleFormRef.current?.requestSubmit();
+                        }}
+                        className={cn(
+                          "min-h-11 rounded-lg px-2 text-xs font-semibold transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                          form.paymentMethod === value
+                            ? "bg-primary text-white shadow-sm"
+                            : "text-text-secondary hover:bg-white hover:text-primary",
+                        )}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                   <Select
                     name="paymentMethod"
                     value={form.paymentMethod}
                     disabled={saving}
+                    className="sm:hidden"
                     onChange={(event) =>
                       setForm((current) => ({
                         ...current,
@@ -3070,7 +3328,56 @@ export function SaleFormPage() {
                         }} className="flex min-h-11 items-center justify-center rounded-xl text-text-muted hover:bg-error-soft hover:text-error disabled:opacity-40"><Minus size={18} /></button>
                       </div>
                     ))}
-                    <div className="flex flex-wrap justify-between gap-3 border-t pt-3 text-sm"><span>총 결제 <strong className="tabular-nums">{won(form.paidAmount)}</strong></span><span>미수금 <strong className="tabular-nums text-warning">{won(form.outstandingAmount)}</strong></span></div>
+                    <div className="grid gap-2 border-t pt-3 text-sm sm:grid-cols-3">
+                      <span className="rounded-xl bg-surface-secondary px-3 py-2">
+                        <span className="block text-[11px] text-text-muted">
+                          최종 판매금액
+                        </span>
+                        <strong className="mt-0.5 block tabular-nums text-text-primary">
+                          {won(expectedAmount)}
+                        </strong>
+                      </span>
+                      <span className="rounded-xl bg-surface-secondary px-3 py-2">
+                        <span className="block text-[11px] text-text-muted">
+                          결제 합계
+                        </span>
+                        <strong className="mt-0.5 block tabular-nums text-text-primary">
+                          {won(form.paidAmount)}
+                        </strong>
+                      </span>
+                      <span
+                        className={cn(
+                          "rounded-xl px-3 py-2",
+                          form.outstandingAmount > 0
+                            ? "bg-warning-soft"
+                            : form.paidAmount > expectedAmount
+                              ? "bg-error-soft"
+                              : "bg-success-soft",
+                        )}
+                      >
+                        <span className="block text-[11px] text-text-muted">
+                          {form.paidAmount > expectedAmount
+                            ? "초과 입력"
+                            : "남은 금액"}
+                        </span>
+                        <strong
+                          className={cn(
+                            "mt-0.5 block tabular-nums",
+                            form.outstandingAmount > 0
+                              ? "text-warning"
+                              : form.paidAmount > expectedAmount
+                                ? "text-error"
+                                : "text-success",
+                          )}
+                        >
+                          {form.paidAmount > expectedAmount
+                            ? won(form.paidAmount - expectedAmount)
+                            : form.outstandingAmount > 0
+                              ? won(form.outstandingAmount)
+                              : "결제 완료"}
+                        </strong>
+                      </span>
+                    </div>
                   </div>
                 )}
                 <Field label="구분" required>
@@ -3123,100 +3430,23 @@ export function SaleFormPage() {
                   </Select>
                 </Field>
               </div>
-              <button
-                type="button"
-                disabled={saving}
-                className="flex min-h-12 w-full items-center justify-between rounded-xl border border-border bg-surface-secondary px-4 text-left text-sm font-semibold text-text-secondary transition hover:border-primary/20 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                onClick={() => setAdvancedOpen((value) => !value)}
-                aria-expanded={advancedOpen}
+              </section>
+
+              <section
+                aria-labelledby="sale-memo-title"
+                className="border-t border-border pt-7"
               >
-                금액 조정
-                <ChevronDown
-                  size={18}
-                  className={`transition-transform duration-200 ${advancedOpen ? "rotate-180" : ""}`}
-                />
-              </button>
-              {advancedOpen && (
-                <div className="grid gap-5 rounded-2xl border border-border bg-surface-secondary p-4 md:grid-cols-2">
-                  <Field label="추가 금액">
-                    <CurrencyInput
-                      name="additionalAmount"
-                      value={form.additionalAmount}
-                      disabled={saving}
-                      onValue={(value) =>
-                        updateAmountAdjustment(value, form.discountAmount)
-                      }
-                    />
-                  </Field>
-                  <Field label="할인 금액">
-                    <CurrencyInput
-                      name="discountAmount"
-                      value={form.discountAmount}
-                      max={form.originalAmount + form.additionalAmount}
-                      disabled={saving}
-                      onValue={(value) =>
-                        updateAmountAdjustment(form.additionalAmount, value)
-                      }
-                    />
-                  </Field>
-                  <div className="rounded-xl border border-primary/10 bg-white p-4 md:col-span-2">
-                    <div className="flex items-center justify-between gap-4">
-                      <span className="text-sm font-semibold text-text-secondary">
-                        최종 판매금액
-                      </span>
-                      <strong className="text-xl tabular-nums text-primary">
-                        {won(expectedAmount)}
-                      </strong>
-                    </div>
-                    <p className="mt-1 text-xs text-text-muted">
-                      기준금액 + 추가금액 - 할인금액
-                    </p>
-                  </div>
-                  <div className="md:col-span-2">
-                    <Field label="조정 메모">
-                      <Textarea
-                        name="adjustmentNote"
-                        rows={2}
-                        maxLength={500}
-                        placeholder="예: 픽드랍 추가, 추가시간, 직원 할인"
-                        value={form.adjustmentNote}
-                        disabled={saving}
-                        onChange={(event) =>
-                          setForm((current) => ({
-                            ...current,
-                            adjustmentNote: event.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                  </div>
-                  <Field label="환불 금액">
-                    <CurrencyInput
-                      name="refundAmount"
-                      value={form.refundAmount}
-                      max={form.paidAmount}
-                      disabled={saving}
-                      onValue={(value) =>
-                        setForm((current) => ({
-                          ...current,
-                          refundAmount: value,
-                        }))
-                      }
-                    />
-                  </Field>
-                  <Field
-                    label="미수금"
-                    help="최종 판매금액에서 실제 결제금액을 뺀 값입니다."
+                <div className="mb-4">
+                  <p className="text-xs font-semibold text-primary">
+                    5 · 메모
+                  </p>
+                  <h2
+                    id="sale-memo-title"
+                    className="mt-1 text-lg font-semibold text-text-primary"
                   >
-                    <Input
-                      name="outstandingAmount"
-                      value={won(form.outstandingAmount)}
-                      disabled
-                      className="text-right font-semibold tabular-nums"
-                    />
-                  </Field>
+                    전달할 내용과 다음 등록 설정
+                  </h2>
                 </div>
-              )}
               <Field label="메모">
                 <Textarea
                   name="memo"
@@ -3271,52 +3501,85 @@ export function SaleFormPage() {
                   ))}
                 </div>
               </div>
+              </section>
             </div>
-            <aside className="h-fit rounded-2xl border border-white/10 bg-[#172f4d] p-5 text-white shadow-[0_18px_45px_rgba(23,47,77,0.18)] lg:sticky lg:top-5">
+            <aside className="h-fit border-t border-white/10 bg-[#172f4d] p-5 text-white shadow-[0_18px_45px_rgba(23,47,77,0.14)] sm:p-6 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:border-l lg:border-t-0">
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-200">
-                결제 요약
+                실시간 결제 요약
               </p>
-              <p className="mt-3 truncate text-base font-semibold text-white">
-                {selectedDog?.name || selectedCustomer?.name || "고객 미선택"}
-              </p>
-              <p className="mt-1 truncate text-sm text-slate-300">
-                {products.find((product) => product.id === form.productId)
-                  ?.name || "상품 미선택"}
-              </p>
+              <div className="mt-4 rounded-xl bg-white/[0.06] p-3.5">
+                <strong className="block truncate text-base text-white">
+                  {selectedDog?.name ||
+                    saleReference.dogName ||
+                    "(반려견 없음)"}
+                </strong>
+                <p className="mt-1 truncate text-xs text-slate-300">
+                  {selectedCustomer?.name ||
+                    saleReference.customerName ||
+                    "보호자 미등록"}
+                  {(selectedCustomer?.phone || saleReference.phone) &&
+                    ` · ${formatPhone(selectedCustomer?.phone || saleReference.phone)}`}
+                </p>
+              </div>
+              <div className="mt-3 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-white">
+                    {selectedProduct?.name || "상품 미선택"}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-slate-300">
+                    {selectedBusinessUnit?.name || "사업부 미선택"}
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-lg bg-white/10 px-2 py-1 text-[11px] font-semibold text-blue-100">
+                  {formatQuantityWithUnit(
+                    form.quantity,
+                    selectedProduct?.unitLabel,
+                  )}
+                </span>
+              </div>
               <div className="my-5 border-y border-white/15 py-5">
-                <p className="text-xs font-medium text-slate-300">최종 판매금액</p>
-                <strong className="mt-1 block text-3xl font-bold tabular-nums tracking-tight text-white">
+                <p className="text-xs font-medium text-slate-300">
+                  최종 판매금액
+                </p>
+                <strong className="mt-1 block whitespace-nowrap text-[2rem] font-bold tabular-nums tracking-[-0.04em] text-white sm:text-4xl">
                   {won(expectedAmount)}
                 </strong>
+                <p className="mt-2 text-xs text-slate-300">
+                  {formatQuantityWithUnit(
+                    form.quantity,
+                    selectedProduct?.unitLabel,
+                  )}{" "}
+                  × {won(form.unitPrice)}
+                </p>
               </div>
-              <dl className="space-y-2 text-sm">
+              <dl className="space-y-2.5 text-sm">
                 <div className="flex justify-between gap-3">
-                  <dt className="text-slate-300">사업부</dt>
-                  <dd className="font-semibold text-white">
-                    {businessUnits.find(
-                      (unit) => unit.id === form.businessUnitId,
-                    )?.name || "-"}
+                  <dt className="text-slate-300">기준금액</dt>
+                  <dd className="font-semibold tabular-nums text-white">
+                    {won(form.originalAmount)}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-slate-300">단가 × 수량</dt>
-                  <dd className="text-right font-semibold tabular-nums text-white">
-                    {won(form.unitPrice)} × {formatQuantityWithUnit(
-                      form.quantity,
-                      products.find((product) => product.id === form.productId)
-                        ?.unitLabel,
+                  <dt className="text-slate-300">추가금</dt>
+                  <dd className="font-semibold tabular-nums text-white">
+                    {won(form.additionalAmount)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <dt className="text-slate-300">할인</dt>
+                  <dd
+                    className={cn(
+                      "font-semibold tabular-nums",
+                      form.discountAmount ? "text-amber-200" : "text-white",
                     )}
+                  >
+                    {form.discountAmount
+                      ? `-${won(form.discountAmount)}`
+                      : won(0)}
                   </dd>
                 </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-slate-300">기준 / 추가 / 할인</dt>
-                  <dd className="text-right font-semibold tabular-nums text-white">
-                    {won(form.originalAmount)} / {won(form.additionalAmount)} /{" "}
-                    {won(form.discountAmount)}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-slate-300">실제 결제</dt>
+                <div className="flex justify-between gap-3 border-t border-white/10 pt-2.5">
+                  <dt className="text-slate-200">결제 합계</dt>
                   <dd className="font-bold tabular-nums text-white">
                     {won(form.paidAmount)}
                   </dd>
@@ -3325,13 +3588,6 @@ export function SaleFormPage() {
                   <dt className="text-slate-300">결제수단</dt>
                   <dd className="font-semibold text-white">
                     {paymentLabel[form.paymentMethod] || form.paymentMethod}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <dt className="text-slate-300">담당자</dt>
-                  <dd className="font-semibold text-white">
-                    {staff.find((item) => item.id === form.staffId)?.name ||
-                      "-"}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
@@ -3350,9 +3606,9 @@ export function SaleFormPage() {
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-slate-300">메모</dt>
+                  <dt className="text-slate-300">담당자</dt>
                   <dd className="font-semibold text-white">
-                    {form.memo.trim() ? "있음" : "없음"}
+                    {selectedStaff?.name || "-"}
                   </dd>
                 </div>
               </dl>
@@ -3369,8 +3625,8 @@ export function SaleFormPage() {
                 className={cn(
                   "mt-4 text-sm",
                   missingRequirement
-                    ? "text-text-secondary"
-                    : "font-semibold text-success",
+                    ? "font-medium text-slate-200"
+                    : "font-semibold text-emerald-300",
                 )}
               >
                 {missingRequirement || "저장할 준비가 완료되었습니다."}
@@ -3398,11 +3654,31 @@ export function SaleFormPage() {
           </div>
         </Card>
         {!mobileInputActive && (
-          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
+          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(23,36,58,0.08)] backdrop-blur lg:hidden">
             <div className="mx-auto max-w-5xl">
-              <p className="mb-2 truncate text-center text-xs text-text-secondary">
-                {missingRequirement || "저장할 준비가 완료되었습니다."}
-              </p>
+              <div className="mb-2 flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-medium text-text-muted">
+                    최종 판매금액
+                  </p>
+                  <strong className="block truncate text-xl text-text-primary tabular-nums">
+                    {won(expectedAmount)}
+                  </strong>
+                </div>
+                <p
+                  className={cn(
+                    "max-w-[48%] text-right text-[11px]",
+                    missingRequirement
+                      ? "text-text-secondary"
+                      : "font-semibold text-success",
+                  )}
+                >
+                  {missingRequirement ||
+                    (form.outstandingAmount > 0
+                      ? `미수 ${won(form.outstandingAmount)}`
+                      : "결제 준비 완료")}
+                </p>
+              </div>
               <div className="grid grid-cols-[auto_1fr] gap-2">
                 <Button
                   type="button"
@@ -3416,9 +3692,7 @@ export function SaleFormPage() {
                   {saving && (
                     <LoaderCircle className="animate-spin" size={17} />
                   )}
-                  {saving
-                    ? "등록 중…"
-                    : `매출 저장 · ${won(Math.max(netAmount, 0))}`}
+                  {saving ? "등록 중…" : "매출 등록하기"}
                 </Button>
               </div>
             </div>
