@@ -14,75 +14,83 @@ export function MetricCard({ label, value, description, progress, featured = fal
 }
 
 export function DashboardKpiHero({
-  todayRevenue,
-  yesterdayRevenue,
-  todayCount,
-  monthRevenue,
-  previousMonthRevenue,
-  monthCount,
+  periodLabel,
+  rangeLabel,
+  unitName,
+  compareLabel,
+  salesAmount,
+  previousSalesAmount,
+  netAmount,
+  previousNetAmount,
+  count,
   monthlyTarget,
   outstanding,
   refund,
 }: {
-  todayRevenue: number;
-  yesterdayRevenue: number;
-  todayCount: number;
-  monthRevenue: number;
-  previousMonthRevenue: number;
-  monthCount: number;
-  monthlyTarget: number;
+  periodLabel: string;
+  rangeLabel: string;
+  unitName: string;
+  compareLabel: string;
+  salesAmount: number;
+  previousSalesAmount: number;
+  netAmount: number;
+  previousNetAmount: number;
+  count: number;
+  monthlyTarget: number | null;
   outstanding: number;
   refund: number;
 }) {
-  const todayComparison = formatRevenueComparison(
-    todayRevenue,
-    yesterdayRevenue,
+  const salesComparison = formatRevenueComparison(
+    salesAmount,
+    previousSalesAmount,
   );
-  const monthComparison = formatRevenueComparison(
-    monthRevenue,
-    previousMonthRevenue,
+  const netComparison = formatRevenueComparison(
+    netAmount,
+    previousNetAmount,
   );
   const achievement =
-    monthlyTarget > 0 ? (monthRevenue / monthlyTarget) * 100 : 0;
+    monthlyTarget !== null && monthlyTarget > 0
+      ? (netAmount / monthlyTarget) * 100
+      : 0;
   const items = [
     {
-      label: "오늘 매출",
-      value: won(todayRevenue),
-      description: `오늘 거래 ${todayCount.toLocaleString("ko-KR")}건`,
-      signalLabel: "어제 대비",
-      signal: todayComparison,
+      label: `${periodLabel} 판매금액`,
+      value: won(salesAmount),
+      description: `${rangeLabel} · ${unitName} · 유효 거래 ${count.toLocaleString("ko-KR")}건`,
+      signalLabel: `${compareLabel} 대비`,
+      signal: salesComparison,
       className: "bg-[#172f4d] text-white lg:col-span-2",
       labelClass: "text-blue-200",
       valueClass: "text-white text-[clamp(2rem,4vw,3.4rem)]",
       descriptionClass: "text-slate-300",
-      signalClass: todayComparison.startsWith("▼")
+      signalClass: salesComparison.startsWith("▼")
         ? "text-rose-200"
-        : todayComparison.startsWith("—")
+        : salesComparison.startsWith("—")
           ? "text-slate-300"
           : "text-emerald-200",
     },
     {
-      label: "이번 달 누적",
-      value: won(monthRevenue),
-      description: `이번 달 거래 ${monthCount.toLocaleString("ko-KR")}건`,
-      signalLabel: "전월 대비",
-      signal: monthComparison,
+      label: `${periodLabel} 실결제액`,
+      value: won(netAmount),
+      description: "환불 전 결제액에서 누적 환불액을 차감",
+      signalLabel: `${compareLabel} 대비`,
+      signal: netComparison,
       className: "bg-primary-subtle lg:col-span-2",
       labelClass: "text-primary",
       valueClass: "text-text-primary text-[clamp(1.8rem,3vw,2.75rem)]",
       descriptionClass: "text-text-secondary",
-      signalClass: monthComparison.startsWith("▼")
+      signalClass: netComparison.startsWith("▼")
         ? "text-error"
-        : monthComparison.startsWith("—")
+        : netComparison.startsWith("—")
           ? "text-text-secondary"
           : "text-primary",
-      target: monthlyTarget,
-      achievement,
+      target: monthlyTarget ?? undefined,
+      achievement: monthlyTarget === null ? undefined : achievement,
     },
     {
-      label: "미수",
+      label: `${periodLabel} 미수`,
       value: won(outstanding),
-      description: "이번 달 미수금",
+      description: "해당 기간 거래에 현재 남은 미수잔액",
       className: "bg-warning-soft/60 lg:col-span-1",
       labelClass: "text-warning",
       valueClass: "text-text-primary text-2xl",
@@ -92,9 +100,9 @@ export function DashboardKpiHero({
       signalClass: "",
     },
     {
-      label: "환불",
+      label: `${periodLabel} 환불`,
       value: won(refund),
-      description: "이번 달 환불액",
+      description: "해당 기간 거래에 누적된 환불액",
       className: "bg-surface-secondary lg:col-span-1",
       labelClass: "text-error",
       valueClass: "text-text-primary text-2xl",
@@ -149,7 +157,7 @@ export function DashboardKpiHero({
                 <div
                   className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-primary/10"
                   role="progressbar"
-                  aria-label="이번 달 목표 달성률"
+                  aria-label={`${periodLabel} 목표 달성률`}
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={Math.min(100, Math.max(0, item.achievement))}

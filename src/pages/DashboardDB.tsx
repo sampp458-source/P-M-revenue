@@ -7,7 +7,7 @@ import { supabase } from "../lib/supabase";
 import { BusinessUnitCard, DashboardKpiHero, DashboardSkeleton, RecentSales } from "./dashboard/DashboardSections";
 import { DailyRevenueTrend, DashboardPeriodFilters, SalesHeatmapCalendar } from "./dashboard/DashboardRangeSections";
 import { DashboardDateDrawer } from "./dashboard/DashboardDateDrawer";
-import { calculateDailyRevenue, calculateRangeOverview, calculateTarget, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodRange, dashboardSalesForDate, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale, type DashboardTarget } from "./dashboard/dashboardMetrics";
+import { calculateDailyRevenue, calculateRangeOverview, calculateTarget, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodLabel, dashboardPeriodRange, dashboardSalesForDate, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale, type DashboardTarget } from "./dashboard/dashboardMetrics";
 
 const validPeriods = new Set<DashboardPeriod>(["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "custom"]);
 const validComparisons = new Set<DashboardCompare>(["day", "week", "month", "previous"]);
@@ -46,13 +46,11 @@ export function DashboardPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(false);
-    const currentMonth = today.slice(0, 7);
-    const [targetYear, targetMonth] = currentMonth.split("-").map(Number);
     const [saleResult, unitResult, targetResult] = await Promise.all([
-      supabase.from("sales").select("id, sale_date, business_unit_id, business_unit_name, product_id, product_name, dog_id, dog_name, customer_id, customer_name, created_by, staff_name, payment_method, paid_amount, refund_amount, outstanding_amount, net_amount, status, created_at").order("sale_date", { ascending: false }).order("created_at", { ascending: false }),
+      supabase.from("sales").select("id, sale_date, business_unit_id, business_unit_name, product_id, product_name, dog_id, dog_name, customer_id, customer_name, created_by, staff_name, payment_method, original_amount, additional_amount, discount_amount, paid_amount, refund_amount, outstanding_amount, net_amount, status, created_at").order("sale_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("business_units").select("id, code, name").eq("is_active", true).order("sort_order"),
       isAdmin
-        ? supabase.from("monthly_targets").select("year, month, business_unit_id, target_amount").eq("year", targetYear).eq("month", targetMonth)
+        ? supabase.from("monthly_targets").select("year, month, business_unit_id, target_amount")
         : Promise.resolve({ data: [], error: null }),
     ]);
     if (saleResult.error || unitResult.error) {
@@ -76,6 +74,9 @@ export function DashboardPage() {
       createdBy: row.created_by,
       staffName: row.staff_name,
       paymentMethod: row.payment_method,
+      originalAmount: row.original_amount ?? 0,
+      additionalAmount: row.additional_amount ?? 0,
+      discountAmount: row.discount_amount ?? 0,
       paidAmount: row.paid_amount ?? 0,
       refundAmount: row.refund_amount ?? 0,
       outstandingAmount: row.outstanding_amount ?? 0,
@@ -91,7 +92,7 @@ export function DashboardPage() {
       targetAmount: row.target_amount ?? 0,
     })));
     setLoading(false);
-  }, [isAdmin, today]);
+  }, [isAdmin]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
@@ -141,43 +142,45 @@ export function DashboardPage() {
     [comparisonRange, isAdmin, visibleRange],
   );
   const overview = useMemo(() => calculateRangeOverview(sales, units, visibleRange, visibleComparisonRange), [sales, units, visibleComparisonRange, visibleRange]);
-  const todayOverview = useMemo(
+  const selectedSales = useMemo(
+    () =>
+      unitId
+        ? sales.filter((sale) => sale.businessUnitId === unitId)
+        : sales,
+    [sales, unitId],
+  );
+  const selectedOverview = useMemo(
     () =>
       calculateRangeOverview(
-        sales,
+        selectedSales,
         units,
-        { from: today, to: today },
-        { from: shiftDay(today, -1), to: shiftDay(today, -1) },
+        visibleRange,
+        visibleComparisonRange,
       ),
-    [sales, today, units],
+    [selectedSales, units, visibleComparisonRange, visibleRange],
   );
-  const currentMonthRange = useMemo(
-    () => monthRange(today.slice(0, 7)),
-    [today],
-  );
-  const previousMonthRange = useMemo(
-    () => dashboardComparisonRange("this_month", currentMonthRange, "month"),
-    [currentMonthRange],
-  );
-  const monthOverview = useMemo(
-    () =>
-      calculateRangeOverview(
-        sales,
-        units,
-        currentMonthRange,
-        previousMonthRange,
-      ),
-    [currentMonthRange, previousMonthRange, sales, units],
-  );
+  const selectedMonth =
+    range.from.slice(0, 7) === range.to.slice(0, 7)
+      ? range.from.slice(0, 7)
+      : null;
+  const targetMonth =
+    selectedMonth &&
+    range.from === monthRange(selectedMonth).from &&
+    range.to === monthRange(selectedMonth).to
+      ? selectedMonth
+      : null;
   const monthlyTarget = useMemo(
-    () => calculateTarget(today.slice(0, 7), "", targets),
-    [targets, today],
+    () => targetMonth ? calculateTarget(targetMonth, unitId, targets) : null,
+    [targetMonth, targets, unitId],
   );
   const coreDivisions = overview.divisions.filter((division) => coreCodes.has(division.code as BusinessUnitCode));
   const representedTotal = coreDivisions.reduce((total, division) => total + division.revenue, 0);
   const otherRevenue = Math.max(0, overview.total - representedTotal);
   const selectedUnitName = units.find((unit) => unit.id === unitId)?.name ?? "전체 사업부";
   const compareLabel = dashboardCompareLabel(compare);
+  const periodLabel = dashboardPeriodLabel(period);
+  const rangeLabel =
+    range.from === range.to ? range.from : `${range.from} ~ ${range.to}`;
   const daily = useMemo(() => calculateDailyRevenue(sales, range, unitId), [range, sales, unitId]);
   const calendarData = useMemo(() => calculateDailyRevenue(sales, monthRange(calendarMonth), unitId), [calendarMonth, sales, unitId]);
   const calendarTotalData = useMemo(() => calculateDailyRevenue(sales, monthRange(calendarMonth)), [calendarMonth, sales]);
@@ -203,17 +206,20 @@ export function DashboardPage() {
     <PageHeader title="대시보드" description={isAdmin ? "대표가 사업부와 날짜 흐름을 빠르게 읽는 경영 현황" : "오늘과 선택 날짜의 업무 매출을 빠르게 확인합니다."} />
     {isAdmin && <DashboardPeriodFilters period={period} range={range} unitName={selectedUnitName} compare={compare} onPeriod={selectPeriod} onCustom={selectCustomRange} onMovePeriod={moveRange} onCompare={(nextCompare) => updateQuery({ compare: nextCompare })} />}
     {isAdmin && (
-      <section className="mb-8" aria-label="오늘 핵심 매출 지표">
+      <section className="mb-8" aria-label={`${periodLabel} 핵심 매출 지표`}>
         <DashboardKpiHero
-          todayRevenue={todayOverview.total}
-          yesterdayRevenue={todayOverview.previousTotal}
-          todayCount={todayOverview.count}
-          monthRevenue={monthOverview.total}
-          previousMonthRevenue={monthOverview.previousTotal}
-          monthCount={monthOverview.count}
+          periodLabel={periodLabel}
+          rangeLabel={rangeLabel}
+          unitName={selectedUnitName}
+          compareLabel={compareLabel}
+          salesAmount={selectedOverview.salesAmount}
+          previousSalesAmount={selectedOverview.previousSalesAmount}
+          netAmount={selectedOverview.net}
+          previousNetAmount={selectedOverview.previousTotal}
+          count={selectedOverview.count}
           monthlyTarget={monthlyTarget}
-          outstanding={monthOverview.outstanding}
-          refund={monthOverview.refund}
+          outstanding={selectedOverview.outstanding}
+          refund={selectedOverview.refund}
         />
       </section>
     )}

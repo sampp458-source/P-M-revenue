@@ -7,9 +7,12 @@ import {
   countDashboardSalesByUnit,
   dashboardComparisonRange,
   dashboardDefaultCompare,
+  dashboardPeriodLabel,
   dashboardPeriodRange,
   dashboardSalesForDate,
+  finalSaleAmount,
   formatRevenueComparison,
+  koreanToday,
   previousDashboardRange,
   type BusinessUnitOption,
   type DashboardSale,
@@ -29,6 +32,9 @@ const sale = (overrides: Partial<DashboardSale>): DashboardSale => ({
   createdBy: "staff",
   staffName: "직원",
   paymentMethod: "card",
+  originalAmount: 100000,
+  additionalAmount: 0,
+  discountAmount: 0,
   paidAmount: 100000,
   refundAmount: 0,
   outstandingAmount: 0,
@@ -69,8 +75,13 @@ describe("dashboard presentation metrics", () => {
   });
 
   it("빠른 기간과 동일 길이 비교 기간을 계산한다", () => {
+    expect(dashboardPeriodRange("today", "2026-07-14")).toEqual({ from: "2026-07-14", to: "2026-07-14" });
+    expect(dashboardPeriodRange("yesterday", "2026-07-14")).toEqual({ from: "2026-07-13", to: "2026-07-13" });
     expect(dashboardPeriodRange("this_week", "2026-07-14")).toEqual({ from: "2026-07-13", to: "2026-07-19" });
+    expect(dashboardPeriodRange("last_week", "2026-07-14")).toEqual({ from: "2026-07-06", to: "2026-07-12" });
+    expect(dashboardPeriodRange("this_month", "2026-07-14")).toEqual({ from: "2026-07-01", to: "2026-07-31" });
     expect(dashboardPeriodRange("last_month", "2026-07-14")).toEqual({ from: "2026-06-01", to: "2026-06-30" });
+    expect(dashboardPeriodRange("custom", "2026-07-14", "2026-07-20", "2026-07-10")).toEqual({ from: "2026-07-10", to: "2026-07-20" });
     expect(previousDashboardRange({ from: "2026-07-10", to: "2026-07-14" })).toEqual({ from: "2026-07-05", to: "2026-07-09" });
     expect(dashboardComparisonRange("this_month", { from: "2026-07-01", to: "2026-07-31" })).toEqual({ from: "2026-06-01", to: "2026-06-30" });
     expect(dashboardComparisonRange("custom", { from: "2026-07-10", to: "2026-07-14" }, "day")).toEqual({ from: "2026-07-09", to: "2026-07-13" });
@@ -80,6 +91,18 @@ describe("dashboard presentation metrics", () => {
     expect(dashboardDefaultCompare("this_week")).toBe("week");
     expect(dashboardDefaultCompare("this_month")).toBe("month");
     expect(dashboardDefaultCompare("custom")).toBe("previous");
+    expect(dashboardPeriodLabel("last_month")).toBe("지난달");
+  });
+
+  it("월말·연말·윤년 경계를 포함한 기간을 계산한다", () => {
+    expect(dashboardPeriodRange("last_month", "2026-01-05")).toEqual({ from: "2025-12-01", to: "2025-12-31" });
+    expect(dashboardPeriodRange("this_month", "2028-02-10")).toEqual({ from: "2028-02-01", to: "2028-02-29" });
+    expect(dashboardPeriodRange("last_month", "2028-03-01")).toEqual({ from: "2028-02-01", to: "2028-02-29" });
+  });
+
+  it("한국시간 자정 경계에서 날짜가 하루 밀리지 않는다", () => {
+    expect(koreanToday(new Date("2026-07-14T14:59:59Z"))).toBe("2026-07-14");
+    expect(koreanToday(new Date("2026-07-14T15:00:00Z"))).toBe("2026-07-15");
   });
 
   it("비교 증감 문구에서 0·동일·증가·감소를 안전하게 구분한다", () => {
@@ -119,6 +142,57 @@ describe("dashboard presentation metrics", () => {
     expect(overview.count).toBe(3);
   });
 
+  it("판매금액·수납·환불·미수·순매출 정의를 같은 기간에서 집계한다", () => {
+    const overview = calculateRangeOverview([
+      sale({
+        id: "adjusted",
+        originalAmount: 500000,
+        additionalAmount: 50000,
+        discountAmount: 100000,
+        paidAmount: 400000,
+        outstandingAmount: 50000,
+        refundAmount: 100000,
+        netAmount: 300000,
+        status: "partial_refund",
+      }),
+      sale({
+        id: "cancelled",
+        originalAmount: 900000,
+        paidAmount: 900000,
+        netAmount: 900000,
+        status: "cancelled",
+      }),
+    ], units, { from: "2026-07-14", to: "2026-07-14" });
+
+    expect(finalSaleAmount(sale({ originalAmount: 500000, additionalAmount: 50000, discountAmount: 100000 }))).toBe(450000);
+    expect(overview.salesAmount).toBe(450000);
+    expect(overview.paid).toBe(400000);
+    expect(overview.refund).toBe(100000);
+    expect(overview.outstanding).toBe(50000);
+    expect(overview.net).toBe(300000);
+  });
+
+  it("선택 사업부 데이터만 전달하면 KPI 합계도 해당 사업부와 일치한다", () => {
+    const rows = [
+      sale({ id: "daycare", businessUnitId: "daycare", netAmount: 100000 }),
+      sale({ id: "hotel", businessUnitId: "hotel", netAmount: 300000 }),
+    ];
+    const hotelRows = rows.filter((row) => row.businessUnitId === "hotel");
+    const overview = calculateRangeOverview(
+      hotelRows,
+      units,
+      { from: "2026-07-14", to: "2026-07-14" },
+    );
+
+    expect(overview.net).toBe(300000);
+    expect(
+      overview.divisions.reduce(
+        (total, division) => total + division.revenue,
+        0,
+      ),
+    ).toBe(overview.net);
+  });
+
   it("매출이 없는 날짜도 0원으로 포함한 일별 추이를 만든다", () => {
     const daily = calculateDailyRevenue([
       sale({ id: "first", saleDate: "2026-07-13", netAmount: 80000 }),
@@ -130,6 +204,7 @@ describe("dashboard presentation metrics", () => {
       ["2026-07-14", 0, 0],
       ["2026-07-15", 0, 0],
     ]);
+    expect(daily[1].cancelledCount).toBe(1);
   });
 
   it("선택 날짜 상세를 환불 반영 실매출로 집계한다", () => {

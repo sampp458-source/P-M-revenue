@@ -2,7 +2,11 @@ import { CalendarDays, ExternalLink, X } from "lucide-react";
 import { useEffect, useId, useRef } from "react";
 import { Badge, Button, EmptyState, StatusBadge, cn } from "../../components/ui";
 import { won } from "../../lib/format";
-import type { DailyRevenue, DashboardSale } from "./dashboardMetrics";
+import {
+  finalSaleAmount,
+  type DailyRevenue,
+  type DashboardSale,
+} from "./dashboardMetrics";
 
 const paymentLabels: Record<string, string> = {
   card: "카드",
@@ -105,12 +109,12 @@ export function DashboardDateDrawer({
 
         <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
           <div className="overflow-hidden rounded-2xl bg-[#172f4d] p-5 text-white shadow-[0_14px_30px_rgba(23,47,77,0.14)] sm:p-6">
-            <p className="text-xs font-semibold text-blue-200">총 매출</p>
+            <p className="text-xs font-semibold text-blue-200">판매금액</p>
             <strong className="mt-2 block text-[clamp(2rem,8vw,2.75rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
-              {won(summary.revenue)}
+              {won(summary.salesAmount)}
             </strong>
             <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/10 pt-4">
-              <Summary label="실매출" value={won(summary.net)} />
+              <Summary label="실결제" value={won(summary.net)} />
               <Summary label="미수" value={won(summary.outstanding)} warning={summary.outstanding > 0} />
               <Summary label="환불" value={won(summary.refund)} warning={summary.refund > 0} />
             </div>
@@ -120,7 +124,15 @@ export function DashboardDateDrawer({
             <div>
               <h3 className="font-semibold text-text-primary">거래 목록</h3>
             </div>
-            <Badge tone="blue">{summary.count.toLocaleString("ko-KR")}건</Badge>
+            <div className="text-right">
+              <Badge tone="blue">{rows.length.toLocaleString("ko-KR")}건</Badge>
+              {summary.cancelledCount > 0 && (
+                <p className="mt-1 text-[10px] text-text-muted">
+                  유효 {summary.count.toLocaleString("ko-KR")}건 · 취소{" "}
+                  {summary.cancelledCount.toLocaleString("ko-KR")}건
+                </p>
+              )}
+            </div>
           </div>
 
           {rows.length ? (
@@ -143,7 +155,7 @@ export function DashboardDateDrawer({
                     </span>
                     <span className="shrink-0 text-right">
                       <strong className="block text-sm text-text-primary tabular-nums">
-                        {won(sale.paidAmount)}
+                        {won(finalSaleAmount(sale))}
                       </strong>
                       <span className="mt-1 block text-[11px] font-semibold text-text-muted tabular-nums">
                         {timeLabel(sale.createdAt)}

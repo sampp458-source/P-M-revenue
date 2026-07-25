@@ -3,9 +3,17 @@ import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Too
 import { Card, EmptyState, ErrorState, PageHeader, Select, Skeleton, StatusBadge } from "../components/ui";
 import { currentMonth, monthLabel, shortWon, won } from "../lib/format";
 import { supabase } from "../lib/supabase";
+import {
+  activeReportSales,
+  calculateReportDaily,
+  calculateReportMoneySummary,
+  calculateReportTrend,
+  calculateReportUnitTotals,
+} from "./reportsMetrics";
 
 interface ReportSale {
   id: string; saleDate: string; businessUnitId: string; businessUnitName: string; productId: string; productName: string;
+  originalAmount: number; additionalAmount: number; discountAmount: number;
   paidAmount: number; refundAmount: number; outstandingAmount: number; netAmount: number; status: string;
   staffId: string | null; staffName: string | null;
 }
@@ -14,9 +22,6 @@ interface Target { year: number; month: number; businessUnitId: string | null; t
 interface NamedRow { id: string; name: string }
 
 const safe = (value: number | null | undefined) => Number.isFinite(value) ? Number(value) : 0;
-const sum = (rows: ReportSale[], key: "paidAmount" | "refundAmount" | "outstandingAmount" | "netAmount") => rows.reduce((total, row) => total + safe(row[key]), 0);
-const previousMonth = (month: string) => { const date = new Date(`${month}-01T00:00:00`); date.setMonth(date.getMonth() - 1); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; };
-const daysInMonth = (month: string) => { const [year, value] = month.split("-").map(Number); return new Date(year, value, 0).getDate(); };
 
 export function ReportsPage() {
   const [month, setMonth] = useState(currentMonth());
@@ -32,7 +37,7 @@ export function ReportsPage() {
   const load = useCallback(async () => {
     setLoading(true); setError(false);
     const [salesResult, historyResult, targetsResult, unitsResult, productsResult, profilesResult] = await Promise.all([
-      supabase.from("sales").select("id, sale_date, business_unit_id, business_unit_name, product_id, product_name, paid_amount, refund_amount, outstanding_amount, net_amount, status, staff_id, staff_name"),
+      supabase.from("sales").select("id, sale_date, business_unit_id, business_unit_name, product_id, product_name, original_amount, additional_amount, discount_amount, paid_amount, refund_amount, outstanding_amount, net_amount, status, staff_id, staff_name"),
       supabase.from("sale_history").select("id, sale_id, action, changed_by, created_at, previous_data, changed_data").in("action", ["partial_refund", "full_refund", "cancelled"]).order("created_at", { ascending: false }),
       supabase.from("monthly_targets").select("year, month, business_unit_id, target_amount"),
       supabase.from("business_units").select("id, name").eq("is_active", true).order("sort_order"),
@@ -44,7 +49,9 @@ export function ReportsPage() {
     }
     setSales((salesResult.data ?? []).map((row) => ({
       id: row.id, saleDate: row.sale_date, businessUnitId: row.business_unit_id, businessUnitName: row.business_unit_name,
-      productId: row.product_id, productName: row.product_name, paidAmount: row.paid_amount ?? 0, refundAmount: row.refund_amount ?? 0,
+      productId: row.product_id, productName: row.product_name, originalAmount: row.original_amount ?? 0,
+      additionalAmount: row.additional_amount ?? 0, discountAmount: row.discount_amount ?? 0,
+      paidAmount: row.paid_amount ?? 0, refundAmount: row.refund_amount ?? 0,
       outstandingAmount: row.outstanding_amount ?? 0, netAmount: row.net_amount ?? 0, status: row.status,
       staffId: row.staff_id, staffName: row.staff_name,
     })));
@@ -57,17 +64,16 @@ export function ReportsPage() {
 
   const months = useMemo(() => { const values = new Set(sales.map((sale) => sale.saleDate.slice(0, 7))); values.add(currentMonth()); return [...values].sort().reverse(); }, [sales]);
   const report = useMemo(() => {
-    const active = sales.filter((sale) => sale.status !== "cancelled");
-    const selected = active.filter((sale) => sale.saleDate.startsWith(month));
+    const selected = activeReportSales(sales, month);
     const allSelected = sales.filter((sale) => sale.saleDate.startsWith(month));
-    const previous = active.filter((sale) => sale.saleDate.startsWith(previousMonth(month)));
-    const real = sum(selected, "netAmount"); const previousReal = sum(previous, "netAmount"); const diff = real - previousReal;
+    const money = calculateReportMoneySummary(sales, month);
     const [year, monthNumber] = month.split("-").map(Number);
     const targetRows = targets.filter((target) => target.year === year && target.month === monthNumber);
     const overall = targetRows.find((target) => target.businessUnitId === null)?.targetAmount;
     const target = overall ?? targetRows.filter((target) => target.businessUnitId !== null).reduce((total, row) => total + safe(row.targetAmount), 0);
-    const unitRows = units.map((unit) => ({ name: unit.name, value: sum(selected.filter((sale) => sale.businessUnitId === unit.id), "netAmount") }));
-    const daily = Array.from({ length: daysInMonth(month) }, (_, index) => { const day = index + 1; const key = `${month}-${String(day).padStart(2, "0")}`; return { day: `${day}일`, value: sum(selected.filter((sale) => sale.saleDate === key), "netAmount") }; });
+    const unitTotals = calculateReportUnitTotals(sales, month, units.map((unit) => unit.id));
+    const unitRows = units.map((unit) => ({ name: unit.name, value: unitTotals.get(unit.id) ?? 0 }));
+    const daily = calculateReportDaily(sales, month);
     const productNames = new Map(products.map((product) => [product.id, product.name]));
     const productMap = new Map<string, { name: string; value: number; count: number }>();
     selected.forEach((sale) => { const current = productMap.get(sale.productId) ?? { name: sale.productName || productNames.get(sale.productId) || "알 수 없음", value: 0, count: 0 }; current.value += sale.netAmount; current.count += 1; productMap.set(sale.productId, current); });
@@ -77,15 +83,14 @@ export function ReportsPage() {
     const selectedIds = new Set(allSelected.map((sale) => sale.id));
     const salesById = new Map(allSelected.map((sale) => [sale.id, sale]));
     const eventRows = history.filter((event) => selectedIds.has(event.saleId)).map((event) => ({ ...event, sale: salesById.get(event.saleId), actor: profileNames.get(event.changedBy) || "-" }));
-    const trend: { month: string; value: number }[] = []; const base = new Date(`${month}-01T00:00:00`);
-    for (let offset = 11; offset >= 0; offset -= 1) { const date = new Date(base); date.setMonth(date.getMonth() - offset); const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`; trend.push({ month: key.slice(2).replace("-", "."), value: sum(active.filter((sale) => sale.saleDate.startsWith(key)), "netAmount") }); }
+    const trend = calculateReportTrend(sales, month);
     return {
-      total: sum(selected, "paidAmount"), real, refund: sum(selected, "refundAmount"), outstanding: sum(selected, "outstandingAmount"),
+      total: money.salesAmount, paid: money.paidAmount, real: money.netAmount, refund: money.refundAmount, outstanding: money.outstandingAmount,
       divisions: unitRows, daily, products: [...productMap.values()].sort((a, b) => b.value - a.value).slice(0, 10),
       staff: [...staffMap.values()].sort((a, b) => b.value - a.value),
       refunds: eventRows.filter((event) => event.action === "partial_refund" || event.action === "full_refund").slice(0, 5),
       cancellations: eventRows.filter((event) => event.action === "cancelled").slice(0, 5),
-      target, achievement: target > 0 ? (real / target) * 100 : 0, diff, rate: previousReal > 0 ? (diff / previousReal) * 100 : null, trend,
+      target, achievement: target > 0 ? (money.netAmount / target) * 100 : 0, diff: money.difference, rate: money.rate, trend,
     };
   }, [history, month, products, profiles, sales, targets, units]);
 
@@ -93,7 +98,7 @@ export function ReportsPage() {
   if (error) return <ErrorState title="월별 보고서 데이터를 불러오지 못했습니다." retry={() => void load()} />;
   return <>
     <PageHeader title="월별 보고서" description="Supabase 매출 원장을 기준으로 월별 성과를 분석합니다." action={<label className="block w-48"><span className="mb-1 block text-xs font-medium text-slate-600">조회 월</span><Select aria-label="보고서 조회 월" value={month} onChange={(event) => setMonth(event.target.value)}>{months.map((value) => <option key={value} value={value}>{monthLabel(value)}</option>)}</Select></label>} />
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="총매출" value={won(report.total)} detail="취소 제외 결제액" /><Metric label="실매출" value={won(report.real)} detail="결제액 - 환불액" /><Metric label="환불" value={won(report.refund)} detail="부분·전체 환불 합계" /><Metric label="미수금" value={won(report.outstanding)} detail="실매출에서 중복 차감하지 않음" /></div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="판매금액" value={won(report.total)} detail="기준금액 + 추가금 - 할인" /><Metric label="실결제액" value={won(report.real)} detail={`환불 전 수납 ${won(report.paid)} - 환불`} /><Metric label="환불" value={won(report.refund)} detail="선택 월 매출의 현재 누적 환불" /><Metric label="미수금" value={won(report.outstanding)} detail="선택 월 매출의 현재 미수잔액" /></div>
     <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{report.divisions.map((row) => <Metric key={row.name} label={`${row.name} 매출`} value={won(row.value)} />)}</div>
     <div className="mt-4 grid gap-4 lg:grid-cols-2"><Chart title="일별 실매출"><ResponsiveContainer width="100%" height={280}><BarChart data={report.daily}><CartesianGrid vertical={false} strokeDasharray="3 3" /><XAxis dataKey="day" interval="preserveStartEnd" tick={{ fontSize: 11 }} /><YAxis tickFormatter={shortWon} width={55} /><Tooltip formatter={(value) => [won(Number(value)), "실매출"]} /><Bar dataKey="value" fill="#274c77" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></Chart><Chart title="최근 12개월 실매출 추이"><ResponsiveContainer width="100%" height={280}><LineChart data={report.trend}><CartesianGrid vertical={false} strokeDasharray="3 3" /><XAxis dataKey="month" tick={{ fontSize: 11 }} /><YAxis tickFormatter={shortWon} width={55} /><Tooltip formatter={(value) => [won(Number(value)), "실매출"]} /><Line type="monotone" dataKey="value" stroke="#274c77" strokeWidth={2} dot={{ r: 3 }} /></LineChart></ResponsiveContainer></Chart></div>
     <div className="mt-4 grid gap-4 lg:grid-cols-2"><Rank title="상품별 매출 TOP10" rows={report.products} empty="선택 월의 상품 매출이 없습니다." /><Rank title="직원별 매출" rows={report.staff} empty="선택 월의 직원별 매출이 없습니다." /></div>

@@ -12,6 +12,9 @@ export interface DashboardSale {
   createdBy: string;
   staffName: string | null;
   paymentMethod: string;
+  originalAmount: number;
+  additionalAmount: number;
+  discountAmount: number;
   paidAmount: number;
   refundAmount: number;
   outstandingAmount: number;
@@ -38,6 +41,12 @@ const safe = (value: number | null | undefined) => Number.isFinite(value) ? Numb
 const sum = (rows: DashboardSale[], key: "paidAmount" | "refundAmount" | "outstandingAmount" | "netAmount") =>
   rows.reduce((total, row) => total + safe(row[key]), 0);
 
+export const finalSaleAmount = (sale: Pick<DashboardSale, "originalAmount" | "additionalAmount" | "discountAmount">) =>
+  Math.max(0, safe(sale.originalAmount) + safe(sale.additionalAmount) - safe(sale.discountAmount));
+
+const sumFinalSaleAmount = (rows: DashboardSale[]) =>
+  rows.reduce((total, row) => total + finalSaleAmount(row), 0);
+
 const previousMonthOf = (month: string) => {
   const date = new Date(`${month}-01T00:00:00`);
   date.setMonth(date.getMonth() - 1);
@@ -49,7 +58,8 @@ const dateFromKey = (value: string) => new Date(`${value}T12:00:00`);
 const dateKey = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`;
 const moveDate = (value: string, days: number) => dateKey(new Date(dateFromKey(value).getTime() + days * DAY_MS));
 
-export const koreanToday = () => new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+export const koreanToday = (now = new Date()) =>
+  now.toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 
 export function dashboardPeriodRange(period: DashboardPeriod, today = koreanToday(), customFrom = "", customTo = ""): DashboardDateRange {
   const base = dateFromKey(today);
@@ -93,6 +103,16 @@ export function dashboardComparisonRange(period: DashboardPeriod, range: Dashboa
 
 export const dashboardCompareLabel = (compare: DashboardCompare) => ({ day: "전일", week: "전주", month: "전월", previous: "직전 기간" })[compare];
 
+export const dashboardPeriodLabel = (period: DashboardPeriod) => ({
+  today: "오늘",
+  yesterday: "어제",
+  this_week: "이번 주",
+  last_week: "지난주",
+  this_month: "이번 달",
+  last_month: "지난달",
+  custom: "선택 기간",
+})[period];
+
 export function formatRevenueComparison(current: number, previous: number) {
   if (previous === 0) return current > 0 ? "신규" : "— 변화 없음";
   const rate = ((current - previous) / previous) * 100;
@@ -129,6 +149,10 @@ export function calculateRangeOverview(sales: DashboardSale[], units: BusinessUn
     divisions,
     total,
     previousTotal,
+    salesAmount: sumFinalSaleAmount(selected),
+    previousSalesAmount: sumFinalSaleAmount(previous),
+    paid: sum(selected, "paidAmount"),
+    previousPaid: sum(previous, "paidAmount"),
     count: selected.length,
     average: selected.length ? total / selected.length : 0,
     net: sum(selected, "netAmount"),
@@ -137,16 +161,39 @@ export function calculateRangeOverview(sales: DashboardSale[], units: BusinessUn
   };
 }
 
-export interface DailyRevenue { date: string; revenue: number; net: number; count: number; refund: number; outstanding: number }
+export interface DailyRevenue {
+  date: string;
+  salesAmount: number;
+  revenue: number;
+  net: number;
+  count: number;
+  cancelledCount: number;
+  refund: number;
+  outstanding: number;
+}
 
 export function calculateDailyRevenue(sales: DashboardSale[], range: DashboardDateRange, unitId = "") {
-  const rows = sales.filter((sale) => sale.status !== "cancelled" && inRange(sale.saleDate, range) && (!unitId || sale.businessUnitId === unitId));
+  const allRows = sales.filter((sale) => inRange(sale.saleDate, range) && (!unitId || sale.businessUnitId === unitId));
+  const rows = allRows.filter((sale) => sale.status !== "cancelled");
   const byDate = new Map<string, DashboardSale[]>();
+  const cancelledByDate = new Map<string, number>();
   rows.forEach((sale) => byDate.set(sale.saleDate, [...(byDate.get(sale.saleDate) ?? []), sale]));
+  allRows
+    .filter((sale) => sale.status === "cancelled")
+    .forEach((sale) => cancelledByDate.set(sale.saleDate, (cancelledByDate.get(sale.saleDate) ?? 0) + 1));
   const result: DailyRevenue[] = [];
   for (let cursor = range.from; cursor <= range.to; cursor = moveDate(cursor, 1)) {
     const dayRows = byDate.get(cursor) ?? [];
-    result.push({ date: cursor, revenue: sum(dayRows, "paidAmount"), net: sum(dayRows, "netAmount"), count: dayRows.length, refund: sum(dayRows, "refundAmount"), outstanding: sum(dayRows, "outstandingAmount") });
+    result.push({
+      date: cursor,
+      salesAmount: sumFinalSaleAmount(dayRows),
+      revenue: sum(dayRows, "paidAmount"),
+      net: sum(dayRows, "netAmount"),
+      count: dayRows.length,
+      cancelledCount: cancelledByDate.get(cursor) ?? 0,
+      refund: sum(dayRows, "refundAmount"),
+      outstanding: sum(dayRows, "outstandingAmount"),
+    });
   }
   return result;
 }
@@ -176,7 +223,17 @@ export function calculateDateDetail(sales: DashboardSale[], units: BusinessUnitO
   });
   const otherRows = rows.filter((sale) => !coreUnitIds.has(sale.businessUnitId));
   const otherRevenue = sum(otherRows, "netAmount");
-  return { divisions, other: { revenue: otherRevenue, count: otherRows.length, average: otherRows.length ? otherRevenue / otherRows.length : 0 }, total: sum(rows, "netAmount"), count: rows.length, outstanding: sum(rows, "outstandingAmount"), refund: sum(rows, "refundAmount") };
+  return {
+    divisions,
+    other: { revenue: otherRevenue, count: otherRows.length, average: otherRows.length ? otherRevenue / otherRows.length : 0 },
+    salesAmount: sumFinalSaleAmount(rows),
+    paid: sum(rows, "paidAmount"),
+    total: sum(rows, "netAmount"),
+    count: rows.length,
+    cancelledCount: sales.filter((sale) => sale.status === "cancelled" && sale.saleDate === date).length,
+    outstanding: sum(rows, "outstandingAmount"),
+    refund: sum(rows, "refundAmount"),
+  };
 }
 
 export function calculateTarget(month: string, unitId: string, targets: DashboardTarget[]) {
