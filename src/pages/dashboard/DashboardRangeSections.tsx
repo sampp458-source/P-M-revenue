@@ -49,24 +49,38 @@ const moveMonth = (month: string, offset: number) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 };
 
-export function SalesHeatmapCalendar({ month, data, totalData, unitName, today, selectedDate, hideAmounts = false, onMonth, onSelect }: { month: string; data: DailyRevenue[]; totalData: DailyRevenue[]; unitName: string; today: string; selectedDate: string; hideAmounts?: boolean; onMonth: (month: string) => void; onSelect: (date: string) => void }) {
+export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unitName, today, selectedDate, hideAmounts = false, onMonth, onSelect }: { month: string; activeRange: DashboardDateRange; data: DailyRevenue[]; totalData: DailyRevenue[]; unitName: string; today: string; selectedDate: string; hideAmounts?: boolean; onMonth: (month: string) => void; onSelect: (date: string) => void }) {
   const byDate = new Map(data.map((row) => [row.date, row]));
   const totalsByDate = new Map(totalData.map((row) => [row.date, row]));
   const filtered = unitName !== "전체 사업부";
   const max = Math.max(0, ...data.map((row) => Math.max(0, row.net)));
   const intensity = (amount: number) => max <= 0 ? 0 : Math.min(4, Math.max(1, Math.ceil(Math.sqrt(Math.max(0, amount) / max) * 4)));
   const tones = ["bg-white", "bg-blue-50", "bg-blue-100", "bg-blue-200", "bg-[#b7cbe0]"];
+  const [year, monthNumber] = month.split("-").map(Number);
+  const monthTitle = `${year}년 ${monthNumber}월 전체`;
+  const activeRangeLabel = activeRange.from === activeRange.to
+    ? activeRange.from
+    : `${activeRange.from} ~ ${activeRange.to}`;
   return (
     <Card className="p-3 sm:p-6">
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-bold text-text-primary">매출 캘린더</h2>
-          <p className="mt-1 text-xs text-text-muted">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="font-bold text-text-primary">{monthTitle}</h2>
+            <Badge>월 전체 캘린더</Badge>
+          </div>
+          <p className="mt-1 text-[13px] leading-5 text-text-muted">
             {hideAmounts
               ? "날짜를 선택하면 해당 날짜의 사업부별 거래를 확인합니다."
-              : `${unitName} 실매출 기준 · 진한 셀일수록 매출이 큽니다.`}
+              : `${unitName} 실매출 기준 · KPI 적용 기간 ${activeRangeLabel}`}
           </p>
-          <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-text-muted" aria-label="캘린더 표시 기준">
+          <p className="mt-1 text-[11px] leading-4 text-text-muted">
+            선택 기간 밖 날짜도 월 전체 흐름을 확인할 수 있도록 흐리게 표시합니다.
+          </p>
+          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-2 text-[11px] text-text-muted" aria-label="캘린더 표시 기준">
+            <CalendarIndicator color="border-primary bg-primary-subtle" label="선택 기간" square />
+            <CalendarIndicator color="border-primary bg-white" label="선택일" square />
+            <CalendarIndicator color="border-primary border-dashed bg-white" label="오늘" square />
             <CalendarIndicator color="bg-primary" label="매출" />
             <CalendarIndicator color="bg-warning" label="미수" />
             <CalendarIndicator color="bg-error" label="환불" />
@@ -100,6 +114,7 @@ export function SalesHeatmapCalendar({ month, data, totalData, unitName, today, 
           const hasRevenue = (row?.count ?? 0) > 0;
           const hasRefund = (row?.refund ?? 0) > 0;
           const hasOutstandingAmount = (row?.outstanding ?? 0) > 0;
+          const inActiveRange = date >= activeRange.from && date <= activeRange.to;
           const indicatorLabel = [
             hasRevenue ? "매출 있음" : "",
             hasOutstandingAmount ? "미수 있음" : "",
@@ -111,15 +126,24 @@ export function SalesHeatmapCalendar({ month, data, totalData, unitName, today, 
               type="button"
               onClick={() => onSelect(date)}
               className={cn(
-                "relative min-h-16 rounded-md border p-1 text-left transition-[transform,border-color,box-shadow,background-color] duration-200 ease-out hover:-translate-y-px hover:border-primary/35 hover:shadow-[0_6px_16px_rgba(23,36,58,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-24 sm:rounded-lg sm:p-2",
-                hideAmounts ? "bg-surface-secondary hover:bg-primary-subtle" : tones[intensity(amount)],
+                "relative min-h-16 rounded-md border p-1 text-left transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 ease-out hover:-translate-y-px hover:border-primary/35 hover:opacity-100 hover:shadow-[0_6px_16px_rgba(23,36,58,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-24 sm:rounded-lg sm:p-2",
+                hideAmounts
+                  ? inActiveRange
+                    ? "bg-surface-secondary hover:bg-primary-subtle"
+                    : "bg-slate-50/70"
+                  : inActiveRange
+                    ? tones[intensity(amount)]
+                    : "bg-slate-50/70",
+                inActiveRange ? "border-primary/20" : "border-border opacity-55",
                 selectedDate === date ? "border-primary ring-2 ring-primary/20" : "border-border",
-                today === date && selectedDate !== date && "border-dashed border-primary/60",
+                selectedDate === date && "opacity-100",
+                today === date && selectedDate !== date && "border-dashed border-primary/70",
               )}
+              title={`${date} · ${unitName} 실매출 ${won(amount)} · ${row?.count ?? 0}건${inActiveRange ? " · KPI 선택 기간 포함" : " · KPI 선택 기간 밖"}`}
               aria-label={`${hideAmounts ? `${date} 거래 상세 열기` : `${date} ${unitName} 실매출 ${won(amount)} ${row?.count ?? 0}건${filtered ? ` 전체 실매출 ${won(totalRow?.net ?? 0)}` : ""}`}${indicatorLabel ? `, ${indicatorLabel}` : ""}`}
             >
               <span className="flex items-center justify-between gap-1">
-                <span className="text-[11px] font-bold text-text-primary sm:text-xs">
+                <span className="text-xs font-bold text-text-primary sm:text-sm">
                   {Number(date.slice(8))}
                 </span>
                 {today === date && (
@@ -158,10 +182,10 @@ export function SalesHeatmapCalendar({ month, data, totalData, unitName, today, 
   );
 }
 
-function CalendarIndicator({ color, label }: { color: string; label: string }) {
+function CalendarIndicator({ color, label, square = false }: { color: string; label: string; square?: boolean }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={cn("h-1.5 w-1.5 rounded-full", color)} aria-hidden="true" />
+      <span className={cn(square ? "h-3 w-3 rounded border" : "h-1.5 w-1.5 rounded-full", color)} aria-hidden="true" />
       {label}
     </span>
   );

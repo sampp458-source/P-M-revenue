@@ -1,6 +1,6 @@
 import { AlertCircle, ArrowRight, Building2, CalendarDays, ReceiptText, Target, TrendingUp } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Button, Card, EmptyState, Select, Skeleton, StatusBadge, Table, cn } from "../../components/ui";
+import { Badge, Button, Card, EmptyState, Select, Skeleton, StatusBadge, Table, cn } from "../../components/ui";
 import { monthLabel, shortWon, won } from "../../lib/format";
 import { formatRevenueComparison, type BusinessUnitOption, type DashboardSale } from "./dashboardMetrics";
 
@@ -59,9 +59,9 @@ export function DashboardKpiHero({
       description: `${rangeLabel} · ${unitName} · 유효 거래 ${count.toLocaleString("ko-KR")}건`,
       signalLabel: `${compareLabel} 대비`,
       signal: salesComparison,
-      className: "bg-[#172f4d] text-white lg:col-span-2",
+      className: "bg-[#172f4d] text-white",
       labelClass: "text-blue-200",
-      valueClass: "text-white text-[clamp(2rem,4vw,3.4rem)]",
+      valueClass: "text-white text-[clamp(1.8rem,3vw,2.55rem)]",
       descriptionClass: "text-slate-300",
       signalClass: salesComparison.startsWith("▼")
         ? "text-rose-200"
@@ -75,9 +75,9 @@ export function DashboardKpiHero({
       description: "환불 전 결제액에서 누적 환불액을 차감",
       signalLabel: `${compareLabel} 대비`,
       signal: netComparison,
-      className: "bg-primary-subtle lg:col-span-2",
+      className: "border-primary/15 bg-primary-subtle",
       labelClass: "text-primary",
-      valueClass: "text-text-primary text-[clamp(1.8rem,3vw,2.75rem)]",
+      valueClass: "text-text-primary text-[clamp(1.8rem,3vw,2.55rem)]",
       descriptionClass: "text-text-secondary",
       signalClass: netComparison.startsWith("▼")
         ? "text-error"
@@ -91,9 +91,9 @@ export function DashboardKpiHero({
       label: `${periodLabel} 미수`,
       value: won(outstanding),
       description: "해당 기간 거래에 현재 남은 미수잔액",
-      className: "bg-warning-soft/60 lg:col-span-1",
+      className: "bg-warning-soft/55",
       labelClass: "text-warning",
-      valueClass: "text-text-primary text-2xl",
+      valueClass: "text-text-primary text-[clamp(1.65rem,3vw,2.2rem)]",
       descriptionClass: "text-text-muted",
       signalLabel: "",
       signal: "",
@@ -103,9 +103,9 @@ export function DashboardKpiHero({
       label: `${periodLabel} 환불`,
       value: won(refund),
       description: "해당 기간 거래에 누적된 환불액",
-      className: "bg-surface-secondary lg:col-span-1",
+      className: "bg-error-soft/50",
       labelClass: "text-error",
-      valueClass: "text-text-primary text-2xl",
+      valueClass: "text-text-primary text-[clamp(1.65rem,3vw,2.2rem)]",
       descriptionClass: "text-text-muted",
       signalLabel: "",
       signal: "",
@@ -115,12 +115,23 @@ export function DashboardKpiHero({
 
   return (
     <Card className="overflow-hidden p-0">
-      <div className="grid sm:grid-cols-2 lg:grid-cols-6">
+      <div className="flex flex-col gap-2 border-b border-border bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">현재 적용 기준</p>
+          <strong className="mt-1 block text-sm text-text-primary tabular-nums">{rangeLabel}</strong>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge tone="blue">{periodLabel}</Badge>
+          <Badge>{unitName}</Badge>
+          <span className="text-xs text-text-muted">{compareLabel} 비교</span>
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 lg:grid-cols-4">
         {items.map((item, index) => (
           <div
             key={item.label}
             className={cn(
-              "min-w-0 border-b border-border p-5 sm:p-6 lg:min-h-44 lg:border-b-0 lg:border-r lg:last:border-r-0",
+              "flex min-h-52 min-w-0 flex-col border-b border-border p-5 sm:p-6 lg:border-b-0 lg:border-r lg:last:border-r-0",
               index === 0 && "border-white/10",
               item.className,
             )}
@@ -171,7 +182,7 @@ export function DashboardKpiHero({
                 </div>
               </div>
             )}
-            <p className={cn("mt-2 text-xs leading-5", item.descriptionClass)}>
+            <p className={cn("mt-auto pt-4 text-[13px] leading-5", item.descriptionClass)}>
               {item.description}
             </p>
           </div>
@@ -181,7 +192,7 @@ export function DashboardKpiHero({
   );
 }
 
-export function BusinessUnitCard({ order, name, revenue, previousRevenue, compareLabel, share, count, average, restricted = false, selected = false, onClick }: { order: number; name: string; revenue: number; previousRevenue: number; compareLabel: string; share: number; count: number; average: number; restricted?: boolean; selected?: boolean; onClick?: () => void }) {
+export function BusinessUnitCard({ order, name, revenue, previousRevenue, compareLabel, share, count, average, restricted = false, selected = false, muted = false, onClick }: { order: number; name: string; revenue: number; previousRevenue: number; compareLabel: string; share: number; count: number; average: number; restricted?: boolean; selected?: boolean; muted?: boolean; onClick?: () => void }) {
   const comparisonText = formatRevenueComparison(revenue, previousRevenue);
   const currentTrendValue = Math.max(0, revenue);
   const previousTrendValue = Math.max(0, previousRevenue);
@@ -197,6 +208,7 @@ export function BusinessUnitCard({ order, name, revenue, previousRevenue, compar
         "group relative min-h-52 overflow-hidden border-t-2 p-0 transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_12px_28px_rgba(23,36,58,0.07)]",
         accents[(order - 1) % accents.length],
         selected && "border-primary/40 bg-primary-subtle ring-2 ring-primary/10",
+        muted && "opacity-60 hover:opacity-100",
       )}
     >
       <button

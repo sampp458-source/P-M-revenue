@@ -42,6 +42,7 @@ import {
   PageHeader,
   SearchBox,
   Select,
+  Skeleton,
   StatusBadge,
   Table,
   Textarea,
@@ -1502,7 +1503,7 @@ export function SalesHistoryPage() {
       </div>
       <Card className="overflow-hidden shadow-none">
         {loading ? (
-          <LoadingState />
+          <SalesHistoryLoadingState />
         ) : loadError ? (
           <ErrorState
             title="매출 내역을 불러오지 못했습니다."
@@ -2975,6 +2976,58 @@ function SalesTable({
         ))}
       </tbody>
     </Table>
+  );
+}
+
+function SalesHistoryLoadingState() {
+  return (
+    <div aria-busy="true" aria-label="매출 내역을 불러오는 중">
+      <div className="hidden xl:block">
+        <Table className="min-w-[1040px]">
+          <thead>
+            <tr>
+              <th>반려견·보호자</th>
+              <th data-numeric>최종금액</th>
+              <th>상태</th>
+              <th>상품</th>
+              <th>사업부</th>
+              <th>담당자</th>
+              <th>날짜</th>
+              <th className="text-right">더보기</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: 7 }, (_, index) => (
+              <tr key={index}>
+                <td><Skeleton className="h-12 w-44" /></td>
+                <td><Skeleton className="ml-auto h-10 w-28" /></td>
+                <td><Skeleton className="h-8 w-24" /></td>
+                <td><Skeleton className="h-10 w-40" /></td>
+                <td><Skeleton className="h-7 w-20" /></td>
+                <td><Skeleton className="h-10 w-24" /></td>
+                <td><Skeleton className="h-10 w-28" /></td>
+                <td><Skeleton className="ml-auto h-9 w-9" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      </div>
+      <div className="grid gap-3 bg-surface-secondary/60 p-3 md:grid-cols-2 xl:hidden">
+        {Array.from({ length: 6 }, (_, index) => (
+          <div key={index} className="rounded-2xl border border-border bg-surface p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-28" />
+                <Skeleton className="h-4 w-40" />
+              </div>
+              <Skeleton className="h-7 w-24" />
+            </div>
+            <Skeleton className="mt-5 h-4 w-full" />
+            <Skeleton className="mt-3 h-8 w-32" />
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -80,7 +80,7 @@ export function DashboardDateDrawer({
       />
       <aside
         aria-labelledby={titleId}
-        className="pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-border bg-surface shadow-[var(--pm-shadow-modal)] sm:w-[min(480px,42vw)]"
+        className="pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-border bg-surface shadow-[var(--pm-shadow-modal)] sm:w-[min(560px,48vw)]"
       >
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
           <div className="flex min-w-0 items-start gap-3">
@@ -88,11 +88,12 @@ export function DashboardDateDrawer({
               <CalendarDays size={18} />
             </span>
             <div className="min-w-0">
-              <h2 id={titleId} className="text-lg font-bold tracking-[-0.02em] text-text-primary tabular-nums">
+              <h2 id={titleId} className="text-xl font-bold tracking-[-0.025em] text-text-primary tabular-nums">
                 {date}
               </h2>
-              <p className="mt-0.5 truncate text-xs text-text-muted">
-                {unitName} · 날짜별 거래 상세
+              <p className="mt-1 truncate text-sm font-semibold text-primary">
+                {unitName}
+                <span className="ml-1.5 font-normal text-text-muted">· 날짜별 거래 상세</span>
               </p>
             </div>
           </div>
@@ -107,7 +108,8 @@ export function DashboardDateDrawer({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain">
+          <div className="sticky top-0 z-10 border-b border-border bg-surface/95 p-4 backdrop-blur sm:p-6">
           <div className="overflow-hidden rounded-2xl bg-[#172f4d] p-5 text-white shadow-[0_14px_30px_rgba(23,47,77,0.14)] sm:p-6">
             <p className="text-xs font-semibold text-blue-200">판매금액</p>
             <strong className="mt-2 block text-[clamp(2rem,8vw,2.75rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
@@ -119,8 +121,10 @@ export function DashboardDateDrawer({
               <Summary label="환불" value={won(summary.refund)} warning={summary.refund > 0} />
             </div>
           </div>
+          </div>
 
-          <div className="mb-3 mt-7 flex items-end justify-between gap-3">
+          <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
+          <div className="mb-3 flex items-end justify-between gap-3">
             <div>
               <h3 className="font-semibold text-text-primary">거래 목록</h3>
             </div>
@@ -146,15 +150,18 @@ export function DashboardDateDrawer({
                 >
                   <span className="flex items-start justify-between gap-3">
                     <span className="min-w-0">
-                      <strong className="block truncate text-sm text-text-primary">
-                        {sale.productName}
+                      <strong className="block truncate text-base text-text-primary">
+                        {sale.dogName || "(반려견 없음)"}
                       </strong>
-                      <span className="mt-1 block text-xs text-text-secondary">
-                        {sale.dogName || "(반려견 없음)"} · {sale.customerName || "보호자 미등록"}
+                      <span className="mt-1 block truncate text-sm text-text-secondary">
+                        {sale.customerName || "보호자 미등록"}
+                      </span>
+                      <span className="mt-1.5 block truncate text-xs leading-5 text-text-muted">
+                        {sale.productName}
                       </span>
                     </span>
                     <span className="shrink-0 text-right">
-                      <strong className="block text-sm text-text-primary tabular-nums">
+                      <strong className="block text-base text-text-primary tabular-nums">
                         {won(finalSaleAmount(sale))}
                       </strong>
                       <span className="mt-1 block text-[11px] font-semibold text-text-muted tabular-nums">
@@ -163,7 +170,6 @@ export function DashboardDateDrawer({
                     </span>
                   </span>
                   <span className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
-                    <Badge>{sale.businessUnitName}</Badge>
                     <StatusBadge
                       status={sale.status as
                         | "normal"
@@ -171,8 +177,11 @@ export function DashboardDateDrawer({
                         | "full_refund"
                         | "cancelled"}
                     />
-                    <span className="ml-auto text-[11px] text-text-muted">
-                      {paymentLabels[sale.paymentMethod] || sale.paymentMethod} · {sale.staffName || "담당자 미등록"}
+                    <Badge>{sale.businessUnitName}</Badge>
+                    <span className="w-full text-[12px] leading-5 text-text-muted sm:ml-auto sm:w-auto">
+                      {paymentLabels[sale.paymentMethod] || sale.paymentMethod}
+                      <span className="mx-1.5 text-border">·</span>
+                      {sale.staffName || "담당자 미등록"}
                     </span>
                     {sale.refundAmount > 0 && (
                       <span className="w-full text-right text-[11px] font-semibold text-error tabular-nums">
@@ -189,6 +198,7 @@ export function DashboardDateDrawer({
               description="다른 날짜나 사업부를 선택해 주세요."
             />
           )}
+          </div>
         </div>
 
         <div className="shrink-0 border-t border-border bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
