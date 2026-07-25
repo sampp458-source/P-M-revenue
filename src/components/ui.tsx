@@ -225,12 +225,14 @@ export function Modal({
   onClose,
   children,
   wide = false,
+  extraWide = false,
 }: {
   open: boolean;
   title: string;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
+  extraWide?: boolean;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
@@ -271,7 +273,7 @@ export function Modal({
         tabIndex={-1}
         className={cn(
           "pm-modal-panel max-h-[calc(100dvh-0.5rem)] w-full overflow-auto rounded-t-[24px] bg-surface sm:max-h-[90vh] sm:rounded-[24px]",
-          wide ? "max-w-3xl" : "max-w-lg",
+          extraWide ? "max-w-6xl" : wide ? "max-w-3xl" : "max-w-lg",
         )}
       >
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-5 py-4 sm:px-6">

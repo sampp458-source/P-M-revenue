@@ -109,6 +109,20 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   .pm-toast { animation: pm-toast-in 180ms ease-out; }
   .pm-skeleton { animation: pm-skeleton-pulse 1.8s ease-in-out infinite; }
   .pm-drawer-overlay { animation: pm-fade-in 180ms ease-out; }
+
+  .sale-registration-step {
+    border-color: #e2e8f0;
+    box-shadow: 0 1px 2px rgb(23 36 58 / 0.025);
+  }
+  .sale-registration-step:focus-within {
+    border-color: rgb(39 76 119 / 0.28);
+  }
+  .sale-registration-form aside {
+    background: #172f4d !important;
+  }
+  .sale-registration-form aside :where(dt) {
+    color: #cbd5e1;
+  }
 }
 
 @keyframes pm-fade-in { from { opacity: 0; } to { opacity: 1; } }

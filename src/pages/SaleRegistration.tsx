@@ -2040,7 +2040,7 @@ export function SaleFormPage() {
       <form
         ref={saleFormRef}
         onSubmit={submit}
-        className="mx-auto max-w-6xl pb-28 lg:pb-4"
+        className="sale-registration-form mx-auto max-w-7xl pb-28 lg:pb-4"
         aria-describedby={error ? "sale-form-error" : undefined}
         onFocusCapture={(event) =>
           setMobileInputActive(
@@ -2063,7 +2063,7 @@ export function SaleFormPage() {
           );
         }}
       >
-        <Card className="relative z-20 p-5 sm:p-6">
+        <Card className="sale-registration-step relative z-20 p-5 sm:p-6">
           <button
             type="button"
             className="flex min-h-12 w-full items-center justify-between gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -2590,7 +2590,7 @@ export function SaleFormPage() {
           )}
         </Card>
 
-        <Card className="mt-4 p-5 sm:p-6">
+        <Card className="sale-registration-step mt-4 p-5 sm:p-6">
           <div ref={productSectionRef} className="scroll-mt-5">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
@@ -2800,7 +2800,7 @@ export function SaleFormPage() {
           </div>
         </Card>
 
-        <Card className="mt-4 p-5 sm:p-6">
+        <Card className="sale-registration-step mt-4 p-5 sm:p-6">
           <div className="mb-5">
             <p className="text-xs font-semibold text-primary">3 · 결제 확인</p>
             <h2 className="mt-1 text-lg font-semibold text-text-primary">
@@ -3272,35 +3272,35 @@ export function SaleFormPage() {
                 </div>
               </div>
             </div>
-            <aside className="h-fit rounded-2xl border border-primary/15 bg-primary-subtle p-5 lg:sticky lg:top-5">
-              <p className="text-xs font-bold uppercase tracking-[0.12em] text-primary">
+            <aside className="h-fit rounded-2xl border border-white/10 bg-[#172f4d] p-5 text-white shadow-[0_18px_45px_rgba(23,47,77,0.18)] lg:sticky lg:top-5">
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-200">
                 결제 요약
               </p>
-              <p className="mt-3 truncate text-base font-semibold text-text-primary">
+              <p className="mt-3 truncate text-base font-semibold text-white">
                 {selectedDog?.name || selectedCustomer?.name || "고객 미선택"}
               </p>
-              <p className="mt-1 truncate text-sm text-text-secondary">
+              <p className="mt-1 truncate text-sm text-slate-300">
                 {products.find((product) => product.id === form.productId)
                   ?.name || "상품 미선택"}
               </p>
-              <div className="my-5 border-y border-primary/10 py-5">
-                <p className="text-xs text-text-secondary">최종 판매금액</p>
-                <strong className="mt-1 block text-3xl tabular-nums text-primary">
+              <div className="my-5 border-y border-white/15 py-5">
+                <p className="text-xs font-medium text-slate-300">최종 판매금액</p>
+                <strong className="mt-1 block text-3xl font-bold tabular-nums tracking-tight text-white">
                   {won(expectedAmount)}
                 </strong>
               </div>
               <dl className="space-y-2 text-sm">
                 <div className="flex justify-between gap-3">
-                  <dt className="text-text-muted">사업부</dt>
-                  <dd className="font-medium text-text-primary">
+                  <dt className="text-slate-300">사업부</dt>
+                  <dd className="font-semibold text-white">
                     {businessUnits.find(
                       (unit) => unit.id === form.businessUnitId,
                     )?.name || "-"}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-text-muted">단가 × 수량</dt>
-                  <dd className="text-right font-medium text-text-primary">
+                  <dt className="text-slate-300">단가 × 수량</dt>
+                  <dd className="text-right font-semibold tabular-nums text-white">
                     {won(form.unitPrice)} × {formatQuantityWithUnit(
                       form.quantity,
                       products.find((product) => product.id === form.productId)
@@ -3309,39 +3309,39 @@ export function SaleFormPage() {
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-text-muted">기준 / 추가 / 할인</dt>
-                  <dd className="text-right font-medium text-text-primary">
+                  <dt className="text-slate-300">기준 / 추가 / 할인</dt>
+                  <dd className="text-right font-semibold tabular-nums text-white">
                     {won(form.originalAmount)} / {won(form.additionalAmount)} /{" "}
                     {won(form.discountAmount)}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-text-muted">실제 결제</dt>
-                  <dd className="font-medium tabular-nums text-text-primary">
+                  <dt className="text-slate-300">실제 결제</dt>
+                  <dd className="font-bold tabular-nums text-white">
                     {won(form.paidAmount)}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-text-muted">결제수단</dt>
-                  <dd className="font-medium text-text-primary">
+                  <dt className="text-slate-300">결제수단</dt>
+                  <dd className="font-semibold text-white">
                     {paymentLabel[form.paymentMethod] || form.paymentMethod}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-text-muted">담당자</dt>
-                  <dd className="font-medium text-text-primary">
+                  <dt className="text-slate-300">담당자</dt>
+                  <dd className="font-semibold text-white">
                     {staff.find((item) => item.id === form.staffId)?.name ||
                       "-"}
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-text-muted">미수금</dt>
+                  <dt className="text-slate-300">미수금</dt>
                   <dd
                     className={cn(
-                      "font-medium",
+                      "font-bold tabular-nums",
                       form.outstandingAmount
-                        ? "text-warning"
-                        : "text-text-primary",
+                        ? "text-amber-300"
+                        : "text-white",
                     )}
                   >
                     {form.outstandingAmount
@@ -3350,8 +3350,8 @@ export function SaleFormPage() {
                   </dd>
                 </div>
                 <div className="flex justify-between gap-3">
-                  <dt className="text-text-muted">메모</dt>
-                  <dd className="font-medium text-text-primary">
+                  <dt className="text-slate-300">메모</dt>
+                  <dd className="font-semibold text-white">
                     {form.memo.trim() ? "있음" : "없음"}
                   </dd>
                 </div>
@@ -3360,7 +3360,7 @@ export function SaleFormPage() {
                 <div
                   id="sale-form-error"
                   role="alert"
-                  className="mt-4 rounded-xl border border-error/15 bg-error-soft px-3 py-2.5 text-sm font-medium text-error"
+                  className="mt-4 rounded-xl border border-red-300/30 bg-red-950/40 px-3 py-2.5 text-sm font-medium text-red-100"
                 >
                   {error}
                 </div>
@@ -3387,6 +3387,7 @@ export function SaleFormPage() {
                 <Button
                   type="button"
                   variant="ghost"
+                  className="text-slate-200 hover:bg-white/10 hover:text-white"
                   disabled={saving}
                   onClick={resetAll}
                 >

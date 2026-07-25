@@ -1480,26 +1480,9 @@ export function SalesHistoryPage() {
             <div className="hidden xl:block">
               <SalesTable
                 rows={rows}
-                profileRole={profile?.role}
                 profileNames={profileNames}
                 duplicateWarnings={duplicateWarnings}
-                canEdit={canEdit}
                 onOpen={showDetail}
-                onEdit={(sale) => {
-                  openEditSale(sale);
-                }}
-                onRefund={(sale) => {
-                  startRefund(sale);
-                }}
-                onCancel={(sale) => {
-                  setActionError("");
-                  setCancellationReason("");
-                  setCancelling(sale);
-                }}
-                onReopen={(sale) => {
-                  setActionError("");
-                  setReopening(sale);
-                }}
               />
             </div>
             <div className="divide-y divide-border xl:hidden">
@@ -1511,43 +1494,39 @@ export function SalesHistoryPage() {
                     profileNames[sale.createdBy] || sale.registrarName || "-"
                   }
                   warning={duplicateWarnings.get(sale.id)}
-                  admin={profile?.role === "admin"}
-                  editable={canEdit(sale)}
                   onOpen={() => showDetail(sale)}
-                  onEdit={() => {
-                    openEditSale(sale);
-                  }}
-                  onRefund={() => {
-                    startRefund(sale);
-                  }}
-                  onCancel={() => {
-                    setActionError("");
-                    setCancellationReason("");
-                    setCancelling(sale);
-                  }}
-                  onReopen={() => {
-                    setActionError("");
-                    setReopening(sale);
-                  }}
                 />
               ))}
             </div>
           </>
         ) : (
-          <EmptyState
-            title={
-              sales.length === 0
-                ? "아직 등록된 매출이 없습니다"
-                : "현재 조건에 맞는 매출이 없습니다"
-            }
-            description={
-              sales.length === 0
-                ? "첫 매출을 등록하면 날짜와 사업부 기준으로 내역을 확인할 수 있습니다."
-                : query
-                ? `“${query}” 검색어와 현재 필터 조건에 맞는 매출이 없습니다.`
-                : "날짜·사업부 또는 적용된 필터를 조정해 주세요."
-            }
-          />
+          <div className="pb-8">
+            <EmptyState
+              title={
+                sales.length === 0
+                  ? "아직 등록된 매출이 없습니다"
+                  : "현재 조건에 맞는 매출이 없습니다"
+              }
+              description={
+                sales.length === 0
+                  ? "첫 매출을 등록하면 날짜와 사업부 기준으로 내역을 확인할 수 있습니다."
+                  : query
+                  ? `“${query}” 검색어와 현재 필터 조건에 맞는 매출이 없습니다.`
+                  : "날짜·사업부 또는 적용된 필터를 조정해 주세요."
+              }
+            />
+            <div className="-mt-5 flex flex-wrap justify-center gap-2">
+              {sales.length > 0 && (
+                <Button type="button" variant="secondary" onClick={resetFilters}>
+                  검색 조건 초기화
+                </Button>
+              )}
+              <Button type="button" onClick={() => navigate("/sales/new")}>
+                <Plus size={16} />
+                매출 등록
+              </Button>
+            </div>
+          </div>
         )}
       </Card>
       {!loading && !loadError && filtered.length > 0 && (
@@ -1560,7 +1539,7 @@ export function SalesHistoryPage() {
           }
         />
       )}
-      <Modal open={!!selected} onClose={closeDetail} title="매출 상세" wide>
+      <Modal open={!!selected} onClose={closeDetail} title="매출 상세" extraWide>
         {selected && (
           <SaleDetailContent
             sale={selected}
@@ -2069,36 +2048,38 @@ function SaleDetailContent({
   const customerType = sale.customerType === "new" ? "신규" : sale.customerType === "renewal" ? "재등록" : sale.customerType || "미지정";
 
   return (
-    <div className="space-y-0">
-      <section className="rounded-2xl border border-primary/15 bg-primary-subtle p-4 sm:p-5" aria-labelledby="sale-summary-title">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
+    <div className="space-y-6">
+      <section className="overflow-hidden rounded-2xl bg-[#172f4d] text-white" aria-labelledby="sale-summary-title">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,1fr)]">
+          <div className="min-w-0 p-5 sm:p-6 lg:p-7">
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge status={sale.status} />
               {hasOutstanding(sale) && <StatusBadge status="outstanding" />}
-              {sale.refundAmount > 0 && <Badge tone="amber">환불 있음</Badge>}
             </div>
-            <h3 id="sale-summary-title" className="mt-3 break-words text-xl font-bold tracking-[-0.02em] text-text-primary sm:text-2xl">
-              {sale.productName}
+            <h3 id="sale-summary-title" className="mt-4 break-words text-2xl font-bold tracking-[-0.03em] text-white sm:text-3xl">
+              {sale.dogName || "(반려견 없음)"}
             </h3>
-            <p className="mt-1 text-sm text-text-secondary">
-              {sale.businessUnitName} · {koDate(sale.saleDate)}
+            <p className="mt-1 text-sm text-slate-300">
+              {sale.customerName?.trim() || "보호자 이름 없음"}
+              {sale.customerPhone?.trim() ? ` · ${sale.customerPhone}` : ""}
             </p>
+            <dl className="mt-6 grid gap-x-6 gap-y-3 border-t border-white/15 pt-5 text-sm sm:grid-cols-3">
+              <DetailHeroText label="사업부" value={sale.businessUnitName} />
+              <DetailHeroText label="담당자" value={sale.staffName || "미지정"} />
+              <DetailHeroText label="매출일" value={koDate(sale.saleDate)} />
+            </dl>
           </div>
-          <div className="shrink-0 border-t border-primary/15 pt-4 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0 sm:text-right">
-            <p className="text-xs font-semibold text-text-secondary">최종 실매출</p>
-            <strong className="mt-1 block text-3xl font-bold tracking-[-0.03em] text-primary tabular-nums">
-              {won(sale.netAmount)}
-            </strong>
-            {(sale.outstandingAmount > 0 || sale.refundAmount > 0) && (
-              <p className="mt-2 text-xs text-text-secondary tabular-nums">
-                미수 {won(sale.outstandingAmount)} · 환불 {won(sale.refundAmount)}
-              </p>
-            )}
+          <div className="grid grid-cols-2 border-t border-white/15 bg-white/[0.04] lg:border-l lg:border-t-0">
+            <DetailHeroAmount label="최종 판매금액" value={finalSaleAmount} primary />
+            <DetailHeroAmount label="결제 완료" value={sale.paidAmount} />
+            <DetailHeroAmount label="미수금" value={sale.outstandingAmount} warning={sale.outstandingAmount > 0} />
+            <DetailHeroAmount label="환불금액" value={sale.refundAmount} danger={sale.refundAmount > 0} />
           </div>
         </div>
       </section>
 
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-start">
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface px-5 sm:px-6">
       <DetailSection title="판매 항목">
         <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
@@ -2192,7 +2173,9 @@ function SaleDetailContent({
           <DetailAmountRow label="최종 실매출" value={sale.netAmount} emphasized />
         </dl>
       </DetailSection>
+        </div>
 
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface px-5 sm:px-6">
       <DetailSection title="고객·반려견 정보">
         <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
           <DetailText label="보호자" value={sale.customerName?.trim() || "보호자 이름 없음"} />
@@ -2258,19 +2241,62 @@ function SaleDetailContent({
           <p className="text-sm text-text-muted">기록된 변경 이력이 없습니다.</p>
         )}
       </DetailSection>
+        </div>
+      </div>
 
       {hasActions && (
-        <section className="border-t border-border pt-5" aria-labelledby="sale-actions-title">
-          <h3 id="sale-actions-title" className="text-sm font-semibold text-text-primary">거래 관리</h3>
-          <p className="mt-1 text-xs text-text-muted">권한과 거래 상태에 따라 가능한 작업만 표시합니다.</p>
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+        <section className="rounded-2xl border border-border bg-surface-secondary p-4 sm:flex sm:items-center sm:justify-between sm:gap-6" aria-labelledby="sale-actions-title">
+          <div>
+            <h3 id="sale-actions-title" className="text-sm font-semibold text-text-primary">거래 관리</h3>
+            <p className="mt-1 text-xs text-text-muted">수정·고객 연결·결제 수정은 일반 수정에서 처리합니다.</p>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2 sm:mt-0 sm:justify-end">
             {editable && <Button type="button" variant="secondary" onClick={onEdit}><Pencil size={15} />수정</Button>}
-            {canRefund && <Button type="button" variant="secondary" onClick={onRefund}>환불</Button>}
-            {admin && sale.status !== "cancelled" && <Button type="button" variant="secondary" onClick={onCancel}><Undo2 size={15} />취소</Button>}
+            {canRefund && <Button type="button" className="border-warning/30 bg-warning-soft text-warning hover:bg-warning-soft" variant="secondary" onClick={onRefund}>환불</Button>}
+            {admin && sale.status !== "cancelled" && <Button type="button" variant="danger" onClick={onCancel}><Undo2 size={15} />매출 취소</Button>}
             {admin && sale.status === "cancelled" && <Button type="button" variant="secondary" onClick={onReopen}><RotateCcw size={15} />취소 복구</Button>}
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+function DetailHeroText({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">{label}</dt>
+      <dd className="mt-1 truncate font-semibold text-white">{value}</dd>
+    </div>
+  );
+}
+
+function DetailHeroAmount({
+  label,
+  value,
+  primary = false,
+  warning = false,
+  danger = false,
+}: {
+  label: string;
+  value: number;
+  primary?: boolean;
+  warning?: boolean;
+  danger?: boolean;
+}) {
+  return (
+    <div className="min-w-0 border-b border-r border-white/10 p-4 last:border-b-0 sm:p-5 lg:[&:nth-child(3)]:border-b-0">
+      <dt className="text-xs font-medium text-slate-300">{label}</dt>
+      <dd
+        className={cn(
+          "mt-1 whitespace-nowrap font-bold tabular-nums tracking-[-0.025em]",
+          primary ? "text-xl text-white sm:text-2xl" : "text-lg text-slate-100",
+          warning && "text-amber-300",
+          danger && "text-rose-300",
+        )}
+      >
+        {won(value)}
+      </dd>
     </div>
   );
 }
@@ -2683,52 +2709,29 @@ function DuplicateBadge({
   );
 }
 
-interface SalesActions {
-  onOpen: (sale: SaleRow) => void;
-  onEdit: (sale: SaleRow) => void;
-  onRefund: (sale: SaleRow) => void;
-  onCancel: (sale: SaleRow) => void;
-  onReopen: (sale: SaleRow) => void;
-}
-
 function SalesTable({
   rows,
-  profileRole,
   profileNames,
   duplicateWarnings,
-  canEdit,
   onOpen,
-  onEdit,
-  onRefund,
-  onCancel,
-  onReopen,
 }: {
   rows: SaleRow[];
-  profileRole?: "admin" | "staff";
   profileNames: Record<string, string>;
   duplicateWarnings: Map<string, DuplicateWarning>;
-  canEdit: (sale: SaleRow) => boolean;
-} & SalesActions) {
+  onOpen: (sale: SaleRow) => void;
+}) {
   return (
-    <Table className="min-w-[1120px]">
+    <Table className="min-w-[920px]">
       <thead>
         <tr>
           <th>등록일시</th>
           <th>반려견·보호자</th>
-          <th className="hidden xl:table-cell">연락처</th>
-          <th>사업부·상품</th>
-          <th className="hidden lg:table-cell">담당자</th>
-          <th data-numeric>최종/결제</th>
-          <th data-numeric className="hidden xl:table-cell">
-            환불
-          </th>
-          <th data-numeric className="hidden xl:table-cell">
-            미수금
-          </th>
-          <th data-numeric>실매출</th>
-          <th>상태</th>
-          <th className="hidden 2xl:table-cell">등록자</th>
-          <th className="text-right">관리</th>
+          <th>사업부</th>
+          <th>상품</th>
+          <th data-numeric>최종금액</th>
+          <th>결제상태</th>
+          <th>담당자</th>
+          <th className="text-right">더보기</th>
         </tr>
       </thead>
       <tbody>
@@ -2760,22 +2763,24 @@ function SalesTable({
                   <span className="mt-0.5 block max-w-44 truncate text-xs text-text-muted">
                     {sale.customerName || "보호자 미등록"}
                   </span>
+                  <span className="mt-0.5 block text-[11px] text-text-muted">
+                    {maskPhone(sale.customerPhone)}
+                  </span>
                 </div>
                 <DuplicateBadge warning={duplicateWarnings.get(sale.id)} />
               </div>
             </td>
-            <td className="hidden xl:table-cell">
-              {maskPhone(sale.customerPhone)}
+            <td>
+              <span className="font-medium text-text-primary">{sale.businessUnitName}</span>
             </td>
             <td>
               <span className="block max-w-48 truncate font-medium text-text-primary">
                 {sale.productName}
               </span>
               <span className="mt-0.5 block max-w-48 truncate text-xs text-text-muted">
-                {sale.businessUnitName} · 수량 {sale.quantity}
+                수량 {sale.quantity}
               </span>
             </td>
-            <td className="hidden lg:table-cell">{sale.staffName || "-"}</td>
             <td data-numeric>
               <strong className="block font-semibold text-text-primary">
                 {won(
@@ -2787,35 +2792,26 @@ function SalesTable({
                 )}
               </strong>
               <span className="mt-0.5 block text-xs text-text-muted">
-                결제 {won(sale.paidAmount)}
+                실매출 {won(sale.netAmount)}
               </span>
-            </td>
-            <td data-numeric className="hidden xl:table-cell">
-              {won(sale.refundAmount)}
-            </td>
-            <td
-              data-numeric
-              className={cn(
-                "hidden xl:table-cell",
-                sale.outstandingAmount > 0 && "font-semibold text-warning",
-              )}
-            >
-              {won(sale.outstandingAmount)}
-            </td>
-            <td data-numeric className="font-semibold text-primary">
-              {won(sale.netAmount)}
             </td>
             <td>
               <SaleStatusBadges sale={sale} />
+              <span className="mt-1 block max-w-36 truncate text-xs text-text-muted">
+                {paymentSummary(sale.paymentRows, sale.paymentMethod, sale.paidAmount)}
+              </span>
             </td>
-            <td className="hidden 2xl:table-cell">
-              {profileNames[sale.createdBy] || sale.registrarName || "-"}
+            <td>
+              <span className="block max-w-28 truncate">{sale.staffName || "-"}</span>
+              <span className="mt-0.5 block max-w-28 truncate text-xs text-text-muted">
+                등록 {profileNames[sale.createdBy] || sale.registrarName || "-"}
+              </span>
             </td>
             <td
               onClick={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
             >
-              <div className="flex justify-end gap-1">
+              <div className="flex justify-end">
                 <button
                   type="button"
                   className="icon-btn"
@@ -2825,46 +2821,6 @@ function SalesTable({
                 >
                   <Eye size={16} />
                 </button>
-                {canEdit(sale) && (
-                  <button
-                    type="button"
-                    className="icon-btn"
-                    aria-label={`${sale.dogName} 매출 수정`}
-                    title="수정"
-                    onClick={() => onEdit(sale)}
-                  >
-                    <Pencil size={16} />
-                  </button>
-                )}
-                {profileRole === "admin" && sale.status !== "cancelled" && (
-                  <>
-                    <Button
-                      className="min-h-9 px-2 py-1 text-xs"
-                      variant="secondary"
-                      disabled={sale.refundAmount >= sale.paidAmount}
-                      onClick={() => onRefund(sale)}
-                    >
-                      환불
-                    </Button>
-                    <Button
-                      className="min-h-9 px-2 py-1 text-xs"
-                      variant="secondary"
-                      onClick={() => onCancel(sale)}
-                    >
-                      <Undo2 size={14} />
-                      취소
-                    </Button>
-                  </>
-                )}
-                {profileRole === "admin" && sale.status === "cancelled" && (
-                  <Button
-                    className="min-h-9 px-2 py-1 text-xs"
-                    variant="secondary"
-                    onClick={() => onReopen(sale)}
-                  >
-                    취소 복구
-                  </Button>
-                )}
               </div>
             </td>
           </tr>
@@ -2878,26 +2834,13 @@ function SaleMobileCard({
   sale,
   registrarName,
   warning,
-  admin,
-  editable,
   onOpen,
-  onEdit,
-  onRefund,
-  onCancel,
-  onReopen,
 }: {
   sale: SaleRow;
   registrarName: string;
   warning: DuplicateWarning | undefined;
-  admin: boolean;
-  editable: boolean;
   onOpen: () => void;
-  onEdit: () => void;
-  onRefund: () => void;
-  onCancel: () => void;
-  onReopen: () => void;
 }) {
-  const stop = (event: React.MouseEvent) => event.stopPropagation();
   return (
     <article
       role="button"
@@ -2984,56 +2927,9 @@ function SaleMobileCard({
           <dd className="inline text-text-secondary">{registrarName}</dd>
         </div>
       </dl>
-      {(editable || admin) && (
-        <div
-          className="mt-4 flex flex-wrap gap-2 border-t border-border pt-3"
-          onClick={stop}
-          onKeyDown={(event) => event.stopPropagation()}
-        >
-          {editable && (
-            <Button
-              type="button"
-              variant="secondary"
-              className="min-h-10 flex-1 px-3"
-              onClick={onEdit}
-            >
-              <Pencil size={15} />
-              수정
-            </Button>
-          )}
-          {admin && sale.status !== "cancelled" && (
-            <>
-              <Button
-                type="button"
-                variant="secondary"
-                className="min-h-10 flex-1 px-3"
-                disabled={sale.refundAmount >= sale.paidAmount}
-                onClick={onRefund}
-              >
-                환불
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                className="min-h-10 flex-1 px-3"
-                onClick={onCancel}
-              >
-                취소
-              </Button>
-            </>
-          )}
-          {admin && sale.status === "cancelled" && (
-            <Button
-              type="button"
-              variant="secondary"
-              className="min-h-10 flex-1 px-3"
-              onClick={onReopen}
-            >
-              취소 복구
-            </Button>
-          )}
-        </div>
-      )}
+      <p className="mt-3 border-t border-border pt-3 text-right text-xs font-semibold text-primary">
+        상세 보기
+      </p>
     </article>
   );
 }
