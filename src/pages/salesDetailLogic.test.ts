@@ -12,6 +12,15 @@ describe("salesDetailLogic", () => {
     expect(formatQuantityWithUnit(2, null)).toBe("2");
   });
 
+  it("단위의 기준 수량 1을 실제 수량과 중복 표시하지 않는다", () => {
+    expect(formatQuantityWithUnit(9, "1박")).toBe("9박");
+    expect(formatQuantityWithUnit(1, "1박")).toBe("1박");
+    expect(formatQuantityWithUnit(4, "1회")).toBe("4회");
+    expect(formatQuantityWithUnit(2, "1일")).toBe("2일");
+    expect(formatQuantityWithUnit(6, "1개월")).toBe("6개월");
+    expect(formatQuantityWithUnit(3, "1건")).toBe("3건");
+  });
+
   it("결제 원장이 없으면 기존 단일결제 값을 한 행으로 표시한다", () => {
     expect(detailPaymentRows([], "card", 270_000)).toEqual([
       { method: "card", amount: 270_000 },

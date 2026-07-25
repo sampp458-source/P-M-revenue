@@ -15,7 +15,7 @@ export function formatQuantityWithUnit(
   quantity: number,
   unitLabel: string | null,
 ) {
-  const unit = unitLabel?.trim() ?? "";
+  const unit = (unitLabel ?? "").trim().replace(/^1\s*(?=[^0-9])/, "");
   return `${quantity}${unit}`;
 }
 
