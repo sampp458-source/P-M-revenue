@@ -15,39 +15,69 @@ export function MetricCard({ label, value, description, progress, featured = fal
 
 export function DashboardKpiHero({
   todayRevenue,
+  yesterdayRevenue,
   todayCount,
   monthRevenue,
+  previousMonthRevenue,
   monthCount,
-  monthAverage,
+  monthlyTarget,
   outstanding,
   refund,
 }: {
   todayRevenue: number;
+  yesterdayRevenue: number;
   todayCount: number;
   monthRevenue: number;
+  previousMonthRevenue: number;
   monthCount: number;
-  monthAverage: number;
+  monthlyTarget: number;
   outstanding: number;
   refund: number;
 }) {
+  const todayComparison = formatRevenueComparison(
+    todayRevenue,
+    yesterdayRevenue,
+  );
+  const monthComparison = formatRevenueComparison(
+    monthRevenue,
+    previousMonthRevenue,
+  );
+  const achievement =
+    monthlyTarget > 0 ? (monthRevenue / monthlyTarget) * 100 : 0;
   const items = [
     {
       label: "오늘 매출",
       value: won(todayRevenue),
       description: `오늘 거래 ${todayCount.toLocaleString("ko-KR")}건`,
+      signalLabel: "어제 대비",
+      signal: todayComparison,
       className: "bg-[#172f4d] text-white lg:col-span-2",
       labelClass: "text-blue-200",
       valueClass: "text-white text-[clamp(2rem,4vw,3.4rem)]",
       descriptionClass: "text-slate-300",
+      signalClass: todayComparison.startsWith("▼")
+        ? "text-rose-200"
+        : todayComparison.startsWith("—")
+          ? "text-slate-300"
+          : "text-emerald-200",
     },
     {
       label: "이번 달 누적",
       value: won(monthRevenue),
-      description: `${monthCount.toLocaleString("ko-KR")}건 · 평균 ${won(monthAverage)}`,
+      description: `이번 달 거래 ${monthCount.toLocaleString("ko-KR")}건`,
+      signalLabel: "전월 대비",
+      signal: monthComparison,
       className: "bg-primary-subtle lg:col-span-2",
       labelClass: "text-primary",
       valueClass: "text-text-primary text-[clamp(1.8rem,3vw,2.75rem)]",
       descriptionClass: "text-text-secondary",
+      signalClass: monthComparison.startsWith("▼")
+        ? "text-error"
+        : monthComparison.startsWith("—")
+          ? "text-text-secondary"
+          : "text-primary",
+      target: monthlyTarget,
+      achievement,
     },
     {
       label: "미수",
@@ -57,6 +87,9 @@ export function DashboardKpiHero({
       labelClass: "text-warning",
       valueClass: "text-text-primary text-2xl",
       descriptionClass: "text-text-muted",
+      signalLabel: "",
+      signal: "",
+      signalClass: "",
     },
     {
       label: "환불",
@@ -66,6 +99,9 @@ export function DashboardKpiHero({
       labelClass: "text-error",
       valueClass: "text-text-primary text-2xl",
       descriptionClass: "text-text-muted",
+      signalLabel: "",
+      signal: "",
+      signalClass: "",
     },
   ];
 
@@ -92,6 +128,41 @@ export function DashboardKpiHero({
             >
               {item.value}
             </strong>
+            {item.signal && (
+              <p className="mt-2 flex flex-wrap items-center gap-x-1.5 text-[11px] font-semibold">
+                <span className={item.descriptionClass}>{item.signalLabel}</span>
+                <span className={item.signalClass}>{item.signal}</span>
+              </p>
+            )}
+            {item.target !== undefined && item.achievement !== undefined && (
+              <div className="mt-3">
+                <div className="flex items-center justify-between gap-3 text-[11px]">
+                  <span className="font-semibold text-text-secondary">
+                    목표 대비
+                  </span>
+                  <strong className="text-primary tabular-nums">
+                    {item.target > 0
+                      ? `${item.achievement.toFixed(1)}%`
+                      : "목표 미설정"}
+                  </strong>
+                </div>
+                <div
+                  className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-primary/10"
+                  role="progressbar"
+                  aria-label="이번 달 목표 달성률"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.min(100, Math.max(0, item.achievement))}
+                >
+                  <span
+                    className="block h-full rounded-full bg-primary"
+                    style={{
+                      width: `${Math.min(100, Math.max(0, item.achievement))}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
             <p className={cn("mt-2 text-xs leading-5", item.descriptionClass)}>
               {item.description}
             </p>

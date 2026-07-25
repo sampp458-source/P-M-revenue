@@ -3,6 +3,7 @@ import {
   calculateDailyRevenue,
   calculateDateDetail,
   calculateRangeOverview,
+  calculateTarget,
   countDashboardSalesByUnit,
   dashboardComparisonRange,
   dashboardDefaultCompare,
@@ -87,6 +88,21 @@ describe("dashboard presentation metrics", () => {
     expect(formatRevenueComparison(100000, 100000)).toBe("— 변화 없음");
     expect(formatRevenueComparison(120000, 100000)).toBe("▲ 증가 20.0%");
     expect(formatRevenueComparison(80000, 100000)).toBe("▼ 감소 20.0%");
+  });
+
+  it("전체 목표를 우선하고 없으면 사업부 목표 합계를 사용한다", () => {
+    const targets = [
+      { year: 2026, month: 7, businessUnitId: "daycare", targetAmount: 1000000 },
+      { year: 2026, month: 7, businessUnitId: "hotel", targetAmount: 500000 },
+    ];
+
+    expect(calculateTarget("2026-07", "", targets)).toBe(1500000);
+    expect(
+      calculateTarget("2026-07", "", [
+        ...targets,
+        { year: 2026, month: 7, businessUnitId: null, targetAmount: 2000000 },
+      ]),
+    ).toBe(2000000);
   });
 
   it("사업부를 유치원·교육센터·호텔 순으로 집계하고 취소 매출은 제외한다", () => {

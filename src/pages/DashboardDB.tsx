@@ -7,7 +7,7 @@ import { supabase } from "../lib/supabase";
 import { BusinessUnitCard, DashboardKpiHero, DashboardSkeleton, RecentSales } from "./dashboard/DashboardSections";
 import { DailyRevenueTrend, DashboardPeriodFilters, SalesHeatmapCalendar } from "./dashboard/DashboardRangeSections";
 import { DashboardDateDrawer } from "./dashboard/DashboardDateDrawer";
-import { calculateDailyRevenue, calculateRangeOverview, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodRange, dashboardSalesForDate, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale } from "./dashboard/dashboardMetrics";
+import { calculateDailyRevenue, calculateRangeOverview, calculateTarget, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodRange, dashboardSalesForDate, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale, type DashboardTarget } from "./dashboard/dashboardMetrics";
 
 const validPeriods = new Set<DashboardPeriod>(["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "custom"]);
 const validComparisons = new Set<DashboardCompare>(["day", "week", "month", "previous"]);
@@ -28,6 +28,7 @@ export function DashboardPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [sales, setSales] = useState<DashboardSale[]>([]);
   const [units, setUnits] = useState<BusinessUnitOption[]>([]);
+  const [targets, setTargets] = useState<DashboardTarget[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [dateDrawerOpen, setDateDrawerOpen] = useState(false);
@@ -45,9 +46,14 @@ export function DashboardPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(false);
-    const [saleResult, unitResult] = await Promise.all([
+    const currentMonth = today.slice(0, 7);
+    const [targetYear, targetMonth] = currentMonth.split("-").map(Number);
+    const [saleResult, unitResult, targetResult] = await Promise.all([
       supabase.from("sales").select("id, sale_date, business_unit_id, business_unit_name, product_id, product_name, dog_id, dog_name, customer_id, customer_name, created_by, staff_name, payment_method, paid_amount, refund_amount, outstanding_amount, net_amount, status, created_at").order("sale_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("business_units").select("id, code, name").eq("is_active", true).order("sort_order"),
+      isAdmin
+        ? supabase.from("monthly_targets").select("year, month, business_unit_id, target_amount").eq("year", targetYear).eq("month", targetMonth)
+        : Promise.resolve({ data: [], error: null }),
     ]);
     if (saleResult.error || unitResult.error) {
       setSales([]);
@@ -78,8 +84,14 @@ export function DashboardPage() {
       createdAt: row.created_at,
     })));
     setUnits((unitResult.data ?? []).map((row) => ({ id: row.id, code: row.code, name: row.name })));
+    setTargets((targetResult.data ?? []).map((row) => ({
+      year: row.year,
+      month: row.month,
+      businessUnitId: row.business_unit_id,
+      targetAmount: row.target_amount ?? 0,
+    })));
     setLoading(false);
-  }, []);
+  }, [isAdmin, today]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
@@ -143,9 +155,23 @@ export function DashboardPage() {
     () => monthRange(today.slice(0, 7)),
     [today],
   );
+  const previousMonthRange = useMemo(
+    () => dashboardComparisonRange("this_month", currentMonthRange, "month"),
+    [currentMonthRange],
+  );
   const monthOverview = useMemo(
-    () => calculateRangeOverview(sales, units, currentMonthRange),
-    [currentMonthRange, sales, units],
+    () =>
+      calculateRangeOverview(
+        sales,
+        units,
+        currentMonthRange,
+        previousMonthRange,
+      ),
+    [currentMonthRange, previousMonthRange, sales, units],
+  );
+  const monthlyTarget = useMemo(
+    () => calculateTarget(today.slice(0, 7), "", targets),
+    [targets, today],
   );
   const coreDivisions = overview.divisions.filter((division) => coreCodes.has(division.code as BusinessUnitCode));
   const representedTotal = coreDivisions.reduce((total, division) => total + division.revenue, 0);
@@ -180,10 +206,12 @@ export function DashboardPage() {
       <section className="mb-8" aria-label="오늘 핵심 매출 지표">
         <DashboardKpiHero
           todayRevenue={todayOverview.total}
+          yesterdayRevenue={todayOverview.previousTotal}
           todayCount={todayOverview.count}
           monthRevenue={monthOverview.total}
+          previousMonthRevenue={monthOverview.previousTotal}
           monthCount={monthOverview.count}
-          monthAverage={monthOverview.average}
+          monthlyTarget={monthlyTarget}
           outstanding={monthOverview.outstanding}
           refund={monthOverview.refund}
         />
