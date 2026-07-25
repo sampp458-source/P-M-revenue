@@ -13,9 +13,204 @@ export function MetricCard({ label, value, description, progress, featured = fal
   return <Card className={cn("group relative overflow-hidden transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-[0_14px_34px_rgba(23,36,58,0.08)]", featured ? "min-h-44 p-6" : "min-h-32 p-5", tone === "primary" && "border-primary/15 bg-[linear-gradient(145deg,#274c77,#1e3f65)] text-white", tone === "progress" && "border-primary/15 bg-primary-subtle")}><div className={cn("absolute -right-10 -top-12 h-28 w-28 rounded-full transition-transform duration-200 group-hover:scale-110", tone === "primary" ? "bg-white/[0.06]" : "bg-primary/[0.035]")} /><div className="relative"><div className="flex items-center justify-between gap-3"><p className={cn("font-semibold", featured ? "text-sm" : "text-xs", tone === "primary" ? "text-blue-100/80" : "text-text-secondary")}>{label}</p><span className={cn("flex items-center justify-center rounded-xl", featured ? "h-10 w-10" : "h-8 w-8", tone === "primary" ? "bg-white/10 text-white" : "bg-primary-soft text-primary")}>{icon}</span></div><p className={cn("font-bold tracking-[-0.035em]", featured ? "mt-5 text-[1.8rem] sm:text-[2rem]" : "mt-3 text-[1.35rem]", tone === "primary" ? "text-white" : "text-text-primary")}>{value}</p>{progress !== undefined && <div className="mt-4 h-2 overflow-hidden rounded-full bg-primary/10" role="progressbar" aria-label={`${label} 진행률`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, progress))}><div className="h-full rounded-full bg-primary transition-[width] duration-500 ease-out" style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} /></div>}{description && <p className={cn("mt-2 text-xs leading-5", tone === "primary" ? "text-blue-100/65" : "text-text-muted")}>{description}</p>}</div></Card>;
 }
 
+export function DashboardKpiHero({
+  todayRevenue,
+  todayCount,
+  monthRevenue,
+  monthCount,
+  monthAverage,
+  outstanding,
+  refund,
+}: {
+  todayRevenue: number;
+  todayCount: number;
+  monthRevenue: number;
+  monthCount: number;
+  monthAverage: number;
+  outstanding: number;
+  refund: number;
+}) {
+  const items = [
+    {
+      label: "오늘 매출",
+      value: won(todayRevenue),
+      description: `오늘 거래 ${todayCount.toLocaleString("ko-KR")}건`,
+      className: "bg-[#172f4d] text-white lg:col-span-2",
+      labelClass: "text-blue-200",
+      valueClass: "text-white text-[clamp(2rem,4vw,3.4rem)]",
+      descriptionClass: "text-slate-300",
+    },
+    {
+      label: "이번 달 누적",
+      value: won(monthRevenue),
+      description: `${monthCount.toLocaleString("ko-KR")}건 · 평균 ${won(monthAverage)}`,
+      className: "bg-primary-subtle lg:col-span-2",
+      labelClass: "text-primary",
+      valueClass: "text-text-primary text-[clamp(1.8rem,3vw,2.75rem)]",
+      descriptionClass: "text-text-secondary",
+    },
+    {
+      label: "미수",
+      value: won(outstanding),
+      description: "이번 달 미수금",
+      className: "bg-warning-soft/60 lg:col-span-1",
+      labelClass: "text-warning",
+      valueClass: "text-text-primary text-2xl",
+      descriptionClass: "text-text-muted",
+    },
+    {
+      label: "환불",
+      value: won(refund),
+      description: "이번 달 환불액",
+      className: "bg-surface-secondary lg:col-span-1",
+      labelClass: "text-error",
+      valueClass: "text-text-primary text-2xl",
+      descriptionClass: "text-text-muted",
+    },
+  ];
+
+  return (
+    <Card className="overflow-hidden p-0">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-6">
+        {items.map((item, index) => (
+          <div
+            key={item.label}
+            className={cn(
+              "min-w-0 border-b border-border p-5 sm:p-6 lg:min-h-44 lg:border-b-0 lg:border-r lg:last:border-r-0",
+              index === 0 && "border-white/10",
+              item.className,
+            )}
+          >
+            <p className={cn("text-xs font-semibold", item.labelClass)}>
+              {item.label}
+            </p>
+            <strong
+              className={cn(
+                "mt-4 block whitespace-nowrap font-bold tracking-[-0.045em] tabular-nums",
+                item.valueClass,
+              )}
+            >
+              {item.value}
+            </strong>
+            <p className={cn("mt-2 text-xs leading-5", item.descriptionClass)}>
+              {item.description}
+            </p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export function BusinessUnitCard({ order, name, revenue, previousRevenue, compareLabel, share, count, average, restricted = false, selected = false, onClick }: { order: number; name: string; revenue: number; previousRevenue: number; compareLabel: string; share: number; count: number; average: number; restricted?: boolean; selected?: boolean; onClick?: () => void }) {
   const comparisonText = formatRevenueComparison(revenue, previousRevenue);
-  return <Card className={cn("group relative min-h-52 overflow-hidden p-0 transition-[transform,box-shadow,border-color] duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_16px_38px_rgba(23,36,58,0.09)]", selected && "border-primary/40 bg-primary-subtle ring-2 ring-primary/10")}><button type="button" className="relative block min-h-52 w-full p-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:p-6" aria-pressed={selected} onClick={onClick}><span className="absolute -right-12 -top-14 h-32 w-32 rounded-full bg-primary/[0.035] transition-transform duration-200 group-hover:scale-110" /><span className="relative block"><span className="flex items-start justify-between gap-4"><span><span className="text-[11px] font-bold tracking-[0.14em] text-primary">0{order}</span><span className="mt-1 block text-lg font-bold text-text-primary">{name}</span></span><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary"><Building2 size={19} /></span></span><span className="mt-5 block"><span className="text-xs font-semibold text-text-secondary">{restricted ? "선택 날짜 실매출" : "선택 기간 실매출"}</span><strong className="mt-1 block text-[1.65rem] font-bold tracking-[-0.035em] text-text-primary tabular-nums sm:text-[1.8rem]">{won(revenue)}</strong>{!restricted && <span className={cn("mt-1.5 block text-xs font-bold", comparisonText.startsWith("▼") ? "text-error" : comparisonText.startsWith("—") ? "text-text-secondary" : "text-primary")}>{compareLabel} 대비 · {comparisonText}</span>}</span><span className={cn("mt-4 grid gap-2 border-t border-border pt-4", restricted ? "grid-cols-2" : "grid-cols-3")}><span><span className="block text-[11px] text-text-muted">매출 건수</span><strong className="mt-1 block text-sm text-text-primary tabular-nums">{count.toLocaleString("ko-KR")}건</strong></span><span><span className="block text-[11px] text-text-muted">평균 객단가</span><strong className="mt-1 block truncate text-sm text-text-primary tabular-nums">{won(average)}</strong></span>{!restricted && <span><span className="block text-[11px] text-text-muted">전체 비중</span><strong className="mt-1 block text-sm text-text-primary tabular-nums">{share.toFixed(1)}%</strong></span>}</span></span></button></Card>;
+  const currentTrendValue = Math.max(0, revenue);
+  const previousTrendValue = Math.max(0, previousRevenue);
+  const trendMax = Math.max(currentTrendValue, previousTrendValue, 1);
+  const accents = [
+    "border-t-[#274c77]",
+    "border-t-[#5f7f9f]",
+    "border-t-[#8aa1b8]",
+  ];
+  return (
+    <Card
+      className={cn(
+        "group relative min-h-52 overflow-hidden border-t-2 p-0 transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_12px_28px_rgba(23,36,58,0.07)]",
+        accents[(order - 1) % accents.length],
+        selected && "border-primary/40 bg-primary-subtle ring-2 ring-primary/10",
+      )}
+    >
+      <button
+        type="button"
+        className="relative block min-h-52 w-full p-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:p-6"
+        aria-pressed={selected}
+        onClick={onClick}
+      >
+        <span className="relative block">
+          <span className="flex items-start justify-between gap-4">
+            <span>
+              <span className="text-[11px] font-bold tracking-[0.14em] text-primary">
+                0{order}
+              </span>
+              <span className="mt-1 block text-lg font-bold text-text-primary">
+                {name}
+              </span>
+            </span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
+              <Building2 size={18} />
+            </span>
+          </span>
+          <span className="mt-5 block">
+            <span className="text-xs font-semibold text-text-secondary">
+              {restricted ? "선택 날짜 실매출" : "선택 기간 실매출"}
+            </span>
+            <strong className="mt-1 block text-[1.75rem] font-bold tracking-[-0.04em] text-text-primary tabular-nums sm:text-[1.95rem]">
+              {won(revenue)}
+            </strong>
+            {!restricted && (
+              <>
+                <span
+                  className={cn(
+                    "mt-1.5 block text-xs font-bold",
+                    comparisonText.startsWith("▼")
+                      ? "text-error"
+                      : comparisonText.startsWith("—")
+                        ? "text-text-secondary"
+                        : "text-primary",
+                  )}
+                >
+                  {compareLabel} 대비 · {comparisonText}
+                </span>
+                <span className="mt-4 grid grid-cols-[2.5rem_1fr] items-center gap-x-2 gap-y-1.5 text-[10px] text-text-muted">
+                  <span>현재</span>
+                  <span className="h-1.5 overflow-hidden rounded-full bg-surface-secondary">
+                    <span
+                      className="block h-full rounded-full bg-primary"
+                      style={{ width: `${(currentTrendValue / trendMax) * 100}%` }}
+                    />
+                  </span>
+                  <span>{compareLabel}</span>
+                  <span className="h-1.5 overflow-hidden rounded-full bg-surface-secondary">
+                    <span
+                      className="block h-full rounded-full bg-[#9db1c5]"
+                      style={{ width: `${(previousTrendValue / trendMax) * 100}%` }}
+                    />
+                  </span>
+                </span>
+              </>
+            )}
+          </span>
+          <span
+            className={cn(
+              "mt-4 grid gap-2 border-t border-border pt-4",
+              restricted ? "grid-cols-2" : "grid-cols-3",
+            )}
+          >
+            <span>
+              <span className="block text-[11px] text-text-muted">매출 건수</span>
+              <strong className="mt-1 block text-sm text-text-primary tabular-nums">
+                {count.toLocaleString("ko-KR")}건
+              </strong>
+            </span>
+            <span>
+              <span className="block text-[11px] text-text-muted">평균 객단가</span>
+              <strong className="mt-1 block truncate text-sm text-text-primary tabular-nums">
+                {won(average)}
+              </strong>
+            </span>
+            {!restricted && (
+              <span>
+                <span className="block text-[11px] text-text-muted">전체 비중</span>
+                <strong className="mt-1 block text-sm text-text-primary tabular-nums">
+                  {share.toFixed(1)}%
+                </strong>
+              </span>
+            )}
+          </span>
+        </span>
+      </button>
+    </Card>
+  );
 }
 
 export function RecentSales({ rows, onOpen }: { rows: DashboardSale[]; onOpen: () => void }) {

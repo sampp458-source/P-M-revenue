@@ -84,10 +84,12 @@ export function DashboardDateDrawer({
               <CalendarDays size={18} />
             </span>
             <div className="min-w-0">
-              <h2 id={titleId} className="font-bold text-text-primary">
-                {date} 매출
+              <h2 id={titleId} className="text-lg font-bold tracking-[-0.02em] text-text-primary tabular-nums">
+                {date}
               </h2>
-              <p className="mt-1 truncate text-xs text-text-muted">{unitName}</p>
+              <p className="mt-0.5 truncate text-xs text-text-muted">
+                {unitName} · 날짜별 거래 상세
+              </p>
             </div>
           </div>
           <button
@@ -102,21 +104,23 @@ export function DashboardDateDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
-          <div className="grid grid-cols-2 gap-2">
-            <Summary label="총 매출" value={won(summary.revenue)} />
-            <Summary label="실매출" value={won(summary.net)} featured />
-            <Summary label="환불" value={won(summary.refund)} />
-            <Summary label="거래 건수" value={`${summary.count}건`} />
+          <div className="overflow-hidden rounded-2xl bg-[#172f4d] p-5 text-white shadow-[0_14px_30px_rgba(23,47,77,0.14)] sm:p-6">
+            <p className="text-xs font-semibold text-blue-200">총 매출</p>
+            <strong className="mt-2 block text-[clamp(2rem,8vw,2.75rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
+              {won(summary.revenue)}
+            </strong>
+            <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/10 pt-4">
+              <Summary label="실매출" value={won(summary.net)} />
+              <Summary label="미수" value={won(summary.outstanding)} warning={summary.outstanding > 0} />
+              <Summary label="환불" value={won(summary.refund)} warning={summary.refund > 0} />
+            </div>
           </div>
 
-          <div className="mb-3 mt-6 flex items-center justify-between gap-3">
+          <div className="mb-3 mt-7 flex items-end justify-between gap-3">
             <div>
               <h3 className="font-semibold text-text-primary">거래 목록</h3>
-              <p className="mt-1 text-xs text-text-muted">
-                취소 매출은 목록에 표시하고 합계에서는 제외합니다.
-              </p>
             </div>
-            <Badge tone="blue">{rows.length}건</Badge>
+            <Badge tone="blue">{summary.count.toLocaleString("ko-KR")}건</Badge>
           </div>
 
           {rows.length ? (
@@ -126,40 +130,42 @@ export function DashboardDateDrawer({
                   key={sale.id}
                   type="button"
                   onClick={() => onOpenSale(sale.id)}
-                  className="block min-h-11 w-full rounded-xl border border-border bg-surface-secondary p-4 text-left transition-colors hover:border-primary/25 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="group block min-h-11 w-full rounded-xl border border-border bg-surface p-3.5 text-left transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-primary/25 hover:bg-primary-subtle hover:shadow-[0_8px_20px_rgba(23,36,58,0.06)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <span className="flex items-start justify-between gap-3">
                     <span className="min-w-0">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <strong className="text-sm text-text-primary">
-                          {sale.productName}
-                        </strong>
-                        <Badge>{sale.businessUnitName}</Badge>
-                        <StatusBadge
-                          status={sale.status as
-                            | "normal"
-                            | "partial_refund"
-                            | "full_refund"
-                            | "cancelled"}
-                        />
-                      </span>
+                      <strong className="block truncate text-sm text-text-primary">
+                        {sale.productName}
+                      </strong>
                       <span className="mt-1 block text-xs text-text-secondary">
-                        {sale.customerName || "보호자 미등록"} · {sale.dogName}
+                        {sale.dogName || "(반려견 없음)"} · {sale.customerName || "보호자 미등록"}
                       </span>
                     </span>
-                    <span className="shrink-0 text-xs font-semibold text-text-muted tabular-nums">
-                      {timeLabel(sale.createdAt)}
+                    <span className="shrink-0 text-right">
+                      <strong className="block text-sm text-text-primary tabular-nums">
+                        {won(sale.paidAmount)}
+                      </strong>
+                      <span className="mt-1 block text-[11px] font-semibold text-text-muted tabular-nums">
+                        {timeLabel(sale.createdAt)}
+                      </span>
                     </span>
                   </span>
-                  <span className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border pt-3 text-xs sm:grid-cols-3">
-                    <Item label="결제" value={won(sale.paidAmount)} />
-                    <Item
-                      label="결제수단"
-                      value={paymentLabels[sale.paymentMethod] || sale.paymentMethod}
+                  <span className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
+                    <Badge>{sale.businessUnitName}</Badge>
+                    <StatusBadge
+                      status={sale.status as
+                        | "normal"
+                        | "partial_refund"
+                        | "full_refund"
+                        | "cancelled"}
                     />
-                    <Item label="담당자" value={sale.staffName || "미등록"} />
+                    <span className="ml-auto text-[11px] text-text-muted">
+                      {paymentLabels[sale.paymentMethod] || sale.paymentMethod} · {sale.staffName || "담당자 미등록"}
+                    </span>
                     {sale.refundAmount > 0 && (
-                      <Item label="환불" value={`-${won(sale.refundAmount)}`} warning />
+                      <span className="w-full text-right text-[11px] font-semibold text-error tabular-nums">
+                        환불 -{won(sale.refundAmount)}
+                      </span>
                     )}
                   </span>
                 </button>
@@ -186,32 +192,6 @@ export function DashboardDateDrawer({
 function Summary({
   label,
   value,
-  featured = false,
-}: {
-  label: string;
-  value: string;
-  featured?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-xl border p-3.5",
-        featured
-          ? "border-primary/20 bg-primary-subtle"
-          : "border-border bg-surface-secondary",
-      )}
-    >
-      <span className="block text-xs text-text-muted">{label}</span>
-      <strong className="mt-1 block text-base text-text-primary tabular-nums">
-        {value}
-      </strong>
-    </div>
-  );
-}
-
-function Item({
-  label,
-  value,
   warning = false,
 }: {
   label: string;
@@ -219,16 +199,14 @@ function Item({
   warning?: boolean;
 }) {
   return (
-    <span>
-      <span className="block text-text-muted">{label}</span>
-      <strong
-        className={cn(
-          "mt-0.5 block truncate text-text-primary tabular-nums",
-          warning && "text-error",
-        )}
-      >
+    <div className="min-w-0">
+      <span className="block text-[10px] font-semibold text-slate-300">{label}</span>
+      <strong className={cn(
+        "mt-1 block truncate text-sm text-white tabular-nums",
+        warning && "text-amber-200",
+      )}>
         {value}
       </strong>
-    </span>
+    </div>
   );
 }

@@ -4,10 +4,10 @@ import { useAuth } from "../auth/AuthContext";
 import { Button, ErrorState, PageHeader } from "../components/ui";
 import { won } from "../lib/format";
 import { supabase } from "../lib/supabase";
-import { BusinessUnitCard, DashboardSkeleton, MetricCard, RecentSales } from "./dashboard/DashboardSections";
+import { BusinessUnitCard, DashboardKpiHero, DashboardSkeleton, RecentSales } from "./dashboard/DashboardSections";
 import { DailyRevenueTrend, DashboardPeriodFilters, SalesHeatmapCalendar } from "./dashboard/DashboardRangeSections";
 import { DashboardDateDrawer } from "./dashboard/DashboardDateDrawer";
-import { calculateDailyRevenue, calculateRangeOverview, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodRange, dashboardSalesForDate, formatRevenueComparison, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale } from "./dashboard/dashboardMetrics";
+import { calculateDailyRevenue, calculateRangeOverview, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodRange, dashboardSalesForDate, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale } from "./dashboard/dashboardMetrics";
 
 const validPeriods = new Set<DashboardPeriod>(["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "custom"]);
 const validComparisons = new Set<DashboardCompare>(["day", "week", "month", "previous"]);
@@ -129,6 +129,24 @@ export function DashboardPage() {
     [comparisonRange, isAdmin, visibleRange],
   );
   const overview = useMemo(() => calculateRangeOverview(sales, units, visibleRange, visibleComparisonRange), [sales, units, visibleComparisonRange, visibleRange]);
+  const todayOverview = useMemo(
+    () =>
+      calculateRangeOverview(
+        sales,
+        units,
+        { from: today, to: today },
+        { from: shiftDay(today, -1), to: shiftDay(today, -1) },
+      ),
+    [sales, today, units],
+  );
+  const currentMonthRange = useMemo(
+    () => monthRange(today.slice(0, 7)),
+    [today],
+  );
+  const monthOverview = useMemo(
+    () => calculateRangeOverview(sales, units, currentMonthRange),
+    [currentMonthRange, sales, units],
+  );
   const coreDivisions = overview.divisions.filter((division) => coreCodes.has(division.code as BusinessUnitCode));
   const representedTotal = coreDivisions.reduce((total, division) => total + division.revenue, 0);
   const otherRevenue = Math.max(0, overview.total - representedTotal);
@@ -158,18 +176,27 @@ export function DashboardPage() {
   return <>
     <PageHeader title="대시보드" description={isAdmin ? "대표가 사업부와 날짜 흐름을 빠르게 읽는 경영 현황" : "오늘과 선택 날짜의 업무 매출을 빠르게 확인합니다."} />
     {isAdmin && <DashboardPeriodFilters period={period} range={range} unitName={selectedUnitName} compare={compare} onPeriod={selectPeriod} onCustom={selectCustomRange} onMovePeriod={moveRange} onCompare={(nextCompare) => updateQuery({ compare: nextCompare })} />}
+    {isAdmin && (
+      <section className="mb-8" aria-label="오늘 핵심 매출 지표">
+        <DashboardKpiHero
+          todayRevenue={todayOverview.total}
+          todayCount={todayOverview.count}
+          monthRevenue={monthOverview.total}
+          monthCount={monthOverview.count}
+          monthAverage={monthOverview.average}
+          outstanding={monthOverview.outstanding}
+          refund={monthOverview.refund}
+        />
+      </section>
+    )}
     <section aria-labelledby="business-unit-overview-title">
-      <div className="mb-3 flex items-end justify-between gap-3"><div><h2 id="business-unit-overview-title" className="text-lg font-bold text-text-primary">사업부 현황</h2><p className="mt-1 text-xs text-text-muted">{isAdmin ? "카드를 선택하면 아래 추이와 캘린더가 해당 사업부 기준으로 바뀝니다." : `${selectedDate} 기준 · 카드를 선택하면 날짜 상세도 함께 필터링됩니다.`}</p></div>{unitId && <Button type="button" variant="ghost" onClick={() => updateQuery({ unit: null })}>전체 보기</Button>}</div>
+      <div className="mb-4 flex items-end justify-between gap-3"><div><h2 id="business-unit-overview-title" className="text-lg font-bold text-text-primary">사업부 현황</h2><p className="mt-1 text-xs text-text-muted">{isAdmin ? "카드를 선택하면 아래 추이와 캘린더가 해당 사업부 기준으로 바뀝니다." : `${selectedDate} 기준 · 카드를 선택하면 날짜 상세도 함께 필터링됩니다.`}</p></div>{unitId && <Button type="button" variant="ghost" onClick={() => updateQuery({ unit: null })}>전체 보기</Button>}</div>
       <div className="grid gap-4 lg:grid-cols-3">{coreDivisions.map((division, index) => <BusinessUnitCard key={division.id} order={index + 1} name={division.name} revenue={division.revenue} previousRevenue={division.previousRevenue} compareLabel={compareLabel} share={overview.total > 0 ? (division.revenue / overview.total) * 100 : 0} count={division.count} average={division.average} restricted={!isAdmin} selected={unitId === division.id} onClick={() => updateQuery({ unit: unitId === division.id ? null : division.id })} />)}</div>
+      {isAdmin && otherRevenue > 0 && <p className="mt-3 rounded-xl border border-warning/20 bg-warning-soft px-4 py-3 text-sm text-text-secondary">기타·비활성 사업부 매출 {won(otherRevenue)}이 총매출에 포함되어 있습니다.</p>}
     </section>
-    {isAdmin && <section className="mt-7" aria-labelledby="company-summary-title">
-      <div className="mb-3"><h2 id="company-summary-title" className="text-lg font-bold text-text-primary">총매출</h2><p className="mt-1 text-xs text-text-muted">유치원·교육·호텔과 기타 사업부의 실매출을 모두 합산합니다.</p></div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><MetricCard label="총 실매출" value={won(overview.total)} description={`${compareLabel} 대비 · ${formatRevenueComparison(overview.total, overview.previousTotal)}`} /><MetricCard label="총 건수" value={`${overview.count.toLocaleString("ko-KR")}건`} description="선택 기간 기준" /><MetricCard label="평균 객단가" value={won(overview.average)} description="실매출 ÷ 총 건수" /><MetricCard label="미수금" value={won(overview.outstanding)} description="실매출에서 중복 차감하지 않음" /><MetricCard label="환불" value={won(overview.refund)} description="선택 기간 환불액" /></div>
-      {otherRevenue > 0 && <p className="mt-3 rounded-xl border border-warning/20 bg-warning-soft px-4 py-3 text-sm text-text-secondary">기타·비활성 사업부 매출 {won(otherRevenue)}이 총매출에 포함되어 있습니다.</p>}
-    </section>}
-    <div className="mt-7"><SalesHeatmapCalendar month={calendarMonth} data={calendarData} totalData={calendarTotalData} unitName={selectedUnitName} today={today} selectedDate={selectedDate} hideAmounts={!isAdmin} onMonth={setCalendarMonth} onSelect={selectCalendarDate} /></div>
-    {isAdmin && <div className="mt-4"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={(date) => updateQuery({ day: date })} /></div>}
-    {isAdmin && <div className="mt-4"><RecentSales rows={recent} onOpen={() => navigate(`/sales?period=custom&start=${range.from}&end=${range.to}${unitId ? `&unit=${unitId}` : ""}`)} /></div>}
+    <div className="mt-8"><SalesHeatmapCalendar month={calendarMonth} data={calendarData} totalData={calendarTotalData} unitName={selectedUnitName} today={today} selectedDate={selectedDate} hideAmounts={!isAdmin} onMonth={setCalendarMonth} onSelect={selectCalendarDate} /></div>
+    {isAdmin && <div className="mt-6"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={(date) => updateQuery({ day: date })} /></div>}
+    {isAdmin && <div className="mt-6"><RecentSales rows={recent} onOpen={() => navigate(`/sales?period=custom&start=${range.from}&end=${range.to}${unitId ? `&unit=${unitId}` : ""}`)} /></div>}
     <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} summary={selectedDateSummary} rows={selectedDateSales} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onOpenSales={() => openSales(selectedDate, unitId)} />
   </>;
 }
