@@ -82,6 +82,7 @@ import {
 import { paymentMethodLabels, paymentSummary, type SalePaymentRow } from "./salePaymentLogic";
 import { normalizePaymentRows, paymentRowsTotal } from "./salePaymentLogic";
 import {
+  detailProductName,
   detailPaymentRows,
   formatQuantityWithUnit,
   refundDetailKinds,
@@ -2046,58 +2047,80 @@ function SaleDetailContent({
   const canRefund = admin && sale.status !== "cancelled" && sale.refundAmount < sale.paidAmount;
   const hasActions = editable || admin;
   const customerType = sale.customerType === "new" ? "신규" : sale.customerType === "renewal" ? "재등록" : sale.customerType || "미지정";
+  const productDisplayName = detailProductName(
+    sale.productName,
+    sale.unitLabel,
+  );
+  const quantityDisplay = formatQuantityWithUnit(
+    sale.quantity,
+    sale.unitLabel,
+  );
 
   return (
-    <div className="space-y-6">
-      <section className="overflow-hidden rounded-2xl bg-[#172f4d] text-white" aria-labelledby="sale-summary-title">
-        <div className="grid gap-0 lg:grid-cols-[minmax(0,1.35fr)_minmax(360px,1fr)]">
-          <div className="min-w-0 p-5 sm:p-6 lg:p-7">
-            <div className="flex flex-wrap items-center gap-2">
-              <StatusBadge status={sale.status} />
-              {hasOutstanding(sale) && <StatusBadge status="outstanding" />}
-            </div>
-            <h3 id="sale-summary-title" className="mt-4 break-words text-2xl font-bold tracking-[-0.03em] text-white sm:text-3xl">
+    <div className="space-y-7">
+      <section className="overflow-hidden rounded-[22px] border border-slate-700/50 bg-[#172f4d] text-white" aria-labelledby="sale-summary-title">
+        <div className="grid gap-0 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.05fr)]">
+          <div className="min-w-0 p-5 sm:p-7 lg:p-8">
+            <HeroStatusBadges sale={sale} />
+            <h3 id="sale-summary-title" className="mt-5 break-words text-2xl font-bold tracking-[-0.035em] text-white sm:text-3xl">
               {sale.dogName || "(반려견 없음)"}
             </h3>
-            <p className="mt-1 text-sm text-slate-300">
+            <p className="mt-2 break-words text-sm leading-6 text-slate-300">
               {sale.customerName?.trim() || "보호자 이름 없음"}
               {sale.customerPhone?.trim() ? ` · ${sale.customerPhone}` : ""}
             </p>
-            <dl className="mt-6 grid gap-x-6 gap-y-3 border-t border-white/15 pt-5 text-sm sm:grid-cols-3">
+            <dl className="mt-7 grid gap-x-6 gap-y-4 border-t border-white/15 pt-5 text-sm sm:grid-cols-3">
               <DetailHeroText label="사업부" value={sale.businessUnitName} />
               <DetailHeroText label="담당자" value={sale.staffName || "미지정"} />
               <DetailHeroText label="매출일" value={koDate(sale.saleDate)} />
             </dl>
           </div>
-          <div className="grid grid-cols-2 border-t border-white/15 bg-white/[0.04] lg:border-l lg:border-t-0">
-            <DetailHeroAmount label="최종 판매금액" value={finalSaleAmount} primary />
-            <DetailHeroAmount label="결제 완료" value={sale.paidAmount} />
-            <DetailHeroAmount label="미수금" value={sale.outstandingAmount} warning={sale.outstandingAmount > 0} />
-            <DetailHeroAmount label="환불금액" value={sale.refundAmount} danger={sale.refundAmount > 0} />
+          <div className="border-t border-white/15 bg-white/[0.045] p-5 sm:p-7 lg:border-l lg:border-t-0 lg:p-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.1em] text-blue-200">
+              최종 판매금액
+            </p>
+            <strong className="mt-2 block break-keep text-right text-[clamp(2.35rem,6vw,4rem)] font-bold leading-none tracking-[-0.055em] text-white tabular-nums">
+              {won(finalSaleAmount)}
+            </strong>
+            <div className="mt-7 grid grid-cols-3 overflow-hidden rounded-2xl border border-white/10 bg-black/10">
+              <DetailHeroAmount label="결제 완료" value={sale.paidAmount} />
+              <DetailHeroAmount label="미수" value={sale.outstandingAmount} warning={sale.outstandingAmount > 0} />
+              <DetailHeroAmount label="환불" value={sale.refundAmount} danger={sale.refundAmount > 0} />
+            </div>
           </div>
         </div>
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-start">
-        <div className="overflow-hidden rounded-2xl border border-border bg-surface px-5 sm:px-6">
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface px-5 [&>section:first-child]:border-t-0 sm:px-7">
       <DetailSection title="판매 항목">
-        <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="grid gap-5 border-b border-border pb-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
           <div className="min-w-0">
-            <strong className="block break-words text-base text-text-primary">{sale.productName}</strong>
-            <span className="mt-1 block text-xs text-text-muted">{sale.categoryName}</span>
+            <span className="block text-xs font-semibold text-text-muted">상품</span>
+            <strong className="mt-2 block break-words text-xl font-bold tracking-[-0.02em] text-text-primary">
+              {productDisplayName}
+            </strong>
+            <p className="mt-2 break-words text-sm font-medium text-text-secondary tabular-nums">
+              {quantityDisplay} × {won(sale.unitPrice)}
+            </p>
+            {sale.categoryName && (
+              <Badge tone="gray">{sale.categoryName}</Badge>
+            )}
           </div>
-          <p className="shrink-0 text-base font-semibold text-text-primary tabular-nums">
-            {won(sale.unitPrice)} × {formatQuantityWithUnit(sale.quantity, sale.unitLabel)}
-          </p>
+          <div className="text-right">
+            <span className="block text-xs font-medium text-text-muted">기준금액</span>
+            <strong className="mt-1 block whitespace-nowrap text-2xl font-bold tracking-[-0.03em] text-text-primary tabular-nums">
+              {won(sale.originalAmount)}
+            </strong>
+          </div>
         </div>
-        <dl className="mt-3 space-y-2">
-          <DetailAmountRow label="기준금액" value={sale.originalAmount} />
+        <dl className="mt-5 space-y-3">
           {sale.additionalAmount > 0 && <DetailAmountRow label="추가금액" value={sale.additionalAmount} />}
           {sale.discountAmount > 0 && <DetailAmountRow label="할인금액" value={-sale.discountAmount} />}
           {sale.additionalAmount === 0 && sale.discountAmount === 0 && (
             <p className="text-xs text-text-muted">추가금액과 할인금액 없음</p>
           )}
-          <DetailAmountRow label="최종 판매금액" value={finalSaleAmount} emphasized />
+          <DetailAmountRow label="최종 판매금액" value={finalSaleAmount} emphasized prominent />
         </dl>
         {sale.adjustmentNote && (
           <p className="mt-3 rounded-xl bg-surface-secondary px-3 py-2.5 text-sm leading-6 text-text-secondary">
@@ -2124,7 +2147,7 @@ function SaleDetailContent({
         )}
       </DetailSection>
 
-      <DetailSection title="환불 내역">
+      <DetailSection title="환불 내역" tone={sale.refundAmount > 0 ? "warning" : "default"}>
         {refundsLoading ? (
           <LoadingState />
         ) : refundsError ? (
@@ -2175,13 +2198,22 @@ function SaleDetailContent({
       </DetailSection>
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-border bg-surface px-5 sm:px-6">
+        <div className="overflow-hidden rounded-2xl border border-border bg-surface px-5 [&>section:first-child]:border-t-0 sm:px-6">
       <DetailSection title="고객·반려견 정보">
-        <dl className="grid gap-x-6 gap-y-4 sm:grid-cols-2">
-          <DetailText label="보호자" value={sale.customerName?.trim() || "보호자 이름 없음"} />
-          <DetailText label="연락처" value={sale.customerPhone?.trim() || "연락처 없음"} />
-          <DetailText label="반려견" value={sale.dogName || "(반려견 없음)"} />
-          <DetailText label="고객 구분" value={customerType} />
+        <dl>
+          <div className="border-b border-border pb-5">
+            <dt className="text-xs font-semibold text-text-muted">반려견</dt>
+            <dd className="mt-2 break-words text-2xl font-bold tracking-[-0.025em] text-text-primary">
+              {sale.dogName || "(반려견 없음)"}
+            </dd>
+          </div>
+          <div className="grid gap-x-6 gap-y-5 pt-5 sm:grid-cols-2">
+            <DetailText label="보호자" value={sale.customerName?.trim() || "보호자 이름 없음"} important />
+            <DetailText label="연락처" value={sale.customerPhone?.trim() || "연락처 없음"} />
+            <DetailText label="사업부" value={sale.businessUnitName} />
+            <DetailText label="담당자" value={sale.staffName || "담당자 미지정"} />
+            <DetailText label="고객 구분" value={customerType} />
+          </div>
         </dl>
       </DetailSection>
 
@@ -2245,15 +2277,25 @@ function SaleDetailContent({
       </div>
 
       {hasActions && (
-        <section className="rounded-2xl border border-border bg-surface-secondary p-4 sm:flex sm:items-center sm:justify-between sm:gap-6" aria-labelledby="sale-actions-title">
+        <section className="rounded-2xl border border-border bg-surface p-4 sm:p-5 lg:flex lg:items-center lg:justify-between lg:gap-6" aria-labelledby="sale-actions-title">
           <div>
             <h3 id="sale-actions-title" className="text-sm font-semibold text-text-primary">거래 관리</h3>
-            <p className="mt-1 text-xs text-text-muted">수정·고객 연결·결제 수정은 일반 수정에서 처리합니다.</p>
+            <p className="mt-1 text-xs leading-5 text-text-muted">권한과 거래 상태에 따라 가능한 작업만 표시합니다.</p>
           </div>
-          <div className="mt-4 flex flex-wrap gap-2 sm:mt-0 sm:justify-end">
-            {editable && <Button type="button" variant="secondary" onClick={onEdit}><Pencil size={15} />수정</Button>}
-            {canRefund && <Button type="button" className="border-warning/30 bg-warning-soft text-warning hover:bg-warning-soft" variant="secondary" onClick={onRefund}>환불</Button>}
-            {admin && sale.status !== "cancelled" && <Button type="button" variant="danger" onClick={onCancel}><Undo2 size={15} />매출 취소</Button>}
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:mt-0 lg:justify-end">
+            {editable && (
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" onClick={onEdit}><Pencil size={15} />수정</Button>
+                <Button type="button" variant="ghost" onClick={onEdit}>결제 수정</Button>
+                <Button type="button" variant="ghost" onClick={onEdit}>고객 연결</Button>
+              </div>
+            )}
+            {(canRefund || (admin && sale.status !== "cancelled")) && (
+              <div className="flex flex-wrap gap-2 border-t border-border pt-3 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
+                {canRefund && <Button type="button" className="border-warning/30 bg-warning-soft text-warning hover:border-warning/50 hover:bg-warning-soft" variant="secondary" onClick={onRefund}>환불</Button>}
+                {admin && sale.status !== "cancelled" && <Button type="button" variant="danger" onClick={onCancel}><Undo2 size={15} />매출 취소</Button>}
+              </div>
+            )}
             {admin && sale.status === "cancelled" && <Button type="button" variant="secondary" onClick={onReopen}><RotateCcw size={15} />취소 복구</Button>}
           </div>
         </section>
@@ -2271,26 +2313,47 @@ function DetailHeroText({ label, value }: { label: string; value: string }) {
   );
 }
 
+function HeroStatusBadges({ sale }: { sale: SaleRow }) {
+  const label = {
+    normal: "정상",
+    partial_refund: "부분환불",
+    full_refund: "환불완료",
+    cancelled: "취소",
+  }[sale.status];
+  const tone = {
+    normal: "green",
+    partial_refund: "amber",
+    full_refund: "red",
+    cancelled: "red",
+  }[sale.status] as "green" | "amber" | "red";
+
+  return (
+    <div className="flex flex-wrap items-center gap-2" aria-label="거래 상태">
+      <Badge tone={tone}>{label}</Badge>
+      {hasOutstanding(sale) && sale.status !== "cancelled" && (
+        <Badge tone="amber">미수</Badge>
+      )}
+    </div>
+  );
+}
+
 function DetailHeroAmount({
   label,
   value,
-  primary = false,
   warning = false,
   danger = false,
 }: {
   label: string;
   value: number;
-  primary?: boolean;
   warning?: boolean;
   danger?: boolean;
 }) {
   return (
-    <div className="min-w-0 border-b border-r border-white/10 p-4 last:border-b-0 sm:p-5 lg:[&:nth-child(3)]:border-b-0">
+    <div className="min-w-0 border-r border-white/10 p-3.5 last:border-r-0 sm:p-4">
       <dt className="text-xs font-medium text-slate-300">{label}</dt>
       <dd
         className={cn(
-          "mt-1 whitespace-nowrap font-bold tabular-nums tracking-[-0.025em]",
-          primary ? "text-xl text-white sm:text-2xl" : "text-lg text-slate-100",
+          "mt-1 whitespace-nowrap text-right text-base font-bold tabular-nums tracking-[-0.025em] text-slate-100 sm:text-lg",
           warning && "text-amber-300",
           danger && "text-rose-300",
         )}
@@ -2301,10 +2364,29 @@ function DetailHeroAmount({
   );
 }
 
-function DetailSection({ title, description, compact = false, children }: { title: string; description?: string; compact?: boolean; children: ReactNode }) {
+function DetailSection({
+  title,
+  description,
+  compact = false,
+  tone = "default",
+  children,
+}: {
+  title: string;
+  description?: string;
+  compact?: boolean;
+  tone?: "default" | "warning";
+  children: ReactNode;
+}) {
   return (
-    <section className={cn("border-t border-border", compact ? "py-5" : "py-6")}>
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+    <section
+      className={cn(
+        "border-t border-border",
+        compact ? "py-5" : "py-7",
+        tone === "warning" &&
+          "-mx-3 my-3 rounded-xl border border-warning/15 bg-warning-soft/50 px-3",
+      )}
+    >
+      <div className="mb-5 flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-base font-semibold text-text-primary">{title}</h3>
         {description && <span className="text-xs font-medium text-text-muted">{description}</span>}
       </div>
@@ -2313,17 +2395,44 @@ function DetailSection({ title, description, compact = false, children }: { titl
   );
 }
 
-function DetailAmountRow({ label, value, emphasized = false, warning = false, className }: { label: string; value: number; emphasized?: boolean; warning?: boolean; className?: string }) {
+function DetailAmountRow({
+  label,
+  value,
+  emphasized = false,
+  prominent = false,
+  warning = false,
+  className,
+}: {
+  label: string;
+  value: number;
+  emphasized?: boolean;
+  prominent?: boolean;
+  warning?: boolean;
+  className?: string;
+}) {
   return (
-    <div className={cn("flex items-baseline justify-between gap-4", emphasized && "border-t border-border pt-3", className)}>
+    <div className={cn("flex items-baseline justify-between gap-4", emphasized && "border-t border-border pt-4", className)}>
       <dt className={cn("text-sm text-text-secondary", emphasized && "font-semibold text-text-primary")}>{label}</dt>
-      <dd className={cn("shrink-0 text-right text-sm font-semibold text-text-primary tabular-nums", emphasized && "text-lg text-primary", warning && "text-warning")}>{won(value)}</dd>
+      <dd className={cn("shrink-0 text-right text-sm font-semibold text-text-primary tabular-nums", emphasized && "text-lg text-primary", prominent && "text-xl font-bold", warning && "text-warning")}>{won(value)}</dd>
     </div>
   );
 }
 
-function DetailText({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-0"><dt className="text-xs font-medium text-text-muted">{label}</dt><dd className="mt-1 break-words text-sm font-medium text-text-primary">{value}</dd></div>;
+function DetailText({
+  label,
+  value,
+  important = false,
+}: {
+  label: string;
+  value: string;
+  important?: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs font-medium text-text-muted">{label}</dt>
+      <dd className={cn("mt-1 break-words text-sm font-medium text-text-primary", important && "text-base font-semibold")}>{value}</dd>
+    </div>
+  );
 }
 
 function DetailMemo({ label, value }: { label: string; value: string }) {

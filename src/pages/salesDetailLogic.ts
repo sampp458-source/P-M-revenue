@@ -19,6 +19,20 @@ export function formatQuantityWithUnit(
   return `${quantity}${unit}`;
 }
 
+export function detailProductName(
+  productName: string,
+  unitLabel: string | null,
+) {
+  const name = productName.trim();
+  const unit = (unitLabel ?? "").trim().replace(/^1\s*(?=[^0-9])/, "");
+  if (!name || !unit) return name;
+  const escapedUnit = unit.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const withoutUnit = name
+    .replace(new RegExp(`\\s+(?:1\\s*)?${escapedUnit}$`), "")
+    .trim();
+  return withoutUnit || name;
+}
+
 export function detailPaymentRows(
   rows: SalePaymentRow[],
   fallbackMethod: string,
