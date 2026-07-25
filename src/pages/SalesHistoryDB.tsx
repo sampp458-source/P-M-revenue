@@ -1292,53 +1292,84 @@ export function SalesHistoryPage() {
         </>
       )}
       <FilterToolbar className="gap-4">
-        <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-[160px_160px_160px_minmax(280px,1fr)_auto]">
-          <Select
-            aria-label="조회 기간"
-            value={period}
-            onChange={(event) =>
-              updateParams({
-                period:
-                  event.target.value === "month" ? null : event.target.value,
-                start: null,
-                end: null,
-              })
-            }
-          >
-            {Object.entries(periodLabel).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
-          <Select
-            aria-label="사업부 필터"
-            value={unitId}
-            onChange={(event) =>
-              updateParams({ unit: event.target.value || null })
-            }
-          >
-            <option value="">전체 사업부</option>
-            {units.map(([id, name]) => (
-              <option key={id} value={id}>
-                {name}
-              </option>
-            ))}
-          </Select>
-          <Select
-            aria-label="상태 필터"
-            value={status}
-            onChange={(event) =>
-              updateParams({ status: event.target.value || null })
-            }
-          >
-            {Object.entries(statusLabel).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </Select>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
+            <h2 className="text-sm font-semibold text-text-primary">
+              매출 찾기
+            </h2>
+            <p className="mt-1 text-xs text-text-muted">
+              기간과 사업부를 먼저 선택하고 필요한 경우 검색하세요.
+            </p>
+          </div>
+          <span className="text-xs font-medium text-text-secondary tabular-nums">
+            현재 결과 {filtered.length.toLocaleString("ko-KR")}건
+          </span>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[150px_150px_150px_minmax(260px,1fr)_auto]">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-text-secondary">
+              기간
+            </span>
+            <Select
+              aria-label="조회 기간"
+              value={period}
+              onChange={(event) =>
+                updateParams({
+                  period:
+                    event.target.value === "month" ? null : event.target.value,
+                  start: null,
+                  end: null,
+                })
+              }
+            >
+              {Object.entries(periodLabel).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-text-secondary">
+              사업부
+            </span>
+            <Select
+              aria-label="사업부 필터"
+              value={unitId}
+              onChange={(event) =>
+                updateParams({ unit: event.target.value || null })
+              }
+            >
+              <option value="">전체 사업부</option>
+              {units.map(([id, name]) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-text-secondary">
+              상태
+            </span>
+            <Select
+              aria-label="상태 필터"
+              value={status}
+              onChange={(event) =>
+                updateParams({ status: event.target.value || null })
+              }
+            >
+              {Object.entries(statusLabel).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-text-secondary">
+              검색
+            </span>
             <SearchBox
               aria-label="매출 내역 검색"
               placeholder="반려견, 보호자, 연락처, 상품 검색"
@@ -1355,10 +1386,11 @@ export function SalesHistoryPage() {
                 검색 중
               </p>
             )}
-          </div>
+          </label>
           <Button
             type="button"
             variant="secondary"
+            className="md:self-end"
             aria-expanded={advancedOpen}
             onClick={() => setAdvancedOpen(true)}
           >
@@ -1468,7 +1500,7 @@ export function SalesHistoryPage() {
           <span className="text-xs text-text-muted">검색 결과 갱신 중…</span>
         )}
       </div>
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden shadow-none">
         {loading ? (
           <LoadingState />
         ) : loadError ? (
@@ -1486,7 +1518,7 @@ export function SalesHistoryPage() {
                 onOpen={showDetail}
               />
             </div>
-            <div className="divide-y divide-border xl:hidden">
+            <div className="grid gap-3 bg-surface-secondary/60 p-3 md:grid-cols-2 xl:hidden">
               {rows.map((sale) => (
                 <SaleMobileCard
                   key={sale.id}
@@ -2830,16 +2862,16 @@ function SalesTable({
   onOpen: (sale: SaleRow) => void;
 }) {
   return (
-    <Table className="min-w-[920px]">
+    <Table className="min-w-[1040px]">
       <thead>
         <tr>
-          <th>등록일시</th>
           <th>반려견·보호자</th>
-          <th>사업부</th>
-          <th>상품</th>
           <th data-numeric>최종금액</th>
-          <th>결제상태</th>
+          <th>상태</th>
+          <th>상품</th>
+          <th>사업부</th>
           <th>담당자</th>
+          <th>날짜</th>
           <th className="text-right">더보기</th>
         </tr>
       </thead>
@@ -2849,49 +2881,33 @@ function SalesTable({
             key={sale.id}
             tabIndex={0}
             aria-label={`${sale.dogName} ${sale.productName} 매출 상세 보기`}
-            className="cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+            className="group cursor-pointer outline-none transition-[filter] duration-200 hover:drop-shadow-[0_3px_6px_rgba(23,36,58,0.06)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary [&>td]:transition-[background-color,border-color] [&>td]:duration-200 hover:[&>td]:border-primary/15 hover:[&>td]:bg-primary-subtle/70"
             onClick={() => onOpen(sale)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") onOpen(sale);
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onOpen(sale);
+              }
             }}
           >
             <td>
-              <span className="block font-medium text-text-primary">
-                {koDate(sale.saleDate)}
-              </span>
-              <span className="mt-0.5 block text-xs text-text-muted">
-                {dateTime(sale.createdAt)}
-              </span>
-            </td>
-            <td>
-              <div className="flex items-start gap-2">
+              <div className="flex min-w-0 items-start gap-2">
                 <div className="min-w-0">
-                  <strong className="block max-w-44 truncate text-text-primary">
+                  <strong className="block max-w-48 truncate text-[0.9375rem] font-bold tracking-[-0.01em] text-text-primary">
                     {sale.dogName}
                   </strong>
-                  <span className="mt-0.5 block max-w-44 truncate text-xs text-text-muted">
+                  <span className="mt-1 block max-w-48 truncate text-xs font-medium text-text-secondary">
                     {sale.customerName || "보호자 미등록"}
                   </span>
-                  <span className="mt-0.5 block text-[11px] text-text-muted">
+                  <span className="mt-0.5 block text-[11px] text-text-muted tabular-nums">
                     {maskPhone(sale.customerPhone)}
                   </span>
                 </div>
                 <DuplicateBadge warning={duplicateWarnings.get(sale.id)} />
               </div>
             </td>
-            <td>
-              <span className="font-medium text-text-primary">{sale.businessUnitName}</span>
-            </td>
-            <td>
-              <span className="block max-w-48 truncate font-medium text-text-primary">
-                {sale.productName}
-              </span>
-              <span className="mt-0.5 block max-w-48 truncate text-xs text-text-muted">
-                수량 {sale.quantity}
-              </span>
-            </td>
-            <td data-numeric>
-              <strong className="block font-semibold text-text-primary">
+            <td data-numeric className="min-w-36">
+              <strong className="block text-base font-bold tracking-[-0.025em] text-text-primary tabular-nums">
                 {won(
                   calculateFinalSaleAmount(
                     sale.originalAmount,
@@ -2900,20 +2916,43 @@ function SalesTable({
                   ),
                 )}
               </strong>
-              <span className="mt-0.5 block text-xs text-text-muted">
+              <span className="mt-1 block text-[11px] text-text-muted tabular-nums">
                 실매출 {won(sale.netAmount)}
               </span>
             </td>
             <td>
               <SaleStatusBadges sale={sale} />
-              <span className="mt-1 block max-w-36 truncate text-xs text-text-muted">
+              <span className="mt-1.5 block max-w-36 truncate text-[11px] text-text-muted">
                 {paymentSummary(sale.paymentRows, sale.paymentMethod, sale.paidAmount)}
               </span>
             </td>
             <td>
-              <span className="block max-w-28 truncate">{sale.staffName || "-"}</span>
-              <span className="mt-0.5 block max-w-28 truncate text-xs text-text-muted">
+              <span className="block max-w-48 truncate font-semibold text-text-primary">
+                {sale.productName}
+              </span>
+              <span className="mt-1 block max-w-48 truncate text-xs text-text-muted">
+                {formatQuantityWithUnit(sale.quantity, sale.unitLabel)}
+                {" · "}
+                {won(sale.unitPrice)}
+              </span>
+            </td>
+            <td>
+              <Badge tone="blue">{sale.businessUnitName}</Badge>
+            </td>
+            <td>
+              <span className="block max-w-28 truncate font-medium text-text-primary">
+                {sale.staffName || "-"}
+              </span>
+              <span className="mt-1 block max-w-28 truncate text-[11px] text-text-muted">
                 등록 {profileNames[sale.createdBy] || sale.registrarName || "-"}
+              </span>
+            </td>
+            <td>
+              <span className="block font-medium text-text-primary tabular-nums">
+                {koDate(sale.saleDate)}
+              </span>
+              <span className="mt-1 block text-[11px] text-text-muted tabular-nums">
+                {dateTime(sale.createdAt)}
               </span>
             </td>
             <td
@@ -2951,68 +2990,72 @@ function SaleMobileCard({
   onOpen: () => void;
 }) {
   return (
-    <article
-      role="button"
-      tabIndex={0}
+    <button
+      type="button"
       aria-label={`${sale.dogName} ${sale.productName} 매출 상세 보기`}
-      className="cursor-pointer p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+      className="group w-full rounded-2xl border border-border bg-surface p-4 text-left shadow-[0_1px_2px_rgba(23,36,58,0.03)] outline-none transition-[background-color,border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:bg-primary-subtle/40 hover:shadow-[0_8px_18px_rgba(23,36,58,0.07)] focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transform-none motion-reduce:transition-none"
       onClick={onOpen}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") onOpen();
-      }}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <strong className="max-w-44 truncate text-base text-text-primary">
+            <strong className="max-w-52 truncate text-lg font-bold tracking-[-0.02em] text-text-primary">
               {sale.dogName}
             </strong>
             <DuplicateBadge warning={warning} />
           </div>
-          <p className="mt-1 truncate text-sm text-text-secondary">
+          <p className="mt-1 truncate text-sm font-medium text-text-secondary">
             {sale.customerName || "보호자 미등록"} ·{" "}
             {maskPhone(sale.customerPhone)}
           </p>
         </div>
         <SaleStatusBadges sale={sale} compact />
       </div>
-      <div className="mt-4 rounded-xl bg-surface-secondary p-3">
-        <strong className="block truncate text-sm text-text-primary">
+      <div className="mt-4 flex items-end justify-between gap-4 border-y border-border py-3.5">
+        <div className="min-w-0">
+          <span className="block text-[11px] font-semibold text-text-muted">
+            상품
+          </span>
+          <strong className="mt-1 block truncate text-sm text-text-primary">
           {sale.productName}
-        </strong>
-        <span className="mt-1 block truncate text-xs text-text-muted">
-          {sale.businessUnitName} · 수량 {sale.quantity}
-        </span>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <div>
-            <span className="block text-[11px] text-text-muted">최종금액</span>
-            <b className="mt-0.5 block tabular-nums text-text-primary">
-              {won(
-                calculateFinalSaleAmount(
-                  sale.originalAmount,
-                  sale.additionalAmount,
-                  sale.discountAmount,
-                ),
-              )}
-            </b>
-          </div>
-          <div className="text-right">
-            <span className="block text-[11px] text-text-muted">실매출</span>
-            <b className="mt-0.5 block tabular-nums text-primary">
-              {won(sale.netAmount)}
-            </b>
-          </div>
+          </strong>
+          <span className="mt-1 block truncate text-xs text-text-muted">
+            {sale.businessUnitName} ·{" "}
+            {formatQuantityWithUnit(sale.quantity, sale.unitLabel)}
+          </span>
         </div>
+        <div className="shrink-0 text-right">
+          <span className="block text-[11px] font-semibold text-text-muted">
+            최종금액
+          </span>
+          <b className="mt-1 block text-lg font-bold tracking-[-0.025em] text-text-primary tabular-nums">
+            {won(
+              calculateFinalSaleAmount(
+                sale.originalAmount,
+                sale.additionalAmount,
+                sale.discountAmount,
+              ),
+            )}
+          </b>
+        </div>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs">
+        <p className="text-text-secondary">
+          실매출{" "}
+          <strong className="font-semibold text-primary tabular-nums">
+            {won(sale.netAmount)}
+          </strong>
+        </p>
+        <p className="text-text-muted">
+          {paymentSummary(sale.paymentRows, sale.paymentMethod, sale.paidAmount)}
+        </p>
         {(sale.refundAmount > 0 || sale.outstandingAmount > 0) && (
-          <p className="mt-2 text-xs text-text-secondary">
+          <p className="basis-full text-text-secondary tabular-nums">
             환불 {won(sale.refundAmount)} · 미수 {won(sale.outstandingAmount)}
           </p>
         )}
-        <p className="mt-2 text-xs text-text-secondary">
-          {paymentSummary(sale.paymentRows, sale.paymentMethod, sale.paidAmount)}
-        </p>
       </div>
-      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-text-muted">
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs text-text-muted">
         <div>
           <dt className="inline">매출일 </dt>
           <dd className="inline text-text-secondary">
@@ -3036,10 +3079,10 @@ function SaleMobileCard({
           <dd className="inline text-text-secondary">{registrarName}</dd>
         </div>
       </dl>
-      <p className="mt-3 border-t border-border pt-3 text-right text-xs font-semibold text-primary">
+      <p className="mt-3 border-t border-border pt-3 text-right text-xs font-semibold text-primary transition-colors group-hover:text-primary-hover">
         상세 보기
       </p>
-    </article>
+    </button>
   );
 }
 
