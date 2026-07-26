@@ -82,6 +82,40 @@ describe("payment ledger metrics", () => {
     });
   });
 
+  it("오등록 취소로 무효화된 최초 결제를 실수납에서 제외한다", () => {
+    const summary = calculateLedgerCashSummary(
+      sales,
+      [
+        payment({
+          id: "entry-error-initial",
+          amount: 1500000,
+          source: "initial",
+          voidedAt: "2026-07-26T03:00:00Z",
+        }),
+        payment({
+          id: "actual-payment",
+          saleId: "hotel-sale",
+          amount: 500000,
+          source: "initial",
+        }),
+      ],
+      [
+        refund({
+          id: "actual-refund",
+          saleId: "hotel-sale",
+          amount: 100000,
+        }),
+      ],
+      { from: "2026-07-26", to: "2026-07-26" },
+    );
+
+    expect(summary).toEqual({
+      paidAmount: 500000,
+      refundAmount: 100000,
+      netAmount: 400000,
+    });
+  });
+
   it("거래가 없는 날짜도 포함한 일별 실수납을 만든다", () => {
     const daily = calculateLedgerDaily(
       sales,

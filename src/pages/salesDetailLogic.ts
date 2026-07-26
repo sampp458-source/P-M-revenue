@@ -11,6 +11,14 @@ export interface RefundDetailRecord {
   voidedAt: string | null;
 }
 
+export function isEstimatedInitialPaymentDate(
+  source: string,
+  initialOutstandingEstimated: boolean,
+) {
+  // 장기적으로는 결제행별 payment_date_estimated 또는 date_source로 대체한다.
+  return source === "initial" && initialOutstandingEstimated;
+}
+
 export function formatQuantityWithUnit(
   quantity: number,
   unitLabel: string | null,

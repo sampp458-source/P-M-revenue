@@ -43,8 +43,11 @@ describe("salesHistoryLogic", () => {
 
   it("상태와 미수금을 별도로 필터링한다", () => {
     const outstanding = { ...baseSale, id: "sale-2", outstandingAmount: 50000 };
-    const refunded = { ...baseSale, id: "sale-3", status: "partial_refund" as const, refundAmount: 10000, netAmount: 290000 };
+    const refunded = { ...baseSale, id: "sale-3", status: "partial_refund" as const, refundAmount: 10000, outstandingAmount: 50000, netAmount: 290000 };
+    const cancelled = { ...outstanding, id: "sale-4", status: "cancelled" as const };
     expect(hasOutstanding(outstanding)).toBe(true);
+    expect(hasOutstanding(refunded)).toBe(true);
+    expect(hasOutstanding(cancelled)).toBe(false);
     expect(filterSales([baseSale, outstanding], { ...filters, status: "outstanding" }, "2026-07-13")).toEqual([outstanding]);
     expect(filterSales([baseSale, refunded], { ...filters, status: "partial_refund" }, "2026-07-13")).toEqual([refunded]);
   });

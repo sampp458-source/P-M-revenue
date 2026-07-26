@@ -3,6 +3,7 @@ import {
   detailProductName,
   detailPaymentRows,
   formatQuantityWithUnit,
+  isEstimatedInitialPaymentDate,
   refundDetailKinds,
 } from "./salesDetailLogic";
 
@@ -52,6 +53,15 @@ describe("salesDetailLogic", () => {
       { method: "transfer", amount: 100_000 },
       { method: "cash", amount: 200_000 },
     ]);
+  });
+
+  it("Migration 이전 최초 결제일만 추정값으로 구분한다", () => {
+    expect(isEstimatedInitialPaymentDate("initial", true)).toBe(true);
+    expect(
+      isEstimatedInitialPaymentDate("outstanding_collection", true),
+    ).toBe(false);
+    expect(isEstimatedInitialPaymentDate("adjustment", true)).toBe(false);
+    expect(isEstimatedInitialPaymentDate("initial", false)).toBe(false);
   });
 
   it("전체환불 거래의 마지막 유효 환불만 전체환불로 표시한다", () => {

@@ -114,7 +114,7 @@ export function periodRange(period: PeriodFilter, today: string, startDate = "",
 }
 
 export function hasOutstanding(sale: Pick<SalesHistoryRecord, "status" | "outstandingAmount">) {
-  return sale.status === "normal" && sale.outstandingAmount > 0;
+  return sale.status !== "cancelled" && sale.outstandingAmount > 0;
 }
 
 function matchesQuery(sale: SalesHistoryRecord, query: string) {

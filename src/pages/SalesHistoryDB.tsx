@@ -91,6 +91,7 @@ import {
   detailProductName,
   detailPaymentRows,
   formatQuantityWithUnit,
+  isEstimatedInitialPaymentDate,
   refundDetailKinds,
 } from "./salesDetailLogic";
 import {
@@ -118,6 +119,8 @@ interface SaleRow extends SalesHistoryRecord {
   paymentRows: SalePaymentRow[];
   paymentLedger: PaymentLedgerRow[];
   unitLabel: string | null;
+  initialOutstandingEstimated: boolean;
+  cancellationType: "entry_error" | "general" | "legacy" | null;
 }
 
 interface SaleQueryRow {
@@ -155,6 +158,8 @@ interface SaleQueryRow {
   created_at: string;
   updated_at: string;
   cancelled_at: string | null;
+  initial_outstanding_estimated?: boolean | null;
+  cancellation_type?: "entry_error" | "general" | "legacy" | null;
 }
 
 interface LinkedSalePartyRow {
@@ -264,8 +269,22 @@ const saleFieldsWithAdjustments = saleFieldsWithPricing.replace(
   "discount_amount,",
   "additional_amount, discount_amount, adjustment_note,",
 );
+const saleFieldsWithLedgerMetadata = `${saleFieldsWithAdjustments}, initial_outstanding_estimated`;
+const saleFieldsWithCancellationMetadata = `${saleFieldsWithLedgerMetadata}, cancellation_type`;
 
 async function loadSaleRows() {
+  const withCancellationMetadata = await supabase
+    .from("sales")
+    .select(saleFieldsWithCancellationMetadata)
+    .order("sale_date", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (!withCancellationMetadata.error) return withCancellationMetadata;
+  const withLedgerMetadata = await supabase
+    .from("sales")
+    .select(saleFieldsWithLedgerMetadata)
+    .order("sale_date", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (!withLedgerMetadata.error) return withLedgerMetadata;
   const withAdjustments = await supabase
     .from("sales")
     .select(saleFieldsWithAdjustments)
@@ -394,6 +413,11 @@ export function SalesHistoryPage() {
   const [refundDate, setRefundDate] = useState("");
   const [refundReason, setRefundReason] = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
+  const [cancellationType, setCancellationType] = useState<
+    "" | "general" | "entry_error"
+  >("");
+  const [confirmedNoPayment, setConfirmedNoPayment] = useState(false);
+  const [cancellationRequestId, setCancellationRequestId] = useState("");
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState("");
   const [notice, setNotice] = useState("");
@@ -552,6 +576,9 @@ export function SalesHistoryPage() {
           paymentRows: paymentsBySale.get(sale.id) ?? [],
           paymentLedger: paymentLedgerBySale.get(sale.id) ?? [],
           unitLabel: productUnits.get(sale.product_id) ?? null,
+          initialOutstandingEstimated:
+            sale.initial_outstanding_estimated ?? false,
+          cancellationType: sale.cancellation_type ?? null,
           paymentMethods: (paymentsBySale.get(sale.id) ?? []).map((row) => row.method),
           customerType: sale.customer_type,
           status: sale.status as SaleStatus,
@@ -934,9 +961,16 @@ export function SalesHistoryPage() {
   const mapError = (message: string, code?: string) =>
     code === "42501"
       ? "권한이 없습니다."
+      : code === "PGRST202" ||
+          message.includes("cancel_sale_as_entry_error")
+        ? profile?.role === "admin"
+          ? "오등록 취소를 사용하려면 DB 업데이트가 필요합니다."
+          : "현재 기능을 사용할 수 없습니다. 관리자에게 문의하세요."
       : message.includes("마감된 월")
         ? "마감된 월의 매출은 변경할 수 없습니다."
-        : message.includes("환불")
+        : ["환불", "오등록", "취소", "결제", "입금", "요청 ID"].some(
+              (keyword) => message.includes(keyword),
+            )
           ? message
         : "매출 정보를 변경하지 못했습니다.";
 
@@ -1099,22 +1133,49 @@ export function SalesHistoryPage() {
   };
 
   const cancelSale = async () => {
-    if (!cancelling) return;
+    if (!cancelling || saving) return;
+    if (!cancellationType) {
+      setActionError("취소 유형을 선택해 주세요.");
+      return;
+    }
     if (!cancellationReason.trim()) {
       setActionError("취소 사유를 입력해 주세요.");
       return;
     }
+    if (cancellationType === "entry_error" && !confirmedNoPayment) {
+      setActionError("실제 입금이 없었다는 확인이 필요합니다.");
+      return;
+    }
+    if (
+      cancellationType === "general" &&
+      (cancelling.paidAmount > 0 || cancelling.refundAmount > 0)
+    ) {
+      setActionError(
+        "결제 이력이 있는 거래는 환불 또는 오등록 취소를 사용해 주세요.",
+      );
+      return;
+    }
+
     setSaving(true);
     setActionError("");
-    const result = await supabase
-      .from("sales")
-      .update({
-        status: "cancelled",
-        cancellation_reason: cancellationReason.trim(),
-      })
-      .eq("id", cancelling.id)
-      .select("id")
-      .single();
+    const result =
+      cancellationType === "entry_error"
+        ? await supabase.rpc("cancel_sale_as_entry_error", {
+            p_sale_id: cancelling.id,
+            p_reason: cancellationReason.trim(),
+            p_confirm_no_payment: true,
+            p_request_id: cancellationRequestId,
+          })
+        : await supabase
+            .from("sales")
+            .update({
+              status: "cancelled",
+              cancellation_type: "general",
+              cancellation_reason: cancellationReason.trim(),
+            })
+            .eq("id", cancelling.id)
+            .select("id")
+            .single();
     setSaving(false);
     if (result.error) {
       setActionError(mapError(result.error.message, result.error.code));
@@ -1122,7 +1183,14 @@ export function SalesHistoryPage() {
     }
     setCancelling(null);
     setCancellationReason("");
-    setNotice("매출을 취소했습니다.");
+    setCancellationType("");
+    setConfirmedNoPayment(false);
+    setCancellationRequestId("");
+    setNotice(
+      cancellationType === "entry_error"
+        ? "오등록 거래와 연결된 결제 기록을 무효화했습니다."
+        : "매출을 취소했습니다.",
+    );
     await loadSales();
   };
 
@@ -1221,11 +1289,15 @@ export function SalesHistoryPage() {
 
   const reopenSale = async () => {
     if (!reopening) return;
+    const wasEntryError = reopening.cancellationType === "entry_error";
     setSaving(true);
     setActionError("");
     const result = await supabase
       .from("sales")
-      .update({ status: "normal" })
+      .update({
+        status: "normal",
+        cancellation_type: null,
+      })
       .eq("id", reopening.id)
       .select("id")
       .single();
@@ -1235,7 +1307,11 @@ export function SalesHistoryPage() {
       return;
     }
     setReopening(null);
-    setNotice("취소된 매출을 복구했습니다.");
+    setNotice(
+      wasEntryError
+        ? "매출을 복구했습니다. 무효화된 결제는 복원되지 않으므로 결제 상태를 확인해 주세요."
+        : "취소된 매출을 복구했습니다.",
+    );
     await loadSales();
   };
 
@@ -1745,6 +1821,9 @@ export function SalesHistoryPage() {
               closeDetail();
               setActionError("");
               setCancellationReason("");
+              setCancellationType("");
+              setConfirmedNoPayment(false);
+              setCancellationRequestId(crypto.randomUUID());
               setCancelling(selected);
             }}
             onReopen={() => {
@@ -2176,16 +2255,68 @@ export function SalesHistoryPage() {
       </Modal>
       <Modal
         open={!!cancelling}
-        onClose={() => !saving && setCancelling(null)}
-        title="매출 취소"
+        onClose={() => {
+          if (saving) return;
+          setCancelling(null);
+          setCancellationType("");
+          setConfirmedNoPayment(false);
+          setCancellationRequestId("");
+        }}
+        title="취소 처리"
       >
-        <Field label="취소 사유" required>
-          <Textarea
-            value={cancellationReason}
+        <Field label="취소 유형" required>
+          <Select
+            value={cancellationType}
             disabled={saving}
-            onChange={(e) => setCancellationReason(e.target.value)}
-          />
+            onChange={(event) => {
+              setCancellationType(
+                event.target.value as "" | "general" | "entry_error",
+              );
+              setConfirmedNoPayment(false);
+              setActionError("");
+            }}
+          >
+            <option value="">취소 유형 선택</option>
+            <option value="general">일반 취소 · 결제 전 거래 취소</option>
+            <option value="entry_error">오등록 취소 · 잘못 입력한 거래</option>
+          </Select>
         </Field>
+        {cancellationType === "entry_error" && (
+          <div className="mt-4 rounded-xl border border-error/20 bg-error-soft p-4">
+            <strong className="text-sm text-error">결제 기록도 함께 무효화됩니다.</strong>
+            <p className="mt-1 text-sm leading-6 text-text-secondary">
+              실제 입금이 있었다면 오등록 취소가 아니라 환불을 사용해야 합니다.
+              미수 수납 또는 조정 이력이 있는 거래는 처리할 수 없습니다.
+            </p>
+            <label className="mt-3 flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium text-text-primary">
+              <input
+                type="checkbox"
+                checked={confirmedNoPayment}
+                disabled={saving}
+                className="h-4 w-4 rounded border-border-strong accent-error"
+                onChange={(event) =>
+                  setConfirmedNoPayment(event.target.checked)
+                }
+              />
+              실제 입금이 없었음을 확인했습니다.
+            </label>
+          </div>
+        )}
+        {cancellationType === "general" && (
+          <p className="mt-4 rounded-xl bg-surface-secondary px-4 py-3 text-sm leading-6 text-text-secondary">
+            결제 이력이 없는 거래만 일반 취소할 수 있습니다. 실제 결제가 있었다면
+            환불을 사용해 주세요.
+          </p>
+        )}
+        <div className="mt-4">
+          <Field label="취소 사유" required>
+            <Textarea
+              value={cancellationReason}
+              disabled={saving}
+              onChange={(e) => setCancellationReason(e.target.value)}
+            />
+          </Field>
+        </div>
         {actionError && (
           <p className="mt-3 text-sm text-red-600">{actionError}</p>
         )}
@@ -2195,7 +2326,11 @@ export function SalesHistoryPage() {
           disabled={saving}
           onClick={() => void cancelSale()}
         >
-          {saving ? "처리 중..." : "매출 취소"}
+          {saving
+            ? "처리 중..."
+            : cancellationType === "entry_error"
+              ? "오등록 취소"
+              : "매출 취소"}
         </Button>
       </Modal>
       <ConfirmModal
@@ -2208,8 +2343,17 @@ export function SalesHistoryPage() {
         processing={saving}
         description={
           <>
-            취소된 매출을 복구합니다. 환불 금액에 따라 정상·부분환불·전체환불
-            상태가 다시 계산됩니다.
+            {reopening?.cancellationType === "entry_error" ? (
+              <>
+                오등록 취소를 복구해도 무효화된 결제 내역은 자동으로 복원되지
+                않습니다. 복구 후 미수금과 결제 상태를 반드시 확인해 주세요.
+              </>
+            ) : (
+              <>
+                취소된 매출을 복구합니다. 환불 금액에 따라
+                정상·부분환불·전체환불 상태가 다시 계산됩니다.
+              </>
+            )}
             {actionError && (
               <span role="alert" className="mt-3 block text-red-600">
                 {actionError}
@@ -2273,6 +2417,7 @@ function SaleDetailContent({
   const refundKinds = refundDetailKinds(refunds, sale.status);
   const canRefund = admin && sale.status !== "cancelled" && sale.refundAmount < sale.paidAmount;
   const hasActions = editable || admin;
+  const cancelled = sale.status === "cancelled";
   const customerType = sale.customerType === "new" ? "신규" : sale.customerType === "renewal" ? "재등록" : sale.customerType || "미지정";
   const productDisplayName = detailProductName(
     sale.productName,
@@ -2311,7 +2456,16 @@ function SaleDetailContent({
             </strong>
             <div className="mt-7 grid grid-cols-3 overflow-hidden rounded-2xl border border-white/10 bg-black/10">
               <DetailHeroAmount label="결제 완료" value={sale.paidAmount} />
-              <DetailHeroAmount label="미수" value={sale.outstandingAmount} warning={sale.outstandingAmount > 0} />
+              {cancelled ? (
+                <div className="min-w-0 border-r border-white/10 p-3.5 sm:p-4">
+                  <dt className="text-xs font-medium text-slate-300">거래 상태</dt>
+                  <dd className="mt-1 text-right text-sm font-bold text-rose-300 sm:text-base">
+                    취소된 거래
+                  </dd>
+                </div>
+              ) : (
+                <DetailHeroAmount label="미수" value={sale.outstandingAmount} warning={sale.outstandingAmount > 0} />
+              )}
               <DetailHeroAmount label="환불" value={sale.refundAmount} danger={sale.refundAmount > 0} />
             </div>
           </div>
@@ -2374,11 +2528,27 @@ function SaleDetailContent({
                       <Badge tone={payment.source === "outstanding_collection" ? "blue" : payment.source === "adjustment" ? "amber" : "gray"}>
                         {{ initial: "최초 결제", outstanding_collection: "미수 수납", adjustment: "조정" }[payment.source]}
                       </Badge>
+                      {isEstimatedInitialPaymentDate(
+                        payment.source,
+                        sale.initialOutstandingEstimated,
+                      ) && (
+                        <Badge tone="amber">
+                          결제일 추정값
+                        </Badge>
+                      )}
                       {payment.voidedAt && <Badge tone="red">무효화</Badge>}
                     </div>
                     <p className="mt-2 text-xs text-text-muted">
                       결제일 {koDate(payment.paymentDate)} · 처리자 {profileNames[payment.createdBy] || "이름 미등록"}
                     </p>
+                    {isEstimatedInitialPaymentDate(
+                      payment.source,
+                      sale.initialOutstandingEstimated,
+                    ) && (
+                      <p className="mt-1 text-xs leading-5 text-amber-700">
+                        기존 데이터 보정값 · 실제 결제일 기록이 없어 매출일을 표시합니다.
+                      </p>
+                    )}
                   </div>
                   <strong className={cn("text-base text-text-primary tabular-nums", Boolean(payment.voidedAt) && "line-through")}>
                     {won(payment.amount)}
@@ -2458,7 +2628,20 @@ function SaleDetailContent({
           <DetailAmountRow label="최종 판매금액" value={finalSaleAmount} />
           <DetailAmountRow label="실제 결제금액" value={sale.paidAmount} />
           <DetailAmountRow label="환불 누계" value={sale.refundAmount} />
-          <DetailAmountRow label="미수금" value={sale.outstandingAmount} warning={sale.outstandingAmount > 0} />
+          {cancelled ? (
+            <>
+              <DetailAmountRow
+                label="감사용 잔액 Snapshot"
+                value={sale.outstandingAmount}
+              />
+              <p className="rounded-xl bg-surface-secondary px-3 py-2.5 text-xs leading-5 text-text-muted">
+                취소된 거래의 정합성 유지용 금액입니다. 실제 미수금이나 수납
+                대상으로 사용하지 않습니다.
+              </p>
+            </>
+          ) : (
+            <DetailAmountRow label="미수금" value={sale.outstandingAmount} warning={sale.outstandingAmount > 0} />
+          )}
           <DetailAmountRow label="최종 실매출" value={sale.netAmount} emphasized />
         </dl>
       </DetailSection>
@@ -2491,6 +2674,16 @@ function SaleDetailContent({
           <DetailText label="수정 시각" value={new Date(sale.updatedAt).toLocaleString("ko-KR")} />
           {sale.status === "cancelled" && (
             <>
+              <DetailText
+                label="취소 구분"
+                value={
+                  sale.cancellationType === "entry_error"
+                    ? "잘못 등록된 거래"
+                    : sale.cancellationType === "general"
+                      ? "일반 취소"
+                      : "기존 취소"
+                }
+              />
               <DetailText label="취소 시각" value={sale.cancelledAt ? new Date(sale.cancelledAt).toLocaleString("ko-KR") : "확인 불가"} />
               <DetailText label="취소 사유" value={sale.cancellationReason || "사유 미입력"} />
             </>
@@ -2556,10 +2749,10 @@ function SaleDetailContent({
                 <Button type="button" variant="ghost" onClick={onEdit}>고객 연결</Button>
               </div>
             )}
-            {(canRefund || (admin && sale.status !== "cancelled")) && (
+            {(canRefund || (admin && sale.status === "normal")) && (
               <div className="flex flex-wrap gap-2 border-t border-border pt-3 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
                 {canRefund && <Button type="button" className="border-warning/30 bg-warning-soft text-warning hover:border-warning/50 hover:bg-warning-soft" variant="secondary" onClick={onRefund}>환불</Button>}
-                {admin && sale.status !== "cancelled" && <Button type="button" variant="danger" onClick={onCancel}><Undo2 size={15} />매출 취소</Button>}
+                {admin && sale.status === "normal" && <Button type="button" variant="danger" onClick={onCancel}><Undo2 size={15} />취소 처리</Button>}
               </div>
             )}
             {admin && sale.status === "cancelled" && <Button type="button" variant="secondary" onClick={onReopen}><RotateCcw size={15} />취소 복구</Button>}
@@ -2596,6 +2789,9 @@ function HeroStatusBadges({ sale }: { sale: SaleRow }) {
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label="거래 상태">
       <Badge tone={tone}>{label}</Badge>
+      {sale.cancellationType === "entry_error" && (
+        <Badge tone="red">잘못 등록된 거래</Badge>
+      )}
       {hasOutstanding(sale) && sale.status !== "cancelled" && (
         <Badge tone="amber">미수</Badge>
       )}
@@ -3335,9 +3531,12 @@ function SaleMobileCard({
         <p className="text-text-muted">
           {paymentSummary(sale.paymentRows, sale.paymentMethod, sale.paidAmount)}
         </p>
-        {(sale.refundAmount > 0 || sale.outstandingAmount > 0) && (
+        {(sale.refundAmount > 0 ||
+          (sale.status !== "cancelled" && sale.outstandingAmount > 0)) && (
           <p className="basis-full text-text-secondary tabular-nums">
-            환불 {won(sale.refundAmount)} · 미수 {won(sale.outstandingAmount)}
+            환불 {won(sale.refundAmount)}
+            {sale.status !== "cancelled" &&
+              ` · 미수 ${won(sale.outstandingAmount)}`}
           </p>
         )}
       </div>

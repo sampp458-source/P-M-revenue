@@ -161,6 +161,7 @@ describe("dashboard presentation metrics", () => {
         id: "cancelled",
         originalAmount: 900000,
         paidAmount: 900000,
+        outstandingAmount: 900000,
         netAmount: 900000,
         status: "cancelled",
       }),
