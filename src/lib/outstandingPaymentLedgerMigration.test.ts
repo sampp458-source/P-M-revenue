@@ -29,7 +29,19 @@ describe("outstanding payment ledger migration", () => {
     expect(migration).toContain(
       "voided_at is null and source = 'initial'",
     );
-    expect(migration).toContain("최초 미수금은 변경할 수 없습니다.");
+    expect(migration).toContain(
+      "add column if not exists initial_outstanding_estimated boolean",
+    );
+    expect(migration).toContain(
+      "set initial_outstanding_estimated = true",
+    );
+    expect(migration).toContain(
+      "new.initial_outstanding_estimated := false",
+    );
+    expect(migration).toContain("최초 미수금 Snapshot은 변경할 수 없습니다.");
+    expect(migration).not.toContain(
+      "create trigger sales_capture_initial_outstanding",
+    );
     expect(migration).not.toContain(
       "set initial_outstanding_amount = sale.outstanding_amount",
     );
@@ -37,11 +49,29 @@ describe("outstanding payment ledger migration", () => {
 
   it("supports repeated same-method payments without the legacy unique constraint", () => {
     expect(migration).toContain(
-      "drop constraint if exists sale_payments_sale_method_unique",
+      "constraint_info.contype = 'u'",
+    );
+    expect(migration).toContain(
+      "= array['payment_method', 'sale_id']::text[]",
+    );
+    expect(migration).toContain(
+      "'alter table public.sale_payments drop constraint %I'",
     );
     expect(migration).not.toMatch(
       /add constraint sale_payments_sale_method_unique/,
     );
+  });
+
+  it("enforces positive amounts and a profiles foreign key for void actors", () => {
+    expect(migration).toContain(
+      "add constraint sale_payments_amount_positive",
+    );
+    expect(migration).toContain("check (amount > 0)");
+    expect(migration).toContain(
+      "add constraint sale_payments_voided_by_profiles_fkey",
+    );
+    expect(migration).toContain("foreign key (voided_by)");
+    expect(migration).toContain("references public.profiles(id)");
   });
 
   it("requires an idempotency key and returns the matching prior collection", () => {

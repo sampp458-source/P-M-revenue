@@ -139,7 +139,7 @@ alter table public.sale_payments
   add column if not exists source text,
   add column if not exists request_id uuid,
   add column if not exists voided_at timestamptz,
-  add column if not exists voided_by uuid references public.profiles(id) on delete set null,
+  add column if not exists voided_by uuid,
   add column if not exists void_reason text;
 
 -- 기존 결제에는 별도의 수납일 정보가 없으므로 임의의 created_at 대신
@@ -165,14 +165,83 @@ alter table public.sale_payments
   alter column source set not null,
   alter column request_id set not null;
 
+-- 제약 이름과 컬럼 순서에 의존하지 않고 정확히
+-- (sale_id, payment_method) 두 컬럼으로 구성된 UNIQUE 제약을 모두 제거한다.
+do $$
+declare
+  constraint_row record;
+begin
+  for constraint_row in
+    select constraint_info.conname
+    from pg_constraint as constraint_info
+    where constraint_info.conrelid = 'public.sale_payments'::regclass
+      and constraint_info.contype = 'u'
+      and cardinality(constraint_info.conkey) = 2
+      and (
+        select array_agg(attribute.attname::text order by attribute.attname::text)
+        from unnest(constraint_info.conkey) as key_column(attnum)
+        join pg_attribute as attribute
+          on attribute.attrelid = constraint_info.conrelid
+          and attribute.attnum = key_column.attnum
+      ) = array['payment_method', 'sale_id']::text[]
+  loop
+    execute format(
+      'alter table public.sale_payments drop constraint %I',
+      constraint_row.conname
+    );
+  end loop;
+end
+$$;
+
+-- 동일 컬럼 조합의 독립 UNIQUE INDEX가 존재하는 경우에도 제거한다.
+-- UNIQUE constraint가 소유한 index는 위에서 함께 제거되므로 여기서는 제외한다.
+do $$
+declare
+  index_row record;
+begin
+  for index_row in
+    select index_class.relname as index_name
+    from pg_index as index_info
+    join pg_class as index_class
+      on index_class.oid = index_info.indexrelid
+    where index_info.indrelid = 'public.sale_payments'::regclass
+      and index_info.indisunique
+      and index_info.indnkeyatts = 2
+      and not exists (
+        select 1
+        from pg_constraint as constraint_info
+        where constraint_info.conindid = index_info.indexrelid
+      )
+      and (
+        select array_agg(attribute.attname::text order by attribute.attname::text)
+        from unnest(
+          string_to_array(index_info.indkey::text, ' ')::smallint[]
+        ) with ordinality as key_column(attnum, position)
+        join pg_attribute as attribute
+          on attribute.attrelid = index_info.indrelid
+          and attribute.attnum = key_column.attnum
+        where key_column.position <= index_info.indnkeyatts
+      ) = array['payment_method', 'sale_id']::text[]
+  loop
+    execute format(
+      'drop index if exists public.%I',
+      index_row.index_name
+    );
+  end loop;
+end
+$$;
+
 alter table public.sale_payments
   drop constraint if exists sale_payments_sale_method_unique,
   drop constraint if exists sale_payments_source_check,
-  drop constraint if exists sale_payments_void_metadata_check;
+  drop constraint if exists sale_payments_void_metadata_check,
+  drop constraint if exists sale_payments_amount_positive;
 
 alter table public.sale_payments
   add constraint sale_payments_source_check
     check (source in ('initial', 'outstanding_collection', 'adjustment')),
+  add constraint sale_payments_amount_positive
+    check (amount > 0),
   add constraint sale_payments_void_metadata_check
     check (
       (
@@ -187,6 +256,42 @@ alter table public.sale_payments
       )
     );
 
+-- voided_by 컬럼이 선행 작업에서 이미 생성됐더라도 profiles(id) FK를 보장한다.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_constraint as constraint_info
+    where constraint_info.conrelid = 'public.sale_payments'::regclass
+      and constraint_info.confrelid = 'public.profiles'::regclass
+      and constraint_info.contype = 'f'
+      and cardinality(constraint_info.conkey) = 1
+      and cardinality(constraint_info.confkey) = 1
+      and (
+        select attribute.attname
+        from pg_attribute as attribute
+        where attribute.attrelid = constraint_info.conrelid
+          and attribute.attnum = constraint_info.conkey[1]
+      ) = 'voided_by'
+      and (
+        select attribute.attname
+        from pg_attribute as attribute
+        where attribute.attrelid = constraint_info.confrelid
+          and attribute.attnum = constraint_info.confkey[1]
+      ) = 'id'
+  ) then
+    alter table public.sale_payments
+      drop constraint if exists sale_payments_voided_by_profiles_fkey;
+
+    alter table public.sale_payments
+      add constraint sale_payments_voided_by_profiles_fkey
+      foreign key (voided_by)
+      references public.profiles(id)
+      on delete set null;
+  end if;
+end
+$$;
+
 create unique index if not exists sale_payments_request_id_uidx
   on public.sale_payments(request_id);
 
@@ -199,7 +304,8 @@ create index if not exists sale_payments_payment_date_active_idx
   where voided_at is null;
 
 alter table public.sales
-  add column if not exists initial_outstanding_amount integer;
+  add column if not exists initial_outstanding_amount integer,
+  add column if not exists initial_outstanding_estimated boolean;
 
 -- 기존 최초 미수금은 현재 outstanding_amount를 그대로 복사하지 않는다.
 -- 현재 보존된 initial 원장 합계를 최종 판매금액에서 차감해 계산한다.
@@ -228,9 +334,17 @@ set initial_outstanding_amount =
   sale.original_amount + sale.additional_amount - sale.discount_amount
 where sale.initial_outstanding_amount is null;
 
+-- Migration 이전 거래는 현재 보존 데이터로 계산한 추정값임을 명시한다.
+-- 이 값은 정확한 최초 미수금 통계에 포함하면 안 된다.
+update public.sales
+set initial_outstanding_estimated = true
+where initial_outstanding_estimated is null;
+
 alter table public.sales
   alter column initial_outstanding_amount set not null,
   alter column initial_outstanding_amount set default 0,
+  alter column initial_outstanding_estimated set not null,
+  alter column initial_outstanding_estimated set default false,
   drop constraint if exists sales_initial_outstanding_nonnegative,
   drop constraint if exists sales_payment_balance_consistency;
 
@@ -243,35 +357,8 @@ alter table public.sales
       = original_amount + additional_amount - discount_amount
     );
 
-create or replace function public.capture_sale_initial_outstanding()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  if tg_op = 'INSERT' then
-    new.initial_outstanding_amount :=
-      new.original_amount + new.additional_amount - new.discount_amount
-      - new.paid_amount;
-
-    if new.initial_outstanding_amount < 0 then
-      raise exception '최초 미수금은 음수가 될 수 없습니다.'
-        using errcode = '23514';
-    end if;
-  elsif new.initial_outstanding_amount is distinct from old.initial_outstanding_amount then
-    raise exception '최초 미수금은 변경할 수 없습니다.'
-      using errcode = 'P0001';
-  end if;
-
-  return new;
-end;
-$$;
-
 drop trigger if exists sales_capture_initial_outstanding on public.sales;
-create trigger sales_capture_initial_outstanding
-  before insert or update on public.sales
-  for each row execute function public.capture_sale_initial_outstanding();
+drop function if exists public.capture_sale_initial_outstanding();
 
 -- 원장 동기화 RPC만 마감된 원 판매일과 무관하게 수납 스냅샷을 갱신한다.
 -- 일반 UPDATE는 기존 월 마감 및 유효성 검사를 그대로 통과해야 한다.
@@ -337,6 +424,15 @@ begin
     end;
 
     return new;
+  end if;
+
+  if tg_op = 'UPDATE'
+    and (
+      new.initial_outstanding_amount is distinct from old.initial_outstanding_amount
+      or new.initial_outstanding_estimated is distinct from old.initial_outstanding_estimated
+    ) then
+    raise exception '최초 미수금 Snapshot은 변경할 수 없습니다.'
+      using errcode = 'P0001';
   end if;
 
   if public.is_month_closed(new.sale_date)
@@ -572,6 +668,20 @@ begin
         then 'full_refund'
       else 'partial_refund'
     end;
+  end if;
+
+  if tg_op = 'INSERT' then
+    new.initial_outstanding_amount :=
+      new.original_amount
+      + new.additional_amount
+      - new.discount_amount
+      - new.paid_amount;
+    new.initial_outstanding_estimated := false;
+
+    if new.initial_outstanding_amount < 0 then
+      raise exception '최초 미수금은 음수가 될 수 없습니다.'
+        using errcode = '23514';
+    end if;
   end if;
 
   return new;
@@ -1165,8 +1275,6 @@ create policy sale_payments_select
 revoke all on table public.sale_payments from public, anon, authenticated;
 grant select on table public.sale_payments to authenticated;
 
-revoke all on function public.capture_sale_initial_outstanding()
-  from public, anon, authenticated;
 revoke all on function public.sync_single_sale_payment()
   from public, anon, authenticated;
 revoke all on function public.create_sale_with_payments(jsonb, jsonb)
