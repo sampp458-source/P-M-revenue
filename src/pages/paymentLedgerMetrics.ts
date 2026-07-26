@@ -36,6 +36,16 @@ export interface LedgerDailyAmount {
   netAmount: number;
 }
 
+export interface PaymentDailyAmount {
+  date: string;
+  paidAmount: number;
+}
+
+export interface RefundDailyAmount {
+  date: string;
+  refundAmount: number;
+}
+
 const inRange = (date: string | null, range: LedgerDateRange) =>
   Boolean(date && date >= range.from && date <= range.to);
 
@@ -60,8 +70,34 @@ export function calculateLedgerCashSummary(
   range: LedgerDateRange,
   businessUnitId = "",
 ) {
+  const paidAmount = calculatePaymentAggregate(
+    sales,
+    payments,
+    range,
+    businessUnitId,
+  );
+  const refundAmount = calculateRefundAggregate(
+    sales,
+    refunds,
+    range,
+    businessUnitId,
+  );
+
+  return {
+    paidAmount,
+    refundAmount,
+    netAmount: paidAmount - refundAmount,
+  };
+}
+
+export function calculatePaymentAggregate(
+  sales: LedgerSaleReference[],
+  payments: PaymentLedgerEntry[],
+  range: LedgerDateRange,
+  businessUnitId = "",
+) {
   const salesById = saleIndex(sales);
-  const paidAmount = payments
+  return payments
     .filter(
       (payment) =>
         payment.voidedAt === null &&
@@ -69,7 +105,16 @@ export function calculateLedgerCashSummary(
         belongsToBusinessUnit(salesById, payment.saleId, businessUnitId),
     )
     .reduce((total, payment) => total + payment.amount, 0);
-  const refundAmount = refunds
+}
+
+export function calculateRefundAggregate(
+  sales: LedgerSaleReference[],
+  refunds: RefundLedgerEntry[],
+  range: LedgerDateRange,
+  businessUnitId = "",
+) {
+  const salesById = saleIndex(sales);
+  return refunds
     .filter(
       (refund) =>
         refund.voidedAt === null &&
@@ -77,12 +122,6 @@ export function calculateLedgerCashSummary(
         belongsToBusinessUnit(salesById, refund.saleId, businessUnitId),
     )
     .reduce((total, refund) => total + refund.amount, 0);
-
-  return {
-    paidAmount,
-    refundAmount,
-    netAmount: paidAmount - refundAmount,
-  };
 }
 
 export function calculateLedgerDaily(
@@ -92,24 +131,75 @@ export function calculateLedgerDaily(
   range: LedgerDateRange,
   businessUnitId = "",
 ) {
-  const result: LedgerDailyAmount[] = [];
+  const paymentsByDate = new Map(
+    calculatePaymentDaily(sales, payments, range, businessUnitId).map((day) => [
+      day.date,
+      day.paidAmount,
+    ]),
+  );
+  const refundsByDate = new Map(
+    calculateRefundDaily(sales, refunds, range, businessUnitId).map((day) => [
+      day.date,
+      day.refundAmount,
+    ]),
+  );
+
+  return dateKeys(range).map((date) => {
+    const paidAmount = paymentsByDate.get(date) ?? 0;
+    const refundAmount = refundsByDate.get(date) ?? 0;
+    return {
+      date,
+      paidAmount,
+      refundAmount,
+      netAmount: paidAmount - refundAmount,
+    };
+  });
+}
+
+const dateKeys = (range: LedgerDateRange) => {
+  const result: string[] = [];
   const cursor = new Date(`${range.from}T12:00:00`);
   const end = new Date(`${range.to}T12:00:00`);
 
   while (cursor <= end) {
-    const date = cursor.toLocaleDateString("sv-SE");
-    const summary = calculateLedgerCashSummary(
+    result.push(cursor.toLocaleDateString("sv-SE"));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return result;
+};
+
+export function calculatePaymentDaily(
+  sales: LedgerSaleReference[],
+  payments: PaymentLedgerEntry[],
+  range: LedgerDateRange,
+  businessUnitId = "",
+) {
+  return dateKeys(range).map((date) => ({
+    date,
+    paidAmount: calculatePaymentAggregate(
       sales,
       payments,
+      { from: date, to: date },
+      businessUnitId,
+    ),
+  }));
+}
+
+export function calculateRefundDaily(
+  sales: LedgerSaleReference[],
+  refunds: RefundLedgerEntry[],
+  range: LedgerDateRange,
+  businessUnitId = "",
+) {
+  return dateKeys(range).map((date) => ({
+    date,
+    refundAmount: calculateRefundAggregate(
+      sales,
       refunds,
       { from: date, to: date },
       businessUnitId,
-    );
-    result.push({ date, ...summary });
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  return result;
+    ),
+  }));
 }
 
 export function mergeSaleAndCashDays<T extends { date: string }>(
@@ -123,6 +213,31 @@ export function mergeSaleAndCashDays<T extends { date: string }>(
     net: cashByDate.get(day.date)?.netAmount ?? 0,
     refund: cashByDate.get(day.date)?.refundAmount ?? 0,
   }));
+}
+
+export function mergeAccountingDays<T extends { date: string }>(
+  saleDays: T[],
+  paymentDays: PaymentDailyAmount[],
+  refundDays: RefundDailyAmount[],
+) {
+  const paymentsByDate = new Map(
+    paymentDays.map((day) => [day.date, day.paidAmount]),
+  );
+  const refundsByDate = new Map(
+    refundDays.map((day) => [day.date, day.refundAmount]),
+  );
+
+  return saleDays.map((day) => {
+    const paidAmount = paymentsByDate.get(day.date) ?? 0;
+    const refundAmount = refundsByDate.get(day.date) ?? 0;
+    return {
+      ...day,
+      revenue: paidAmount,
+      refund: refundAmount,
+      net: paidAmount - refundAmount,
+      outstanding: 0,
+    };
+  });
 }
 
 export function calculateLedgerPaymentMethodTotals(

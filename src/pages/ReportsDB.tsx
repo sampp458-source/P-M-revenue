@@ -4,18 +4,18 @@ import { Card, EmptyState, ErrorState, PageHeader, Select, Skeleton, StatusBadge
 import { currentMonth, monthLabel, shortWon, won } from "../lib/format";
 import { supabase } from "../lib/supabase";
 import {
-  calculateLedgerCashSummary,
-  calculateLedgerDaily,
   calculateLedgerPaymentMethodTotals,
+  calculatePaymentAggregate,
+  calculatePaymentDaily,
+  calculateRefundAggregate,
   type PaymentLedgerEntry,
   type RefundLedgerEntry,
 } from "./paymentLedgerMetrics";
 import { finalSaleAmount } from "./dashboard/dashboardMetrics";
 import {
   activeReportSales,
-  calculateReportDaily,
-  calculateReportMoneySummary,
-  calculateReportTrend,
+  daysInReportMonth,
+  reportTrendMonths,
 } from "./reportsMetrics";
 
 interface ReportSale {
@@ -93,12 +93,20 @@ export function ReportsPage() {
   }, [payments, refundLedger, sales]);
   const report = useMemo(() => {
     const selected = activeReportSales(sales, month);
-    const money = calculateReportMoneySummary(sales, month);
+    const salesAmount = selected.reduce(
+      (total, sale) => total + finalSaleAmount(sale),
+      0,
+    );
     const monthRange = {
       from: `${month}-01`,
       to: `${month}-${String(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate()).padStart(2, "0")}`,
     };
-    const cash = calculateLedgerCashSummary(sales, payments, refundLedger, monthRange);
+    const paidAmount = calculatePaymentAggregate(sales, payments, monthRange);
+    const refundAmount = calculateRefundAggregate(
+      sales,
+      refundLedger,
+      monthRange,
+    );
     const previousMonth = (() => {
       const date = new Date(`${month}-01T12:00:00`);
       date.setMonth(date.getMonth() - 1);
@@ -108,16 +116,25 @@ export function ReportsPage() {
       from: `${previousMonth}-01`,
       to: `${previousMonth}-${String(new Date(Number(previousMonth.slice(0, 4)), Number(previousMonth.slice(5, 7)), 0).getDate()).padStart(2, "0")}`,
     };
-    const previousCash = calculateLedgerCashSummary(sales, payments, refundLedger, previousRange);
+    const previousPaidAmount = calculatePaymentAggregate(
+      sales,
+      payments,
+      previousRange,
+    );
     const [year, monthNumber] = month.split("-").map(Number);
     const targetRows = targets.filter((target) => target.year === year && target.month === monthNumber);
     const overall = targetRows.find((target) => target.businessUnitId === null)?.targetAmount;
     const target = overall ?? targetRows.filter((target) => target.businessUnitId !== null).reduce((total, row) => total + safe(row.targetAmount), 0);
     const unitRows = units.map((unit) => {
       const unitSales = selected.filter((sale) => sale.businessUnitId === unit.id);
-      const unitCash = calculateLedgerCashSummary(
+      const unitPaidAmount = calculatePaymentAggregate(
         sales,
         payments,
+        monthRange,
+        unit.id,
+      );
+      const unitRefundAmount = calculateRefundAggregate(
+        sales,
         refundLedger,
         monthRange,
         unit.id,
@@ -128,18 +145,28 @@ export function ReportsPage() {
           (total, sale) => total + finalSaleAmount(sale),
           0,
         ),
-        paidAmount: unitCash.paidAmount,
-        refundAmount: unitCash.refundAmount,
+        paidAmount: unitPaidAmount,
+        refundAmount: unitRefundAmount,
         value: unitSales.reduce(
           (total, sale) => total + finalSaleAmount(sale),
           0,
         ),
       };
     });
-    const saleDaily = calculateReportDaily(sales, month);
-    const cashDaily = calculateLedgerDaily(sales, payments, refundLedger, monthRange);
-    const cashDailyByDate = new Map(cashDaily.map((day) => [day.date, day.paidAmount]));
-    const daily = saleDaily.map((day) => ({ ...day, value: cashDailyByDate.get(day.key) ?? 0 }));
+    const paymentDaily = calculatePaymentDaily(sales, payments, monthRange);
+    const paymentDailyByDate = new Map(paymentDaily.map((day) => [day.date, day.paidAmount]));
+    const daily = Array.from(
+      { length: daysInReportMonth(month) },
+      (_, index) => {
+        const day = index + 1;
+        const key = `${month}-${String(day).padStart(2, "0")}`;
+        return {
+          key,
+          day: `${day}일`,
+          value: paymentDailyByDate.get(key) ?? 0,
+        };
+      },
+    );
     const productNames = new Map(products.map((product) => [product.id, product.name]));
     const productMap = new Map<string, { name: string; value: number; count: number }>();
     selected.forEach((sale) => { const current = productMap.get(sale.productId) ?? { name: sale.productName || productNames.get(sale.productId) || "알 수 없음", value: 0, count: 0 }; current.value += finalSaleAmount(sale); current.count += 1; productMap.set(sale.productId, current); });
@@ -148,19 +175,20 @@ export function ReportsPage() {
     selected.forEach((sale) => { const key = sale.staffId ?? sale.staffName ?? "unknown"; const current = staffMap.get(key) ?? { name: sale.staffName || (sale.staffId ? profileNames.get(sale.staffId) : undefined) || "담당자 미지정", value: 0, count: 0 }; current.value += finalSaleAmount(sale); current.count += 1; staffMap.set(key, current); });
     const salesById = new Map(sales.map((sale) => [sale.id, sale]));
     const eventRows = history.filter((event) => event.createdAt.slice(0, 7) === month).map((event) => ({ ...event, sale: salesById.get(event.saleId), actor: profileNames.get(event.changedBy) || "-" }));
-    const trend = calculateReportTrend(sales, month).map((row) => {
-      const year = Number(row.key.slice(0, 4));
-      const monthNumber = Number(row.key.slice(5, 7));
+    const trend = reportTrendMonths(month).map((key) => {
+      const year = Number(key.slice(0, 4));
+      const monthNumber = Number(key.slice(5, 7));
       const range = {
-        from: `${row.key}-01`,
-        to: `${row.key}-${String(new Date(year, monthNumber, 0).getDate()).padStart(2, "0")}`,
+        from: `${key}-01`,
+        to: `${key}-${String(new Date(year, monthNumber, 0).getDate()).padStart(2, "0")}`,
       };
       return {
-        ...row,
-        value: calculateLedgerCashSummary(sales, payments, refundLedger, range).paidAmount,
+        key,
+        month: key.slice(2).replace("-", "."),
+        value: calculatePaymentAggregate(sales, payments, range),
       };
     });
-    const cashDifference = cash.paidAmount - previousCash.paidAmount;
+    const cashDifference = paidAmount - previousPaidAmount;
     const currentOutstanding = sales
       .filter((sale) => sale.status !== "cancelled" && sale.outstandingAmount > 0)
       .reduce((total, sale) => total + sale.outstandingAmount, 0);
@@ -176,15 +204,15 @@ export function ReportsPage() {
       }))
       .sort((left, right) => right.value - left.value);
     return {
-      total: money.salesAmount, paid: cash.paidAmount, real: cash.paidAmount, refund: cash.refundAmount, outstanding: currentOutstanding,
+      total: salesAmount, paid: paidAmount, real: paidAmount, refund: refundAmount, outstanding: currentOutstanding,
       divisions: unitRows, daily, products: [...productMap.values()].sort((a, b) => b.value - a.value).slice(0, 10),
       staff: [...staffMap.values()].sort((a, b) => b.value - a.value),
       paymentMethods,
       refunds: eventRows.filter((event) => event.action === "partial_refund" || event.action === "full_refund").slice(0, 5),
       cancellations: eventRows.filter((event) => event.action === "cancelled").slice(0, 5),
-      target, achievement: target > 0 ? (cash.paidAmount / target) * 100 : 0,
+      target, achievement: target > 0 ? (paidAmount / target) * 100 : 0,
       diff: cashDifference,
-      rate: previousCash.paidAmount > 0 ? (cashDifference / previousCash.paidAmount) * 100 : null,
+      rate: previousPaidAmount > 0 ? (cashDifference / previousPaidAmount) * 100 : null,
       trend,
     };
   }, [history, month, payments, products, profiles, refundLedger, sales, targets, units]);

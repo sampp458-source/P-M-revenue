@@ -3,7 +3,12 @@ import {
   calculateLedgerCashSummary,
   calculateLedgerDaily,
   calculateLedgerPaymentMethodTotals,
+  calculatePaymentAggregate,
+  calculatePaymentDaily,
+  calculateRefundAggregate,
+  calculateRefundDaily,
   ledgerPaymentsForDate,
+  mergeAccountingDays,
   mergeSaleAndCashDays,
   type PaymentLedgerEntry,
   type RefundLedgerEntry,
@@ -265,12 +270,11 @@ describe("payment ledger metrics", () => {
 
 describe("Dashboard와 Reports 정산 기준 A-G", () => {
   const cashOn = (payments: PaymentLedgerEntry[], date: string) =>
-    calculateLedgerCashSummary(
+    calculatePaymentAggregate(
       sales,
       payments,
-      [],
       { from: date, to: date },
-    ).paidAmount;
+    );
 
   it("A. 당일 전액 결제는 판매일과 수납일에 각각 한 번 집계한다", () => {
     const ledger = [
@@ -278,11 +282,15 @@ describe("Dashboard와 Reports 정산 기준 A-G", () => {
     ];
     expect(cashOn(ledger, "2026-07-10")).toBe(3000000);
     expect(
-      mergeSaleAndCashDays(
+      mergeAccountingDays(
         [{ date: "2026-07-10", salesAmount: 3000000 }],
-        calculateLedgerDaily(
+        calculatePaymentDaily(
           sales,
           ledger,
+          { from: "2026-07-10", to: "2026-07-10" },
+        ),
+        calculateRefundDaily(
+          sales,
           [],
           { from: "2026-07-10", to: "2026-07-10" },
         ),
@@ -377,19 +385,79 @@ describe("Dashboard와 Reports 정산 기준 A-G", () => {
   });
 
   it("환불은 실수납과 별도로 집계한다", () => {
-    const merged = mergeSaleAndCashDays(
+    const merged = mergeAccountingDays(
       [{ date: "2026-07-10", salesAmount: 3000000 }],
       [{
         date: "2026-07-10",
         paidAmount: 1500000,
+      }],
+      [{
+        date: "2026-07-10",
         refundAmount: 200000,
-        netAmount: 1300000,
       }],
     )[0];
     expect(merged).toMatchObject({
       salesAmount: 3000000,
       revenue: 1500000,
       refund: 200000,
+    });
+  });
+
+  it("이월 수납월에는 연결된 판매금액과 과거 환불액이 유입되지 않는다", () => {
+    const ledger = [
+      payment({
+        id: "initial",
+        paymentDate: "2026-06-10",
+        amount: 1500000,
+      }),
+      payment({
+        id: "collection",
+        paymentDate: "2026-07-19",
+        amount: 1500000,
+        source: "outstanding_collection",
+      }),
+    ];
+    const refundLedger = [
+      refund({
+        refundDate: "2026-06-20",
+        amount: 500000,
+      }),
+    ];
+
+    const previousMonth = mergeAccountingDays(
+      [{ date: "2026-06-10", salesAmount: 3000000 }],
+      [{ date: "2026-06-10", paidAmount: cashOn(ledger, "2026-06-10") }],
+      [{
+        date: "2026-06-10",
+        refundAmount: calculateRefundAggregate(
+          sales,
+          refundLedger,
+          { from: "2026-06-01", to: "2026-06-30" },
+        ),
+      }],
+    )[0];
+    const currentMonth = mergeAccountingDays(
+      [{ date: "2026-07-19", salesAmount: 0 }],
+      [{ date: "2026-07-19", paidAmount: cashOn(ledger, "2026-07-19") }],
+      [{
+        date: "2026-07-19",
+        refundAmount: calculateRefundAggregate(
+          sales,
+          refundLedger,
+          { from: "2026-07-01", to: "2026-07-31" },
+        ),
+      }],
+    )[0];
+
+    expect(previousMonth).toMatchObject({
+      salesAmount: 3000000,
+      revenue: 1500000,
+      refund: 500000,
+    });
+    expect(currentMonth).toMatchObject({
+      salesAmount: 0,
+      revenue: 1500000,
+      refund: 0,
     });
   });
 });

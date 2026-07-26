@@ -83,7 +83,8 @@ import {
 import { paymentMethodLabels, paymentSummary, type SalePaymentRow } from "./salePaymentLogic";
 import { normalizePaymentRows, paymentRowsTotal } from "./salePaymentLogic";
 import {
-  calculateLedgerCashSummary,
+  calculatePaymentAggregate,
+  calculateRefundAggregate,
   type RefundLedgerEntry,
 } from "./paymentLedgerMetrics";
 import {
@@ -658,28 +659,33 @@ export function SalesHistoryPage() {
   const rows = filtered.slice((page - 1) * pageSize, page * pageSize);
   const todayActivity = useMemo(() => {
     const activity = calculateTodayActivity(sales, today);
-    const cash = calculateLedgerCashSummary(
+    const payments = sales.flatMap((sale) =>
+      sale.paymentLedger.map((payment) => ({
+        id: payment.id,
+        saleId: payment.saleId,
+        paymentDate: payment.paymentDate,
+        amount: payment.amount,
+        voidedAt: payment.voidedAt,
+        paymentMethod: payment.method,
+        source: payment.source,
+        createdBy: payment.createdBy,
+        createdAt: payment.createdAt,
+      })),
+    );
+    const paidAmount = calculatePaymentAggregate(
       sales,
-      sales.flatMap((sale) =>
-        sale.paymentLedger.map((payment) => ({
-          id: payment.id,
-          saleId: payment.saleId,
-          paymentDate: payment.paymentDate,
-          amount: payment.amount,
-          voidedAt: payment.voidedAt,
-          paymentMethod: payment.method,
-          source: payment.source,
-          createdBy: payment.createdBy,
-          createdAt: payment.createdAt,
-        })),
-      ),
+      payments,
+      { from: today, to: today },
+    );
+    const refundAmount = calculateRefundAggregate(
+      sales,
       refundLedger,
       { from: today, to: today },
     );
     return {
       ...activity,
-      netAmount: cash.paidAmount,
-      refundAmount: cash.refundAmount,
+      netAmount: paidAmount,
+      refundAmount,
       outstandingAmount: sales
         .filter((sale) => sale.status !== "cancelled")
         .reduce((total, sale) => total + sale.outstandingAmount, 0),

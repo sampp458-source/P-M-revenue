@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateDailyRevenue,
+  calculateDailySales,
   calculateDateDetail,
   calculateRangeOverview,
+  calculateSalesRangeOverview,
   calculateTarget,
   countDashboardSalesByUnit,
   dashboardComparisonRange,
@@ -205,6 +207,47 @@ describe("dashboard presentation metrics", () => {
       ["2026-07-15", 0, 0],
     ]);
     expect(daily[1].cancelledCount).toBe(1);
+  });
+
+  it("판매 Aggregate는 sale_date와 판매금액 필드만 사용한다", () => {
+    const rows = [
+      sale({
+        id: "previous-sale",
+        saleDate: "2026-06-10",
+        originalAmount: 3000000,
+        paidAmount: 3000000,
+        refundAmount: 500000,
+        netAmount: 2500000,
+      }),
+      sale({
+        id: "current-sale",
+        saleDate: "2026-07-19",
+        originalAmount: 200000,
+        paidAmount: 9999999,
+        refundAmount: 8888888,
+        netAmount: 1111111,
+      }),
+    ];
+
+    const overview = calculateSalesRangeOverview(
+      rows,
+      units,
+      { from: "2026-07-01", to: "2026-07-31" },
+      { from: "2026-06-01", to: "2026-06-30" },
+    );
+    const daily = calculateDailySales(
+      rows,
+      { from: "2026-07-19", to: "2026-07-19" },
+    );
+
+    expect(overview.salesAmount).toBe(200000);
+    expect(overview.previousSalesAmount).toBe(3000000);
+    expect(daily).toEqual([{
+      date: "2026-07-19",
+      salesAmount: 200000,
+      count: 1,
+      cancelledCount: 0,
+    }]);
   });
 
   it("선택 날짜 상세를 환불 반영 실매출로 집계한다", () => {

@@ -9,13 +9,15 @@ import { BusinessUnitCard, DashboardKpiHero, DashboardSkeleton, RecentSales } fr
 import { DailyRevenueTrend, DashboardPeriodFilters, SalesHeatmapCalendar } from "./dashboard/DashboardRangeSections";
 import { DashboardDateDrawer } from "./dashboard/DashboardDateDrawer";
 import { OutstandingPaymentsDrawer } from "./dashboard/OutstandingPaymentsDrawer";
-import { calculateDailyRevenue, calculateRangeOverview, calculateTarget, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodLabel, dashboardPeriodRange, dashboardSalesForDate, finalSaleAmount, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale, type DashboardTarget } from "./dashboard/dashboardMetrics";
+import { calculateDailySales, calculateSalesRangeOverview, calculateTarget, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodLabel, dashboardPeriodRange, dashboardSalesForDate, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale, type DashboardTarget } from "./dashboard/dashboardMetrics";
 import {
-  calculateLedgerCashSummary,
-  calculateLedgerDaily,
   calculateLedgerPaymentMethodTotals,
+  calculatePaymentAggregate,
+  calculatePaymentDaily,
+  calculateRefundAggregate,
+  calculateRefundDaily,
   ledgerPaymentsForDate,
-  mergeSaleAndCashDays,
+  mergeAccountingDays,
   type PaymentLedgerEntry,
   type RefundLedgerEntry,
 } from "./paymentLedgerMetrics";
@@ -178,7 +180,7 @@ export function DashboardPage() {
       : dashboardComparisonRange("today", visibleRange, "day"),
     [comparisonRange, isAdmin, visibleRange],
   );
-  const overview = useMemo(() => calculateRangeOverview(sales, units, visibleRange, visibleComparisonRange), [sales, units, visibleComparisonRange, visibleRange]);
+  const overview = useMemo(() => calculateSalesRangeOverview(sales, units, visibleRange, visibleComparisonRange), [sales, units, visibleComparisonRange, visibleRange]);
   const selectedSales = useMemo(
     () =>
       unitId
@@ -188,7 +190,7 @@ export function DashboardPage() {
   );
   const selectedOverview = useMemo(
     () =>
-      calculateRangeOverview(
+      calculateSalesRangeOverview(
         selectedSales,
         units,
         visibleRange,
@@ -196,13 +198,23 @@ export function DashboardPage() {
       ),
     [selectedSales, units, visibleComparisonRange, visibleRange],
   );
-  const selectedCash = useMemo(
-    () => calculateLedgerCashSummary(sales, payments, refunds, visibleRange, unitId),
-    [payments, refunds, sales, unitId, visibleRange],
+  const selectedPayment = useMemo(
+    () => calculatePaymentAggregate(sales, payments, visibleRange, unitId),
+    [payments, sales, unitId, visibleRange],
   );
-  const previousCash = useMemo(
-    () => calculateLedgerCashSummary(sales, payments, refunds, visibleComparisonRange, unitId),
-    [payments, refunds, sales, unitId, visibleComparisonRange],
+  const selectedRefund = useMemo(
+    () => calculateRefundAggregate(sales, refunds, visibleRange, unitId),
+    [refunds, sales, unitId, visibleRange],
+  );
+  const previousPayment = useMemo(
+    () =>
+      calculatePaymentAggregate(
+        sales,
+        payments,
+        visibleComparisonRange,
+        unitId,
+      ),
+    [payments, sales, unitId, visibleComparisonRange],
   );
   const currentOutstanding = useMemo(
     () =>
@@ -232,45 +244,25 @@ export function DashboardPage() {
           coreCodes.has(division.code as BusinessUnitCode),
         )
         .map((division) => {
-          const divisionSales = sales.filter(
-            (sale) =>
-              sale.status !== "cancelled" &&
-              sale.businessUnitId === division.id &&
-              sale.saleDate >= visibleRange.from &&
-              sale.saleDate <= visibleRange.to,
-          );
-          const previousDivisionSales = sales.filter(
-            (sale) =>
-              sale.status !== "cancelled" &&
-              sale.businessUnitId === division.id &&
-              sale.saleDate >= visibleComparisonRange.from &&
-              sale.saleDate <= visibleComparisonRange.to,
-          );
-          const cash = calculateLedgerCashSummary(
+          const receivedAmount = calculatePaymentAggregate(
             sales,
             payments,
+            visibleRange,
+            division.id,
+          );
+          const refundAmount = calculateRefundAggregate(
+            sales,
             refunds,
             visibleRange,
             division.id,
           );
           return {
             ...division,
-            revenue: divisionSales.reduce(
-              (total, sale) => total + finalSaleAmount(sale),
-              0,
-            ),
-            previousRevenue: previousDivisionSales.reduce(
-              (total, sale) => total + finalSaleAmount(sale),
-              0,
-            ),
-            receivedAmount: cash.paidAmount,
-            refundAmount: cash.refundAmount,
-            average: division.count
-              ? divisionSales.reduce(
-                  (total, sale) => total + finalSaleAmount(sale),
-                  0,
-                ) / division.count
-              : 0,
+            revenue: division.salesAmount,
+            previousRevenue: division.previousSalesAmount,
+            receivedAmount,
+            refundAmount,
+            average: division.average,
           };
         }),
     [
@@ -278,7 +270,6 @@ export function DashboardPage() {
       payments,
       refunds,
       sales,
-      visibleComparisonRange,
       visibleRange,
     ],
   );
@@ -290,22 +281,25 @@ export function DashboardPage() {
   const rangeLabel =
     range.from === range.to ? range.from : `${range.from} ~ ${range.to}`;
   const daily = useMemo(() => {
-    const saleDays = calculateDailyRevenue(sales, range, unitId);
-    const cashDays = calculateLedgerDaily(sales, payments, refunds, range, unitId);
-    return mergeSaleAndCashDays(saleDays, cashDays);
+    const saleDays = calculateDailySales(sales, range, unitId);
+    const paymentDays = calculatePaymentDaily(sales, payments, range, unitId);
+    const refundDays = calculateRefundDaily(sales, refunds, range, unitId);
+    return mergeAccountingDays(saleDays, paymentDays, refundDays);
   }, [payments, range, refunds, sales, unitId]);
   const calendarData = useMemo(() => {
     const calendarRange = monthRange(calendarMonth);
-    return mergeSaleAndCashDays(
-      calculateDailyRevenue(sales, calendarRange, unitId),
-      calculateLedgerDaily(sales, payments, refunds, calendarRange, unitId),
+    return mergeAccountingDays(
+      calculateDailySales(sales, calendarRange, unitId),
+      calculatePaymentDaily(sales, payments, calendarRange, unitId),
+      calculateRefundDaily(sales, refunds, calendarRange, unitId),
     );
   }, [calendarMonth, payments, refunds, sales, unitId]);
   const calendarTotalData = useMemo(() => {
     const calendarRange = monthRange(calendarMonth);
-    return mergeSaleAndCashDays(
-      calculateDailyRevenue(sales, calendarRange),
-      calculateLedgerDaily(sales, payments, refunds, calendarRange),
+    return mergeAccountingDays(
+      calculateDailySales(sales, calendarRange),
+      calculatePaymentDaily(sales, payments, calendarRange),
+      calculateRefundDaily(sales, refunds, calendarRange),
     );
   }, [calendarMonth, payments, refunds, sales]);
   const selectedDateSales = useMemo(
@@ -314,16 +308,21 @@ export function DashboardPage() {
   );
   const selectedDateSummary = useMemo(() => {
     const selectedRange = { from: selectedDate, to: selectedDate };
-    const saleDay = calculateDailyRevenue(sales, selectedRange, unitId)[0];
-    const cashDay = calculateLedgerDaily(
+    const saleDay = calculateDailySales(sales, selectedRange, unitId)[0];
+    const paymentDay = calculatePaymentDaily(
       sales,
       payments,
+      selectedRange,
+      unitId,
+    )[0];
+    const refundDay = calculateRefundDaily(
+      sales,
       refunds,
       selectedRange,
       unitId,
     )[0];
     return {
-      ...mergeSaleAndCashDays([saleDay], [cashDay])[0],
+      ...mergeAccountingDays([saleDay], [paymentDay], [refundDay])[0],
       outstanding: currentOutstanding,
     };
   }, [currentOutstanding, payments, refunds, sales, selectedDate, unitId]);
@@ -382,12 +381,12 @@ export function DashboardPage() {
           compareLabel={compareLabel}
           salesAmount={selectedOverview.salesAmount}
           previousSalesAmount={selectedOverview.previousSalesAmount}
-          netAmount={selectedCash.paidAmount}
-          previousNetAmount={previousCash.paidAmount}
+          netAmount={selectedPayment}
+          previousNetAmount={previousPayment}
           count={selectedOverview.count}
           monthlyTarget={monthlyTarget}
           outstanding={currentOutstanding}
-          refund={selectedCash.refundAmount}
+          refund={selectedRefund}
           onOutstanding={() => setOutstandingDrawerOpen(true)}
         />
       </section>

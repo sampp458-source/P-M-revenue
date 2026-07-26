@@ -163,6 +163,48 @@ export function calculateRangeOverview(sales: DashboardSale[], units: BusinessUn
   };
 }
 
+export function calculateSalesRangeOverview(
+  sales: DashboardSale[],
+  units: BusinessUnitOption[],
+  range: DashboardDateRange,
+  comparisonRange = previousDashboardRange(range),
+) {
+  const selected = sales.filter(
+    (sale) => sale.status !== "cancelled" && inRange(sale.saleDate, range),
+  );
+  const previous = sales.filter(
+    (sale) =>
+      sale.status !== "cancelled" &&
+      inRange(sale.saleDate, comparisonRange),
+  );
+  const orderedUnits = [...units].sort(
+    (left, right) => businessUnitOrder(left) - businessUnitOrder(right),
+  );
+
+  return {
+    salesAmount: sumFinalSaleAmount(selected),
+    previousSalesAmount: sumFinalSaleAmount(previous),
+    count: selected.length,
+    divisions: orderedUnits.map((unit) => {
+      const rows = selected.filter(
+        (sale) => sale.businessUnitId === unit.id,
+      );
+      const previousRows = previous.filter(
+        (sale) => sale.businessUnitId === unit.id,
+      );
+      const salesAmount = sumFinalSaleAmount(rows);
+      const previousSalesAmount = sumFinalSaleAmount(previousRows);
+      return {
+        ...unit,
+        salesAmount,
+        previousSalesAmount,
+        count: rows.length,
+        average: rows.length ? salesAmount / rows.length : 0,
+      };
+    }),
+  };
+}
+
 export interface DailyRevenue {
   date: string;
   salesAmount: number;
@@ -195,6 +237,55 @@ export function calculateDailyRevenue(sales: DashboardSale[], range: DashboardDa
       cancelledCount: cancelledByDate.get(cursor) ?? 0,
       refund: sum(dayRows, "refundAmount"),
       outstanding: sum(dayRows, "outstandingAmount"),
+    });
+  }
+  return result;
+}
+
+export function calculateDailySales(
+  sales: DashboardSale[],
+  range: DashboardDateRange,
+  unitId = "",
+) {
+  const selected = sales.filter(
+    (sale) =>
+      inRange(sale.saleDate, range) &&
+      (!unitId || sale.businessUnitId === unitId),
+  );
+  const activeByDate = new Map<string, DashboardSale[]>();
+  const cancelledByDate = new Map<string, number>();
+
+  selected.forEach((sale) => {
+    if (sale.status === "cancelled") {
+      cancelledByDate.set(
+        sale.saleDate,
+        (cancelledByDate.get(sale.saleDate) ?? 0) + 1,
+      );
+      return;
+    }
+    activeByDate.set(sale.saleDate, [
+      ...(activeByDate.get(sale.saleDate) ?? []),
+      sale,
+    ]);
+  });
+
+  const result: Array<{
+    date: string;
+    salesAmount: number;
+    count: number;
+    cancelledCount: number;
+  }> = [];
+  for (
+    let cursor = range.from;
+    cursor <= range.to;
+    cursor = moveDate(cursor, 1)
+  ) {
+    const rows = activeByDate.get(cursor) ?? [];
+    result.push({
+      date: cursor,
+      salesAmount: sumFinalSaleAmount(rows),
+      count: rows.length,
+      cancelledCount: cancelledByDate.get(cursor) ?? 0,
     });
   }
   return result;
