@@ -133,6 +133,50 @@ begin
 end
 $$;
 
+-- SQL Editor에서 수행하는 이 Migration의 시스템성 sales 보정만
+-- 업무 이력에서 제외한다. 로그인 사용자는 설정값과 관계없이 기존처럼 기록한다.
+create or replace function public.record_sale_history()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  action_name text;
+begin
+  if auth.uid() is null
+    and current_setting('app.skip_sale_history', true) = 'true' then
+    if tg_op = 'DELETE' then
+      return old;
+    end if;
+
+    return new;
+  end if;
+
+  if tg_op = 'INSERT' then
+    insert into public.sale_history
+      (sale_id, action, previous_data, changed_data, changed_by)
+    values (new.id, 'created', null, to_jsonb(new), auth.uid());
+    return new;
+  end if;
+
+  action_name := case
+    when old.status <> 'cancelled' and new.status = 'cancelled' then 'cancelled'
+    when old.status = 'cancelled' and new.status <> 'cancelled' then 'reopened'
+    when new.refund_amount = new.paid_amount
+      and old.refund_amount <> new.refund_amount then 'full_refund'
+    when old.refund_amount <> new.refund_amount then 'partial_refund'
+    else 'updated'
+  end;
+
+  insert into public.sale_history
+    (sale_id, action, previous_data, changed_data, changed_by)
+  values (new.id, action_name, to_jsonb(old), to_jsonb(new), auth.uid());
+
+  return new;
+end;
+$$;
+
 alter table public.sale_payments
   add column if not exists payment_date date,
   add column if not exists note text,
@@ -308,6 +352,10 @@ alter table public.sales
   add column if not exists initial_outstanding_amount integer,
   add column if not exists initial_outstanding_estimated boolean;
 
+-- 아래 세 UPDATE만 시스템성 Snapshot 보정이므로 이력 기록을 건너뛴다.
+-- 세 번째 인자 true는 현재 트랜잭션에만 설정을 유지한다.
+select set_config('app.skip_sale_history', 'true', true);
+
 -- 기존 최초 미수금은 현재 outstanding_amount를 그대로 복사하지 않는다.
 -- 현재 보존된 initial 원장 합계를 최종 판매금액에서 차감해 계산한다.
 -- 다만 과거 미수 수납이 이미 하나의 기존 결제행으로 합쳐진 경우에는
@@ -340,6 +388,8 @@ where sale.initial_outstanding_amount is null;
 update public.sales
 set initial_outstanding_estimated = true
 where initial_outstanding_estimated is null;
+
+select set_config('app.skip_sale_history', '', true);
 
 alter table public.sales
   alter column initial_outstanding_amount set not null,

@@ -47,6 +47,42 @@ describe("outstanding payment ledger migration", () => {
     );
   });
 
+  it("skips history only for transaction-local system snapshot backfills", () => {
+    expect(migration).toContain(
+      "create or replace function public.record_sale_history()",
+    );
+    expect(migration).toContain(
+      "auth.uid() is null\n    and current_setting('app.skip_sale_history', true) = 'true'",
+    );
+    expect(migration).toContain(
+      "select set_config('app.skip_sale_history', 'true', true);",
+    );
+    expect(migration).toContain(
+      "select set_config('app.skip_sale_history', '', true);",
+    );
+    expect(migration).toContain(
+      "values (new.id, action_name, to_jsonb(old), to_jsonb(new), auth.uid())",
+    );
+
+    const skipStart = migration.indexOf(
+      "select set_config('app.skip_sale_history', 'true', true);",
+    );
+    const snapshotBackfill = migration.indexOf(
+      "with initial_payment_totals as (",
+    );
+    const legacyEstimateBackfill = migration.indexOf(
+      "set initial_outstanding_estimated = true",
+    );
+    const skipEnd = migration.indexOf(
+      "select set_config('app.skip_sale_history', '', true);",
+    );
+
+    expect(skipStart).toBeGreaterThan(-1);
+    expect(snapshotBackfill).toBeGreaterThan(skipStart);
+    expect(legacyEstimateBackfill).toBeGreaterThan(snapshotBackfill);
+    expect(skipEnd).toBeGreaterThan(legacyEstimateBackfill);
+  });
+
   it("supports repeated same-method payments without the legacy unique constraint", () => {
     expect(migration).toContain(
       "constraint_info.contype = 'u'",
