@@ -82,13 +82,16 @@ describe("entry error sale cancellation migration", () => {
     expect(migration).toContain("outstanding_amount = 0");
     expect(migration).toContain("net_amount = 0");
     expect(migration).toContain(
-      "status = 'cancelled'\n    or paid_amount + outstanding_amount",
+      "status = 'cancelled'\n      and cancellation_type = 'entry_error'\n      and paid_amount = 0\n      and outstanding_amount = 0",
+    );
+    expect(migration).toContain(
+      "cancellation_type is distinct from 'entry_error'\n      and paid_amount + outstanding_amount",
     );
     expect(migration).toContain(
       "when new.status = 'cancelled'\n          and new.cancellation_type = 'entry_error'\n          then 0",
     );
     expect(migration).toContain(
-      "sale.status <> 'cancelled'\n    and sale.paid_amount + sale.outstanding_amount",
+      "sale.cancellation_type is distinct from 'entry_error'\n    and sale.paid_amount + sale.outstanding_amount",
     );
     expect(migration).toContain(
       "or sale.outstanding_amount <> 0",

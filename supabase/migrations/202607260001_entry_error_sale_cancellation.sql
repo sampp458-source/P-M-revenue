@@ -13,9 +13,17 @@ alter table public.sales
 alter table public.sales
   add constraint sales_payment_balance_consistency
   check (
-    status = 'cancelled'
-    or paid_amount + outstanding_amount
-      = original_amount + additional_amount - discount_amount
+    (
+      status = 'cancelled'
+      and cancellation_type = 'entry_error'
+      and paid_amount = 0
+      and outstanding_amount = 0
+    )
+    or (
+      cancellation_type is distinct from 'entry_error'
+      and paid_amount + outstanding_amount
+        = original_amount + additional_amount - discount_amount
+    )
   );
 
 alter table public.sales
@@ -505,13 +513,13 @@ begin
   select count(*)
   into invalid_count
   from public.sales as sale
-  where sale.status <> 'cancelled'
+  where sale.cancellation_type is distinct from 'entry_error'
     and sale.paid_amount + sale.outstanding_amount
       <> sale.original_amount + sale.additional_amount - sale.discount_amount;
 
   if invalid_count > 0 then
     raise exception
-      '취소되지 않은 매출의 결제금액과 미수금 합계가 맞지 않는 거래가 %건 있습니다.',
+      '오등록 취소가 아닌 매출의 결제금액과 미수금 합계가 맞지 않는 거래가 %건 있습니다.',
       invalid_count
       using errcode = 'P0001';
   end if;
