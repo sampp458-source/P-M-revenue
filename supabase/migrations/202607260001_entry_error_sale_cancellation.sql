@@ -5,6 +5,19 @@ alter table public.sales
   add column if not exists cancellation_type text,
   add column if not exists cancellation_request_id uuid;
 
+-- 취소 거래는 운영 잔액이 아니므로 0원 Snapshot을 허용한다.
+-- 정상·부분환불·전액환불 거래의 기존 balance 규칙은 유지한다.
+alter table public.sales
+  drop constraint if exists sales_payment_balance_consistency;
+
+alter table public.sales
+  add constraint sales_payment_balance_consistency
+  check (
+    status = 'cancelled'
+    or paid_amount + outstanding_amount
+      = original_amount + additional_amount - discount_amount
+  );
+
 alter table public.sales
   drop constraint if exists sales_cancellation_type_check;
 
@@ -54,6 +67,28 @@ alter table public.sales
 create unique index if not exists sales_cancellation_request_id_uidx
   on public.sales(cancellation_request_id)
   where cancellation_request_id is not null;
+
+-- sale_history의 기존 취소 이력 Trigger가 활성 상태인지 확인한다.
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_trigger as trigger_info
+    join pg_class as table_info
+      on table_info.oid = trigger_info.tgrelid
+    join pg_namespace as schema_info
+      on schema_info.oid = table_info.relnamespace
+    where schema_info.nspname = 'public'
+      and table_info.relname = 'sales'
+      and trigger_info.tgname = 'sales_history_after_write'
+      and not trigger_info.tgisinternal
+      and trigger_info.tgenabled <> 'D'
+  ) then
+    raise exception '매출 변경 이력 Trigger를 확인할 수 없습니다.'
+      using errcode = 'P0001';
+  end if;
+end
+$$;
 
 -- 신규 취소 유형과 원장 상태가 서로 모순되지 않도록 보호한다.
 create or replace function public.protect_sale_cancellation_type()
@@ -172,6 +207,82 @@ create trigger sales_protect_cancellation_type_before_write
   before insert or update on public.sales
   for each row execute function public.protect_sale_cancellation_type();
 
+-- 결제 Snapshot 변경 보호는 유지하되 오등록 취소의 0원 잔액만 예외로 한다.
+create or replace function public.protect_sale_changes()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  ledger_refund_amount integer;
+  ledger_paid_amount integer;
+  final_sale_amount integer;
+  expected_outstanding_amount integer;
+begin
+  if old.created_by <> new.created_by then
+    raise exception '매출 등록자는 변경할 수 없습니다.'
+      using errcode = 'P0001';
+  end if;
+
+  if not public.is_admin() and (
+    old.refund_amount <> new.refund_amount
+    or old.status <> new.status
+    or old.cancelled_at is distinct from new.cancelled_at
+    or old.cancelled_by is distinct from new.cancelled_by
+    or old.cancellation_reason is distinct from new.cancellation_reason
+    or old.cancellation_type is distinct from new.cancellation_type
+    or old.cancellation_request_id is distinct from new.cancellation_request_id
+    or old.staff_id is distinct from new.staff_id
+  ) then
+    raise exception '환불, 취소와 담당자 변경은 관리자만 처리할 수 있습니다.'
+      using errcode = '42501';
+  end if;
+
+  if old.refund_amount <> new.refund_amount then
+    select coalesce(sum(amount), 0)::integer
+    into ledger_refund_amount
+    from public.sale_refunds
+    where sale_id = new.id
+      and voided_at is null;
+
+    if new.refund_amount <> ledger_refund_amount then
+      raise exception '환불 금액은 환불 처리 기능을 통해서만 변경할 수 있습니다.'
+        using errcode = 'P0001';
+    end if;
+  end if;
+
+  if old.paid_amount <> new.paid_amount
+    or old.outstanding_amount <> new.outstanding_amount then
+    select coalesce(sum(amount), 0)::integer
+    into ledger_paid_amount
+    from public.sale_payments
+    where sale_id = new.id
+      and voided_at is null;
+
+    final_sale_amount :=
+      new.original_amount + new.additional_amount - new.discount_amount;
+
+    expected_outstanding_amount :=
+      case
+        when new.status = 'cancelled'
+          and new.cancellation_type = 'entry_error'
+          then 0
+        else final_sale_amount - ledger_paid_amount
+      end;
+
+    if new.paid_amount <> ledger_paid_amount
+      or new.outstanding_amount <> expected_outstanding_amount
+      or new.net_amount <> ledger_paid_amount - new.refund_amount then
+      raise exception '결제금액과 미수금은 결제 처리 기능을 통해서만 변경할 수 있습니다.'
+        using errcode = 'P0001';
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
 -- 실제 입금이 없던 오등록만 한 트랜잭션으로 취소한다.
 create or replace function public.cancel_sale_as_entry_error(
   p_sale_id uuid,
@@ -190,7 +301,6 @@ declare
   normalized_reason text := nullif(btrim(coalesce(p_reason, '')), '');
   prohibited_payment_count integer;
   active_refund_count integer;
-  final_sale_amount integer;
 begin
   if auth.uid() is null or not public.is_admin() then
     raise exception '오등록 취소는 관리자만 처리할 수 있습니다.'
@@ -317,11 +427,6 @@ begin
   where sale_id = sale_row.id
     and voided_at is null;
 
-  final_sale_amount :=
-    sale_row.original_amount
-    + sale_row.additional_amount
-    - sale_row.discount_amount;
-
   perform set_config(
     'app.entry_error_cancel_sale_id',
     sale_row.id::text,
@@ -335,7 +440,7 @@ begin
     cancellation_request_id = p_request_id,
     cancellation_reason = normalized_reason,
     paid_amount = 0,
-    outstanding_amount = final_sale_amount,
+    outstanding_amount = 0,
     net_amount = 0
   where id = sale_row.id
   returning * into sale_row;
@@ -386,14 +491,27 @@ begin
           and refund.voided_at is null
       )
       or sale.paid_amount <> 0
+      or sale.outstanding_amount <> 0
       or sale.net_amount <> 0
-      or sale.paid_amount + sale.outstanding_amount
-        <> sale.original_amount + sale.additional_amount - sale.discount_amount
     );
 
   if invalid_count > 0 then
     raise exception
       '오등록 취소 무결성이 맞지 않는 매출이 %건 있습니다.',
+      invalid_count
+      using errcode = 'P0001';
+  end if;
+
+  select count(*)
+  into invalid_count
+  from public.sales as sale
+  where sale.status <> 'cancelled'
+    and sale.paid_amount + sale.outstanding_amount
+      <> sale.original_amount + sale.additional_amount - sale.discount_amount;
+
+  if invalid_count > 0 then
+    raise exception
+      '취소되지 않은 매출의 결제금액과 미수금 합계가 맞지 않는 거래가 %건 있습니다.',
       invalid_count
       using errcode = 'P0001';
   end if;

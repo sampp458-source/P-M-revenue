@@ -79,13 +79,31 @@ describe("entry error sale cancellation migration", () => {
     expect(migration).toContain("status = 'cancelled'");
     expect(migration).toContain("cancellation_type = 'entry_error'");
     expect(migration).toContain("paid_amount = 0");
-    expect(migration).toContain("outstanding_amount = final_sale_amount");
+    expect(migration).toContain("outstanding_amount = 0");
     expect(migration).toContain("net_amount = 0");
     expect(migration).toContain(
-      "sale.paid_amount + sale.outstanding_amount",
+      "status = 'cancelled'\n    or paid_amount + outstanding_amount",
     );
     expect(migration).toContain(
-      "sale.original_amount + sale.additional_amount - sale.discount_amount",
+      "when new.status = 'cancelled'\n          and new.cancellation_type = 'entry_error'\n          then 0",
+    );
+    expect(migration).toContain(
+      "sale.status <> 'cancelled'\n    and sale.paid_amount + sale.outstanding_amount",
+    );
+    expect(migration).toContain(
+      "or sale.outstanding_amount <> 0",
+    );
+  });
+
+  it("keeps the existing sale history trigger active for entry-error snapshots", () => {
+    expect(migration).toContain(
+      "trigger_info.tgname = 'sales_history_after_write'",
+    );
+    expect(migration).toContain(
+      "trigger_info.tgenabled <> 'D'",
+    );
+    expect(migration).toContain(
+      "cancellation_type = 'entry_error'",
     );
   });
 
