@@ -7,6 +7,7 @@ import {
   type DailyRevenue,
   type DashboardSale,
 } from "./dashboardMetrics";
+import type { PaymentLedgerEntry } from "../paymentLedgerMetrics";
 
 const paymentLabels: Record<string, string> = {
   card: "카드",
@@ -30,6 +31,8 @@ export function DashboardDateDrawer({
   unitName,
   summary,
   rows,
+  payments,
+  paymentMethodTotals,
   onClose,
   onOpenSale,
   onOpenSales,
@@ -39,6 +42,11 @@ export function DashboardDateDrawer({
   unitName: string;
   summary: DailyRevenue;
   rows: DashboardSale[];
+  payments: Array<{
+    payment: PaymentLedgerEntry;
+    sale: DashboardSale;
+  }>;
+  paymentMethodTotals: Map<string, number>;
   onClose: () => void;
   onOpenSale: (saleId: string) => void;
   onOpenSales: () => void;
@@ -116,14 +124,67 @@ export function DashboardDateDrawer({
               {won(summary.salesAmount)}
             </strong>
             <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/10 pt-4">
-              <Summary label="실결제" value={won(summary.net)} />
-              <Summary label="미수" value={won(summary.outstanding)} warning={summary.outstanding > 0} />
+              <Summary label="실수납" value={won(summary.net)} />
+              <Summary label="현재 미수" value={won(summary.outstanding)} warning={summary.outstanding > 0} />
               <Summary label="환불" value={won(summary.refund)} warning={summary.refund > 0} />
             </div>
           </div>
           </div>
 
           <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
+          <div className="mb-6">
+            <div className="mb-3 flex items-end justify-between gap-3">
+              <div>
+                <h3 className="font-semibold text-text-primary">수납 내역</h3>
+                <p className="mt-1 text-xs text-text-muted">결제일 기준 유효 결제원장</p>
+              </div>
+              <Badge tone="blue">{payments.length.toLocaleString("ko-KR")}건</Badge>
+            </div>
+            {paymentMethodTotals.size > 0 && (
+              <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {[...paymentMethodTotals.entries()].map(([method, amount]) => (
+                  <div key={method} className="rounded-xl border border-border bg-surface-secondary p-3">
+                    <span className="block text-[11px] text-text-muted">
+                      {paymentLabels[method] || method}
+                    </span>
+                    <strong className="mt-1 block text-sm text-text-primary tabular-nums">
+                      {won(amount)}
+                    </strong>
+                  </div>
+                ))}
+              </div>
+            )}
+            {payments.length > 0 ? (
+              <div className="space-y-2">
+                {payments.map(({ payment, sale }) => (
+                  <button
+                    key={payment.id}
+                    type="button"
+                    onClick={() => onOpenSale(sale.id)}
+                    className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-border bg-surface px-3.5 py-3 text-left transition-colors hover:border-primary/25 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <span className="min-w-0">
+                      <strong className="block truncate text-sm text-text-primary">
+                        {sale.dogName || "(반려견 없음)"} · {sale.customerName || "보호자 미등록"}
+                      </strong>
+                      <span className="mt-1 block truncate text-xs text-text-muted">
+                        {sale.productName} · {paymentLabels[payment.paymentMethod || "other"] || payment.paymentMethod}
+                        {payment.source === "outstanding_collection" ? " · 미수 수납" : ""}
+                      </span>
+                    </span>
+                    <strong className="shrink-0 text-sm text-primary tabular-nums">
+                      {won(payment.amount)}
+                    </strong>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-xl bg-surface-secondary p-4 text-center text-sm text-text-muted">
+                이 날짜의 수납 내역이 없습니다.
+              </p>
+            )}
+          </div>
+
           <div className="mb-3 flex items-end justify-between gap-3">
             <div>
               <h3 className="font-semibold text-text-primary">거래 목록</h3>

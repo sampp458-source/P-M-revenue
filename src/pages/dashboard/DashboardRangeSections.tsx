@@ -72,7 +72,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
           <p className="mt-1 text-[13px] leading-5 text-text-muted">
             {hideAmounts
               ? "날짜를 선택하면 해당 날짜의 사업부별 거래를 확인합니다."
-              : `${unitName} 실매출 기준 · KPI 적용 기간 ${activeRangeLabel}`}
+              : `${unitName} 판매일·결제일 분리 기준 · KPI 적용 기간 ${activeRangeLabel}`}
           </p>
           <p className="mt-1 text-[11px] leading-4 text-text-muted">
             선택 기간 밖 날짜도 월 전체 흐름을 확인할 수 있도록 흐리게 표시합니다.
@@ -81,8 +81,8 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
             <CalendarIndicator color="border-primary bg-primary-subtle" label="선택 기간" square />
             <CalendarIndicator color="border-primary bg-white" label="선택일" square />
             <CalendarIndicator color="border-primary border-dashed bg-white" label="오늘" square />
-            <CalendarIndicator color="bg-primary" label="매출" />
-            <CalendarIndicator color="bg-warning" label="미수" />
+            <CalendarIndicator color="bg-slate-500" label="판매" />
+            <CalendarIndicator color="bg-primary" label="수납" />
             <CalendarIndicator color="bg-error" label="환불" />
           </div>
         </div>
@@ -111,13 +111,13 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
           const row = byDate.get(date);
           const totalRow = totalsByDate.get(date);
           const amount = row?.net ?? 0;
-          const hasRevenue = (row?.count ?? 0) > 0;
+          const hasSales = (row?.count ?? 0) > 0;
+          const hasReceipt = (row?.revenue ?? 0) > 0;
           const hasRefund = (row?.refund ?? 0) > 0;
-          const hasOutstandingAmount = (row?.outstanding ?? 0) > 0;
           const inActiveRange = date >= activeRange.from && date <= activeRange.to;
           const indicatorLabel = [
-            hasRevenue ? "매출 있음" : "",
-            hasOutstandingAmount ? "미수 있음" : "",
+            hasSales ? "판매 있음" : "",
+            hasReceipt ? "수납 있음" : "",
             hasRefund ? "환불 있음" : "",
           ].filter(Boolean).join(", ");
           return (
@@ -139,8 +139,8 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                 selectedDate === date && "opacity-100",
                 today === date && selectedDate !== date && "border-dashed border-primary/70",
               )}
-              title={`${date} · ${unitName} 실매출 ${won(amount)} · ${row?.count ?? 0}건${inActiveRange ? " · KPI 선택 기간 포함" : " · KPI 선택 기간 밖"}`}
-              aria-label={`${hideAmounts ? `${date} 거래 상세 열기` : `${date} ${unitName} 실매출 ${won(amount)} ${row?.count ?? 0}건${filtered ? ` 전체 실매출 ${won(totalRow?.net ?? 0)}` : ""}`}${indicatorLabel ? `, ${indicatorLabel}` : ""}`}
+              title={`${date} · ${unitName} 실수납 ${won(amount)} · 판매 ${row?.count ?? 0}건${inActiveRange ? " · KPI 선택 기간 포함" : " · KPI 선택 기간 밖"}`}
+              aria-label={`${hideAmounts ? `${date} 거래 상세 열기` : `${date} ${unitName} 실수납 ${won(amount)} 판매 ${row?.count ?? 0}건${filtered ? ` 전체 실수납 ${won(totalRow?.net ?? 0)}` : ""}`}${indicatorLabel ? `, ${indicatorLabel}` : ""}`}
             >
               <span className="flex items-center justify-between gap-1">
                 <span className="text-xs font-bold text-text-primary sm:text-sm">
@@ -153,8 +153,8 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                 )}
               </span>
               <span className="mt-1.5 flex min-h-2 items-center gap-1" aria-hidden="true">
-                {hasRevenue && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
-                {hasOutstandingAmount && <span className="h-1.5 w-1.5 rounded-full bg-warning" />}
+                {hasSales && <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />}
+                {hasReceipt && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
                 {hasRefund && <span className="h-1.5 w-1.5 rounded-full bg-error" />}
               </span>
               {hideAmounts ? (
@@ -169,7 +169,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                   </span>
                   {filtered && (
                     <span className="mt-0.5 hidden truncate text-[9px] text-text-secondary sm:block">
-                      전체 {shortWon(totalRow?.net ?? 0)}
+                      전체 수납 {shortWon(totalRow?.net ?? 0)}
                     </span>
                   )}
                 </>

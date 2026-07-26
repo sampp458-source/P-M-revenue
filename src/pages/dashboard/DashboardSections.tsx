@@ -107,7 +107,7 @@ export function DashboardKpiHero({
     {
       label: `${periodLabel} 환불`,
       value: won(refund),
-      description: "해당 기간 거래에 누적된 환불액",
+      description: "환불일 기준 유효 환불원장 합계",
       className: "bg-error-soft/50",
       labelClass: "text-error",
       valueClass: "text-text-primary text-[clamp(1.65rem,3vw,2.2rem)]",
@@ -252,7 +252,7 @@ export function BusinessUnitCard({ order, name, revenue, previousRevenue, compar
           </span>
           <span className="mt-5 block">
             <span className="text-xs font-semibold text-text-secondary">
-              {restricted ? "선택 날짜 실매출" : "선택 기간 실매출"}
+              {restricted ? "선택 날짜 실수납" : "선택 기간 실수납"}
             </span>
             <strong className="mt-1 block text-[1.75rem] font-bold tracking-[-0.04em] text-text-primary tabular-nums sm:text-[1.95rem]">
               {won(revenue)}

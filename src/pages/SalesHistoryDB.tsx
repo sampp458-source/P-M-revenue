@@ -83,6 +83,10 @@ import {
 import { paymentMethodLabels, paymentSummary, type SalePaymentRow } from "./salePaymentLogic";
 import { normalizePaymentRows, paymentRowsTotal } from "./salePaymentLogic";
 import {
+  calculateLedgerCashSummary,
+  type RefundLedgerEntry,
+} from "./paymentLedgerMetrics";
+import {
   detailProductName,
   detailPaymentRows,
   formatQuantityWithUnit,
@@ -328,6 +332,7 @@ export function SalesHistoryPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [sales, setSales] = useState<SaleRow[]>([]);
+  const [refundLedger, setRefundLedger] = useState<RefundLedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const query = searchParams.get("q") ?? "";
@@ -429,6 +434,7 @@ export function SalesHistoryPage() {
       paymentsResult,
       productUnitsResult,
       dogsResult,
+      refundsResult,
     ] = await Promise.all([
       loadSaleRows(),
       supabase.rpc("get_staff_history_directory"),
@@ -436,9 +442,16 @@ export function SalesHistoryPage() {
       supabase.from("sale_payments").select("id, sale_id, payment_method, amount, payment_date, source, note, created_by, created_at, voided_at, voided_by, void_reason").order("payment_date").order("created_at"),
       supabase.from("products").select("id, unit_label"),
       supabase.from("dogs").select("id, customer_id, name, breed").eq("is_active", true).order("name"),
+      supabase.from("sale_refunds").select("id, sale_id, refund_date, amount, voided_at"),
     ]);
-    if (result.error || customersResult.error) {
+    if (
+      result.error ||
+      customersResult.error ||
+      paymentsResult.error ||
+      refundsResult.error
+    ) {
       setSales([]);
+      setRefundLedger([]);
       setLoadError(true);
     } else {
       const saleRows = (result.data ?? []) as unknown as SaleQueryRow[];
@@ -552,6 +565,15 @@ export function SalesHistoryPage() {
           cancelledAt: sale.cancelled_at,
         })),
       );
+      setRefundLedger(
+        (refundsResult.data ?? []).map((refund) => ({
+          id: refund.id,
+          saleId: refund.sale_id,
+          refundDate: refund.refund_date,
+          amount: refund.amount,
+          voidedAt: refund.voided_at,
+        })),
+      );
     }
     if (!profilesResult.error)
       setProfileNames(
@@ -634,10 +656,35 @@ export function SalesHistoryPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const page = Math.min(requestedPage, totalPages);
   const rows = filtered.slice((page - 1) * pageSize, page * pageSize);
-  const todayActivity = useMemo(
-    () => calculateTodayActivity(sales, today),
-    [sales, today],
-  );
+  const todayActivity = useMemo(() => {
+    const activity = calculateTodayActivity(sales, today);
+    const cash = calculateLedgerCashSummary(
+      sales,
+      sales.flatMap((sale) =>
+        sale.paymentLedger.map((payment) => ({
+          id: payment.id,
+          saleId: payment.saleId,
+          paymentDate: payment.paymentDate,
+          amount: payment.amount,
+          voidedAt: payment.voidedAt,
+          paymentMethod: payment.method,
+          source: payment.source,
+          createdBy: payment.createdBy,
+          createdAt: payment.createdAt,
+        })),
+      ),
+      refundLedger,
+      { from: today, to: today },
+    );
+    return {
+      ...activity,
+      netAmount: cash.netAmount,
+      refundAmount: cash.refundAmount,
+      outstandingAmount: sales
+        .filter((sale) => sale.status !== "cancelled")
+        .reduce((total, sale) => total + sale.outstandingAmount, 0),
+    };
+  }, [refundLedger, sales, today]);
   const recentToday = useMemo(
     () => todayRegisteredSales(sales, today, profile?.id ?? null).slice(0, 5),
     [profile?.id, sales, today],
@@ -2773,9 +2820,9 @@ function TodayActivityCards({
 }) {
   const cards = [
     ["오늘 등록", `${activity.registeredCount}건`, "created"],
-    ["오늘 실매출", won(activity.netAmount), "net"],
+    ["오늘 실수납", won(activity.netAmount), "net"],
     ["오늘 환불액", won(activity.refundAmount), "refund"],
-    ["오늘 미수금", won(activity.outstandingAmount), "outstanding"],
+    ["현재 미수금", won(activity.outstandingAmount), "outstanding"],
     ["오늘 취소", `${activity.cancelledCount}건`, "cancelled"],
   ] as const;
   return (
