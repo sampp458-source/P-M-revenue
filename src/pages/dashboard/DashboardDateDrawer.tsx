@@ -124,7 +124,7 @@ export function DashboardDateDrawer({
               {won(summary.salesAmount)}
             </strong>
             <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/10 pt-4">
-              <Summary label="실수납" value={won(summary.net)} />
+              <Summary label="실수납" value={won(summary.revenue)} />
               <Summary label="현재 미수" value={won(summary.outstanding)} warning={summary.outstanding > 0} />
               <Summary label="환불" value={won(summary.refund)} warning={summary.refund > 0} />
             </div>

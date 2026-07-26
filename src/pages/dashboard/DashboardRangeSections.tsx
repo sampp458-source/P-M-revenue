@@ -29,8 +29,8 @@ function CompareButton({ active, onClick, children }: { active: boolean; onClick
 }
 
 export function DailyRevenueTrend({ data, selectedDate, unitName, onSelect }: { data: DailyRevenue[]; selectedDate: string; unitName: string; onSelect: (date: string) => void }) {
-  const max = Math.max(0, ...data.map((row) => Math.max(0, row.net)));
-  return <Card className="p-5 sm:p-6"><div className="mb-5"><h2 className="font-bold text-text-primary">날짜별 실수납 추이</h2><p className="mt-1 text-xs text-text-muted">{unitName} · 결제일 기준 유효 수납에서 환불을 차감합니다.</p></div>{data.length ? <div className="overflow-x-auto pb-2"><div className="flex h-64 min-w-full items-end gap-2" style={{ width: `${Math.max(100, data.length * 52)}px` }}>{data.map((row) => { const height = max > 0 ? Math.max(4, Math.sqrt(Math.max(0, row.net) / max) * 172) : 4; return <button key={row.date} type="button" onClick={() => onSelect(row.date)} className={cn("group relative flex h-full min-w-10 flex-1 flex-col items-center justify-end rounded-lg px-1 pt-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", selectedDate === row.date && "bg-primary-subtle")} aria-label={`${row.date} 실수납 ${won(row.net)}`}><span className="pointer-events-none absolute left-1/2 top-1 z-10 hidden w-36 -translate-x-1/2 rounded-lg bg-[#17243a] px-3 py-2 text-left text-[11px] leading-5 text-white shadow-lg group-hover:block group-focus-visible:block"><strong className="block">{Number(row.date.slice(5, 7))}월 {Number(row.date.slice(8))}일</strong><span className="block text-blue-100">실수납 {won(row.net)}</span></span><span className="mb-2 hidden text-[10px] font-semibold text-text-secondary group-hover:block sm:block">{shortWon(row.net)}</span><span className={cn("w-full max-w-8 rounded-t-md transition-all duration-200", selectedDate === row.date ? "bg-primary" : "bg-[#7f9dbb] group-hover:bg-primary")} style={{ height }} /><span className="mt-2 text-[10px] text-text-muted">{Number(row.date.slice(8))}일</span></button>; })}</div></div> : <p className="rounded-xl bg-surface-secondary p-5 text-center text-sm text-text-muted">선택 기간에 표시할 수납 내역이 없습니다.</p>}</Card>;
+  const max = Math.max(0, ...data.map((row) => Math.max(0, row.revenue)));
+  return <Card className="p-5 sm:p-6"><div className="mb-5"><h2 className="font-bold text-text-primary">날짜별 실수납 추이</h2><p className="mt-1 text-xs text-text-muted">{unitName} · 결제일 기준 유효 결제원장 합계입니다.</p></div>{data.length ? <div className="overflow-x-auto pb-2"><div className="flex h-64 min-w-full items-end gap-2" style={{ width: `${Math.max(100, data.length * 52)}px` }}>{data.map((row) => { const height = max > 0 ? Math.max(4, Math.sqrt(Math.max(0, row.revenue) / max) * 172) : 4; return <button key={row.date} type="button" onClick={() => onSelect(row.date)} className={cn("group relative flex h-full min-w-10 flex-1 flex-col items-center justify-end rounded-lg px-1 pt-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", selectedDate === row.date && "bg-primary-subtle")} aria-label={`${row.date} 실수납 ${won(row.revenue)}`}><span className="pointer-events-none absolute left-1/2 top-1 z-10 hidden w-36 -translate-x-1/2 rounded-lg bg-[#17243a] px-3 py-2 text-left text-[11px] leading-5 text-white shadow-lg group-hover:block group-focus-visible:block"><strong className="block">{Number(row.date.slice(5, 7))}월 {Number(row.date.slice(8))}일</strong><span className="block text-blue-100">실수납 {won(row.revenue)}</span><span className="block text-rose-200">환불 {won(row.refund)}</span></span><span className="mb-2 hidden text-[10px] font-semibold text-text-secondary group-hover:block sm:block">{shortWon(row.revenue)}</span><span className={cn("w-full max-w-8 rounded-t-md transition-all duration-200", selectedDate === row.date ? "bg-primary" : "bg-[#7f9dbb] group-hover:bg-primary")} style={{ height }} /><span className="mt-2 text-[10px] text-text-muted">{Number(row.date.slice(8))}일</span></button>; })}</div></div> : <p className="rounded-xl bg-surface-secondary p-5 text-center text-sm text-text-muted">선택 기간에 표시할 수납 내역이 없습니다.</p>}</Card>;
 }
 
 const monthDays = (month: string) => {
@@ -53,7 +53,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
   const byDate = new Map(data.map((row) => [row.date, row]));
   const totalsByDate = new Map(totalData.map((row) => [row.date, row]));
   const filtered = unitName !== "전체 사업부";
-  const max = Math.max(0, ...data.map((row) => Math.max(0, row.net)));
+  const max = Math.max(0, ...data.map((row) => Math.max(0, row.revenue)));
   const intensity = (amount: number) => max <= 0 ? 0 : Math.min(4, Math.max(1, Math.ceil(Math.sqrt(Math.max(0, amount) / max) * 4)));
   const tones = ["bg-white", "bg-blue-50", "bg-blue-100", "bg-blue-200", "bg-[#b7cbe0]"];
   const [year, monthNumber] = month.split("-").map(Number);
@@ -110,7 +110,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
           }
           const row = byDate.get(date);
           const totalRow = totalsByDate.get(date);
-          const amount = row?.net ?? 0;
+          const amount = row?.revenue ?? 0;
           const hasSales = (row?.count ?? 0) > 0;
           const hasReceipt = (row?.revenue ?? 0) > 0;
           const hasRefund = (row?.refund ?? 0) > 0;
@@ -140,7 +140,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                 today === date && selectedDate !== date && "border-dashed border-primary/70",
               )}
               title={`${date} · ${unitName} 실수납 ${won(amount)} · 판매 ${row?.count ?? 0}건${inActiveRange ? " · KPI 선택 기간 포함" : " · KPI 선택 기간 밖"}`}
-              aria-label={`${hideAmounts ? `${date} 거래 상세 열기` : `${date} ${unitName} 실수납 ${won(amount)} 판매 ${row?.count ?? 0}건${filtered ? ` 전체 실수납 ${won(totalRow?.net ?? 0)}` : ""}`}${indicatorLabel ? `, ${indicatorLabel}` : ""}`}
+              aria-label={`${hideAmounts ? `${date} 거래 상세 열기` : `${date} ${unitName} 실수납 ${won(amount)} 판매 ${row?.count ?? 0}건${filtered ? ` 전체 실수납 ${won(totalRow?.revenue ?? 0)}` : ""}`}${indicatorLabel ? `, ${indicatorLabel}` : ""}`}
             >
               <span className="flex items-center justify-between gap-1">
                 <span className="text-xs font-bold text-text-primary sm:text-sm">
@@ -169,7 +169,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                   </span>
                   {filtered && (
                     <span className="mt-0.5 hidden truncate text-[9px] text-text-secondary sm:block">
-                      전체 수납 {shortWon(totalRow?.net ?? 0)}
+                      전체 수납 {shortWon(totalRow?.revenue ?? 0)}
                     </span>
                   )}
                 </>

@@ -262,3 +262,134 @@ describe("payment ledger metrics", () => {
     ).toHaveLength(3);
   });
 });
+
+describe("Dashboard와 Reports 정산 기준 A-G", () => {
+  const cashOn = (payments: PaymentLedgerEntry[], date: string) =>
+    calculateLedgerCashSummary(
+      sales,
+      payments,
+      [],
+      { from: date, to: date },
+    ).paidAmount;
+
+  it("A. 당일 전액 결제는 판매일과 수납일에 각각 한 번 집계한다", () => {
+    const ledger = [
+      payment({ paymentDate: "2026-07-10", amount: 3000000 }),
+    ];
+    expect(cashOn(ledger, "2026-07-10")).toBe(3000000);
+    expect(
+      mergeSaleAndCashDays(
+        [{ date: "2026-07-10", salesAmount: 3000000 }],
+        calculateLedgerDaily(
+          sales,
+          ledger,
+          [],
+          { from: "2026-07-10", to: "2026-07-10" },
+        ),
+      )[0],
+    ).toMatchObject({ salesAmount: 3000000, revenue: 3000000 });
+  });
+
+  it("B. 당일 부분 미수는 실제 당일 수납액만 집계한다", () => {
+    const ledger = [
+      payment({ paymentDate: "2026-07-10", amount: 1500000 }),
+    ];
+    expect(cashOn(ledger, "2026-07-10")).toBe(1500000);
+  });
+
+  it("C. 다음날 완납은 잔액을 다음날 수납으로 집계한다", () => {
+    const ledger = [
+      payment({ id: "initial", paymentDate: "2026-07-10", amount: 1500000 }),
+      payment({
+        id: "collection",
+        paymentDate: "2026-07-11",
+        amount: 1500000,
+        source: "outstanding_collection",
+      }),
+    ];
+    expect(cashOn(ledger, "2026-07-10")).toBe(1500000);
+    expect(cashOn(ledger, "2026-07-11")).toBe(1500000);
+  });
+
+  it("D. 다음달 완납은 원 매출월이 아닌 결제월 수납으로 집계한다", () => {
+    const ledger = [
+      payment({ id: "initial", paymentDate: "2026-06-30", amount: 1000000 }),
+      payment({
+        id: "collection",
+        paymentDate: "2026-07-19",
+        amount: 2000000,
+        source: "outstanding_collection",
+      }),
+    ];
+    expect(cashOn(ledger, "2026-06-30")).toBe(1000000);
+    expect(cashOn(ledger, "2026-07-19")).toBe(2000000);
+  });
+
+  it("E. 전체 미수 후 완납은 원 매출일 수납을 0원으로 유지한다", () => {
+    const ledger = [
+      payment({
+        paymentDate: "2026-07-19",
+        amount: 3000000,
+        source: "outstanding_collection",
+      }),
+    ];
+    expect(cashOn(ledger, "2026-06-30")).toBe(0);
+    expect(cashOn(ledger, "2026-07-19")).toBe(3000000);
+  });
+
+  it("F. 부분 수납 여러 번은 각 payment_date에 나누어 집계한다", () => {
+    const ledger = [
+      payment({ id: "part-1", paymentDate: "2026-07-10", amount: 500000 }),
+      payment({ id: "part-2", paymentDate: "2026-07-11", amount: 1000000 }),
+      payment({ id: "part-3", paymentDate: "2026-07-19", amount: 1500000 }),
+    ];
+    expect(cashOn(ledger, "2026-07-10")).toBe(500000);
+    expect(cashOn(ledger, "2026-07-11")).toBe(1000000);
+    expect(cashOn(ledger, "2026-07-19")).toBe(1500000);
+  });
+
+  it("G. 수납 무효화는 해당 payment_date와 결제수단 합계에서 제외한다", () => {
+    const ledger = [
+      payment({
+        id: "valid",
+        paymentDate: "2026-07-19",
+        amount: 1000000,
+        paymentMethod: "card",
+      }),
+      payment({
+        id: "voided",
+        paymentDate: "2026-07-19",
+        amount: 2000000,
+        paymentMethod: "cash",
+        voidedAt: "2026-07-20T01:00:00Z",
+      }),
+    ];
+    expect(cashOn(ledger, "2026-07-19")).toBe(1000000);
+    expect(
+      Object.fromEntries(
+        calculateLedgerPaymentMethodTotals(
+          sales,
+          ledger,
+          { from: "2026-07-19", to: "2026-07-19" },
+        ),
+      ),
+    ).toEqual({ card: 1000000 });
+  });
+
+  it("환불은 실수납과 별도로 집계한다", () => {
+    const merged = mergeSaleAndCashDays(
+      [{ date: "2026-07-10", salesAmount: 3000000 }],
+      [{
+        date: "2026-07-10",
+        paidAmount: 1500000,
+        refundAmount: 200000,
+        netAmount: 1300000,
+      }],
+    )[0];
+    expect(merged).toMatchObject({
+      salesAmount: 3000000,
+      revenue: 1500000,
+      refund: 200000,
+    });
+  });
+});

@@ -75,7 +75,7 @@ export function DashboardKpiHero({
     {
       label: `${periodLabel} 실수납액`,
       value: won(netAmount),
-      description: "결제일 기준 유효 수납액에서 환불액을 차감",
+      description: "결제일 기준 유효 결제원장 합계",
       signalLabel: `${compareLabel} 대비`,
       signal: netComparison,
       className: "border-primary/15 bg-primary-subtle",
@@ -211,7 +211,7 @@ export function DashboardKpiHero({
   );
 }
 
-export function BusinessUnitCard({ order, name, revenue, previousRevenue, compareLabel, share, count, average, restricted = false, selected = false, muted = false, onClick }: { order: number; name: string; revenue: number; previousRevenue: number; compareLabel: string; share: number; count: number; average: number; restricted?: boolean; selected?: boolean; muted?: boolean; onClick?: () => void }) {
+export function BusinessUnitCard({ order, name, revenue, previousRevenue, receivedAmount, refundAmount, compareLabel, share, count, average, restricted = false, selected = false, muted = false, onClick }: { order: number; name: string; revenue: number; previousRevenue: number; receivedAmount: number; refundAmount: number; compareLabel: string; share: number; count: number; average: number; restricted?: boolean; selected?: boolean; muted?: boolean; onClick?: () => void }) {
   const comparisonText = formatRevenueComparison(revenue, previousRevenue);
   const currentTrendValue = Math.max(0, revenue);
   const previousTrendValue = Math.max(0, previousRevenue);
@@ -252,11 +252,15 @@ export function BusinessUnitCard({ order, name, revenue, previousRevenue, compar
           </span>
           <span className="mt-5 block">
             <span className="text-xs font-semibold text-text-secondary">
-              {restricted ? "선택 날짜 실수납" : "선택 기간 실수납"}
+              {restricted ? "선택 날짜 판매금액" : "선택 기간 판매금액"}
             </span>
             <strong className="mt-1 block text-[1.75rem] font-bold tracking-[-0.04em] text-text-primary tabular-nums sm:text-[1.95rem]">
               {won(revenue)}
             </strong>
+            <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-text-muted">
+              <span>실수납 <strong className="text-text-secondary tabular-nums">{won(receivedAmount)}</strong></span>
+              <span>환불 <strong className="text-error tabular-nums">{won(refundAmount)}</strong></span>
+            </span>
             {!restricted && (
               <>
                 <span

@@ -678,7 +678,7 @@ export function SalesHistoryPage() {
     );
     return {
       ...activity,
-      netAmount: cash.netAmount,
+      netAmount: cash.paidAmount,
       refundAmount: cash.refundAmount,
       outstandingAmount: sales
         .filter((sale) => sale.status !== "cancelled")

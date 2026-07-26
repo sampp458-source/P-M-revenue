@@ -130,12 +130,15 @@ export function ReportsPage() {
         ),
         paidAmount: unitCash.paidAmount,
         refundAmount: unitCash.refundAmount,
-        value: unitCash.netAmount,
+        value: unitSales.reduce(
+          (total, sale) => total + finalSaleAmount(sale),
+          0,
+        ),
       };
     });
     const saleDaily = calculateReportDaily(sales, month);
     const cashDaily = calculateLedgerDaily(sales, payments, refundLedger, monthRange);
-    const cashDailyByDate = new Map(cashDaily.map((day) => [day.date, day.netAmount]));
+    const cashDailyByDate = new Map(cashDaily.map((day) => [day.date, day.paidAmount]));
     const daily = saleDaily.map((day) => ({ ...day, value: cashDailyByDate.get(day.key) ?? 0 }));
     const productNames = new Map(products.map((product) => [product.id, product.name]));
     const productMap = new Map<string, { name: string; value: number; count: number }>();
@@ -154,10 +157,10 @@ export function ReportsPage() {
       };
       return {
         ...row,
-        value: calculateLedgerCashSummary(sales, payments, refundLedger, range).netAmount,
+        value: calculateLedgerCashSummary(sales, payments, refundLedger, range).paidAmount,
       };
     });
-    const cashDifference = cash.netAmount - previousCash.netAmount;
+    const cashDifference = cash.paidAmount - previousCash.paidAmount;
     const currentOutstanding = sales
       .filter((sale) => sale.status !== "cancelled" && sale.outstandingAmount > 0)
       .reduce((total, sale) => total + sale.outstandingAmount, 0);
@@ -173,15 +176,15 @@ export function ReportsPage() {
       }))
       .sort((left, right) => right.value - left.value);
     return {
-      total: money.salesAmount, paid: cash.paidAmount, real: cash.netAmount, refund: cash.refundAmount, outstanding: currentOutstanding,
+      total: money.salesAmount, paid: cash.paidAmount, real: cash.paidAmount, refund: cash.refundAmount, outstanding: currentOutstanding,
       divisions: unitRows, daily, products: [...productMap.values()].sort((a, b) => b.value - a.value).slice(0, 10),
       staff: [...staffMap.values()].sort((a, b) => b.value - a.value),
       paymentMethods,
       refunds: eventRows.filter((event) => event.action === "partial_refund" || event.action === "full_refund").slice(0, 5),
       cancellations: eventRows.filter((event) => event.action === "cancelled").slice(0, 5),
-      target, achievement: target > 0 ? (cash.netAmount / target) * 100 : 0,
+      target, achievement: target > 0 ? (cash.paidAmount / target) * 100 : 0,
       diff: cashDifference,
-      rate: previousCash.netAmount > 0 ? (cashDifference / previousCash.netAmount) * 100 : null,
+      rate: previousCash.paidAmount > 0 ? (cashDifference / previousCash.paidAmount) * 100 : null,
       trend,
     };
   }, [history, month, payments, products, profiles, refundLedger, sales, targets, units]);
@@ -190,8 +193,8 @@ export function ReportsPage() {
   if (error) return <ErrorState title="월별 보고서 데이터를 불러오지 못했습니다." retry={() => void load()} />;
   return <>
     <PageHeader title="월별 보고서" description="판매금액은 매출일, 실수납액은 결제일 기준으로 분석합니다." action={<label className="block w-48"><span className="mb-1 block text-xs font-medium text-slate-600">조회 월</span><Select aria-label="보고서 조회 월" value={month} onChange={(event) => setMonth(event.target.value)}>{months.map((value) => <option key={value} value={value}>{monthLabel(value)}</option>)}</Select></label>} />
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="판매금액" value={won(report.total)} detail="매출일 기준 · 기준금액 + 추가금 - 할인" /><Metric label="실수납액" value={won(report.real)} detail={`결제일 기준 수납 ${won(report.paid)} - 환불`} /><Metric label="환불" value={won(report.refund)} detail="환불 처리일 기준 유효 환불" /><Metric label="현재 미수금" value={won(report.outstanding)} detail="조회 월과 관계없는 현재 미수잔액" /></div>
-    <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{report.divisions.map((row) => <Metric key={row.name} label={`${row.name} 실수납`} value={won(row.value)} detail={`판매 ${won(row.salesAmount)} · 수납 ${won(row.paidAmount)} · 환불 ${won(row.refundAmount)}`} />)}</div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="판매금액" value={won(report.total)} detail="매출일 기준 · 기준금액 + 추가금 - 할인" /><Metric label="실수납액" value={won(report.real)} detail="결제일 기준 유효 결제원장 합계" /><Metric label="환불" value={won(report.refund)} detail="환불 처리일 기준 유효 환불" /><Metric label="현재 미수금" value={won(report.outstanding)} detail="조회 월과 관계없는 현재 미수잔액" /></div>
+    <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{report.divisions.map((row) => <Metric key={row.name} label={`${row.name} 판매금액`} value={won(row.value)} detail={`실수납 ${won(row.paidAmount)} · 환불 ${won(row.refundAmount)}`} />)}</div>
     <Card className="mt-4 p-5"><h2 className="font-bold">결제수단별 수납</h2><p className="mt-1 text-xs text-slate-500">결제일 기준 유효 결제원장 합계</p>{report.paymentMethods.length ? <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{report.paymentMethods.map((row) => <div key={row.method} className="rounded-xl border border-border bg-surface-secondary p-4"><span className="text-xs text-text-muted">{row.name}</span><strong className="mt-1 block text-lg text-text-primary tabular-nums">{won(row.value)}</strong></div>)}</div> : <EmptyState title="선택 월의 수납 내역이 없습니다." />}</Card>
     <div className="mt-4 grid gap-4 lg:grid-cols-2"><Chart title="일별 실수납"><ResponsiveContainer width="100%" height={280}><BarChart data={report.daily}><CartesianGrid vertical={false} strokeDasharray="3 3" /><XAxis dataKey="day" interval="preserveStartEnd" tick={{ fontSize: 11 }} /><YAxis tickFormatter={shortWon} width={55} /><Tooltip formatter={(value) => [won(Number(value)), "실수납"]} /><Bar dataKey="value" fill="#274c77" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></Chart><Chart title="최근 12개월 실수납 추이"><ResponsiveContainer width="100%" height={280}><LineChart data={report.trend}><CartesianGrid vertical={false} strokeDasharray="3 3" /><XAxis dataKey="month" tick={{ fontSize: 11 }} /><YAxis tickFormatter={shortWon} width={55} /><Tooltip formatter={(value) => [won(Number(value)), "실수납"]} /><Line type="monotone" dataKey="value" stroke="#274c77" strokeWidth={2} dot={{ r: 3 }} /></LineChart></ResponsiveContainer></Chart></div>
     <div className="mt-4 grid gap-4 lg:grid-cols-2"><Rank title="상품별 매출 TOP10" rows={report.products} empty="선택 월의 상품 매출이 없습니다." /><Rank title="직원별 매출" rows={report.staff} empty="선택 월의 직원별 매출이 없습니다." /></div>
