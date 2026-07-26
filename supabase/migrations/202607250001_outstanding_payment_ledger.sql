@@ -147,7 +147,7 @@ alter table public.sale_payments
 update public.sale_payments as payment
 set
   payment_date = coalesce(payment.payment_date, sale.sale_date),
-  source = coalesce(payment.source, 'initial'),
+  source = coalesce(nullif(btrim(payment.source), ''), 'initial'),
   request_id = coalesce(
     payment.request_id,
     md5('legacy-sale-payment:' || payment.id::text)::uuid
@@ -156,7 +156,8 @@ from public.sales as sale
 where sale.id = payment.sale_id
   and (
     payment.payment_date is null
-    or payment.source is null
+    or payment.source is distinct from
+      coalesce(nullif(btrim(payment.source), ''), 'initial')
     or payment.request_id is null
   );
 
@@ -1314,6 +1315,19 @@ begin
   if invalid_count > 0 then
     raise exception
       'Migration 적용 후 결제원장 합계가 일치하지 않는 매출이 %건입니다.',
+      invalid_count
+      using errcode = 'P0001';
+  end if;
+
+  select count(*)
+  into invalid_count
+  from public.sales
+  where paid_amount + outstanding_amount
+    <> original_amount + additional_amount - discount_amount;
+
+  if invalid_count > 0 then
+    raise exception
+      'Migration 적용 후 실제 결제금액과 미수금의 합계가 최종 판매금액과 다른 매출이 %건입니다.',
       invalid_count
       using errcode = 'P0001';
   end if;
