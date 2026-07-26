@@ -163,6 +163,78 @@ describe("payment ledger metrics", () => {
     ]);
   });
 
+  it("최초 결제 0원인 전체 미수는 완납일에만 전액 수납으로 반영한다", () => {
+    const collectionDate = "2026-07-19";
+    const ledger = [
+      payment({
+        id: "full-outstanding-collection",
+        paymentDate: collectionDate,
+        amount: 3000000,
+        paymentMethod: "transfer",
+        source: "outstanding_collection",
+      }),
+    ];
+
+    const originalDateCash = calculateLedgerCashSummary(
+      sales,
+      ledger,
+      [],
+      { from: "2026-06-15", to: "2026-06-15" },
+    );
+    const collectionDateCash = calculateLedgerCashSummary(
+      sales,
+      ledger,
+      [],
+      { from: collectionDate, to: collectionDate },
+    );
+    const paymentMethods = calculateLedgerPaymentMethodTotals(
+      sales,
+      ledger,
+      { from: collectionDate, to: collectionDate },
+    );
+
+    expect(originalDateCash).toEqual({
+      paidAmount: 0,
+      refundAmount: 0,
+      netAmount: 0,
+    });
+    expect(collectionDateCash).toEqual({
+      paidAmount: 3000000,
+      refundAmount: 0,
+      netAmount: 3000000,
+    });
+    expect(Object.fromEntries(paymentMethods)).toEqual({
+      transfer: 3000000,
+    });
+    expect(
+      mergeSaleAndCashDays(
+        [
+          { date: "2026-06-15", salesAmount: 3000000 },
+          { date: collectionDate, salesAmount: 0 },
+        ],
+        [
+          { date: "2026-06-15", ...originalDateCash },
+          { date: collectionDate, ...collectionDateCash },
+        ],
+      ),
+    ).toEqual([
+      {
+        date: "2026-06-15",
+        salesAmount: 3000000,
+        revenue: 0,
+        refund: 0,
+        net: 0,
+      },
+      {
+        date: collectionDate,
+        salesAmount: 0,
+        revenue: 3000000,
+        refund: 0,
+        net: 3000000,
+      },
+    ]);
+  });
+
   it("같은 날 복수 수납을 결제수단별로 합산하고 무효 결제를 제외한다", () => {
     const ledger = [
       payment({ id: "card-1", amount: 300000, paymentMethod: "card" }),
