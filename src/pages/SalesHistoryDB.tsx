@@ -111,6 +111,7 @@ interface SaleRow extends SalesHistoryRecord {
   cancellationReason: string | null;
   updatedAt: string;
   paymentRows: SalePaymentRow[];
+  paymentLedger: PaymentLedgerRow[];
   unitLabel: string | null;
 }
 
@@ -177,6 +178,21 @@ interface RefundRow {
   createdAt: string;
   isLegacy: boolean;
   voidedAt: string | null;
+}
+
+interface PaymentLedgerRow {
+  id: string;
+  saleId: string;
+  method: SalePaymentRow["method"];
+  amount: number;
+  paymentDate: string;
+  source: "initial" | "outstanding_collection" | "adjustment";
+  note: string | null;
+  createdBy: string;
+  createdAt: string;
+  voidedAt: string | null;
+  voidedBy: string | null;
+  voidReason: string | null;
 }
 
 interface PartyCustomer {
@@ -351,6 +367,8 @@ export function SalesHistoryPage() {
   const [refundHistory, setRefundHistory] = useState<RefundRow[]>([]);
   const [refundHistoryLoading, setRefundHistoryLoading] = useState(false);
   const [refundHistoryError, setRefundHistoryError] = useState(false);
+  const [voidingPayment, setVoidingPayment] = useState<PaymentLedgerRow | null>(null);
+  const [voidReason, setVoidReason] = useState("");
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
   const [partyCustomers, setPartyCustomers] = useState<PartyCustomer[]>([]);
   const [partyDogs, setPartyDogs] = useState<PartyDog[]>([]);
@@ -415,7 +433,7 @@ export function SalesHistoryPage() {
       loadSaleRows(),
       supabase.rpc("get_staff_history_directory"),
       supabase.from("customers").select("id, name, phone, is_active").order("name"),
-      supabase.from("sale_payments").select("sale_id, payment_method, amount").order("created_at"),
+      supabase.from("sale_payments").select("id, sale_id, payment_method, amount, payment_date, source, note, created_by, created_at, voided_at, voided_by, void_reason").order("payment_date").order("created_at"),
       supabase.from("products").select("id, unit_label"),
       supabase.from("dogs").select("id, customer_id, name, breed").eq("is_active", true).order("name"),
     ]);
@@ -449,11 +467,30 @@ export function SalesHistoryPage() {
         ]),
       );
       const paymentsBySale = new Map<string, SalePaymentRow[]>();
+      const paymentLedgerBySale = new Map<string, PaymentLedgerRow[]>();
       if (!paymentsResult.error)
         (paymentsResult.data ?? []).forEach((payment) => {
-          const rows = paymentsBySale.get(payment.sale_id) ?? [];
-          rows.push({ method: payment.payment_method as SalePaymentRow["method"], amount: payment.amount });
-          paymentsBySale.set(payment.sale_id, rows);
+          const ledgerRows = paymentLedgerBySale.get(payment.sale_id) ?? [];
+          ledgerRows.push({
+            id: payment.id,
+            saleId: payment.sale_id,
+            method: payment.payment_method as SalePaymentRow["method"],
+            amount: payment.amount,
+            paymentDate: payment.payment_date,
+            source: payment.source as PaymentLedgerRow["source"],
+            note: payment.note,
+            createdBy: payment.created_by,
+            createdAt: payment.created_at,
+            voidedAt: payment.voided_at,
+            voidedBy: payment.voided_by,
+            voidReason: payment.void_reason,
+          });
+          paymentLedgerBySale.set(payment.sale_id, ledgerRows);
+          if (payment.voided_at === null) {
+            const rows = paymentsBySale.get(payment.sale_id) ?? [];
+            rows.push({ method: payment.payment_method as SalePaymentRow["method"], amount: payment.amount });
+            paymentsBySale.set(payment.sale_id, rows);
+          }
         });
       const productUnits = new Map<string, string | null>();
       if (!productUnitsResult.error)
@@ -499,6 +536,7 @@ export function SalesHistoryPage() {
           netAmount: sale.net_amount,
           paymentMethod: sale.payment_method,
           paymentRows: paymentsBySale.get(sale.id) ?? [],
+          paymentLedger: paymentLedgerBySale.get(sale.id) ?? [],
           unitLabel: productUnits.get(sale.product_id) ?? null,
           paymentMethods: (paymentsBySale.get(sale.id) ?? []).map((row) => row.method),
           customerType: sale.customer_type,
@@ -1148,6 +1186,62 @@ export function SalesHistoryPage() {
     await loadSales();
   };
 
+  const voidPayment = async () => {
+    if (!voidingPayment || !selected || saving) return;
+    const reason = voidReason.trim();
+    if (!reason) {
+      setActionError("결제 무효화 사유를 입력해 주세요.");
+      return;
+    }
+    setSaving(true);
+    setActionError("");
+    const result = await supabase.rpc("void_sale_payment", {
+      p_payment_id: voidingPayment.id,
+      p_reason: reason,
+    });
+    setSaving(false);
+    if (result.error) {
+      setActionError(`결제를 무효화하지 못했습니다: ${result.error.message}`);
+      return;
+    }
+    const voidedAt = new Date().toISOString();
+    setSelected((current) =>
+      current ? (() => {
+          const paymentLedger = current.paymentLedger.map((payment) =>
+            payment.id === voidingPayment.id
+              ? {
+                  ...payment,
+                  voidedAt,
+                  voidedBy: profile?.id ?? null,
+                  voidReason: reason,
+                }
+              : payment,
+          );
+          return {
+            ...current,
+            paidAmount: Math.max(0, current.paidAmount - voidingPayment.amount),
+            outstandingAmount:
+              current.outstandingAmount + voidingPayment.amount,
+            netAmount: current.netAmount - voidingPayment.amount,
+            paymentRows: normalizePaymentRows(
+              paymentLedger
+                .filter((payment) => payment.voidedAt === null)
+                .map((payment) => ({
+                  method: payment.method,
+                  amount: payment.amount,
+                })),
+            ),
+            paymentLedger,
+          };
+        })()
+        : current,
+    );
+    setVoidingPayment(null);
+    setVoidReason("");
+    setNotice("결제 내역을 무효화했습니다.");
+    await loadSales();
+  };
+
   const resetFilters = () => {
     const next = new URLSearchParams();
     const detailId = searchParams.get("detail");
@@ -1573,7 +1667,7 @@ export function SalesHistoryPage() {
           }
         />
       )}
-      <Modal open={!!selected} onClose={closeDetail} title="매출 상세" extraWide>
+      <Modal open={Boolean(selected && !voidingPayment)} onClose={closeDetail} title="매출 상세" extraWide>
         {selected && (
           <SaleDetailContent
             sale={selected}
@@ -1605,7 +1699,49 @@ export function SalesHistoryPage() {
               setActionError("");
               setReopening(selected);
             }}
+            onVoidPayment={(payment) => {
+              setActionError("");
+              setVoidReason("");
+              setVoidingPayment(payment);
+            }}
           />
+        )}
+      </Modal>
+      <Modal
+        open={Boolean(voidingPayment)}
+        title="결제 내역 무효화"
+        onClose={() => !saving && setVoidingPayment(null)}
+      >
+        {voidingPayment && (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void voidPayment();
+            }}
+          >
+            <div className="rounded-2xl bg-error-soft p-4 text-sm leading-6 text-text-secondary">
+              <strong className="block text-text-primary">
+                {koDate(voidingPayment.paymentDate)} · {won(voidingPayment.amount)}
+              </strong>
+              결제 기록은 삭제하지 않고 무효화 이력으로 보존합니다.
+            </div>
+            <div className="mt-5">
+              <Field label="무효화 사유" required>
+                <Textarea
+                  data-modal-initial
+                  value={voidReason}
+                  onChange={(event) => setVoidReason(event.target.value)}
+                  placeholder="무효화 사유를 입력해 주세요."
+                  aria-invalid={Boolean(actionError)}
+                />
+              </Field>
+            </div>
+            {actionError && <p role="alert" className="mt-4 rounded-xl bg-error-soft px-4 py-3 text-sm text-error">{actionError}</p>}
+            <div className="mt-6 flex justify-end gap-2">
+              <Button type="button" variant="secondary" disabled={saving} onClick={() => setVoidingPayment(null)}>취소</Button>
+              <Button type="submit" variant="danger" disabled={saving}>{saving ? "처리 중..." : "무효화"}</Button>
+            </div>
+          </form>
         )}
       </Modal>
       <Modal
@@ -2049,6 +2185,7 @@ function SaleDetailContent({
   onRefund,
   onCancel,
   onReopen,
+  onVoidPayment,
 }: {
   sale: SaleRow;
   profileNames: Record<string, string>;
@@ -2064,18 +2201,22 @@ function SaleDetailContent({
   onRefund: () => void;
   onCancel: () => void;
   onReopen: () => void;
+  onVoidPayment: (payment: PaymentLedgerRow) => void;
 }) {
   const finalSaleAmount = calculateFinalSaleAmount(
     sale.originalAmount,
     sale.additionalAmount,
     sale.discountAmount,
   );
-  const payments = detailPaymentRows(
+  const fallbackPayments = detailPaymentRows(
     sale.paymentRows,
     sale.paymentMethod,
     sale.paidAmount,
   );
-  const paymentTotal = payments.reduce((total, row) => total + row.amount, 0);
+  const activePayments = sale.paymentLedger.filter((payment) => payment.voidedAt === null);
+  const paymentTotal = activePayments.length
+    ? activePayments.reduce((total, row) => total + row.amount, 0)
+    : fallbackPayments.reduce((total, row) => total + row.amount, 0);
   const refundKinds = refundDetailKinds(refunds, sale.status);
   const canRefund = admin && sale.status !== "cancelled" && sale.refundAmount < sale.paidAmount;
   const hasActions = editable || admin;
@@ -2162,16 +2303,55 @@ function SaleDetailContent({
         )}
       </DetailSection>
 
-      <DetailSection title="결제 내역" description={payments.length > 1 ? "분할결제" : "단일결제"}>
-        {payments.length > 0 ? (
+      <DetailSection title="결제 내역" description={activePayments.length > 1 ? "분할·추가 수납 원장" : "결제 원장"}>
+        {sale.paymentLedger.length > 0 ? (
+          <div className="space-y-3">
+            {sale.paymentLedger.map((payment) => (
+              <article
+                key={payment.id}
+                className={cn(
+                  "rounded-xl border border-border bg-surface-secondary p-4",
+                  Boolean(payment.voidedAt) && "opacity-65",
+                )}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <strong className="text-sm text-text-primary">{paymentMethodLabels[payment.method]}</strong>
+                      <Badge tone={payment.source === "outstanding_collection" ? "blue" : payment.source === "adjustment" ? "amber" : "gray"}>
+                        {{ initial: "최초 결제", outstanding_collection: "미수 수납", adjustment: "조정" }[payment.source]}
+                      </Badge>
+                      {payment.voidedAt && <Badge tone="red">무효화</Badge>}
+                    </div>
+                    <p className="mt-2 text-xs text-text-muted">
+                      결제일 {koDate(payment.paymentDate)} · 처리자 {profileNames[payment.createdBy] || "이름 미등록"}
+                    </p>
+                  </div>
+                  <strong className={cn("text-base text-text-primary tabular-nums", Boolean(payment.voidedAt) && "line-through")}>
+                    {won(payment.amount)}
+                  </strong>
+                </div>
+                {payment.note && <p className="mt-3 break-words text-sm text-text-secondary">{payment.note}</p>}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+                  <span className="text-xs text-text-muted">
+                    처리 {new Date(payment.createdAt).toLocaleString("ko-KR")}
+                    {payment.voidedAt && ` · 무효화 ${new Date(payment.voidedAt).toLocaleString("ko-KR")}`}
+                  </span>
+                  {admin && !payment.voidedAt && (
+                    <Button type="button" variant="ghost" className="min-h-9 px-3 py-1.5 text-error hover:bg-error-soft hover:text-error" onClick={() => onVoidPayment(payment)}>
+                      무효화
+                    </Button>
+                  )}
+                </div>
+                {payment.voidReason && <p className="mt-2 text-xs text-error">사유: {payment.voidReason}</p>}
+              </article>
+            ))}
+            <DetailAmountRow label="유효 결제 합계" value={paymentTotal} emphasized className="pt-3" />
+          </div>
+        ) : fallbackPayments.length > 0 ? (
           <dl className="divide-y divide-border">
-            {payments.map((payment) => (
-              <DetailAmountRow
-                key={payment.method}
-                label={paymentMethodLabels[payment.method]}
-                value={payment.amount}
-                className="py-3 first:pt-0"
-              />
+            {fallbackPayments.map((payment, index) => (
+              <DetailAmountRow key={`${payment.method}-${index}`} label={paymentMethodLabels[payment.method]} value={payment.amount} className="py-3 first:pt-0" />
             ))}
             <DetailAmountRow label="결제 합계" value={paymentTotal} emphasized className="pt-3" />
           </dl>

@@ -9,6 +9,8 @@ export interface DashboardSale {
   dogName: string;
   customerId: string | null;
   customerName: string | null;
+  customerPhone?: string | null;
+  memo?: string | null;
   createdBy: string;
   staffName: string | null;
   paymentMethod: string;

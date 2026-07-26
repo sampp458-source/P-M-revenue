@@ -26,6 +26,7 @@ export function DashboardKpiHero({
   monthlyTarget,
   outstanding,
   refund,
+  onOutstanding,
 }: {
   periodLabel: string;
   rangeLabel: string;
@@ -39,6 +40,7 @@ export function DashboardKpiHero({
   monthlyTarget: number | null;
   outstanding: number;
   refund: number;
+  onOutstanding?: () => void;
 }) {
   const salesComparison = formatRevenueComparison(
     salesAmount,
@@ -68,11 +70,12 @@ export function DashboardKpiHero({
         : salesComparison.startsWith("—")
           ? "text-slate-300"
           : "text-emerald-200",
+      onClick: undefined,
     },
     {
-      label: `${periodLabel} 실결제액`,
+      label: `${periodLabel} 실수납액`,
       value: won(netAmount),
-      description: "환불 전 결제액에서 누적 환불액을 차감",
+      description: "결제일 기준 유효 수납액에서 환불액을 차감",
       signalLabel: `${compareLabel} 대비`,
       signal: netComparison,
       className: "border-primary/15 bg-primary-subtle",
@@ -86,11 +89,12 @@ export function DashboardKpiHero({
           : "text-primary",
       target: monthlyTarget ?? undefined,
       achievement: monthlyTarget === null ? undefined : achievement,
+      onClick: undefined,
     },
     {
-      label: `${periodLabel} 미수`,
+      label: "현재 전체 미수",
       value: won(outstanding),
-      description: "해당 기간 거래에 현재 남은 미수잔액",
+      description: "선택 기간과 관계없이 완납 전인 모든 미수잔액",
       className: "bg-warning-soft/55",
       labelClass: "text-warning",
       valueClass: "text-text-primary text-[clamp(1.65rem,3vw,2.2rem)]",
@@ -98,6 +102,7 @@ export function DashboardKpiHero({
       signalLabel: "",
       signal: "",
       signalClass: "",
+      onClick: onOutstanding,
     },
     {
       label: `${periodLabel} 환불`,
@@ -110,6 +115,7 @@ export function DashboardKpiHero({
       signalLabel: "",
       signal: "",
       signalClass: "",
+      onClick: undefined,
     },
   ];
 
@@ -131,11 +137,19 @@ export function DashboardKpiHero({
           <div
             key={item.label}
             className={cn(
-              "flex min-h-52 min-w-0 flex-col border-b border-border p-5 sm:p-6 lg:border-b-0 lg:border-r lg:last:border-r-0",
+              "relative flex min-h-52 min-w-0 flex-col border-b border-border p-5 sm:p-6 lg:border-b-0 lg:border-r lg:last:border-r-0",
               index === 0 && "border-white/10",
               item.className,
             )}
           >
+            {item.onClick && (
+              <button
+                type="button"
+                aria-label="현재 미수금 목록 열기"
+                onClick={item.onClick}
+                className="absolute inset-0 z-10 rounded-none transition-[box-shadow,background-color] duration-200 hover:bg-warning/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-warning"
+              />
+            )}
             <p className={cn("text-xs font-semibold", item.labelClass)}>
               {item.label}
             </p>
@@ -185,6 +199,11 @@ export function DashboardKpiHero({
             <p className={cn("mt-auto pt-4 text-[13px] leading-5", item.descriptionClass)}>
               {item.description}
             </p>
+            {item.onClick && (
+              <span className="mt-2 text-xs font-semibold text-warning">
+                전체 미수 보기 · 수납 처리
+              </span>
+            )}
           </div>
         ))}
       </div>
