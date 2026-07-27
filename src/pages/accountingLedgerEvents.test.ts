@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  accountingEventsForView,
   buildAccountingEvents,
   filterAccountingEvents,
   type AccountingEventSale,
@@ -126,5 +127,43 @@ describe("accounting ledger events", () => {
         refundAmount: 0,
       }),
     ]);
+  });
+
+  it("KPI별 원장은 같은 이벤트 집합에서 필요한 회계 이벤트만 분리한다", () => {
+    const events = buildAccountingEvents(
+      [sale()],
+      [
+        {
+          id: "initial",
+          saleId: "sale",
+          paymentDate: "2026-06-03",
+          amount: 1500000,
+          voidedAt: null,
+          source: "initial",
+        },
+        {
+          id: "collection",
+          saleId: "sale",
+          paymentDate: "2026-07-19",
+          amount: 1500000,
+          voidedAt: null,
+          source: "outstanding_collection",
+        },
+      ],
+      [
+        {
+          id: "refund",
+          saleId: "sale",
+          refundDate: "2026-07-10",
+          amount: 500000,
+          voidedAt: null,
+        },
+      ],
+    );
+
+    expect(accountingEventsForView(events, "sales")).toHaveLength(1);
+    expect(accountingEventsForView(events, "payments")).toHaveLength(2);
+    expect(accountingEventsForView(events, "refunds")).toHaveLength(1);
+    expect(accountingEventsForView(events, "net")).toHaveLength(3);
   });
 });

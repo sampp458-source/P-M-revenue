@@ -14,6 +14,12 @@ export type AccountingEventKind =
   | "cancellation"
   | "entry_error";
 
+export type AccountingEventView =
+  | "sales"
+  | "payments"
+  | "refunds"
+  | "net";
+
 export interface AccountingEvent {
   id: string;
   saleId: string;
@@ -150,6 +156,33 @@ export function filterAccountingEvents(
       event.eventDate >= range.from &&
       event.eventDate <= range.to &&
       (!allowedSaleIds || allowedSaleIds.has(event.saleId)),
+  );
+}
+
+export function accountingEventsForView(
+  events: AccountingEvent[],
+  view: AccountingEventView,
+) {
+  if (view === "sales") {
+    return events.filter((event) => event.kind === "sale");
+  }
+  if (view === "refunds") {
+    return events.filter((event) => event.kind === "refund");
+  }
+  if (view === "payments") {
+    return events.filter((event) =>
+      ["initial_payment", "outstanding_collection", "adjustment"].includes(
+        event.kind,
+      ),
+    );
+  }
+  return events.filter((event) =>
+    [
+      "initial_payment",
+      "outstanding_collection",
+      "adjustment",
+      "refund",
+    ].includes(event.kind),
   );
 }
 

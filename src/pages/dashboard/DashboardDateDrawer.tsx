@@ -88,20 +88,20 @@ export function DashboardDateDrawer({
       />
       <aside
         aria-labelledby={titleId}
-        className="pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-border bg-surface shadow-[var(--pm-shadow-modal)] sm:w-[min(560px,48vw)]"
+        className="pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-white/10 bg-[#111e31] text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(460px,42vw)]"
       >
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-blue-100">
               <CalendarDays size={18} />
             </span>
             <div className="min-w-0">
-              <h2 id={titleId} className="text-xl font-bold tracking-[-0.025em] text-text-primary tabular-nums">
+              <h2 id={titleId} className="text-xl font-bold tracking-[-0.025em] text-white tabular-nums">
                 {date}
               </h2>
-              <p className="mt-1 truncate text-sm font-semibold text-primary">
+              <p className="mt-1 truncate text-sm font-semibold text-blue-100">
                 {unitName}
-                <span className="ml-1.5 font-normal text-text-muted">· 날짜별 거래 상세</span>
+                <span className="ml-1.5 font-normal text-slate-300">· 날짜별 거래 상세</span>
               </p>
             </div>
           </div>
@@ -110,14 +110,14 @@ export function DashboardDateDrawer({
             type="button"
             aria-label="날짜 상세 닫기"
             onClick={onClose}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-text-secondary transition-colors hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
           >
             <X size={20} />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain">
-          <div className="sticky top-0 z-10 border-b border-border bg-surface/95 p-4 backdrop-blur sm:p-6">
+          <div className="sticky top-0 z-10 border-b border-white/10 bg-[#111e31]/95 p-4 backdrop-blur sm:p-6">
           <div className="overflow-hidden rounded-2xl bg-[#172f4d] p-5 text-white shadow-[0_14px_30px_rgba(23,47,77,0.14)] sm:p-6">
             <p className="text-xs font-semibold text-blue-200">판매금액</p>
             <strong className="mt-2 block text-[clamp(2rem,8vw,2.75rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
@@ -135,19 +135,19 @@ export function DashboardDateDrawer({
           <div className="mb-6">
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>
-                <h3 className="font-semibold text-text-primary">수납 내역</h3>
-                <p className="mt-1 text-xs text-text-muted">결제일 기준 유효 결제원장</p>
+                <h3 className="font-semibold text-white">수납 내역</h3>
+                <p className="mt-1 text-xs text-slate-300">결제일 기준 유효 결제원장</p>
               </div>
               <Badge tone="blue">{payments.length.toLocaleString("ko-KR")}건</Badge>
             </div>
             {paymentMethodTotals.size > 0 && (
               <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {[...paymentMethodTotals.entries()].map(([method, amount]) => (
-                  <div key={method} className="rounded-xl border border-border bg-surface-secondary p-3">
-                    <span className="block text-[11px] text-text-muted">
+                  <div key={method} className="rounded-xl border border-white/10 bg-white/[0.045] p-3">
+                    <span className="block text-[11px] text-slate-300">
                       {paymentLabels[method] || method}
                     </span>
-                    <strong className="mt-1 block text-sm text-text-primary tabular-nums">
+                    <strong className="mt-1 block text-sm text-white tabular-nums">
                       {won(amount)}
                     </strong>
                   </div>
@@ -161,25 +161,25 @@ export function DashboardDateDrawer({
                     key={payment.id}
                     type="button"
                     onClick={() => onOpenSale(sale.id)}
-                    className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-border bg-surface px-3.5 py-3 text-left transition-colors hover:border-primary/25 hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.045] px-3.5 py-3 text-left transition-colors hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
                   >
                     <span className="min-w-0">
-                      <strong className="block truncate text-sm text-text-primary">
+                      <strong className="block truncate text-sm text-white">
                         {sale.dogName || "(반려견 없음)"} · {sale.customerName || "보호자 미등록"}
                       </strong>
-                      <span className="mt-1 block truncate text-xs text-text-muted">
-                        {sale.productName} · {paymentLabels[payment.paymentMethod || "other"] || payment.paymentMethod}
+                      <span className="mt-1 block truncate text-xs text-slate-300">
+                        {sale.productName} · {sale.businessUnitName} · {paymentLabels[payment.paymentMethod || "other"] || payment.paymentMethod}
                         {payment.source === "outstanding_collection" ? " · 미수 수납" : ""}
                       </span>
                     </span>
-                    <strong className="shrink-0 text-sm text-primary tabular-nums">
+                    <strong className="shrink-0 text-sm text-blue-100 tabular-nums">
                       {won(payment.amount)}
                     </strong>
                   </button>
                 ))}
               </div>
             ) : (
-              <p className="rounded-xl bg-surface-secondary p-4 text-center text-sm text-text-muted">
+              <p className="rounded-xl bg-white/[0.045] p-4 text-center text-sm text-slate-300">
                 이 날짜의 수납 내역이 없습니다.
               </p>
             )}
@@ -187,12 +187,12 @@ export function DashboardDateDrawer({
 
           <div className="mb-3 flex items-end justify-between gap-3">
             <div>
-              <h3 className="font-semibold text-text-primary">거래 목록</h3>
+                <h3 className="font-semibold text-white">거래 목록</h3>
             </div>
             <div className="text-right">
               <Badge tone="blue">{rows.length.toLocaleString("ko-KR")}건</Badge>
               {summary.cancelledCount > 0 && (
-                <p className="mt-1 text-[10px] text-text-muted">
+                <p className="mt-1 text-[10px] text-slate-300">
                   유효 {summary.count.toLocaleString("ko-KR")}건 · 취소{" "}
                   {summary.cancelledCount.toLocaleString("ko-KR")}건
                 </p>
@@ -207,30 +207,30 @@ export function DashboardDateDrawer({
                   key={sale.id}
                   type="button"
                   onClick={() => onOpenSale(sale.id)}
-                  className="group block min-h-11 w-full rounded-xl border border-border bg-surface p-3.5 text-left transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-primary/25 hover:bg-primary-subtle hover:shadow-[0_8px_20px_rgba(23,36,58,0.06)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="group block min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.045] p-3.5 text-left transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
                 >
                   <span className="flex items-start justify-between gap-3">
                     <span className="min-w-0">
-                      <strong className="block truncate text-base text-text-primary">
+                      <strong className="block truncate text-base text-white">
                         {sale.dogName || "(반려견 없음)"}
                       </strong>
-                      <span className="mt-1 block truncate text-sm text-text-secondary">
+                      <span className="mt-1 block truncate text-sm text-slate-200">
                         {sale.customerName || "보호자 미등록"}
                       </span>
-                      <span className="mt-1.5 block truncate text-xs leading-5 text-text-muted">
-                        {sale.productName}
+                      <span className="mt-1.5 block truncate text-xs leading-5 text-slate-300">
+                        {sale.productName} · {paymentLabels[sale.paymentMethod] || sale.paymentMethod}
                       </span>
                     </span>
                     <span className="shrink-0 text-right">
-                      <strong className="block text-base text-text-primary tabular-nums">
+                      <strong className="block text-base text-white tabular-nums">
                         {won(finalSaleAmount(sale))}
                       </strong>
-                      <span className="mt-1 block text-[11px] font-semibold text-text-muted tabular-nums">
+                      <span className="mt-1 block text-[11px] font-semibold text-slate-300 tabular-nums">
                         {timeLabel(sale.createdAt)}
                       </span>
                     </span>
                   </span>
-                  <span className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
+                  <span className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-3">
                     <StatusBadge
                       status={sale.status as
                         | "normal"
@@ -239,10 +239,10 @@ export function DashboardDateDrawer({
                         | "cancelled"}
                     />
                     <Badge>{sale.businessUnitName}</Badge>
-                    <span className="w-full text-[12px] leading-5 text-text-muted sm:ml-auto sm:w-auto">
-                      {paymentLabels[sale.paymentMethod] || sale.paymentMethod}
-                      <span className="mx-1.5 text-border">·</span>
-                      {sale.staffName || "담당자 미등록"}
+                    <span className="w-full text-[12px] leading-5 text-slate-300 sm:ml-auto sm:w-auto">
+                      보호자 {sale.customerName || "미등록"}
+                      <span className="mx-1.5 text-slate-500">·</span>
+                      담당자 {sale.staffName || "미등록"}
                     </span>
                     {sale.refundAmount > 0 && (
                       <span className="w-full text-right text-[11px] font-semibold text-error tabular-nums">
@@ -254,15 +254,17 @@ export function DashboardDateDrawer({
               ))}
             </div>
           ) : (
-            <EmptyState
-              title="이 날짜의 매출이 없습니다"
-              description="다른 날짜나 사업부를 선택해 주세요."
-            />
+            <div className="[&_*]:text-slate-300">
+              <EmptyState
+                title="이 날짜의 매출이 없습니다"
+                description="다른 날짜나 사업부를 선택해 주세요."
+              />
+            </div>
           )}
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-border bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+        <div className="shrink-0 border-t border-white/10 bg-[#111e31] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
           <Button type="button" className="w-full" onClick={onOpenSales}>
             전체 매출 내역 보기 <ExternalLink size={16} />
           </Button>

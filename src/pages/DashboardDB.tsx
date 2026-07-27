@@ -8,6 +8,7 @@ import { supabase } from "../lib/supabase";
 import { BusinessUnitCard, DashboardKpiHero, DashboardSkeleton, RecentSales } from "./dashboard/DashboardSections";
 import { DailyRevenueTrend, DashboardPeriodFilters, SalesHeatmapCalendar } from "./dashboard/DashboardRangeSections";
 import { DashboardDateDrawer } from "./dashboard/DashboardDateDrawer";
+import { DashboardAccountingDrawer } from "./dashboard/DashboardAccountingDrawer";
 import { OutstandingPaymentsDrawer } from "./dashboard/OutstandingPaymentsDrawer";
 import { calculateDailySales, calculateSalesRangeOverview, calculateTarget, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodLabel, dashboardPeriodRange, dashboardSalesForDate, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale, type DashboardTarget } from "./dashboard/dashboardMetrics";
 import {
@@ -21,6 +22,11 @@ import {
   type PaymentLedgerEntry,
   type RefundLedgerEntry,
 } from "./paymentLedgerMetrics";
+import {
+  buildAccountingEvents,
+  filterAccountingEvents,
+  type AccountingEventView,
+} from "./accountingLedgerEvents";
 
 const validPeriods = new Set<DashboardPeriod>(["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "custom"]);
 const validComparisons = new Set<DashboardCompare>(["day", "week", "month", "previous"]);
@@ -48,6 +54,8 @@ export function DashboardPage() {
   const [error, setError] = useState(false);
   const [dateDrawerOpen, setDateDrawerOpen] = useState(false);
   const [outstandingDrawerOpen, setOutstandingDrawerOpen] = useState(false);
+  const [accountingDrawerView, setAccountingDrawerView] =
+    useState<AccountingEventView | null>(null);
   const isAdmin = profile?.role === "admin";
   const today = koreanToday();
   const periodParam = searchParams.get("period") as DashboardPeriod | null;
@@ -221,6 +229,18 @@ export function DashboardPage() {
     () => calculateCurrentOutstanding(sales, unitId),
     [sales, unitId],
   );
+  const accountingEvents = useMemo(() => {
+    const allowedSaleIds = new Set(
+      sales
+        .filter((sale) => !unitId || sale.businessUnitId === unitId)
+        .map((sale) => sale.id),
+    );
+    return filterAccountingEvents(
+      buildAccountingEvents(sales, payments, refunds),
+      visibleRange,
+      allowedSaleIds,
+    );
+  }, [payments, refunds, sales, unitId, visibleRange]);
   const selectedMonth =
     range.from.slice(0, 7) === range.to.slice(0, 7)
       ? range.from.slice(0, 7)
@@ -359,9 +379,25 @@ export function DashboardPage() {
   const openSales = (date = selectedDate, targetUnit = "") => navigate(`/sales?period=custom&start=${date}&end=${date}${targetUnit ? `&unit=${targetUnit}` : ""}`);
   const selectCalendarDate = (date: string) => {
     updateQuery({ day: date });
+    setAccountingDrawerView(null);
+    setOutstandingDrawerOpen(false);
     setDateDrawerOpen(true);
   };
   const openSale = (saleId: string) => navigate(`/sales?period=custom&start=${selectedDate}&end=${selectedDate}${unitId ? `&unit=${unitId}` : ""}&detail=${saleId}`);
+  const openAccountingSale = (saleId: string) =>
+    navigate(
+      `/sales?period=custom&start=${visibleRange.from}&end=${visibleRange.to}${unitId ? `&unit=${unitId}` : ""}&detail=${saleId}`,
+    );
+  const openAccountingDrawer = (view: AccountingEventView) => {
+    setDateDrawerOpen(false);
+    setOutstandingDrawerOpen(false);
+    setAccountingDrawerView(view);
+  };
+  const openOutstandingDrawer = () => {
+    setDateDrawerOpen(false);
+    setAccountingDrawerView(null);
+    setOutstandingDrawerOpen(true);
+  };
 
   if (loading) return <DashboardSkeleton />;
   if (error) return <ErrorState title="대시보드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." retry={() => void load()} />;
@@ -371,7 +407,7 @@ export function DashboardPage() {
       <Card className="mb-6 overflow-hidden border-warning/20 bg-warning-soft/45 p-0">
         <button
           type="button"
-          onClick={() => setOutstandingDrawerOpen(true)}
+          onClick={openOutstandingDrawer}
           className="flex min-h-24 w-full items-center gap-4 p-5 text-left transition-colors hover:bg-warning-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-warning"
         >
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface text-warning">
@@ -396,13 +432,17 @@ export function DashboardPage() {
           compareLabel={compareLabel}
           salesAmount={selectedOverview.salesAmount}
           previousSalesAmount={selectedOverview.previousSalesAmount}
-          netAmount={selectedPayment}
-          previousNetAmount={previousPayment}
+          paidAmount={selectedPayment}
+          previousPaidAmount={previousPayment}
           count={selectedOverview.count}
           monthlyTarget={monthlyTarget}
           outstanding={currentOutstanding}
           refund={selectedRefund}
-          onOutstanding={() => setOutstandingDrawerOpen(true)}
+          onSales={() => openAccountingDrawer("sales")}
+          onPayments={() => openAccountingDrawer("payments")}
+          onRefunds={() => openAccountingDrawer("refunds")}
+          onNet={() => openAccountingDrawer("net")}
+          onOutstanding={openOutstandingDrawer}
         />
       </section>
     )}
@@ -411,10 +451,30 @@ export function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-3">{coreDivisions.map((division, index) => <BusinessUnitCard key={division.id} order={index + 1} name={division.name} revenue={division.revenue} previousRevenue={division.previousRevenue} receivedAmount={division.receivedAmount} refundAmount={division.refundAmount} compareLabel={compareLabel} share={overview.salesAmount > 0 ? (division.revenue / overview.salesAmount) * 100 : 0} count={division.count} average={division.average} restricted={!isAdmin} selected={unitId === division.id} muted={Boolean(unitId && unitId !== division.id)} onClick={() => updateQuery({ unit: unitId === division.id ? null : division.id })} />)}</div>
       {isAdmin && otherRevenue > 0 && <p className="mt-3 rounded-xl border border-warning/20 bg-warning-soft px-4 py-3 text-sm text-text-secondary">기타·비활성 사업부 매출 {won(otherRevenue)}이 총매출에 포함되어 있습니다.</p>}
     </section>
-    <div className="mt-8"><SalesHeatmapCalendar month={calendarMonth} activeRange={range} data={calendarData} totalData={calendarTotalData} unitName={selectedUnitName} today={today} selectedDate={selectedDate} hideAmounts={!isAdmin} onMonth={setCalendarMonth} onSelect={selectCalendarDate} /></div>
-    {isAdmin && <div className="mt-6"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={(date) => updateQuery({ day: date })} /></div>}
+    <div className={dateDrawerOpen ? "transition-[padding] duration-200 sm:pr-[min(460px,42vw)]" : "transition-[padding] duration-200"}>
+      <div className="mt-8"><SalesHeatmapCalendar month={calendarMonth} activeRange={range} data={calendarData} totalData={calendarTotalData} unitName={selectedUnitName} today={today} selectedDate={selectedDate} hideAmounts={!isAdmin} onMonth={setCalendarMonth} onSelect={selectCalendarDate} /></div>
+      {isAdmin && <div className="mt-6"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={selectCalendarDate} /></div>}
+    </div>
     {isAdmin && <div className="mt-6"><RecentSales rows={recent} onOpen={() => navigate(`/sales?period=custom&start=${range.from}&end=${range.to}${unitId ? `&unit=${unitId}` : ""}`)} /></div>}
     <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} summary={selectedDateSummary} rows={selectedDateSales} payments={selectedDatePayments} paymentMethodTotals={selectedDatePaymentMethods} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onOpenSales={() => openSales(selectedDate, unitId)} />
+    <DashboardAccountingDrawer
+      open={Boolean(accountingDrawerView)}
+      view={accountingDrawerView ?? "sales"}
+      events={accountingEvents}
+      sales={sales}
+      rangeLabel={rangeLabel}
+      unitName={selectedUnitName}
+      salesAmount={selectedOverview.salesAmount}
+      paidAmount={selectedPayment}
+      refundAmount={selectedRefund}
+      onClose={() => setAccountingDrawerView(null)}
+      onOpenSale={(saleId) => openAccountingSale(saleId)}
+      onOpenLedger={() =>
+        navigate(
+          `/sales?period=custom&start=${visibleRange.from}&end=${visibleRange.to}${unitId ? `&unit=${unitId}` : ""}`,
+        )
+      }
+    />
     <OutstandingPaymentsDrawer
       open={outstandingDrawerOpen}
       unitId={unitId}
@@ -423,6 +483,7 @@ export function DashboardPage() {
       sales={sales}
       onClose={() => setOutstandingDrawerOpen(false)}
       onChanged={() => load(true)}
+      onOpenSale={openAccountingSale}
     />
   </>;
 }

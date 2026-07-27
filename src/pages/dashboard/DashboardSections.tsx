@@ -20,12 +20,16 @@ export function DashboardKpiHero({
   compareLabel,
   salesAmount,
   previousSalesAmount,
-  netAmount,
-  previousNetAmount,
+  paidAmount,
+  previousPaidAmount,
   count,
   monthlyTarget,
   outstanding,
   refund,
+  onSales,
+  onPayments,
+  onRefunds,
+  onNet,
   onOutstanding,
 }: {
   periodLabel: string;
@@ -34,12 +38,16 @@ export function DashboardKpiHero({
   compareLabel: string;
   salesAmount: number;
   previousSalesAmount: number;
-  netAmount: number;
-  previousNetAmount: number;
+  paidAmount: number;
+  previousPaidAmount: number;
   count: number;
   monthlyTarget: number | null;
   outstanding: number;
   refund: number;
+  onSales: () => void;
+  onPayments: () => void;
+  onRefunds: () => void;
+  onNet: () => void;
   onOutstanding?: () => void;
 }) {
   const salesComparison = formatRevenueComparison(
@@ -47,18 +55,18 @@ export function DashboardKpiHero({
     previousSalesAmount,
   );
   const netComparison = formatRevenueComparison(
-    netAmount,
-    previousNetAmount,
+    paidAmount,
+    previousPaidAmount,
   );
   const achievement =
     monthlyTarget !== null && monthlyTarget > 0
-      ? (netAmount / monthlyTarget) * 100
+      ? (paidAmount / monthlyTarget) * 100
       : 0;
   const items = [
     {
       label: `${periodLabel} 판매금액`,
       value: won(salesAmount),
-      description: `${rangeLabel} · ${unitName} · 유효 거래 ${count.toLocaleString("ko-KR")}건`,
+      description: `${periodLabel} 발생한 전체 판매 · 미수 포함 · ${count.toLocaleString("ko-KR")}건`,
       signalLabel: `${compareLabel} 대비`,
       signal: salesComparison,
       className: "bg-[#172f4d] text-white",
@@ -70,12 +78,13 @@ export function DashboardKpiHero({
         : salesComparison.startsWith("—")
           ? "text-slate-300"
           : "text-emerald-200",
-      onClick: undefined,
+      actionLabel: "판매 거래 목록 열기",
+      onClick: onSales,
     },
     {
-      label: `${periodLabel} 실수납액`,
-      value: won(netAmount),
-      description: "결제일 기준 유효 결제원장 합계",
+      label: `${periodLabel} 실수납`,
+      value: won(paidAmount),
+      description: `${periodLabel} 실제 입금 · 이전 미수 회수 포함`,
       signalLabel: `${compareLabel} 대비`,
       signal: netComparison,
       className: "border-primary/15 bg-primary-subtle",
@@ -89,25 +98,13 @@ export function DashboardKpiHero({
           : "text-primary",
       target: monthlyTarget ?? undefined,
       achievement: monthlyTarget === null ? undefined : achievement,
-      onClick: undefined,
-    },
-    {
-      label: "현재 전체 미수",
-      value: won(outstanding),
-      description: "선택 기간과 관계없이 완납 전인 모든 미수잔액",
-      className: "bg-warning-soft/55",
-      labelClass: "text-warning",
-      valueClass: "text-text-primary text-[clamp(1.65rem,3vw,2.2rem)]",
-      descriptionClass: "text-text-muted",
-      signalLabel: "",
-      signal: "",
-      signalClass: "",
-      onClick: onOutstanding,
+      actionLabel: "결제 원장 열기",
+      onClick: onPayments,
     },
     {
       label: `${periodLabel} 환불`,
       value: won(refund),
-      description: "환불일 기준 유효 환불원장 합계",
+      description: `${periodLabel} 실제 환불 · 환불일 기준`,
       className: "bg-error-soft/50",
       labelClass: "text-error",
       valueClass: "text-text-primary text-[clamp(1.65rem,3vw,2.2rem)]",
@@ -115,7 +112,36 @@ export function DashboardKpiHero({
       signalLabel: "",
       signal: "",
       signalClass: "",
-      onClick: undefined,
+      actionLabel: "환불 원장 열기",
+      onClick: onRefunds,
+    },
+    {
+      label: `${periodLabel} 순수납`,
+      value: won(paidAmount - refund),
+      description: "실수납 - 환불 · 실제 순유입",
+      className: "border-primary/15 bg-surface-secondary",
+      labelClass: "text-primary",
+      valueClass: "text-text-primary text-[clamp(1.65rem,3vw,2.2rem)]",
+      descriptionClass: "text-text-muted",
+      signalLabel: "",
+      signal: "",
+      signalClass: "",
+      actionLabel: "결제·환불 통합 원장 열기",
+      onClick: onNet,
+    },
+    {
+      label: "현재 전체 미수",
+      value: won(outstanding),
+      description: "현재 시점에 남아 있는 미수 잔액",
+      className: "bg-warning-soft/55",
+      labelClass: "text-warning",
+      valueClass: "text-text-primary text-[clamp(1.65rem,3vw,2.2rem)]",
+      descriptionClass: "text-text-muted",
+      signalLabel: "",
+      signal: "",
+      signalClass: "",
+      actionLabel: "현재 미수금 목록 열기",
+      onClick: onOutstanding,
     },
   ];
 
@@ -132,7 +158,7 @@ export function DashboardKpiHero({
           <span className="text-xs text-text-muted">{compareLabel} 비교</span>
         </div>
       </div>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {items.map((item, index) => (
           <div
             key={item.label}
@@ -145,9 +171,9 @@ export function DashboardKpiHero({
             {item.onClick && (
               <button
                 type="button"
-                aria-label="현재 미수금 목록 열기"
+                aria-label={item.actionLabel}
                 onClick={item.onClick}
-                className="absolute inset-0 z-10 rounded-none transition-[box-shadow,background-color] duration-200 hover:bg-warning/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-warning"
+                className="absolute inset-0 z-10 rounded-none transition-[box-shadow,background-color] duration-200 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
               />
             )}
             <p className={cn("text-xs font-semibold", item.labelClass)}>
@@ -200,8 +226,8 @@ export function DashboardKpiHero({
               {item.description}
             </p>
             {item.onClick && (
-              <span className="mt-2 text-xs font-semibold text-warning">
-                전체 미수 보기 · 수납 처리
+              <span className={cn("mt-2 text-xs font-semibold", item.labelClass)}>
+                클릭하여 내역 보기
               </span>
             )}
           </div>

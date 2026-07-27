@@ -24,6 +24,7 @@ export function OutstandingPaymentsDrawer({
   sales,
   onClose,
   onChanged,
+  onOpenSale,
 }: {
   open: boolean;
   unitId: string;
@@ -32,6 +33,7 @@ export function OutstandingPaymentsDrawer({
   sales: DashboardSale[];
   onClose: () => void;
   onChanged: () => Promise<void>;
+  onOpenSale: (saleId: string) => void;
 }) {
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -224,9 +226,23 @@ export function OutstandingPaymentsDrawer({
                     <LedgerValue label="기존 수납액" value={won(sale.paidAmount)} />
                     <LedgerValue label="메모" value={sale.memo || "없음"} />
                   </dl>
-                  <Button type="button" className="mt-4 w-full sm:w-auto" onClick={() => startCollection(sale)}>
-                    수납하기
-                  </Button>
+                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-full sm:w-auto"
+                      onClick={() => onOpenSale(sale.id)}
+                    >
+                      거래 상세
+                    </Button>
+                    <Button
+                      type="button"
+                      className="w-full sm:w-auto"
+                      onClick={() => startCollection(sale)}
+                    >
+                      수납하기
+                    </Button>
+                  </div>
                 </article>
               ))}
             </div>
