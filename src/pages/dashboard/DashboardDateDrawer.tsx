@@ -99,7 +99,7 @@ export function DashboardDateDrawer({
               <h2 id={titleId} className="text-xl font-bold tracking-[-0.025em] text-white tabular-nums">
                 {date}
               </h2>
-              <p className="mt-1 break-words text-sm font-semibold leading-5 text-blue-100">
+              <p className="mt-1 break-keep text-sm font-semibold leading-5 text-blue-100">
                 {unitName}
                 <span className="ml-1.5 font-normal text-slate-300">· 날짜별 거래 상세</span>
               </p>
@@ -161,18 +161,18 @@ export function DashboardDateDrawer({
                     key={payment.id}
                     type="button"
                     onClick={() => onOpenSale(sale.id)}
-                    className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.045] px-3.5 py-3 text-left transition-colors hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                    className="flex min-h-11 w-full flex-col items-stretch gap-2 rounded-xl border border-white/10 bg-white/[0.045] px-3.5 py-3 text-left transition-colors hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between min-[430px]:gap-3"
                   >
                     <span className="min-w-0">
-                      <strong className="block break-words text-sm leading-5 text-white">
+                      <strong className="block break-keep text-sm leading-5 text-white">
                         {sale.dogName || "(반려견 없음)"} · {sale.customerName || "보호자 미등록"}
                       </strong>
-                      <span className="mt-1 block break-words text-xs leading-5 text-slate-300">
+                      <span className="mt-1 block break-keep text-xs leading-5 text-slate-300">
                         {sale.productName} · {sale.businessUnitName} · {paymentLabels[payment.paymentMethod || "other"] || payment.paymentMethod}
                         {payment.source === "outstanding_collection" ? " · 미수 수납" : ""}
                       </span>
                     </span>
-                    <strong className="shrink-0 text-sm text-blue-100 tabular-nums">
+                    <strong className="shrink-0 self-end whitespace-nowrap text-sm text-blue-100 tabular-nums">
                       {won(payment.amount)}
                     </strong>
                   </button>
@@ -209,19 +209,19 @@ export function DashboardDateDrawer({
                   onClick={() => onOpenSale(sale.id)}
                   className="group block min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.045] p-3.5 text-left transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
                 >
-                  <span className="flex items-start justify-between gap-3">
+                  <span className="flex flex-col items-stretch gap-2 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-3">
                     <span className="min-w-0">
-                      <strong className="block break-words text-base leading-6 text-white">
+                      <strong className="block break-keep text-base leading-6 text-white">
                         {sale.dogName || "(반려견 없음)"}
                       </strong>
-                      <span className="mt-1 block break-words text-sm leading-5 text-slate-200">
+                      <span className="mt-1 block break-keep text-sm leading-5 text-slate-200">
                         {sale.customerName || "보호자 미등록"}
                       </span>
-                      <span className="mt-1.5 block break-words text-xs leading-5 text-slate-300">
+                      <span className="mt-1.5 block break-keep text-xs leading-5 text-slate-300">
                         {sale.productName} · {paymentLabels[sale.paymentMethod] || sale.paymentMethod}
                       </span>
                     </span>
-                    <span className="shrink-0 text-right">
+                    <span className="shrink-0 self-end text-right">
                       <strong className="block text-base text-white tabular-nums">
                         {won(finalSaleAmount(sale))}
                       </strong>

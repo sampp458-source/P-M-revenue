@@ -131,10 +131,10 @@ export function DashboardAccountingDrawer({
                 </h2>
                 <Badge tone={meta.tone}>{rows.length}건</Badge>
               </div>
-              <p className="mt-1 break-words text-sm leading-5 text-slate-300">
+              <p className="mt-1 break-keep text-sm leading-5 text-slate-300">
                 {meta.description}
               </p>
-              <p className="mt-1 break-words text-xs leading-5 text-slate-300">
+              <p className="mt-1 break-keep text-xs leading-5 text-slate-300">
                 {rangeLabel} · {unitName}
               </p>
             </div>
@@ -173,7 +173,7 @@ export function DashboardAccountingDrawer({
                     onClick={() => onOpenSale(event.saleId, event.eventDate)}
                     className="group w-full rounded-2xl border border-white/10 bg-white/[0.045] p-4 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
                   >
-                    <span className="flex items-start justify-between gap-3">
+                    <span className="flex flex-col items-stretch gap-2 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-3">
                       <span className="min-w-0">
                         <span className="flex flex-wrap items-center gap-2">
                           <Badge
@@ -191,21 +191,21 @@ export function DashboardAccountingDrawer({
                             {event.eventDate}
                           </span>
                         </span>
-                        <strong className="mt-2 block break-words text-base leading-6 text-white">
+                        <strong className="mt-2 block break-keep text-base leading-6 text-white">
                           {sale.dogName || "(반려견 없음)"} ·{" "}
                           {sale.customerName || "보호자 미등록"}
                         </strong>
-                        <span className="mt-1 block break-words text-sm leading-5 text-slate-300">
+                        <span className="mt-1 block break-keep text-sm leading-5 text-slate-300">
                           {sale.productName} · {sale.businessUnitName}
                         </span>
-                        <span className="mt-1 block break-words text-xs leading-5 text-slate-300">
+                        <span className="mt-1 block break-keep text-xs leading-5 text-slate-300">
                           {event.paymentMethod
                             ? paymentLabels[event.paymentMethod] ||
                               event.paymentMethod
                             : sale.staffName || "담당자 미등록"}
                         </span>
                       </span>
-                      <span className="shrink-0 text-right">
+                      <span className="shrink-0 self-end text-right">
                         <strong
                           className={cn(
                             "block text-lg font-bold tabular-nums",

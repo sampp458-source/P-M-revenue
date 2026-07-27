@@ -169,7 +169,7 @@ export function OutstandingPaymentsDrawer({
               <h2 id={titleId} className="text-xl font-bold tracking-[-0.025em] text-white">
                 현재 미수금
               </h2>
-              <p className="mt-1 break-words text-sm leading-5 text-slate-300">
+              <p className="mt-1 break-keep text-sm leading-5 text-slate-300">
                 {unitName} · 발생일과 관계없이 남은 미수 전체
               </p>
             </div>
@@ -205,14 +205,14 @@ export function OutstandingPaymentsDrawer({
                         <Badge tone="blue">{sale.businessUnitName}</Badge>
                         <span className="text-xs text-slate-300 tabular-nums">{sale.saleDate}</span>
                       </div>
-                      <h3 className="mt-2 break-words text-lg font-bold leading-6 text-white">
+                      <h3 className="mt-2 break-keep text-lg font-bold leading-6 text-white">
                         {sale.dogName || "(반려견 없음)"}
                       </h3>
-                      <p className="mt-1 break-words text-sm leading-5 text-slate-200">
+                      <p className="mt-1 break-keep text-sm leading-5 text-slate-200">
                         {sale.customerName || "보호자 미등록"}
                         {sale.customerPhone ? ` · ${sale.customerPhone}` : ""}
                       </p>
-                      <p className="mt-1 break-words text-xs leading-5 text-slate-300">{sale.productName}</p>
+                      <p className="mt-1 break-keep text-xs leading-5 text-slate-300">{sale.productName}</p>
                     </div>
                     <div className="shrink-0 text-right">
                       <span className="text-xs font-semibold text-amber-200">현재 미수</span>
