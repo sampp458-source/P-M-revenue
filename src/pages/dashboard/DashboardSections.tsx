@@ -69,15 +69,15 @@ export function DashboardKpiHero({
       description: `${periodLabel} 발생한 전체 판매 · 미수 포함 · ${count.toLocaleString("ko-KR")}건`,
       signalLabel: `${compareLabel} 대비`,
       signal: salesComparison,
-      className: "bg-[#172f4d] text-white",
-      labelClass: "text-blue-200",
-      valueClass: "text-white",
-      descriptionClass: "text-slate-300",
+      className: "bg-white",
+      labelClass: "text-primary",
+      valueClass: "text-text-primary",
+      descriptionClass: "text-text-secondary",
       signalClass: salesComparison.startsWith("▼")
-        ? "text-rose-200"
+        ? "text-error"
         : salesComparison.startsWith("—")
-          ? "text-slate-300"
-          : "text-emerald-200",
+          ? "text-text-secondary"
+          : "text-primary",
       actionLabel: "판매 거래 목록 열기",
       onClick: onSales,
     },
@@ -116,20 +116,6 @@ export function DashboardKpiHero({
       onClick: onRefunds,
     },
     {
-      label: `${periodLabel} 순수납`,
-      value: won(paidAmount - refund),
-      description: "실수납 - 환불 · 실제 순유입",
-      className: "border-primary/15 bg-surface-secondary",
-      labelClass: "text-primary",
-      valueClass: "text-text-primary",
-      descriptionClass: "text-text-muted",
-      signalLabel: "",
-      signal: "",
-      signalClass: "",
-      actionLabel: "결제·환불 통합 원장 열기",
-      onClick: onNet,
-    },
-    {
       label: "현재 전체 미수",
       value: won(outstanding),
       description: "현재 시점에 남아 있는 미수 잔액",
@@ -158,13 +144,41 @@ export function DashboardKpiHero({
           <span className="text-xs text-text-muted">{compareLabel} 비교</span>
         </div>
       </div>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {items.map((item, index) => (
+      <div className="relative overflow-hidden bg-[#172f4d] p-5 text-white sm:p-7 lg:p-8">
+        <button
+          type="button"
+          aria-label="결제·환불 통합 원장 열기"
+          onClick={onNet}
+          className="absolute inset-0 z-10 transition-colors duration-200 hover:bg-white/[0.035] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300"
+        />
+        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] lg:items-end">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold text-blue-200">
+              {periodLabel} 순수납
+            </p>
+            <strong className="mt-3 block whitespace-nowrap text-[clamp(2.15rem,9vw,4.2rem)] font-bold tracking-[-0.055em] text-white tabular-nums sm:text-[clamp(2.65rem,6vw,4.2rem)]">
+              {won(paidAmount - refund)}
+            </strong>
+            <p className="mt-3 text-[13px] leading-5 text-slate-300">
+              실수납에서 환불을 뺀 실제 순유입
+            </p>
+            <span className="mt-2 block text-xs font-semibold text-blue-200">
+              클릭하여 결제·환불 통합 원장 보기
+            </span>
+          </div>
+          <dl className="grid grid-cols-1 gap-2 min-[390px]:grid-cols-3">
+            <HeroSummary label="판매" value={salesAmount} />
+            <HeroSummary label="실수납" value={paidAmount} />
+            <HeroSummary label="환불" value={refund} danger />
+          </dl>
+        </div>
+      </div>
+      <div className="grid sm:grid-cols-2 xl:grid-cols-4">
+        {items.map((item) => (
           <div
             key={item.label}
             className={cn(
-              "relative flex min-h-52 min-w-0 flex-col border-b border-border p-5 sm:p-6 lg:border-b-0 lg:border-r lg:last:border-r-0",
-              index === 0 && "border-white/10",
+              "relative flex min-h-48 min-w-0 flex-col border-b border-border p-5 sm:p-6 xl:border-b-0 xl:border-r xl:last:border-r-0",
               item.className,
             )}
           >
@@ -181,7 +195,7 @@ export function DashboardKpiHero({
             </p>
             <strong
               className={cn(
-                "mt-4 block whitespace-nowrap text-[clamp(1.55rem,7vw,2.35rem)] font-bold tracking-[-0.045em] tabular-nums sm:text-[clamp(1.6rem,3.5vw,2.2rem)] lg:text-[clamp(1.25rem,2.15vw,1.72rem)] xl:text-[clamp(1.08rem,1.32vw,1.58rem)] 2xl:text-[clamp(1.3rem,1.45vw,1.9rem)]",
+                "mt-4 block whitespace-nowrap text-[clamp(1.55rem,7vw,2.35rem)] font-bold tracking-[-0.045em] tabular-nums sm:text-[clamp(1.6rem,3.5vw,2.2rem)] xl:text-[clamp(1.2rem,1.5vw,1.75rem)] 2xl:text-[clamp(1.35rem,1.55vw,1.95rem)]",
                 item.valueClass,
               )}
             >
@@ -234,6 +248,30 @@ export function DashboardKpiHero({
         ))}
       </div>
     </Card>
+  );
+}
+
+function HeroSummary({
+  label,
+  value,
+  danger = false,
+}: {
+  label: string;
+  value: number;
+  danger?: boolean;
+}) {
+  return (
+    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.055] p-3.5">
+      <dt className="text-[11px] font-semibold text-slate-300">{label}</dt>
+      <dd
+        className={cn(
+          "mt-1.5 whitespace-nowrap text-[clamp(0.9rem,3.8vw,1.05rem)] font-bold tracking-[-0.03em] text-white tabular-nums",
+          danger && value > 0 && "text-rose-200",
+        )}
+      >
+        {won(value)}
+      </dd>
+    </div>
   );
 }
 

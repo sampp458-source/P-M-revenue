@@ -1,9 +1,11 @@
 import { CalendarDays, ExternalLink, X } from "lucide-react";
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
 import { Badge, Button, EmptyState, StatusBadge, cn } from "../../components/ui";
 import { won } from "../../lib/format";
 import {
+  businessUnitOrder,
   finalSaleAmount,
+  type BusinessUnitOption,
   type DailyRevenue,
   type DashboardSale,
 } from "./dashboardMetrics";
@@ -33,6 +35,7 @@ export function DashboardDateDrawer({
   rows,
   payments,
   paymentMethodTotals,
+  units,
   onClose,
   onOpenSale,
   onOpenSales,
@@ -47,6 +50,7 @@ export function DashboardDateDrawer({
     sale: DashboardSale;
   }>;
   paymentMethodTotals: Map<string, number>;
+  units: BusinessUnitOption[];
   onClose: () => void;
   onOpenSale: (saleId: string) => void;
   onOpenSales: () => void;
@@ -56,6 +60,35 @@ export function DashboardDateDrawer({
   const openerRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const saleGroups = useMemo(() => {
+    const unitById = new Map(units.map((unit) => [unit.id, unit]));
+    const grouped = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        code: string;
+        order: number;
+        rows: DashboardSale[];
+      }
+    >();
+    rows.forEach((sale) => {
+      const unit = unitById.get(sale.businessUnitId);
+      const current = grouped.get(sale.businessUnitId) ?? {
+        id: sale.businessUnitId,
+        name: unit?.name || sale.businessUnitName || "기타",
+        code: unit?.code || "other",
+        order: unit ? businessUnitOrder(unit) : 99,
+        rows: [],
+      };
+      current.rows.push(sale);
+      grouped.set(sale.businessUnitId, current);
+    });
+    return [...grouped.values()].sort(
+      (left, right) =>
+        left.order - right.order || left.name.localeCompare(right.name, "ko-KR"),
+    );
+  }, [rows, units]);
 
   useEffect(() => {
     if (!open) return;
@@ -185,73 +218,120 @@ export function DashboardDateDrawer({
             )}
           </div>
 
-          <div className="mb-3 flex items-end justify-between gap-3">
-            <div>
-                <h3 className="font-semibold text-white">거래 목록</h3>
-            </div>
-            <div className="text-right">
-              <Badge tone="blue">{rows.length.toLocaleString("ko-KR")}건</Badge>
-              {summary.cancelledCount > 0 && (
-                <p className="mt-1 text-[10px] text-slate-300">
-                  유효 {summary.count.toLocaleString("ko-KR")}건 · 취소{" "}
-                  {summary.cancelledCount.toLocaleString("ko-KR")}건
-                </p>
-              )}
-            </div>
-          </div>
-
           {rows.length ? (
-            <div className="space-y-2">
-              {rows.map((sale) => (
-                <button
-                  key={sale.id}
-                  type="button"
-                  onClick={() => onOpenSale(sale.id)}
-                  className="group block min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.045] p-3.5 text-left transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
-                >
-                  <span className="flex flex-col items-stretch gap-2 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-3">
-                    <span className="min-w-0">
-                      <strong className="block break-keep text-base leading-6 text-white">
-                        {sale.dogName || "(반려견 없음)"}
-                      </strong>
-                      <span className="mt-1 block break-keep text-sm leading-5 text-slate-200">
-                        {sale.customerName || "보호자 미등록"}
-                      </span>
-                      <span className="mt-1.5 block break-keep text-xs leading-5 text-slate-300">
-                        {sale.productName} · {paymentLabels[sale.paymentMethod] || sale.paymentMethod}
-                      </span>
-                    </span>
-                    <span className="shrink-0 self-end text-right">
-                      <strong className="block text-base text-white tabular-nums">
-                        {won(finalSaleAmount(sale))}
-                      </strong>
-                      <span className="mt-1 block text-[11px] font-semibold text-slate-300 tabular-nums">
-                        {timeLabel(sale.createdAt)}
-                      </span>
-                    </span>
-                  </span>
-                  <span className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-3">
-                    <StatusBadge
-                      status={sale.status as
-                        | "normal"
-                        | "partial_refund"
-                        | "full_refund"
-                        | "cancelled"}
-                    />
-                    <Badge>{sale.businessUnitName}</Badge>
-                    <span className="w-full text-[12px] leading-5 text-slate-300 sm:ml-auto sm:w-auto">
-                      보호자 {sale.customerName || "미등록"}
-                      <span className="mx-1.5 text-slate-500">·</span>
-                      담당자 {sale.staffName || "미등록"}
-                    </span>
-                    {sale.refundAmount > 0 && (
-                      <span className="w-full text-right text-[11px] font-semibold text-error tabular-nums">
-                        환불 -{won(sale.refundAmount)}
-                      </span>
+            <div className="space-y-4">
+              {saleGroups.map((group) => {
+                const tone = businessUnitTone(group.code);
+                const activeRows = group.rows.filter(
+                  (sale) => sale.status !== "cancelled",
+                );
+                const groupTotal = activeRows.reduce(
+                  (total, sale) => total + finalSaleAmount(sale),
+                  0,
+                );
+                return (
+                  <section
+                    key={group.id}
+                    aria-labelledby={`dashboard-date-unit-${group.id}`}
+                    className={cn(
+                      "overflow-hidden rounded-2xl border",
+                      tone.border,
                     )}
-                  </span>
-                </button>
-              ))}
+                  >
+                    <div
+                      className={cn(
+                        "flex items-center justify-between gap-3 border-b px-4 py-3",
+                        tone.header,
+                        tone.border,
+                      )}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={cn(
+                              "h-2 w-2 shrink-0 rounded-full",
+                              tone.dot,
+                            )}
+                            aria-hidden="true"
+                          />
+                          <h3
+                            id={`dashboard-date-unit-${group.id}`}
+                            className="truncate text-sm font-bold text-white"
+                          >
+                            {group.name}
+                          </h3>
+                        </div>
+                        <p className="mt-1 text-[11px] text-slate-300">
+                          유효 {activeRows.length.toLocaleString("ko-KR")}건
+                          {group.rows.length !== activeRows.length
+                            ? ` · 취소 ${(group.rows.length - activeRows.length).toLocaleString("ko-KR")}건`
+                            : ""}
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <span className="block text-[10px] font-semibold text-slate-300">
+                          사업부 판매
+                        </span>
+                        <strong className="mt-1 block whitespace-nowrap text-sm text-white tabular-nums">
+                          {won(groupTotal)}
+                        </strong>
+                      </div>
+                    </div>
+                    <div className="space-y-2 p-2.5">
+                      {group.rows.map((sale) => (
+                        <button
+                          key={sale.id}
+                          type="button"
+                          onClick={() => onOpenSale(sale.id)}
+                          className="group block min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.045] p-3.5 text-left transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                        >
+                          <span className="flex flex-col items-stretch gap-2 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-3">
+                            <span className="min-w-0">
+                              <strong className="block break-keep text-base leading-6 text-white">
+                                {sale.dogName || "(반려견 없음)"}
+                              </strong>
+                              <span className="mt-1 block break-keep text-sm leading-5 text-slate-200">
+                                {sale.customerName || "보호자 미등록"}
+                              </span>
+                              <span className="mt-1.5 block break-keep text-xs leading-5 text-slate-300">
+                                {sale.productName} · {paymentLabels[sale.paymentMethod] || sale.paymentMethod}
+                              </span>
+                            </span>
+                            <span className="shrink-0 self-end text-right">
+                              <strong className="block text-base text-white tabular-nums">
+                                {won(finalSaleAmount(sale))}
+                              </strong>
+                              <span className="mt-1 block text-[11px] font-semibold text-slate-300 tabular-nums">
+                                {timeLabel(sale.createdAt)}
+                              </span>
+                            </span>
+                          </span>
+                          <span className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-3">
+                            <StatusBadge
+                              status={sale.status as
+                                | "normal"
+                                | "partial_refund"
+                                | "full_refund"
+                                | "cancelled"}
+                            />
+                            <Badge>{sale.businessUnitName}</Badge>
+                            <span className="w-full text-[12px] leading-5 text-slate-300 sm:ml-auto sm:w-auto">
+                              보호자 {sale.customerName || "미등록"}
+                              <span className="mx-1.5 text-slate-500">·</span>
+                              담당자 {sale.staffName || "미등록"}
+                            </span>
+                            {sale.refundAmount > 0 && (
+                              <span className="w-full text-right text-[11px] font-semibold text-error tabular-nums">
+                                환불 -{won(sale.refundAmount)}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           ) : (
             <div className="[&_*]:text-slate-300">
@@ -272,6 +352,35 @@ export function DashboardDateDrawer({
       </aside>
     </>
   );
+}
+
+function businessUnitTone(code: string) {
+  if (code === "daycare") {
+    return {
+      border: "border-sky-300/20",
+      header: "bg-sky-300/[0.08]",
+      dot: "bg-sky-300",
+    };
+  }
+  if (code === "training") {
+    return {
+      border: "border-violet-300/20",
+      header: "bg-violet-300/[0.08]",
+      dot: "bg-violet-300",
+    };
+  }
+  if (code === "hotel") {
+    return {
+      border: "border-amber-300/20",
+      header: "bg-amber-300/[0.08]",
+      dot: "bg-amber-300",
+    };
+  }
+  return {
+    border: "border-slate-300/20",
+    header: "bg-slate-300/[0.08]",
+    dot: "bg-slate-300",
+  };
 }
 
 function Summary({
