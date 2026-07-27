@@ -1,5 +1,5 @@
 import { CalendarDays, ExternalLink, X } from "lucide-react";
-import { useEffect, useId, useMemo, useRef } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Badge, Button, EmptyState, StatusBadge, cn } from "../../components/ui";
 import { won } from "../../lib/format";
 import {
@@ -26,6 +26,14 @@ const timeLabel = (value: string) =>
     minute: "2-digit",
     hour12: false,
   }).format(new Date(value));
+
+interface SaleGroup {
+  id: string;
+  name: string;
+  code: string;
+  order: number;
+  rows: DashboardSale[];
+}
 
 export function DashboardDateDrawer({
   open,
@@ -59,19 +67,22 @@ export function DashboardDateDrawer({
   const closeRef = useRef<HTMLButtonElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const onCloseRef = useRef(onClose);
+  const [selectedUnitId, setSelectedUnitId] = useState("all");
   onCloseRef.current = onClose;
   const saleGroups = useMemo(() => {
     const unitById = new Map(units.map((unit) => [unit.id, unit]));
-    const grouped = new Map<
-      string,
-      {
-        id: string;
-        name: string;
-        code: string;
-        order: number;
-        rows: DashboardSale[];
-      }
-    >();
+    const grouped = new Map<string, SaleGroup>();
+    units
+      .filter((unit) => businessUnitOrder(unit) < 99)
+      .forEach((unit) => {
+        grouped.set(unit.id, {
+          id: unit.id,
+          name: unit.name,
+          code: unit.code || "other",
+          order: businessUnitOrder(unit),
+          rows: [],
+        });
+      });
     rows.forEach((sale) => {
       const unit = unitById.get(sale.businessUnitId);
       const current = grouped.get(sale.businessUnitId) ?? {
@@ -89,6 +100,7 @@ export function DashboardDateDrawer({
         left.order - right.order || left.name.localeCompare(right.name, "ko-KR"),
     );
   }, [rows, units]);
+  const selectedGroup = saleGroups.find((group) => group.id === selectedUnitId);
 
   useEffect(() => {
     if (!open) return;
@@ -107,6 +119,10 @@ export function DashboardDateDrawer({
       document.removeEventListener("keydown", handleKeyDown);
       openerRef.current?.focus();
     };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) setSelectedUnitId("all");
   }, [open]);
 
   if (!open) return null;
@@ -218,129 +234,48 @@ export function DashboardDateDrawer({
             )}
           </div>
 
-          {rows.length ? (
-            <div className="space-y-4">
-              {saleGroups.map((group) => {
-                const tone = businessUnitTone(group.code);
-                const activeRows = group.rows.filter(
-                  (sale) => sale.status !== "cancelled",
-                );
-                const groupTotal = activeRows.reduce(
-                  (total, sale) => total + finalSaleAmount(sale),
-                  0,
-                );
-                return (
-                  <section
+          <div>
+            <div className="-mx-1 mb-4 overflow-x-auto px-1 pb-1">
+              <div className="flex min-w-max gap-1 rounded-xl bg-white/[0.045] p-1" role="tablist" aria-label="날짜 상세 사업부">
+                <UnitTab active={selectedUnitId === "all"} onClick={() => setSelectedUnitId("all")}>
+                  전체
+                </UnitTab>
+                {saleGroups.map((group) => (
+                  <UnitTab
                     key={group.id}
-                    aria-labelledby={`dashboard-date-unit-${group.id}`}
-                    className={cn(
-                      "overflow-hidden rounded-2xl border",
-                      tone.border,
-                    )}
+                    active={selectedUnitId === group.id}
+                    onClick={() => setSelectedUnitId(group.id)}
+                    dot={businessUnitTone(group.code).dot}
                   >
-                    <div
-                      className={cn(
-                        "flex items-center justify-between gap-3 border-b px-4 py-3",
-                        tone.header,
-                        tone.border,
-                      )}
-                    >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              "h-2 w-2 shrink-0 rounded-full",
-                              tone.dot,
-                            )}
-                            aria-hidden="true"
-                          />
-                          <h3
-                            id={`dashboard-date-unit-${group.id}`}
-                            className="truncate text-sm font-bold text-white"
-                          >
-                            {group.name}
-                          </h3>
-                        </div>
-                        <p className="mt-1 text-[11px] text-slate-300">
-                          유효 {activeRows.length.toLocaleString("ko-KR")}건
-                          {group.rows.length !== activeRows.length
-                            ? ` · 취소 ${(group.rows.length - activeRows.length).toLocaleString("ko-KR")}건`
-                            : ""}
-                        </p>
-                      </div>
-                      <div className="shrink-0 text-right">
-                        <span className="block text-[10px] font-semibold text-slate-300">
-                          사업부 판매
-                        </span>
-                        <strong className="mt-1 block whitespace-nowrap text-sm text-white tabular-nums">
-                          {won(groupTotal)}
-                        </strong>
-                      </div>
-                    </div>
-                    <div className="space-y-2 p-2.5">
-                      {group.rows.map((sale) => (
-                        <button
-                          key={sale.id}
-                          type="button"
-                          onClick={() => onOpenSale(sale.id)}
-                          className="group block min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.045] p-3.5 text-left transition-[transform,border-color,box-shadow,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
-                        >
-                          <span className="flex flex-col items-stretch gap-2 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-3">
-                            <span className="min-w-0">
-                              <strong className="block break-keep text-base leading-6 text-white">
-                                {sale.dogName || "(반려견 없음)"}
-                              </strong>
-                              <span className="mt-1 block break-keep text-sm leading-5 text-slate-200">
-                                {sale.customerName || "보호자 미등록"}
-                              </span>
-                              <span className="mt-1.5 block break-keep text-xs leading-5 text-slate-300">
-                                {sale.productName} · {paymentLabels[sale.paymentMethod] || sale.paymentMethod}
-                              </span>
-                            </span>
-                            <span className="shrink-0 self-end text-right">
-                              <strong className="block text-base text-white tabular-nums">
-                                {won(finalSaleAmount(sale))}
-                              </strong>
-                              <span className="mt-1 block text-[11px] font-semibold text-slate-300 tabular-nums">
-                                {timeLabel(sale.createdAt)}
-                              </span>
-                            </span>
-                          </span>
-                          <span className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-3">
-                            <StatusBadge
-                              status={sale.status as
-                                | "normal"
-                                | "partial_refund"
-                                | "full_refund"
-                                | "cancelled"}
-                            />
-                            <Badge>{sale.businessUnitName}</Badge>
-                            <span className="w-full text-[12px] leading-5 text-slate-300 sm:ml-auto sm:w-auto">
-                              보호자 {sale.customerName || "미등록"}
-                              <span className="mx-1.5 text-slate-500">·</span>
-                              담당자 {sale.staffName || "미등록"}
-                            </span>
-                            {sale.refundAmount > 0 && (
-                              <span className="w-full text-right text-[11px] font-semibold text-error tabular-nums">
-                                환불 -{won(sale.refundAmount)}
-                              </span>
-                            )}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                );
-              })}
+                    {group.name}
+                  </UnitTab>
+                ))}
+              </div>
             </div>
-          ) : (
-            <div className="[&_*]:text-slate-300">
-              <EmptyState
-                title="이 날짜의 매출이 없습니다"
-                description="다른 날짜나 사업부를 선택해 주세요."
-              />
-            </div>
-          )}
+
+            {selectedUnitId === "all" ? (
+              <div className="space-y-2" role="tabpanel" aria-label="전체 사업부 요약">
+                {saleGroups.map((group) => (
+                  <BusinessUnitSummaryRow
+                    key={group.id}
+                    group={group}
+                    onClick={() => setSelectedUnitId(group.id)}
+                  />
+                ))}
+                {!rows.length && (
+                  <p className="rounded-xl bg-white/[0.045] p-4 text-center text-sm text-slate-300">
+                    이 날짜의 매출이 없습니다.
+                  </p>
+                )}
+              </div>
+            ) : selectedGroup ? (
+              <BusinessUnitTransactions group={selectedGroup} onOpenSale={onOpenSale} />
+            ) : (
+              <div className="[&_*]:text-slate-300">
+                <EmptyState title="사업부 정보를 찾을 수 없습니다" description="전체 탭에서 다시 선택해 주세요." />
+              </div>
+            )}
+          </div>
           </div>
         </div>
 
@@ -351,6 +286,183 @@ export function DashboardDateDrawer({
         </div>
       </aside>
     </>
+  );
+}
+
+function UnitTab({
+  active,
+  onClick,
+  children,
+  dot,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: string;
+  dot?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      className={cn(
+        "inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300",
+        active
+          ? "bg-white text-[#173d65]"
+          : "text-slate-300 hover:bg-white/[0.07] hover:text-white",
+      )}
+    >
+      {dot && <span className={cn("h-1.5 w-1.5 rounded-full", dot)} aria-hidden="true" />}
+      {children}
+    </button>
+  );
+}
+
+function groupStats(group: SaleGroup) {
+  const activeRows = group.rows.filter((sale) => sale.status !== "cancelled");
+  return {
+    activeRows,
+    cancelledCount: group.rows.length - activeRows.length,
+    total: activeRows.reduce(
+      (sum, sale) => sum + finalSaleAmount(sale),
+      0,
+    ),
+  };
+}
+
+function BusinessUnitSummaryRow({
+  group,
+  onClick,
+}: {
+  group: SaleGroup;
+  onClick: () => void;
+}) {
+  const tone = businessUnitTone(group.code);
+  const stats = groupStats(group);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border bg-white/[0.035] px-4 py-3 text-left transition-colors hover:bg-white/[0.07] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300",
+        tone.border,
+      )}
+    >
+      <span className="inline-flex min-w-0 items-center gap-2.5">
+        <span className={cn("h-2 w-2 shrink-0 rounded-full", tone.dot)} aria-hidden="true" />
+        <span className="min-w-0">
+          <strong className="block truncate text-sm text-white">{group.name}</strong>
+          <span className="mt-1 block text-[11px] text-slate-300">
+            {stats.activeRows.length.toLocaleString("ko-KR")}건
+            {stats.cancelledCount > 0
+              ? ` · 취소 ${stats.cancelledCount.toLocaleString("ko-KR")}건`
+              : ""}
+          </span>
+        </span>
+      </span>
+      <strong className="shrink-0 whitespace-nowrap text-sm text-white tabular-nums">
+        {won(stats.total)}
+      </strong>
+    </button>
+  );
+}
+
+function BusinessUnitTransactions({
+  group,
+  onOpenSale,
+}: {
+  group: SaleGroup;
+  onOpenSale: (saleId: string) => void;
+}) {
+  const tone = businessUnitTone(group.code);
+  const stats = groupStats(group);
+  return (
+    <section
+      aria-labelledby={`dashboard-date-unit-${group.id}`}
+      className={cn("overflow-hidden rounded-2xl border", tone.border)}
+      role="tabpanel"
+    >
+      <div className={cn("flex items-center justify-between gap-3 border-b px-4 py-3", tone.header, tone.border)}>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={cn("h-2 w-2 shrink-0 rounded-full", tone.dot)} aria-hidden="true" />
+            <h3 id={`dashboard-date-unit-${group.id}`} className="truncate text-sm font-bold text-white">
+              {group.name}
+            </h3>
+          </div>
+          <p className="mt-1 text-[11px] text-slate-300">
+            유효 {stats.activeRows.length.toLocaleString("ko-KR")}건
+            {stats.cancelledCount > 0
+              ? ` · 취소 ${stats.cancelledCount.toLocaleString("ko-KR")}건`
+              : ""}
+          </p>
+        </div>
+        <div className="shrink-0 text-right">
+          <span className="block text-[10px] font-semibold text-slate-300">사업부 판매</span>
+          <strong className="mt-1 block whitespace-nowrap text-sm text-white tabular-nums">
+            {won(stats.total)}
+          </strong>
+        </div>
+      </div>
+
+      {group.rows.length ? (
+        <div className="space-y-2 p-2.5">
+          {group.rows.map((sale) => (
+            <button
+              key={sale.id}
+              type="button"
+              onClick={() => onOpenSale(sale.id)}
+              className="group block min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.045] p-3.5 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+            >
+              <span className="flex flex-col items-stretch gap-2 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-3">
+                <span className="min-w-0">
+                  <strong className="block break-keep text-base leading-6 text-white">
+                    {sale.dogName || "(반려견 없음)"}
+                  </strong>
+                  <span className="mt-1 block break-keep text-sm leading-5 text-slate-200">
+                    {sale.customerName || "보호자 미등록"}
+                  </span>
+                  <span className="mt-1.5 block break-keep text-xs leading-5 text-slate-300">
+                    {sale.productName} · {paymentLabels[sale.paymentMethod] || sale.paymentMethod}
+                  </span>
+                </span>
+                <span className="shrink-0 self-end text-right">
+                  <strong className="block whitespace-nowrap text-base text-white tabular-nums">
+                    {won(finalSaleAmount(sale))}
+                  </strong>
+                  <span className="mt-1 block text-[11px] font-semibold text-slate-300 tabular-nums">
+                    {timeLabel(sale.createdAt)}
+                  </span>
+                </span>
+              </span>
+              <span className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-3">
+                <StatusBadge
+                  status={sale.status as
+                    | "normal"
+                    | "partial_refund"
+                    | "full_refund"
+                    | "cancelled"}
+                />
+                <Badge>{sale.businessUnitName}</Badge>
+                <span className="w-full text-[12px] leading-5 text-slate-300 sm:ml-auto sm:w-auto">
+                  보호자 {sale.customerName || "미등록"}
+                  <span className="mx-1.5 text-slate-500">·</span>
+                  담당자 {sale.staffName || "미등록"}
+                </span>
+                {sale.refundAmount > 0 && (
+                  <span className="w-full text-right text-[11px] font-semibold text-error tabular-nums">
+                    환불 -{won(sale.refundAmount)}
+                  </span>
+                )}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="p-5 text-center text-sm text-slate-300">이 사업부의 매출이 없습니다.</p>
+      )}
+    </section>
   );
 }
 

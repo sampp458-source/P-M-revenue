@@ -5,17 +5,74 @@ import { shortWon, won } from "../../lib/format";
 import type { BusinessUnitOption, DailyRevenue, DashboardCompare, DashboardDateRange, DashboardPeriod } from "./dashboardMetrics";
 
 const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [
+  { value: "this_month", label: "이번 달" },
+  { value: "last_month", label: "지난달" },
   { value: "today", label: "오늘" },
   { value: "yesterday", label: "어제" },
   { value: "this_week", label: "이번 주" },
   { value: "last_week", label: "지난주" },
-  { value: "this_month", label: "이번 달" },
-  { value: "last_month", label: "지난달" },
   { value: "custom", label: "직접 선택" },
 ];
 
 export function DashboardPeriodFilters({ period, range, unitName, compare, onPeriod, onCustom, onMovePeriod, onCompare }: { period: DashboardPeriod; range: DashboardDateRange; unitName: string; compare: DashboardCompare; onPeriod: (period: DashboardPeriod) => void; onCustom: (range: DashboardDateRange) => void; onMovePeriod: (direction: number) => void; onCompare: (compare: DashboardCompare) => void }) {
-  return <Card className="mb-4 overflow-hidden p-3 sm:p-4"><div className="flex gap-1.5 overflow-x-auto pb-1" aria-label="빠른 조회 기간">{periodOptions.map((option) => <button key={option.value} type="button" onClick={() => onPeriod(option.value)} className={cn("min-h-11 shrink-0 rounded-lg border px-3 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:text-sm", period === option.value ? "border-primary bg-primary text-white" : "border-border bg-white text-text-secondary hover:border-primary/25 hover:bg-primary-subtle")}>{option.label}</button>)}</div><div className="mt-3 flex flex-col gap-2 border-t border-border pt-3 xl:flex-row xl:items-center"><div className="flex min-w-0 items-center gap-1.5"><Button type="button" variant="secondary" className="shrink-0 px-3" aria-label="이전 기간" onClick={() => onMovePeriod(-1)}><ChevronLeft size={17} /></Button><div className="flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-primary/10 bg-primary-subtle px-3"><strong className="truncate text-sm text-text-primary tabular-nums">{range.from === range.to ? range.from : `${range.from} ~ ${range.to}`}</strong><span className="shrink-0"><Badge tone="blue">{unitName}</Badge></span></div><Button type="button" variant="secondary" className="shrink-0 px-3" aria-label="다음 기간" onClick={() => onMovePeriod(1)}><ChevronRight size={17} /></Button></div>{period === "custom" && <div className="grid gap-2 sm:grid-cols-2 xl:min-w-[340px]"><label className="sr-only" htmlFor="dashboard-period-from">시작일</label><Input id="dashboard-period-from" aria-label="직접 선택 시작일" type="date" value={range.from} onChange={(event) => onCustom({ from: event.target.value, to: range.to })} /><label className="sr-only" htmlFor="dashboard-period-to">종료일</label><Input id="dashboard-period-to" aria-label="직접 선택 종료일" type="date" min={range.from} value={range.to} onChange={(event) => onCustom({ from: range.from, to: event.target.value })} /></div>}<div className="flex items-center gap-2 xl:ml-auto"><span className="shrink-0 text-xs font-semibold text-text-secondary">비교</span><div className="flex min-w-0 gap-1.5 overflow-x-auto" aria-label="대시보드 비교 기준">{period === "custom" && <CompareButton active={compare === "previous"} onClick={() => onCompare("previous")}>직전 기간</CompareButton>}{compareOptions.map((option) => <CompareButton key={option.value} active={compare === option.value} onClick={() => onCompare(option.value)}>{option.label}</CompareButton>)}</div></div></div></Card>;
+  return (
+    <Card className="mb-4 overflow-hidden border-border/70 bg-white/80 p-2.5 shadow-none sm:p-3">
+      <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
+        <div className="flex min-w-0 gap-1 overflow-x-auto pb-0.5" aria-label="빠른 조회 기간">
+          {periodOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onPeriod(option.value)}
+              className={cn(
+                "min-h-9 shrink-0 rounded-lg border px-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-3",
+                period === option.value
+                  ? "border-primary bg-primary text-white"
+                  : "border-transparent bg-transparent text-text-secondary hover:border-primary/15 hover:bg-primary-subtle",
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex min-w-0 items-center gap-1 sm:min-w-[310px] xl:ml-auto">
+          <Button type="button" variant="ghost" className="h-9 min-h-9 shrink-0 px-2" aria-label="이전 기간" onClick={() => onMovePeriod(-1)}>
+            <ChevronLeft size={16} />
+          </Button>
+          <div className="flex min-h-9 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-surface-secondary px-2.5">
+            <strong className="truncate text-xs text-text-primary tabular-nums sm:text-sm">
+              {range.from === range.to ? range.from : `${range.from} ~ ${range.to}`}
+            </strong>
+            <span className="hidden shrink-0 min-[430px]:inline">
+              <Badge tone="blue">{unitName}</Badge>
+            </span>
+          </div>
+          <Button type="button" variant="ghost" className="h-9 min-h-9 shrink-0 px-2" aria-label="다음 기간" onClick={() => onMovePeriod(1)}>
+            <ChevronRight size={16} />
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-2 flex flex-col gap-2 border-t border-border/60 pt-2 lg:flex-row lg:items-center">
+        {period === "custom" && (
+          <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[340px]">
+            <label className="sr-only" htmlFor="dashboard-period-from">시작일</label>
+            <Input id="dashboard-period-from" className="h-9 min-h-9" aria-label="직접 선택 시작일" type="date" value={range.from} onChange={(event) => onCustom({ from: event.target.value, to: range.to })} />
+            <label className="sr-only" htmlFor="dashboard-period-to">종료일</label>
+            <Input id="dashboard-period-to" className="h-9 min-h-9" aria-label="직접 선택 종료일" type="date" min={range.from} value={range.to} onChange={(event) => onCustom({ from: range.from, to: event.target.value })} />
+          </div>
+        )}
+        <div className="flex min-w-0 items-center gap-2 lg:ml-auto">
+          <span className="shrink-0 text-[11px] font-semibold text-text-muted">비교</span>
+          <div className="flex min-w-0 gap-1 overflow-x-auto" aria-label="대시보드 비교 기준">
+            {period === "custom" && <CompareButton active={compare === "previous"} onClick={() => onCompare("previous")}>직전 기간</CompareButton>}
+            {compareOptions.map((option) => <CompareButton key={option.value} active={compare === option.value} onClick={() => onCompare(option.value)}>{option.label}</CompareButton>)}
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
 }
 
 const compareOptions: Array<{ value: Exclude<DashboardCompare, "previous">; label: string }> = [
@@ -25,7 +82,7 @@ const compareOptions: Array<{ value: Exclude<DashboardCompare, "previous">; labe
 ];
 
 function CompareButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return <button type="button" onClick={onClick} className={cn("min-h-11 shrink-0 rounded-lg border px-3 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", active ? "border-primary bg-primary text-white" : "border-border bg-white text-text-secondary hover:border-primary/25")}>{children}</button>;
+  return <button type="button" onClick={onClick} className={cn("min-h-8 shrink-0 rounded-md border px-2.5 text-[11px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", active ? "border-primary/20 bg-primary-subtle text-primary" : "border-transparent bg-transparent text-text-muted hover:bg-surface-secondary hover:text-text-secondary")}>{children}</button>;
 }
 
 export function DailyRevenueTrend({ data, selectedDate, unitName, onSelect }: { data: DailyRevenue[]; selectedDate: string; unitName: string; onSelect: (date: string) => void }) {

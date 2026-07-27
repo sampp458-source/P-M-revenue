@@ -58,10 +58,6 @@ export function DashboardKpiHero({
     paidAmount,
     previousPaidAmount,
   );
-  const achievement =
-    monthlyTarget !== null && monthlyTarget > 0
-      ? (paidAmount / monthlyTarget) * 100
-      : 0;
   const items = [
     {
       label: `${periodLabel} 판매금액`,
@@ -96,8 +92,12 @@ export function DashboardKpiHero({
         : netComparison.startsWith("—")
           ? "text-text-secondary"
           : "text-primary",
-      target: monthlyTarget ?? undefined,
-      achievement: monthlyTarget === null ? undefined : achievement,
+      targetText:
+        monthlyTarget === null
+          ? "목표 미설정"
+          : monthlyTarget > 0
+            ? `목표 대비 ${((paidAmount / monthlyTarget) * 100).toFixed(1)}%`
+            : "목표 미설정",
       actionLabel: "결제 원장 열기",
       onClick: onPayments,
     },
@@ -132,8 +132,8 @@ export function DashboardKpiHero({
   ];
 
   return (
-    <Card className="overflow-hidden p-0">
-      <div className="flex flex-col gap-2 border-b border-border bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+    <div className="space-y-3">
+      <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">현재 적용 기준</p>
           <strong className="mt-1 block text-sm text-text-primary tabular-nums">{rangeLabel}</strong>
@@ -144,41 +144,40 @@ export function DashboardKpiHero({
           <span className="text-xs text-text-muted">{compareLabel} 비교</span>
         </div>
       </div>
-      <div className="relative overflow-hidden bg-[#172f4d] p-5 text-white sm:p-7 lg:p-8">
+      <Card className="relative overflow-hidden border-primary/10 bg-[linear-gradient(135deg,#f7fbff_0%,#edf5fd_58%,#f9fbfd_100%)] p-0 shadow-none">
         <button
           type="button"
           aria-label="결제·환불 통합 원장 열기"
           onClick={onNet}
-          className="absolute inset-0 z-10 transition-colors duration-200 hover:bg-white/[0.035] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-300"
+          className="absolute inset-0 z-10 rounded-[inherit] transition-colors duration-200 hover:bg-primary/[0.025] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         />
-        <div className="relative grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)] lg:items-end">
+        <div className="relative flex flex-col gap-5 p-5 sm:p-7 lg:flex-row lg:items-end lg:justify-between lg:gap-10 lg:p-8">
           <div className="min-w-0">
-            <p className="text-xs font-semibold text-blue-200">
+            <p className="text-xs font-bold tracking-[0.02em] text-primary">
               {periodLabel} 순수납
             </p>
-            <strong className="mt-3 block whitespace-nowrap text-[clamp(2.15rem,9vw,4.2rem)] font-bold tracking-[-0.055em] text-white tabular-nums sm:text-[clamp(2.65rem,6vw,4.2rem)]">
+            <strong className="mt-2 block whitespace-nowrap text-[clamp(2rem,10.5vw,4rem)] font-bold tracking-[-0.055em] text-[#173d65] tabular-nums sm:text-[clamp(2.6rem,6vw,4rem)]">
               {won(paidAmount - refund)}
             </strong>
-            <p className="mt-3 text-[13px] leading-5 text-slate-300">
-              실수납에서 환불을 뺀 실제 순유입
-            </p>
-            <span className="mt-2 block text-xs font-semibold text-blue-200">
-              클릭하여 결제·환불 통합 원장 보기
-            </span>
+            <p className="mt-2 text-[13px] leading-5 text-text-muted">실제 입금에서 환불을 뺀 순유입</p>
           </div>
-          <dl className="grid grid-cols-1 gap-2 min-[390px]:grid-cols-3">
-            <HeroSummary label="판매" value={salesAmount} />
-            <HeroSummary label="실수납" value={paidAmount} />
-            <HeroSummary label="환불" value={refund} danger />
-          </dl>
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 border-t border-primary/10 pt-4 text-[13px] lg:justify-end lg:border-l lg:border-t-0 lg:py-2 lg:pl-8">
+            <span className="text-text-muted">실수납</span>
+            <strong className="whitespace-nowrap text-text-primary tabular-nums">{won(paidAmount)}</strong>
+            <span className="text-text-muted">−</span>
+            <span className="text-text-muted">환불</span>
+            <strong className="whitespace-nowrap text-error tabular-nums">{won(refund)}</strong>
+            <span className="text-text-muted">=</span>
+            <strong className="whitespace-nowrap text-primary tabular-nums">{won(paidAmount - refund)}</strong>
+          </div>
         </div>
-      </div>
-      <div className="grid sm:grid-cols-2 xl:grid-cols-4">
+      </Card>
+      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {items.map((item) => (
-          <div
+          <Card
             key={item.label}
             className={cn(
-              "relative flex min-h-48 min-w-0 flex-col border-b border-border p-5 sm:p-6 xl:border-b-0 xl:border-r xl:last:border-r-0",
+              "relative flex min-h-40 min-w-0 flex-col border-border/70 p-4 shadow-none transition-[border-color,background-color] duration-200 hover:border-primary/20 sm:p-5",
               item.className,
             )}
           >
@@ -187,7 +186,7 @@ export function DashboardKpiHero({
                 type="button"
                 aria-label={item.actionLabel}
                 onClick={item.onClick}
-                className="absolute inset-0 z-10 rounded-none transition-[box-shadow,background-color] duration-200 hover:bg-white/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                className="absolute inset-0 z-10 rounded-[inherit] transition-colors duration-200 hover:bg-primary/[0.025] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
               />
             )}
             <p className={cn("text-xs font-semibold", item.labelClass)}>
@@ -195,7 +194,7 @@ export function DashboardKpiHero({
             </p>
             <strong
               className={cn(
-                "mt-4 block whitespace-nowrap text-[clamp(1.55rem,7vw,2.35rem)] font-bold tracking-[-0.045em] tabular-nums sm:text-[clamp(1.6rem,3.5vw,2.2rem)] xl:text-[clamp(1.2rem,1.5vw,1.75rem)] 2xl:text-[clamp(1.35rem,1.55vw,1.95rem)]",
+                "mt-3 block whitespace-nowrap text-[clamp(1.45rem,7vw,2.1rem)] font-bold tracking-[-0.045em] tabular-nums sm:text-[clamp(1.5rem,3.4vw,2rem)] xl:text-[clamp(1.15rem,1.45vw,1.7rem)] 2xl:text-[clamp(1.35rem,1.45vw,1.85rem)]",
                 item.valueClass,
               )}
             >
@@ -207,188 +206,134 @@ export function DashboardKpiHero({
                 <span className={item.signalClass}>{item.signal}</span>
               </p>
             )}
-            {item.target !== undefined && item.achievement !== undefined && (
-              <div className="mt-3">
-                <div className="flex items-center justify-between gap-3 text-[11px]">
-                  <span className="font-semibold text-text-secondary">
-                    목표 대비
-                  </span>
-                  <strong className="text-primary tabular-nums">
-                    {item.target > 0
-                      ? `${item.achievement.toFixed(1)}%`
-                      : "목표 미설정"}
-                  </strong>
-                </div>
-                <div
-                  className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-primary/10"
-                  role="progressbar"
-                  aria-label={`${periodLabel} 목표 달성률`}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={Math.min(100, Math.max(0, item.achievement))}
-                >
-                  <span
-                    className="block h-full rounded-full bg-primary"
-                    style={{
-                      width: `${Math.min(100, Math.max(0, item.achievement))}%`,
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-            <p className={cn("mt-auto pt-4 text-[13px] leading-5", item.descriptionClass)}>
-              {item.description}
-            </p>
-            {item.onClick && (
-              <span className={cn("mt-2 text-xs font-semibold", item.labelClass)}>
-                클릭하여 내역 보기
+            {item.targetText && (
+              <span className="mt-2 text-[11px] font-semibold text-primary">
+                {item.targetText}
               </span>
             )}
-          </div>
+            <p className={cn("mt-auto pt-3 text-xs leading-5", item.descriptionClass)}>
+              {item.description}
+            </p>
+          </Card>
         ))}
       </div>
-    </Card>
-  );
-}
-
-function HeroSummary({
-  label,
-  value,
-  danger = false,
-}: {
-  label: string;
-  value: number;
-  danger?: boolean;
-}) {
-  return (
-    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.055] p-3.5">
-      <dt className="text-[11px] font-semibold text-slate-300">{label}</dt>
-      <dd
-        className={cn(
-          "mt-1.5 whitespace-nowrap text-[clamp(0.9rem,3.8vw,1.05rem)] font-bold tracking-[-0.03em] text-white tabular-nums",
-          danger && value > 0 && "text-rose-200",
-        )}
-      >
-        {won(value)}
-      </dd>
     </div>
   );
 }
 
-export function BusinessUnitCard({ order, name, revenue, previousRevenue, receivedAmount, refundAmount, compareLabel, share, count, average, restricted = false, selected = false, muted = false, onClick }: { order: number; name: string; revenue: number; previousRevenue: number; receivedAmount: number; refundAmount: number; compareLabel: string; share: number; count: number; average: number; restricted?: boolean; selected?: boolean; muted?: boolean; onClick?: () => void }) {
-  const comparisonText = formatRevenueComparison(revenue, previousRevenue);
-  const currentTrendValue = Math.max(0, revenue);
-  const previousTrendValue = Math.max(0, previousRevenue);
-  const trendMax = Math.max(currentTrendValue, previousTrendValue, 1);
-  const accents = [
-    "border-t-[#274c77]",
-    "border-t-[#5f7f9f]",
-    "border-t-[#8aa1b8]",
-  ];
+export function BusinessUnitCard({
+  order,
+  code,
+  name,
+  revenue,
+  receivedAmount,
+  refundAmount,
+  outstandingAmount,
+  restricted = false,
+  selected = false,
+  muted = false,
+  onClick,
+}: {
+  order: number;
+  code: string;
+  name: string;
+  revenue: number;
+  receivedAmount: number;
+  refundAmount: number;
+  outstandingAmount: number;
+  restricted?: boolean;
+  selected?: boolean;
+  muted?: boolean;
+  onClick?: () => void;
+}) {
+  const netAmount = receivedAmount - refundAmount;
+  const tone = businessUnitCardTone(code);
   return (
     <Card
       className={cn(
-        "group relative min-h-52 overflow-hidden border-t-2 p-0 transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-[0_12px_28px_rgba(23,36,58,0.07)]",
-        accents[(order - 1) % accents.length],
-        selected && "border-primary/40 bg-primary-subtle ring-2 ring-primary/10",
+        "group relative h-full min-h-[20rem] overflow-hidden border-border/70 p-0 shadow-none transition-[transform,border-color,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/20",
+        selected && "border-primary/30 bg-primary-subtle/60 ring-2 ring-primary/10",
         muted && "opacity-60 hover:opacity-100",
       )}
     >
       <button
         type="button"
-        className="relative block min-h-52 w-full p-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:p-6"
+        className="relative flex min-h-[20rem] w-full flex-col p-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:p-6"
         aria-pressed={selected}
         onClick={onClick}
       >
-        <span className="relative block">
-          <span className="flex items-start justify-between gap-4">
-            <span>
-              <span className="text-[11px] font-bold tracking-[0.14em] text-primary">
-                0{order}
-              </span>
-              <span className="mt-1 block text-lg font-bold text-text-primary">
-                {name}
-              </span>
-            </span>
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
-              <Building2 size={18} />
-            </span>
+        <span className="flex items-center justify-between gap-3">
+          <span className="inline-flex min-w-0 items-center gap-2.5">
+            <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", tone.dot)} aria-hidden="true" />
+            <span className="truncate text-base font-bold text-text-primary">{name}</span>
           </span>
-          <span className="mt-5 block">
-            <span className="text-xs font-semibold text-text-secondary">
-              {restricted ? "선택 날짜 판매금액" : "선택 기간 판매금액"}
-            </span>
-            <strong className="mt-1 block text-[1.75rem] font-bold tracking-[-0.04em] text-text-primary tabular-nums sm:text-[1.95rem]">
-              {won(revenue)}
-            </strong>
-            <span className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-text-muted">
-              <span>실수납 <strong className="text-text-secondary tabular-nums">{won(receivedAmount)}</strong></span>
-              <span>환불 <strong className="text-error tabular-nums">{won(refundAmount)}</strong></span>
-            </span>
-            {!restricted && (
-              <>
-                <span
-                  className={cn(
-                    "mt-1.5 block text-xs font-bold",
-                    comparisonText.startsWith("▼")
-                      ? "text-error"
-                      : comparisonText.startsWith("—")
-                        ? "text-text-secondary"
-                        : "text-primary",
-                  )}
-                >
-                  {compareLabel} 대비 · {comparisonText}
-                </span>
-                <span className="mt-4 grid grid-cols-[2.5rem_1fr] items-center gap-x-2 gap-y-1.5 text-[10px] text-text-muted">
-                  <span>현재</span>
-                  <span className="h-1.5 overflow-hidden rounded-full bg-surface-secondary">
-                    <span
-                      className="block h-full rounded-full bg-primary"
-                      style={{ width: `${(currentTrendValue / trendMax) * 100}%` }}
-                    />
-                  </span>
-                  <span>{compareLabel}</span>
-                  <span className="h-1.5 overflow-hidden rounded-full bg-surface-secondary">
-                    <span
-                      className="block h-full rounded-full bg-[#9db1c5]"
-                      style={{ width: `${(previousTrendValue / trendMax) * 100}%` }}
-                    />
-                  </span>
-                </span>
-              </>
-            )}
+          <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-[0.08em]", tone.label)}>
+            <Building2 size={12} />
+            0{order}
           </span>
-          <span
-            className={cn(
-              "mt-4 grid gap-2 border-t border-border pt-4",
-              restricted ? "grid-cols-2" : "grid-cols-3",
-            )}
-          >
-            <span>
-              <span className="block text-[11px] text-text-muted">매출 건수</span>
-              <strong className="mt-1 block text-sm text-text-primary tabular-nums">
-                {count.toLocaleString("ko-KR")}건
-              </strong>
-            </span>
-            <span>
-              <span className="block text-[11px] text-text-muted">평균 객단가</span>
-              <strong className="mt-1 block truncate text-sm text-text-primary tabular-nums">
-                {won(average)}
-              </strong>
-            </span>
-            {!restricted && (
-              <span>
-                <span className="block text-[11px] text-text-muted">전체 비중</span>
-                <strong className="mt-1 block text-sm text-text-primary tabular-nums">
-                  {share.toFixed(1)}%
-                </strong>
-              </span>
-            )}
+        </span>
+
+        <span className="mt-7 block">
+          <span className="text-xs font-semibold text-text-secondary">
+            {restricted ? "선택 날짜 순수납" : "선택 기간 순수납"}
           </span>
+          <strong className="mt-2 block whitespace-nowrap text-[clamp(1.7rem,7.5vw,2.4rem)] font-bold tracking-[-0.05em] text-[#173d65] tabular-nums sm:text-[clamp(1.85rem,3.1vw,2.4rem)] lg:text-[clamp(1.55rem,2.1vw,2.15rem)] 2xl:text-[clamp(1.8rem,1.9vw,2.4rem)]">
+            {won(netAmount)}
+          </strong>
+          <span className="mt-2 block text-[11px] leading-5 text-text-muted">
+            실수납에서 환불을 뺀 금액
+          </span>
+        </span>
+
+        <span className="mt-auto grid grid-cols-2 gap-x-4 gap-y-4 border-t border-border/70 pt-5">
+          <BusinessMetric label="판매금액" value={revenue} />
+          <BusinessMetric label="실수납" value={receivedAmount} />
+          <BusinessMetric label="환불" value={refundAmount} danger />
+          <BusinessMetric label="현재 미수" value={outstandingAmount} warning />
         </span>
       </button>
     </Card>
   );
+}
+
+function BusinessMetric({
+  label,
+  value,
+  danger = false,
+  warning = false,
+}: {
+  label: string;
+  value: number;
+  danger?: boolean;
+  warning?: boolean;
+}) {
+  return (
+    <span className="min-w-0">
+      <span className="block text-[11px] text-text-muted">{label}</span>
+      <strong
+        className={cn(
+          "mt-1 block whitespace-nowrap text-[clamp(0.8rem,3.4vw,0.95rem)] font-semibold tracking-[-0.025em] text-text-secondary tabular-nums sm:text-sm",
+          danger && value > 0 && "text-error",
+          warning && value > 0 && "text-warning",
+        )}
+      >
+        {won(value)}
+      </strong>
+    </span>
+  );
+}
+
+function businessUnitCardTone(code: string) {
+  if (code === "daycare") {
+    return { dot: "bg-sky-500", label: "bg-sky-50 text-sky-700" };
+  }
+  if (code === "training") {
+    return { dot: "bg-violet-500", label: "bg-violet-50 text-violet-700" };
+  }
+  if (code === "hotel") {
+    return { dot: "bg-amber-500", label: "bg-amber-50 text-amber-700" };
+  }
+  return { dot: "bg-slate-400", label: "bg-slate-100 text-slate-600" };
 }
 
 export function RecentSales({ rows, onOpen }: { rows: DashboardSale[]; onOpen: () => void }) {

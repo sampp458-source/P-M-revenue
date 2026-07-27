@@ -59,7 +59,7 @@ export function DashboardPage() {
   const isAdmin = profile?.role === "admin";
   const today = koreanToday();
   const periodParam = searchParams.get("period") as DashboardPeriod | null;
-  const period = periodParam && validPeriods.has(periodParam) ? periodParam : "today";
+  const period = periodParam && validPeriods.has(periodParam) ? periodParam : "this_month";
   const compareParam = searchParams.get("compare") as DashboardCompare | null;
   const compare = compareParam && validComparisons.has(compareParam) && (compareParam !== "previous" || period === "custom") ? compareParam : dashboardDefaultCompare(period);
   const range = useMemo(() => dashboardPeriodRange(period, today, searchParams.get("from") ?? "", searchParams.get("to") ?? ""), [period, searchParams, today]);
@@ -274,13 +274,16 @@ export function DashboardPage() {
             visibleRange,
             division.id,
           );
+          const outstandingAmount = calculateCurrentOutstanding(
+            sales,
+            division.id,
+          );
           return {
             ...division,
             revenue: division.salesAmount,
-            previousRevenue: division.previousSalesAmount,
             receivedAmount,
             refundAmount,
-            average: division.average,
+            outstandingAmount,
           };
         }),
     [
@@ -448,7 +451,7 @@ export function DashboardPage() {
     )}
     <section aria-labelledby="business-unit-overview-title">
       <div className="mb-4 flex items-end justify-between gap-3"><div><div className="flex flex-wrap items-center gap-2"><h2 id="business-unit-overview-title" className="text-lg font-bold text-text-primary">사업부 비교 · 전체 기준</h2>{unitId && <Badge tone="blue">KPI는 {selectedUnitName} 기준</Badge>}</div><p className="mt-1 text-[13px] leading-5 text-text-muted">{isAdmin ? "세 카드는 전체 사업부를 같은 기간으로 비교합니다. 선택한 사업부는 KPI·추이·캘린더에 적용됩니다." : `${selectedDate} 기준 · 카드를 선택하면 날짜 상세도 함께 필터링됩니다.`}</p></div>{unitId && <Button type="button" variant="ghost" onClick={() => updateQuery({ unit: null })}>전체 보기</Button>}</div>
-      <div className="grid gap-4 lg:grid-cols-3">{coreDivisions.map((division, index) => <BusinessUnitCard key={division.id} order={index + 1} name={division.name} revenue={division.revenue} previousRevenue={division.previousRevenue} receivedAmount={division.receivedAmount} refundAmount={division.refundAmount} compareLabel={compareLabel} share={overview.salesAmount > 0 ? (division.revenue / overview.salesAmount) * 100 : 0} count={division.count} average={division.average} restricted={!isAdmin} selected={unitId === division.id} muted={Boolean(unitId && unitId !== division.id)} onClick={() => updateQuery({ unit: unitId === division.id ? null : division.id })} />)}</div>
+      <div className="grid items-stretch gap-4 lg:grid-cols-3">{coreDivisions.map((division, index) => <BusinessUnitCard key={division.id} order={index + 1} code={division.code ?? ""} name={division.name} revenue={division.revenue} receivedAmount={division.receivedAmount} refundAmount={division.refundAmount} outstandingAmount={division.outstandingAmount} restricted={!isAdmin} selected={unitId === division.id} muted={Boolean(unitId && unitId !== division.id)} onClick={() => updateQuery({ unit: unitId === division.id ? null : division.id })} />)}</div>
       {isAdmin && otherRevenue > 0 && <p className="mt-3 rounded-xl border border-warning/20 bg-warning-soft px-4 py-3 text-sm text-text-secondary">기타·비활성 사업부 매출 {won(otherRevenue)}이 총매출에 포함되어 있습니다.</p>}
     </section>
     <div className={dateDrawerOpen ? "transition-[padding] duration-200 lg:pr-[min(460px,42vw)]" : "transition-[padding] duration-200"}>
