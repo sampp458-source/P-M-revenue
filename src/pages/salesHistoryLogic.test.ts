@@ -3,6 +3,7 @@ import {
   calculateTodayActivity,
   calculateSalesSummary,
   businessUnitDisplayOrder,
+  canReclassifyRefundedSaleAsEntryError,
   filterSales,
   findDuplicateWarnings,
   hasOutstanding,
@@ -50,6 +51,39 @@ describe("salesHistoryLogic", () => {
     expect(hasOutstanding(cancelled)).toBe(false);
     expect(filterSales([baseSale, outstanding], { ...filters, status: "outstanding" }, "2026-07-13")).toEqual([outstanding]);
     expect(filterSales([baseSale, refunded], { ...filters, status: "partial_refund" }, "2026-07-13")).toEqual([refunded]);
+  });
+
+  it("환불 후 오등록 정정 대상 상태를 엄격하게 구분한다", () => {
+    const refundedEntryError = {
+      ...baseSale,
+      id: "7830a874-f8c2-487c-820b-b9d12338ab65",
+      status: "full_refund" as const,
+      paidAmount: 1100000,
+      refundAmount: 1100000,
+      cancellationType: null,
+    };
+    expect(
+      canReclassifyRefundedSaleAsEntryError(refundedEntryError),
+    ).toBe(true);
+    expect(
+      canReclassifyRefundedSaleAsEntryError({
+        ...refundedEntryError,
+        status: "cancelled",
+      }),
+    ).toBe(true);
+    expect(
+      canReclassifyRefundedSaleAsEntryError({
+        ...refundedEntryError,
+        cancellationType: "general",
+      }),
+    ).toBe(false);
+    expect(
+      canReclassifyRefundedSaleAsEntryError({
+        ...refundedEntryError,
+        status: "normal",
+        refundAmount: 0,
+      }),
+    ).toBe(false);
   });
 
   it("직접 선택한 날짜 범위를 적용한다", () => {

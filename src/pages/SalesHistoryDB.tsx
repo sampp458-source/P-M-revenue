@@ -58,6 +58,7 @@ import {
   calculateTodayActivity,
   calculateSalesSummary,
   businessUnitDisplayOrder,
+  canReclassifyRefundedSaleAsEntryError,
   filterSales,
   findDuplicateWarnings,
   hasOutstanding,
@@ -408,6 +409,8 @@ export function SalesHistoryPage() {
   const [editing, setEditing] = useState<SaleRow | null>(null);
   const [refunding, setRefunding] = useState<SaleRow | null>(null);
   const [cancelling, setCancelling] = useState<SaleRow | null>(null);
+  const [correctingRefundedEntryError, setCorrectingRefundedEntryError] =
+    useState<SaleRow | null>(null);
   const [reopening, setReopening] = useState<SaleRow | null>(null);
   const [refundAmount, setRefundAmount] = useState(0);
   const [refundDate, setRefundDate] = useState("");
@@ -418,6 +421,11 @@ export function SalesHistoryPage() {
   >("");
   const [confirmedNoPayment, setConfirmedNoPayment] = useState(false);
   const [cancellationRequestId, setCancellationRequestId] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [confirmedNoActualPayment, setConfirmedNoActualPayment] =
+    useState(false);
+  const [confirmedNoActualRefund, setConfirmedNoActualRefund] = useState(false);
+  const [correctionRequestId, setCorrectionRequestId] = useState("");
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState("");
   const [notice, setNotice] = useState("");
@@ -961,6 +969,10 @@ export function SalesHistoryPage() {
   const mapError = (message: string, code?: string) =>
     code === "42501"
       ? "권한이 없습니다."
+      : message.includes("reclassify_sale_as_entry_error_after_refund")
+        ? profile?.role === "admin"
+          ? "환불 후 오등록 정정을 사용하려면 DB 업데이트가 필요합니다."
+          : "현재 기능을 사용할 수 없습니다. 관리자에게 문의하세요."
       : code === "PGRST202" ||
           message.includes("cancel_sale_as_entry_error")
         ? profile?.role === "admin"
@@ -1064,6 +1076,57 @@ export function SalesHistoryPage() {
     setSaving(false);
     setEditing(null);
     setNotice("매출 정보를 수정했습니다.");
+    await loadSales();
+  };
+
+  const correctRefundedEntryError = async () => {
+    if (!correctingRefundedEntryError || saving) return;
+    const reason = correctionReason.trim();
+    if (!reason) {
+      setActionError("오등록 정정 사유를 입력해 주세요.");
+      return;
+    }
+    if (!confirmedNoActualPayment) {
+      setActionError("실제 입금이 없었다는 확인이 필요합니다.");
+      return;
+    }
+    if (!confirmedNoActualRefund) {
+      setActionError("실제 환불이 없었다는 확인이 필요합니다.");
+      return;
+    }
+
+    setSaving(true);
+    setActionError("");
+    const result = await supabase.rpc(
+      "reclassify_sale_as_entry_error_after_refund",
+      {
+        p_sale_id: correctingRefundedEntryError.id,
+        p_reason: reason,
+        p_confirm_no_actual_payment: true,
+        p_confirm_no_actual_refund: true,
+        p_expected_payment_amount: Math.trunc(
+          correctingRefundedEntryError.paidAmount,
+        ),
+        p_expected_refund_amount: Math.trunc(
+          correctingRefundedEntryError.refundAmount,
+        ),
+        p_request_id: correctionRequestId,
+      },
+    );
+    setSaving(false);
+    if (result.error) {
+      setActionError(mapError(result.error.message, result.error.code));
+      return;
+    }
+
+    setCorrectingRefundedEntryError(null);
+    setCorrectionReason("");
+    setConfirmedNoActualPayment(false);
+    setConfirmedNoActualRefund(false);
+    setCorrectionRequestId("");
+    setNotice(
+      "환불 후 오등록 정정을 완료했습니다. 결제와 환불 기록은 감사용으로 보존됩니다.",
+    );
     await loadSales();
   };
 
@@ -1826,6 +1889,15 @@ export function SalesHistoryPage() {
               setCancellationRequestId(crypto.randomUUID());
               setCancelling(selected);
             }}
+            onCorrectRefundedEntryError={() => {
+              closeDetail();
+              setActionError("");
+              setCorrectionReason("");
+              setConfirmedNoActualPayment(false);
+              setConfirmedNoActualRefund(false);
+              setCorrectionRequestId(crypto.randomUUID());
+              setCorrectingRefundedEntryError(selected);
+            }}
             onReopen={() => {
               closeDetail();
               setActionError("");
@@ -2362,6 +2434,95 @@ export function SalesHistoryPage() {
           </>
         }
       />
+      <Modal
+        open={Boolean(correctingRefundedEntryError)}
+        onClose={() => {
+          if (saving) return;
+          setCorrectingRefundedEntryError(null);
+          setCorrectionReason("");
+          setConfirmedNoActualPayment(false);
+          setConfirmedNoActualRefund(false);
+          setCorrectionRequestId("");
+        }}
+        title="환불 후 오등록 정정"
+      >
+        {correctingRefundedEntryError && (
+          <>
+            <div className="rounded-xl border border-error/20 bg-error-soft p-4">
+              <strong className="text-sm text-error">
+                결제와 환불 기록이 모두 무효화됩니다.
+              </strong>
+              <p className="mt-1 text-sm leading-6 text-text-secondary">
+                실제 돈이 오가지 않았지만 결제와 환불까지 잘못 기록된 거래에만
+                사용하세요. 원장은 삭제하지 않고 감사용으로 보존합니다.
+              </p>
+              <dl className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <dt className="text-text-muted">확인할 결제금액</dt>
+                  <dd className="mt-1 font-bold text-text-primary tabular-nums">
+                    {won(correctingRefundedEntryError.paidAmount)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-text-muted">확인할 환불금액</dt>
+                  <dd className="mt-1 font-bold text-text-primary tabular-nums">
+                    {won(correctingRefundedEntryError.refundAmount)}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+            <div className="mt-4 space-y-2">
+              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium text-text-primary">
+                <input
+                  type="checkbox"
+                  checked={confirmedNoActualPayment}
+                  disabled={saving}
+                  className="h-4 w-4 rounded border-border-strong accent-error"
+                  onChange={(event) =>
+                    setConfirmedNoActualPayment(event.target.checked)
+                  }
+                />
+                실제 입금이 없었음을 확인했습니다.
+              </label>
+              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm font-medium text-text-primary">
+                <input
+                  type="checkbox"
+                  checked={confirmedNoActualRefund}
+                  disabled={saving}
+                  className="h-4 w-4 rounded border-border-strong accent-error"
+                  onChange={(event) =>
+                    setConfirmedNoActualRefund(event.target.checked)
+                  }
+                />
+                실제 환불이 없었음을 확인했습니다.
+              </label>
+            </div>
+            <div className="mt-4">
+              <Field label="정정 사유" required>
+                <Textarea
+                  value={correctionReason}
+                  disabled={saving}
+                  onChange={(event) => setCorrectionReason(event.target.value)}
+                />
+              </Field>
+            </div>
+            {actionError && (
+              <p role="alert" className="mt-3 text-sm text-red-600">
+                {actionError}
+              </p>
+            )}
+            <Button
+              type="button"
+              className="mt-4 w-full"
+              variant="danger"
+              disabled={saving}
+              onClick={() => void correctRefundedEntryError()}
+            >
+              {saving ? "정정 중..." : "환불 후 오등록 정정"}
+            </Button>
+          </>
+        )}
+      </Modal>
       {notice && <Toast message={notice} onClose={() => setNotice("")} />}
     </>
   );
@@ -2381,6 +2542,7 @@ function SaleDetailContent({
   onEdit,
   onRefund,
   onCancel,
+  onCorrectRefundedEntryError,
   onReopen,
   onVoidPayment,
 }: {
@@ -2397,6 +2559,7 @@ function SaleDetailContent({
   onEdit: () => void;
   onRefund: () => void;
   onCancel: () => void;
+  onCorrectRefundedEntryError: () => void;
   onReopen: () => void;
   onVoidPayment: (payment: PaymentLedgerRow) => void;
 }) {
@@ -2416,6 +2579,8 @@ function SaleDetailContent({
     : fallbackPayments.reduce((total, row) => total + row.amount, 0);
   const refundKinds = refundDetailKinds(refunds, sale.status);
   const canRefund = admin && sale.status !== "cancelled" && sale.refundAmount < sale.paidAmount;
+  const canCorrectRefundedEntryError =
+    admin && canReclassifyRefundedSaleAsEntryError(sale);
   const hasActions = editable || admin;
   const cancelled = sale.status === "cancelled";
   const customerType = sale.customerType === "new" ? "신규" : sale.customerType === "renewal" ? "재등록" : sale.customerType || "미지정";
@@ -2749,10 +2914,13 @@ function SaleDetailContent({
                 <Button type="button" variant="ghost" onClick={onEdit}>고객 연결</Button>
               </div>
             )}
-            {(canRefund || (admin && sale.status === "normal")) && (
+            {(canRefund ||
+              canCorrectRefundedEntryError ||
+              (admin && sale.status === "normal")) && (
               <div className="flex flex-wrap gap-2 border-t border-border pt-3 sm:border-l sm:border-t-0 sm:pl-3 sm:pt-0">
                 {canRefund && <Button type="button" className="border-warning/30 bg-warning-soft text-warning hover:border-warning/50 hover:bg-warning-soft" variant="secondary" onClick={onRefund}>환불</Button>}
                 {admin && sale.status === "normal" && <Button type="button" variant="danger" onClick={onCancel}><Undo2 size={15} />취소 처리</Button>}
+                {canCorrectRefundedEntryError && <Button type="button" variant="danger" onClick={onCorrectRefundedEntryError}>환불 후 오등록 정정</Button>}
               </div>
             )}
             {admin && sale.status === "cancelled" && <Button type="button" variant="secondary" onClick={onReopen}><RotateCcw size={15} />취소 복구</Button>}

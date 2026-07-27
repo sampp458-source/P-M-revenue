@@ -117,6 +117,24 @@ export function hasOutstanding(sale: Pick<SalesHistoryRecord, "status" | "outsta
   return sale.status !== "cancelled" && sale.outstandingAmount > 0;
 }
 
+export function canReclassifyRefundedSaleAsEntryError(
+  sale: Pick<
+    SalesHistoryRecord,
+    "status" | "paidAmount" | "refundAmount"
+  > & {
+    cancellationType: "entry_error" | "general" | "legacy" | null;
+  },
+) {
+  return (
+    sale.cancellationType === null &&
+    sale.paidAmount > 0 &&
+    sale.refundAmount > 0 &&
+    (sale.status === "partial_refund" ||
+      sale.status === "full_refund" ||
+      sale.status === "cancelled")
+  );
+}
+
 function matchesQuery(sale: SalesHistoryRecord, query: string) {
   const keyword = query.trim().toLocaleLowerCase("ko");
   if (!keyword) return true;
