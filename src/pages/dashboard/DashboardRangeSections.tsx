@@ -142,12 +142,12 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
               title={`${date} · ${unitName} 실수납 ${won(amount)} · 판매 ${row?.count ?? 0}건${inActiveRange ? " · KPI 선택 기간 포함" : " · KPI 선택 기간 밖"}`}
               aria-label={`${hideAmounts ? `${date} 거래 상세 열기` : `${date} ${unitName} 실수납 ${won(amount)} 판매 ${row?.count ?? 0}건${filtered ? ` 전체 실수납 ${won(totalRow?.revenue ?? 0)}` : ""}`}${indicatorLabel ? `, ${indicatorLabel}` : ""}`}
             >
-              <span className="flex items-center justify-between gap-1">
+              <span className="flex min-w-0 items-center justify-between gap-1">
                 <span className="text-xs font-bold text-text-primary sm:text-sm">
                   {Number(date.slice(8))}
                 </span>
                 {today === date && (
-                  <span className="rounded-full bg-primary px-1.5 py-0.5 text-[8px] font-bold text-white sm:text-[9px]">
+                  <span className="absolute right-0.5 top-0.5 rounded-full bg-primary px-1 py-0.5 text-[7px] font-bold leading-none text-white min-[430px]:static min-[430px]:px-1.5 min-[430px]:text-[9px]">
                     오늘
                   </span>
                 )}
@@ -161,7 +161,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                 <span className="mt-1 block text-[9px] font-semibold text-primary sm:text-[10px]">내역 보기</span>
               ) : (
                 <>
-                  <strong className="mt-1 block truncate text-[9px] text-text-primary tabular-nums sm:text-xs">
+                  <strong className="mt-1 block whitespace-nowrap text-[clamp(0.48rem,2.45vw,0.68rem)] font-semibold tracking-[-0.035em] text-text-primary tabular-nums sm:text-xs">
                     {shortWon(amount)}
                   </strong>
                   <span className="mt-0.5 block text-[9px] text-text-muted sm:text-[10px]">

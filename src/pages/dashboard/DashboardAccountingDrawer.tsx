@@ -131,10 +131,10 @@ export function DashboardAccountingDrawer({
                 </h2>
                 <Badge tone={meta.tone}>{rows.length}건</Badge>
               </div>
-              <p className="mt-1 text-sm text-slate-300">
+              <p className="mt-1 break-words text-sm leading-5 text-slate-300">
                 {meta.description}
               </p>
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-1 break-words text-xs leading-5 text-slate-300">
                 {rangeLabel} · {unitName}
               </p>
             </div>
@@ -191,14 +191,14 @@ export function DashboardAccountingDrawer({
                             {event.eventDate}
                           </span>
                         </span>
-                        <strong className="mt-2 block truncate text-base text-white">
+                        <strong className="mt-2 block break-words text-base leading-6 text-white">
                           {sale.dogName || "(반려견 없음)"} ·{" "}
                           {sale.customerName || "보호자 미등록"}
                         </strong>
-                        <span className="mt-1 block truncate text-sm text-slate-300">
+                        <span className="mt-1 block break-words text-sm leading-5 text-slate-300">
                           {sale.productName} · {sale.businessUnitName}
                         </span>
-                        <span className="mt-1 block text-xs text-slate-400">
+                        <span className="mt-1 block break-words text-xs leading-5 text-slate-300">
                           {event.paymentMethod
                             ? paymentLabels[event.paymentMethod] ||
                               event.paymentMethod
@@ -260,7 +260,7 @@ function Summary({
       </span>
       <strong
         className={cn(
-          "mt-1 block truncate text-sm text-white tabular-nums",
+          "mt-1 block whitespace-nowrap text-[clamp(0.76rem,3.7vw,0.9rem)] tracking-[-0.025em] text-white tabular-nums",
           danger && value > 0 && "text-rose-200",
         )}
       >

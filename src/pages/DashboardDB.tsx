@@ -451,7 +451,7 @@ export function DashboardPage() {
       <div className="grid gap-4 lg:grid-cols-3">{coreDivisions.map((division, index) => <BusinessUnitCard key={division.id} order={index + 1} name={division.name} revenue={division.revenue} previousRevenue={division.previousRevenue} receivedAmount={division.receivedAmount} refundAmount={division.refundAmount} compareLabel={compareLabel} share={overview.salesAmount > 0 ? (division.revenue / overview.salesAmount) * 100 : 0} count={division.count} average={division.average} restricted={!isAdmin} selected={unitId === division.id} muted={Boolean(unitId && unitId !== division.id)} onClick={() => updateQuery({ unit: unitId === division.id ? null : division.id })} />)}</div>
       {isAdmin && otherRevenue > 0 && <p className="mt-3 rounded-xl border border-warning/20 bg-warning-soft px-4 py-3 text-sm text-text-secondary">기타·비활성 사업부 매출 {won(otherRevenue)}이 총매출에 포함되어 있습니다.</p>}
     </section>
-    <div className={dateDrawerOpen ? "transition-[padding] duration-200 sm:pr-[min(460px,42vw)]" : "transition-[padding] duration-200"}>
+    <div className={dateDrawerOpen ? "transition-[padding] duration-200 lg:pr-[min(460px,42vw)]" : "transition-[padding] duration-200"}>
       <div className="mt-8"><SalesHeatmapCalendar month={calendarMonth} activeRange={range} data={calendarData} totalData={calendarTotalData} unitName={selectedUnitName} today={today} selectedDate={selectedDate} hideAmounts={!isAdmin} onMonth={setCalendarMonth} onSelect={selectCalendarDate} /></div>
       {isAdmin && <div className="mt-6"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={selectCalendarDate} /></div>}
     </div>

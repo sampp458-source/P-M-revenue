@@ -158,18 +158,18 @@ export function OutstandingPaymentsDrawer({
       />
       <aside
         aria-labelledby={titleId}
-        className="pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-border bg-surface shadow-[var(--pm-shadow-modal)] sm:w-[min(680px,58vw)]"
+        className="pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-white/10 bg-[#111e31] text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(680px,58vw)]"
       >
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-warning-soft text-warning">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-200/15 text-amber-200">
               <Banknote size={19} />
             </span>
-            <div>
-              <h2 id={titleId} className="text-xl font-bold tracking-[-0.025em] text-text-primary">
+            <div className="min-w-0">
+              <h2 id={titleId} className="text-xl font-bold tracking-[-0.025em] text-white">
                 현재 미수금
               </h2>
-              <p className="mt-1 text-sm text-text-secondary">
+              <p className="mt-1 break-words text-sm leading-5 text-slate-300">
                 {unitName} · 발생일과 관계없이 남은 미수 전체
               </p>
             </div>
@@ -179,49 +179,49 @@ export function OutstandingPaymentsDrawer({
             type="button"
             aria-label="미수금 목록 닫기"
             onClick={onClose}
-            className="flex h-11 w-11 items-center justify-center rounded-xl text-text-secondary hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
           >
             <X size={20} />
           </button>
         </div>
-        <div className="sticky top-0 z-10 grid grid-cols-2 gap-3 border-b border-border bg-surface/95 p-4 backdrop-blur sm:px-6">
-          <div className="rounded-2xl bg-[#172f4d] p-4 text-white">
+        <div className="sticky top-0 z-10 grid grid-cols-2 gap-2 border-b border-white/10 bg-[#111e31]/95 p-4 backdrop-blur sm:gap-3 sm:px-6">
+          <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.055] p-3.5 text-white sm:p-4">
             <span className="text-xs text-blue-200">남은 미수금</span>
-            <strong className="mt-1 block text-xl tabular-nums">{won(outstandingTotal)}</strong>
+            <strong className="mt-1 block whitespace-nowrap text-[clamp(1rem,5vw,1.25rem)] tracking-[-0.035em] text-white tabular-nums">{won(outstandingTotal)}</strong>
           </div>
-          <div className="rounded-2xl border border-warning/20 bg-warning-soft/55 p-4">
-            <span className="text-xs text-warning">미수 거래</span>
-            <strong className="mt-1 block text-xl text-text-primary tabular-nums">{rows.length}건</strong>
+          <div className="min-w-0 rounded-2xl border border-amber-200/15 bg-amber-200/[0.07] p-3.5 sm:p-4">
+            <span className="text-xs text-amber-200">미수 거래</span>
+            <strong className="mt-1 block whitespace-nowrap text-[clamp(1rem,5vw,1.25rem)] text-white tabular-nums">{rows.length}건</strong>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
           {rows.length ? (
             <div className="space-y-3">
               {rows.map((sale) => (
-                <article key={sale.id} className="rounded-2xl border border-border bg-surface p-4 sm:p-5">
+                <article key={sale.id} className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 sm:p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone="blue">{sale.businessUnitName}</Badge>
-                        <span className="text-xs text-text-muted tabular-nums">{sale.saleDate}</span>
+                        <span className="text-xs text-slate-300 tabular-nums">{sale.saleDate}</span>
                       </div>
-                      <h3 className="mt-2 truncate text-lg font-bold text-text-primary">
+                      <h3 className="mt-2 break-words text-lg font-bold leading-6 text-white">
                         {sale.dogName || "(반려견 없음)"}
                       </h3>
-                      <p className="mt-1 truncate text-sm text-text-secondary">
+                      <p className="mt-1 break-words text-sm leading-5 text-slate-200">
                         {sale.customerName || "보호자 미등록"}
                         {sale.customerPhone ? ` · ${sale.customerPhone}` : ""}
                       </p>
-                      <p className="mt-1 truncate text-xs text-text-muted">{sale.productName}</p>
+                      <p className="mt-1 break-words text-xs leading-5 text-slate-300">{sale.productName}</p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <span className="text-xs font-semibold text-warning">현재 미수</span>
-                      <strong className="mt-1 block text-xl text-text-primary tabular-nums">
+                      <span className="text-xs font-semibold text-amber-200">현재 미수</span>
+                      <strong className="mt-1 block whitespace-nowrap text-[clamp(1.05rem,5vw,1.25rem)] text-white tabular-nums">
                         {won(sale.outstandingAmount)}
                       </strong>
                     </div>
                   </div>
-                  <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm sm:grid-cols-3">
+                  <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-white/10 pt-4 text-sm sm:grid-cols-3">
                     <LedgerValue label="최종 판매금액" value={won(finalSaleAmount(sale))} />
                     <LedgerValue label="기존 수납액" value={won(sale.paidAmount)} />
                     <LedgerValue label="메모" value={sale.memo || "없음"} />
@@ -247,10 +247,12 @@ export function OutstandingPaymentsDrawer({
               ))}
             </div>
           ) : (
-            <EmptyState
-              title="남아 있는 미수금이 없습니다"
-              description={`${unitName}의 모든 거래가 완납되었습니다.`}
-            />
+            <div className="[&_*]:text-slate-300">
+              <EmptyState
+                title="남아 있는 미수금이 없습니다"
+                description={`${unitName}의 모든 거래가 완납되었습니다.`}
+              />
+            </div>
           )}
         </div>
       </aside>
@@ -322,8 +324,8 @@ export function OutstandingPaymentsDrawer({
 function LedgerValue({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs text-text-muted">{label}</dt>
-      <dd className={cn("mt-1 truncate font-semibold text-text-primary", label !== "메모" && "tabular-nums")}>{value}</dd>
+      <dt className="text-xs text-slate-300">{label}</dt>
+      <dd className={cn("mt-1 break-words font-semibold leading-5 text-white", label !== "메모" && "whitespace-nowrap tabular-nums")}>{value}</dd>
     </div>
   );
 }

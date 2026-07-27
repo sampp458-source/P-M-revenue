@@ -71,7 +71,7 @@ export function DashboardKpiHero({
       signal: salesComparison,
       className: "bg-[#172f4d] text-white",
       labelClass: "text-blue-200",
-      valueClass: "text-white text-[clamp(1.8rem,3vw,2.55rem)]",
+      valueClass: "text-white",
       descriptionClass: "text-slate-300",
       signalClass: salesComparison.startsWith("▼")
         ? "text-rose-200"
@@ -89,7 +89,7 @@ export function DashboardKpiHero({
       signal: netComparison,
       className: "border-primary/15 bg-primary-subtle",
       labelClass: "text-primary",
-      valueClass: "text-text-primary text-[clamp(1.8rem,3vw,2.55rem)]",
+      valueClass: "text-text-primary",
       descriptionClass: "text-text-secondary",
       signalClass: netComparison.startsWith("▼")
         ? "text-error"
@@ -107,7 +107,7 @@ export function DashboardKpiHero({
       description: `${periodLabel} 실제 환불 · 환불일 기준`,
       className: "bg-error-soft/50",
       labelClass: "text-error",
-      valueClass: "text-text-primary text-[clamp(1.65rem,3vw,2.2rem)]",
+      valueClass: "text-text-primary",
       descriptionClass: "text-text-muted",
       signalLabel: "",
       signal: "",
@@ -121,7 +121,7 @@ export function DashboardKpiHero({
       description: "실수납 - 환불 · 실제 순유입",
       className: "border-primary/15 bg-surface-secondary",
       labelClass: "text-primary",
-      valueClass: "text-text-primary text-[clamp(1.65rem,3vw,2.2rem)]",
+      valueClass: "text-text-primary",
       descriptionClass: "text-text-muted",
       signalLabel: "",
       signal: "",
@@ -135,7 +135,7 @@ export function DashboardKpiHero({
       description: "현재 시점에 남아 있는 미수 잔액",
       className: "bg-warning-soft/55",
       labelClass: "text-warning",
-      valueClass: "text-text-primary text-[clamp(1.65rem,3vw,2.2rem)]",
+      valueClass: "text-text-primary",
       descriptionClass: "text-text-muted",
       signalLabel: "",
       signal: "",
@@ -181,7 +181,7 @@ export function DashboardKpiHero({
             </p>
             <strong
               className={cn(
-                "mt-4 block whitespace-nowrap font-bold tracking-[-0.045em] tabular-nums",
+                "mt-4 block whitespace-nowrap text-[clamp(1.55rem,7vw,2.35rem)] font-bold tracking-[-0.045em] tabular-nums sm:text-[clamp(1.6rem,3.5vw,2.2rem)] lg:text-[clamp(1.25rem,2.15vw,1.72rem)] xl:text-[clamp(1.08rem,1.32vw,1.58rem)] 2xl:text-[clamp(1.3rem,1.45vw,1.9rem)]",
                 item.valueClass,
               )}
             >

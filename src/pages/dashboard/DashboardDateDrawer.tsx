@@ -99,7 +99,7 @@ export function DashboardDateDrawer({
               <h2 id={titleId} className="text-xl font-bold tracking-[-0.025em] text-white tabular-nums">
                 {date}
               </h2>
-              <p className="mt-1 truncate text-sm font-semibold text-blue-100">
+              <p className="mt-1 break-words text-sm font-semibold leading-5 text-blue-100">
                 {unitName}
                 <span className="ml-1.5 font-normal text-slate-300">· 날짜별 거래 상세</span>
               </p>
@@ -120,10 +120,10 @@ export function DashboardDateDrawer({
           <div className="sticky top-0 z-10 border-b border-white/10 bg-[#111e31]/95 p-4 backdrop-blur sm:p-6">
           <div className="overflow-hidden rounded-2xl bg-[#172f4d] p-5 text-white shadow-[0_14px_30px_rgba(23,47,77,0.14)] sm:p-6">
             <p className="text-xs font-semibold text-blue-200">판매금액</p>
-            <strong className="mt-2 block text-[clamp(2rem,8vw,2.75rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
+            <strong className="mt-2 block whitespace-nowrap text-[clamp(1.75rem,8vw,2.75rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
               {won(summary.salesAmount)}
             </strong>
-            <div className="mt-5 grid grid-cols-3 gap-3 border-t border-white/10 pt-4">
+            <div className="mt-5 grid grid-cols-1 gap-2 border-t border-white/10 pt-4 min-[430px]:grid-cols-3 min-[430px]:gap-3">
               <Summary label="실수납" value={won(summary.revenue)} />
               <Summary label="현재 미수" value={won(summary.outstanding)} warning={summary.outstanding > 0} />
               <Summary label="환불" value={won(summary.refund)} warning={summary.refund > 0} />
@@ -164,10 +164,10 @@ export function DashboardDateDrawer({
                     className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.045] px-3.5 py-3 text-left transition-colors hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
                   >
                     <span className="min-w-0">
-                      <strong className="block truncate text-sm text-white">
+                      <strong className="block break-words text-sm leading-5 text-white">
                         {sale.dogName || "(반려견 없음)"} · {sale.customerName || "보호자 미등록"}
                       </strong>
-                      <span className="mt-1 block truncate text-xs text-slate-300">
+                      <span className="mt-1 block break-words text-xs leading-5 text-slate-300">
                         {sale.productName} · {sale.businessUnitName} · {paymentLabels[payment.paymentMethod || "other"] || payment.paymentMethod}
                         {payment.source === "outstanding_collection" ? " · 미수 수납" : ""}
                       </span>
@@ -211,13 +211,13 @@ export function DashboardDateDrawer({
                 >
                   <span className="flex items-start justify-between gap-3">
                     <span className="min-w-0">
-                      <strong className="block truncate text-base text-white">
+                      <strong className="block break-words text-base leading-6 text-white">
                         {sale.dogName || "(반려견 없음)"}
                       </strong>
-                      <span className="mt-1 block truncate text-sm text-slate-200">
+                      <span className="mt-1 block break-words text-sm leading-5 text-slate-200">
                         {sale.customerName || "보호자 미등록"}
                       </span>
-                      <span className="mt-1.5 block truncate text-xs leading-5 text-slate-300">
+                      <span className="mt-1.5 block break-words text-xs leading-5 text-slate-300">
                         {sale.productName} · {paymentLabels[sale.paymentMethod] || sale.paymentMethod}
                       </span>
                     </span>
@@ -287,7 +287,7 @@ function Summary({
     <div className="min-w-0">
       <span className="block text-[10px] font-semibold text-slate-300">{label}</span>
       <strong className={cn(
-        "mt-1 block truncate text-sm text-white tabular-nums",
+        "mt-1 block whitespace-nowrap text-[clamp(0.78rem,3.8vw,0.9rem)] text-white tabular-nums",
         warning && "text-amber-200",
       )}>
         {value}
