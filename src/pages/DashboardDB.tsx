@@ -11,11 +11,11 @@ import { DashboardDateDrawer } from "./dashboard/DashboardDateDrawer";
 import { OutstandingPaymentsDrawer } from "./dashboard/OutstandingPaymentsDrawer";
 import { calculateDailySales, calculateSalesRangeOverview, calculateTarget, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodLabel, dashboardPeriodRange, dashboardSalesForDate, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale, type DashboardTarget } from "./dashboard/dashboardMetrics";
 import {
+  calculateAccountingDaily,
+  calculateCurrentOutstanding,
   calculateLedgerPaymentMethodTotals,
   calculatePaymentAggregate,
-  calculatePaymentDaily,
   calculateRefundAggregate,
-  calculateRefundDaily,
   ledgerPaymentsForDate,
   mergeAccountingDays,
   type PaymentLedgerEntry,
@@ -63,7 +63,7 @@ export function DashboardPage() {
     if (!silent) setLoading(true);
     setError(false);
     const [saleResult, unitResult, targetResult, paymentResult, refundResult] = await Promise.all([
-      supabase.from("sales").select("id, sale_date, business_unit_id, business_unit_name, product_id, product_name, dog_id, dog_name, customer_id, customer_name, customer_phone, memo, created_by, staff_name, payment_method, original_amount, additional_amount, discount_amount, paid_amount, refund_amount, outstanding_amount, net_amount, status, created_at").order("sale_date", { ascending: false }).order("created_at", { ascending: false }),
+      supabase.from("sales").select("id, sale_date, business_unit_id, business_unit_name, product_id, product_name, dog_id, dog_name, customer_id, customer_name, customer_phone, memo, created_by, staff_name, payment_method, original_amount, additional_amount, discount_amount, paid_amount, refund_amount, outstanding_amount, net_amount, status, cancellation_type, created_at").order("sale_date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("business_units").select("id, code, name").eq("is_active", true).order("sort_order"),
       isAdmin
         ? supabase.from("monthly_targets").select("year, month, business_unit_id, target_amount")
@@ -102,6 +102,7 @@ export function DashboardPage() {
       outstandingAmount: row.outstanding_amount ?? 0,
       netAmount: row.net_amount ?? 0,
       status: row.status,
+      cancellationType: row.cancellation_type,
       createdAt: row.created_at,
     })));
     setUnits((unitResult.data ?? []).map((row) => ({ id: row.id, code: row.code, name: row.name })));
@@ -217,11 +218,8 @@ export function DashboardPage() {
     [payments, sales, unitId, visibleComparisonRange],
   );
   const currentOutstanding = useMemo(
-    () =>
-      selectedSales
-        .filter((sale) => sale.status !== "cancelled" && sale.outstandingAmount > 0)
-        .reduce((total, sale) => total + sale.outstandingAmount, 0),
-    [selectedSales],
+    () => calculateCurrentOutstanding(sales, unitId),
+    [sales, unitId],
   );
   const selectedMonth =
     range.from.slice(0, 7) === range.to.slice(0, 7)
@@ -282,24 +280,42 @@ export function DashboardPage() {
     range.from === range.to ? range.from : `${range.from} ~ ${range.to}`;
   const daily = useMemo(() => {
     const saleDays = calculateDailySales(sales, range, unitId);
-    const paymentDays = calculatePaymentDaily(sales, payments, range, unitId);
-    const refundDays = calculateRefundDaily(sales, refunds, range, unitId);
-    return mergeAccountingDays(saleDays, paymentDays, refundDays);
+    const accountingDays = calculateAccountingDaily(
+      sales,
+      payments,
+      refunds,
+      range,
+      unitId,
+    );
+    return mergeAccountingDays(saleDays, accountingDays, accountingDays);
   }, [payments, range, refunds, sales, unitId]);
   const calendarData = useMemo(() => {
     const calendarRange = monthRange(calendarMonth);
+    const accountingDays = calculateAccountingDaily(
+      sales,
+      payments,
+      refunds,
+      calendarRange,
+      unitId,
+    );
     return mergeAccountingDays(
       calculateDailySales(sales, calendarRange, unitId),
-      calculatePaymentDaily(sales, payments, calendarRange, unitId),
-      calculateRefundDaily(sales, refunds, calendarRange, unitId),
+      accountingDays,
+      accountingDays,
     );
   }, [calendarMonth, payments, refunds, sales, unitId]);
   const calendarTotalData = useMemo(() => {
     const calendarRange = monthRange(calendarMonth);
+    const accountingDays = calculateAccountingDaily(
+      sales,
+      payments,
+      refunds,
+      calendarRange,
+    );
     return mergeAccountingDays(
       calculateDailySales(sales, calendarRange),
-      calculatePaymentDaily(sales, payments, calendarRange),
-      calculateRefundDaily(sales, refunds, calendarRange),
+      accountingDays,
+      accountingDays,
     );
   }, [calendarMonth, payments, refunds, sales]);
   const selectedDateSales = useMemo(
@@ -309,20 +325,19 @@ export function DashboardPage() {
   const selectedDateSummary = useMemo(() => {
     const selectedRange = { from: selectedDate, to: selectedDate };
     const saleDay = calculateDailySales(sales, selectedRange, unitId)[0];
-    const paymentDay = calculatePaymentDaily(
+    const accountingDay = calculateAccountingDaily(
       sales,
       payments,
-      selectedRange,
-      unitId,
-    )[0];
-    const refundDay = calculateRefundDaily(
-      sales,
       refunds,
       selectedRange,
       unitId,
     )[0];
     return {
-      ...mergeAccountingDays([saleDay], [paymentDay], [refundDay])[0],
+      ...mergeAccountingDays(
+        [saleDay],
+        [accountingDay],
+        [accountingDay],
+      )[0],
       outstanding: currentOutstanding,
     };
   }, [currentOutstanding, payments, refunds, sales, selectedDate, unitId]);

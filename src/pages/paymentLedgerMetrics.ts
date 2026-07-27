@@ -22,6 +22,16 @@ export interface RefundLedgerEntry {
 export interface LedgerSaleReference {
   id: string;
   businessUnitId: string;
+  cancellationType?: string | null;
+}
+
+export interface AccountingSale extends LedgerSaleReference {
+  saleDate: string;
+  status: string;
+  originalAmount: number;
+  additionalAmount?: number;
+  discountAmount: number;
+  outstandingAmount: number;
 }
 
 export interface LedgerDateRange {
@@ -59,9 +69,50 @@ const belongsToBusinessUnit = (
 ) => {
   const sale = salesById.get(saleId);
   return Boolean(
-    sale && (!businessUnitId || sale.businessUnitId === businessUnitId),
+    sale &&
+      sale.cancellationType !== "entry_error" &&
+      (!businessUnitId || sale.businessUnitId === businessUnitId),
   );
 };
+
+const finalSaleAmount = (sale: AccountingSale) =>
+  Math.max(
+    0,
+    sale.originalAmount +
+      (sale.additionalAmount ?? 0) -
+      sale.discountAmount,
+  );
+
+export function calculateSalesAggregate(
+  sales: AccountingSale[],
+  range: LedgerDateRange,
+  businessUnitId = "",
+) {
+  return sales
+    .filter(
+      (sale) =>
+        sale.status !== "cancelled" &&
+        sale.cancellationType !== "entry_error" &&
+        inRange(sale.saleDate, range) &&
+        (!businessUnitId || sale.businessUnitId === businessUnitId),
+    )
+    .reduce((total, sale) => total + finalSaleAmount(sale), 0);
+}
+
+export function calculateCurrentOutstanding(
+  sales: AccountingSale[],
+  businessUnitId = "",
+) {
+  return sales
+    .filter(
+      (sale) =>
+        sale.status !== "cancelled" &&
+        sale.cancellationType !== "entry_error" &&
+        sale.outstandingAmount > 0 &&
+        (!businessUnitId || sale.businessUnitId === businessUnitId),
+    )
+    .reduce((total, sale) => total + sale.outstandingAmount, 0);
+}
 
 export function calculateLedgerCashSummary(
   sales: LedgerSaleReference[],
@@ -149,6 +200,43 @@ export function calculateLedgerDaily(
     const refundAmount = refundsByDate.get(date) ?? 0;
     return {
       date,
+      paidAmount,
+      refundAmount,
+      netAmount: paidAmount - refundAmount,
+    };
+  });
+}
+
+export function calculateAccountingDaily(
+  sales: AccountingSale[],
+  payments: PaymentLedgerEntry[],
+  refunds: RefundLedgerEntry[],
+  range: LedgerDateRange,
+  businessUnitId = "",
+) {
+  return dateKeys(range).map((date) => {
+    const dayRange = { from: date, to: date };
+    const salesAmount = calculateSalesAggregate(
+      sales,
+      dayRange,
+      businessUnitId,
+    );
+    const paidAmount = calculatePaymentAggregate(
+      sales,
+      payments,
+      dayRange,
+      businessUnitId,
+    );
+    const refundAmount = calculateRefundAggregate(
+      sales,
+      refunds,
+      dayRange,
+      businessUnitId,
+    );
+
+    return {
+      date,
+      salesAmount,
       paidAmount,
       refundAmount,
       netAmount: paidAmount - refundAmount,

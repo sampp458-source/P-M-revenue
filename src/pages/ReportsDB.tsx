@@ -4,10 +4,12 @@ import { Card, EmptyState, ErrorState, PageHeader, Select, Skeleton, StatusBadge
 import { currentMonth, monthLabel, shortWon, won } from "../lib/format";
 import { supabase } from "../lib/supabase";
 import {
+  calculateAccountingDaily,
+  calculateCurrentOutstanding,
   calculateLedgerPaymentMethodTotals,
   calculatePaymentAggregate,
-  calculatePaymentDaily,
   calculateRefundAggregate,
+  calculateSalesAggregate,
   type PaymentLedgerEntry,
   type RefundLedgerEntry,
 } from "./paymentLedgerMetrics";
@@ -22,6 +24,7 @@ interface ReportSale {
   id: string; saleDate: string; businessUnitId: string; businessUnitName: string; productId: string; productName: string;
   originalAmount: number; additionalAmount: number; discountAmount: number;
   paidAmount: number; refundAmount: number; outstandingAmount: number; netAmount: number; status: string;
+  cancellationType: string | null;
   staffId: string | null; staffName: string | null;
 }
 interface HistoryEvent { id: string; saleId: string; action: string; changedBy: string; createdAt: string; previousData: unknown; changedData: unknown }
@@ -46,7 +49,7 @@ export function ReportsPage() {
   const load = useCallback(async () => {
     setLoading(true); setError(false);
     const [salesResult, historyResult, targetsResult, unitsResult, productsResult, profilesResult, paymentsResult, refundsResult] = await Promise.all([
-      supabase.from("sales").select("id, sale_date, business_unit_id, business_unit_name, product_id, product_name, original_amount, additional_amount, discount_amount, paid_amount, refund_amount, outstanding_amount, net_amount, status, staff_id, staff_name"),
+      supabase.from("sales").select("id, sale_date, business_unit_id, business_unit_name, product_id, product_name, original_amount, additional_amount, discount_amount, paid_amount, refund_amount, outstanding_amount, net_amount, status, cancellation_type, staff_id, staff_name"),
       supabase.from("sale_history").select("id, sale_id, action, changed_by, created_at, previous_data, changed_data").in("action", ["partial_refund", "full_refund", "cancelled"]).order("created_at", { ascending: false }),
       supabase.from("monthly_targets").select("year, month, business_unit_id, target_amount"),
       supabase.from("business_units").select("id, name").eq("is_active", true).order("sort_order"),
@@ -64,6 +67,7 @@ export function ReportsPage() {
       additionalAmount: row.additional_amount ?? 0, discountAmount: row.discount_amount ?? 0,
       paidAmount: row.paid_amount ?? 0, refundAmount: row.refund_amount ?? 0,
       outstandingAmount: row.outstanding_amount ?? 0, netAmount: row.net_amount ?? 0, status: row.status,
+      cancellationType: row.cancellation_type,
       staffId: row.staff_id, staffName: row.staff_name,
     })));
     setHistory((historyResult.data ?? []).map((row) => ({ id: row.id, saleId: row.sale_id, action: row.action, changedBy: row.changed_by, createdAt: row.created_at, previousData: row.previous_data, changedData: row.changed_data })));
@@ -93,14 +97,11 @@ export function ReportsPage() {
   }, [payments, refundLedger, sales]);
   const report = useMemo(() => {
     const selected = activeReportSales(sales, month);
-    const salesAmount = selected.reduce(
-      (total, sale) => total + finalSaleAmount(sale),
-      0,
-    );
     const monthRange = {
       from: `${month}-01`,
       to: `${month}-${String(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0).getDate()).padStart(2, "0")}`,
     };
+    const salesAmount = calculateSalesAggregate(sales, monthRange);
     const paidAmount = calculatePaymentAggregate(sales, payments, monthRange);
     const refundAmount = calculateRefundAggregate(
       sales,
@@ -126,7 +127,6 @@ export function ReportsPage() {
     const overall = targetRows.find((target) => target.businessUnitId === null)?.targetAmount;
     const target = overall ?? targetRows.filter((target) => target.businessUnitId !== null).reduce((total, row) => total + safe(row.targetAmount), 0);
     const unitRows = units.map((unit) => {
-      const unitSales = selected.filter((sale) => sale.businessUnitId === unit.id);
       const unitPaidAmount = calculatePaymentAggregate(
         sales,
         payments,
@@ -141,20 +141,21 @@ export function ReportsPage() {
       );
       return {
         name: unit.name,
-        salesAmount: unitSales.reduce(
-          (total, sale) => total + finalSaleAmount(sale),
-          0,
-        ),
+        salesAmount: calculateSalesAggregate(sales, monthRange, unit.id),
         paidAmount: unitPaidAmount,
         refundAmount: unitRefundAmount,
-        value: unitSales.reduce(
-          (total, sale) => total + finalSaleAmount(sale),
-          0,
-        ),
+        value: calculateSalesAggregate(sales, monthRange, unit.id),
       };
     });
-    const paymentDaily = calculatePaymentDaily(sales, payments, monthRange);
-    const paymentDailyByDate = new Map(paymentDaily.map((day) => [day.date, day.paidAmount]));
+    const accountingDaily = calculateAccountingDaily(
+      sales,
+      payments,
+      refundLedger,
+      monthRange,
+    );
+    const paymentDailyByDate = new Map(
+      accountingDaily.map((day) => [day.date, day.paidAmount]),
+    );
     const daily = Array.from(
       { length: daysInReportMonth(month) },
       (_, index) => {
@@ -189,9 +190,7 @@ export function ReportsPage() {
       };
     });
     const cashDifference = paidAmount - previousPaidAmount;
-    const currentOutstanding = sales
-      .filter((sale) => sale.status !== "cancelled" && sale.outstandingAmount > 0)
-      .reduce((total, sale) => total + sale.outstandingAmount, 0);
+    const currentOutstanding = calculateCurrentOutstanding(sales);
     const paymentMethods = [...calculateLedgerPaymentMethodTotals(
       sales,
       payments,

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  calculateAccountingDaily,
+  calculateCurrentOutstanding,
   calculateLedgerCashSummary,
   calculateLedgerDaily,
   calculateLedgerPaymentMethodTotals,
@@ -7,6 +9,7 @@ import {
   calculatePaymentDaily,
   calculateRefundAggregate,
   calculateRefundDaily,
+  calculateSalesAggregate,
   ledgerPaymentsForDate,
   mergeAccountingDays,
   mergeSaleAndCashDays,
@@ -44,6 +47,116 @@ const refund = (
 });
 
 describe("payment ledger metrics", () => {
+  it("판매·수납·환불·현재 미수를 Dashboard 회계 기준으로 분리한다", () => {
+    const accountingSales = [
+      {
+        id: "daycare-sale",
+        businessUnitId: "daycare",
+        saleDate: "2026-06-15",
+        status: "normal",
+        originalAmount: 3000000,
+        additionalAmount: 0,
+        discountAmount: 0,
+        outstandingAmount: 0,
+        cancellationType: null,
+      },
+    ];
+    const accountingPayments = [
+      payment({
+        id: "initial",
+        paymentDate: "2026-06-15",
+        amount: 1500000,
+      }),
+      payment({
+        id: "collection",
+        paymentDate: "2026-07-19",
+        amount: 1500000,
+        source: "outstanding_collection",
+      }),
+    ];
+    const accountingRefunds = [
+      refund({ id: "refund", refundDate: "2026-07-10", amount: 500000 }),
+    ];
+    const july = { from: "2026-07-01", to: "2026-07-31" };
+
+    expect(calculateSalesAggregate(accountingSales, july)).toBe(0);
+    expect(
+      calculatePaymentAggregate(accountingSales, accountingPayments, july),
+    ).toBe(1500000);
+    expect(
+      calculateRefundAggregate(accountingSales, accountingRefunds, july),
+    ).toBe(500000);
+    expect(calculateCurrentOutstanding(accountingSales)).toBe(0);
+  });
+
+  it("오등록 정정 거래는 모든 공통 회계 합계에서 제외한다", () => {
+    const entryErrorSales = [
+      {
+        id: "daycare-sale",
+        businessUnitId: "daycare",
+        saleDate: "2026-07-10",
+        status: "cancelled",
+        originalAmount: 1100000,
+        additionalAmount: 0,
+        discountAmount: 0,
+        outstandingAmount: 0,
+        cancellationType: "entry_error",
+      },
+    ];
+    const range = { from: "2026-07-01", to: "2026-07-31" };
+
+    expect(calculateSalesAggregate(entryErrorSales, range)).toBe(0);
+    expect(
+      calculatePaymentAggregate(entryErrorSales, [payment({ amount: 1100000 })], range),
+    ).toBe(0);
+    expect(
+      calculateRefundAggregate(entryErrorSales, [refund({ amount: 500000 })], range),
+    ).toBe(0);
+    expect(calculateCurrentOutstanding(entryErrorSales)).toBe(0);
+  });
+
+  it("공통 일별 회계 Selector가 7월 19일 미수 회수와 7월 10일 환불을 분리한다", () => {
+    const accountingSales = [
+      {
+        id: "daycare-sale",
+        businessUnitId: "daycare",
+        saleDate: "2026-06-15",
+        status: "normal",
+        originalAmount: 3000000,
+        additionalAmount: 0,
+        discountAmount: 0,
+        outstandingAmount: 0,
+      },
+    ];
+    const daily = calculateAccountingDaily(
+      accountingSales,
+      [
+        payment({
+          paymentDate: "2026-07-19",
+          amount: 1500000,
+          source: "outstanding_collection",
+        }),
+      ],
+      [refund({ refundDate: "2026-07-10", amount: 500000 })],
+      { from: "2026-07-10", to: "2026-07-19" },
+    );
+
+    expect(daily.find((day) => day.date === "2026-07-10")).toEqual({
+      date: "2026-07-10",
+      salesAmount: 0,
+      paidAmount: 0,
+      refundAmount: 500000,
+      netAmount: -500000,
+    });
+    expect(daily.find((day) => day.date === "2026-07-19")).toEqual({
+      date: "2026-07-19",
+      salesAmount: 0,
+      paidAmount: 1500000,
+      refundAmount: 0,
+      netAmount: 1500000,
+    });
+  });
+
   it("수납은 payment_date, 환불은 refund_date 기준으로 계산한다", () => {
     const summary = calculateLedgerCashSummary(
       sales,

@@ -84,10 +84,19 @@ import {
 import { paymentMethodLabels, paymentSummary, type SalePaymentRow } from "./salePaymentLogic";
 import { normalizePaymentRows, paymentRowsTotal } from "./salePaymentLogic";
 import {
+  calculateCurrentOutstanding,
   calculatePaymentAggregate,
   calculateRefundAggregate,
+  calculateSalesAggregate,
+  type PaymentLedgerEntry,
   type RefundLedgerEntry,
 } from "./paymentLedgerMetrics";
+import {
+  accountingEventLabel,
+  buildAccountingEvents,
+  filterAccountingEvents,
+  type AccountingEvent,
+} from "./accountingLedgerEvents";
 import {
   detailProductName,
   detailPaymentRows,
@@ -356,6 +365,7 @@ export function SalesHistoryPage() {
   const [refundLedger, setRefundLedger] = useState<RefundLedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const ledgerView = searchParams.get("view") !== "sales";
   const query = searchParams.get("q") ?? "";
   const periodParam = searchParams.get("period") as PeriodFilter | null;
   const period =
@@ -689,9 +699,98 @@ export function SalesHistoryPage() {
     units.find(([id]) => id === unitId)?.[1] ?? "전체 사업부";
   const singleDay =
     Boolean(activeRange.start) && activeRange.start === activeRange.end;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paymentEntries = useMemo<PaymentLedgerEntry[]>(
+    () =>
+      sales.flatMap((sale) =>
+        sale.paymentLedger.map((payment) => ({
+          id: payment.id,
+          saleId: payment.saleId,
+          paymentDate: payment.paymentDate,
+          amount: payment.amount,
+          voidedAt: payment.voidedAt,
+          paymentMethod: payment.method,
+          source: payment.source,
+          note: payment.note,
+          createdBy: payment.createdBy,
+          createdAt: payment.createdAt,
+        })),
+      ),
+    [sales],
+  );
+  const accountingRange = useMemo(
+    () => ({
+      from: activeRange.start || "0001-01-01",
+      to: activeRange.end || "9999-12-31",
+    }),
+    [activeRange.end, activeRange.start],
+  );
+  const ledgerDimensionSales = useMemo(
+    () =>
+      filterSales(
+        sales,
+        {
+          ...filters,
+          period: "custom",
+          startDate: "",
+          endDate: "",
+        },
+        today,
+      ),
+    [filters, sales, today],
+  );
+  const allowedLedgerSaleIds = useMemo(
+    () => new Set(ledgerDimensionSales.map((sale) => sale.id)),
+    [ledgerDimensionSales],
+  );
+  const ledgerEvents = useMemo(
+    () =>
+      filterAccountingEvents(
+        buildAccountingEvents(sales, paymentEntries, refundLedger),
+        accountingRange,
+        allowedLedgerSaleIds,
+      ),
+    [
+      accountingRange,
+      allowedLedgerSaleIds,
+      paymentEntries,
+      refundLedger,
+      sales,
+    ],
+  );
+  const accountingSummary = useMemo(() => {
+    const salesAmount = calculateSalesAggregate(sales, accountingRange, unitId);
+    const paidAmount = calculatePaymentAggregate(
+      sales,
+      paymentEntries,
+      accountingRange,
+      unitId,
+    );
+    const refundAmount = calculateRefundAggregate(
+      sales,
+      refundLedger,
+      accountingRange,
+      unitId,
+    );
+    return {
+      salesAmount,
+      paidAmount,
+      refundAmount,
+      netAmount: paidAmount - refundAmount,
+      outstandingAmount: calculateCurrentOutstanding(sales, unitId),
+    };
+  }, [accountingRange, paymentEntries, refundLedger, sales, unitId]);
+  const resultCount = ledgerView ? ledgerEvents.length : filtered.length;
+  const totalPages = Math.max(1, Math.ceil(resultCount / pageSize));
   const page = Math.min(requestedPage, totalPages);
-  const rows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const saleRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const ledgerRows = ledgerEvents.slice(
+    (page - 1) * pageSize,
+    page * pageSize,
+  );
+  const salesById = useMemo(
+    () => new Map(sales.map((sale) => [sale.id, sale])),
+    [sales],
+  );
   const todayActivity = useMemo(() => {
     const activity = calculateTodayActivity(sales, today);
     const payments = sales.flatMap((sale) =>
@@ -1547,8 +1646,12 @@ export function SalesHistoryPage() {
   return (
     <>
       <PageHeader
-        title="매출 내역"
-        description="결제, 환불, 취소 및 미수금 현황을 확인합니다."
+        title={ledgerView ? "거래 원장" : "판매건별 보기"}
+        description={
+          ledgerView
+            ? "판매·수납·환불·정정 이벤트를 실제 발생일 기준으로 확인합니다."
+            : "판매 단위로 수정, 환불, 고객 연결과 현재 정산 상태를 관리합니다."
+        }
         action={
           <Button onClick={() => navigate("/sales/new")}>
             <Plus size={17} />
@@ -1556,18 +1659,52 @@ export function SalesHistoryPage() {
           </Button>
         }
       />
-      <SalesHistoryContext
-        range={activeRange}
-        unitName={selectedUnitName}
-        summary={contextSummary}
-        singleDay={singleDay}
-        onMoveDay={moveSingleDay}
-        onClearDate={() =>
-          updateParams({ period: null, start: null, end: null })
-        }
-        onClearUnit={() => updateParams({ unit: null })}
-      />
-      {period === "today" && (
+      <div className="mb-5 inline-flex rounded-xl border border-border bg-surface-secondary p-1">
+        <button
+          type="button"
+          className={cn(
+            "min-h-10 rounded-lg px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+            ledgerView
+              ? "bg-surface text-primary shadow-sm"
+              : "text-text-secondary hover:text-text-primary",
+          )}
+          onClick={() => updateParams({ view: null, page: null })}
+        >
+          거래 원장
+        </button>
+        <button
+          type="button"
+          className={cn(
+            "min-h-10 rounded-lg px-4 text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+            !ledgerView
+              ? "bg-surface text-primary shadow-sm"
+              : "text-text-secondary hover:text-text-primary",
+          )}
+          onClick={() => updateParams({ view: "sales", page: null })}
+        >
+          판매건별 보기
+        </button>
+      </div>
+      {ledgerView ? (
+        <AccountingLedgerSummary
+          range={activeRange}
+          unitName={selectedUnitName}
+          summary={accountingSummary}
+        />
+      ) : (
+        <SalesHistoryContext
+          range={activeRange}
+          unitName={selectedUnitName}
+          summary={contextSummary}
+          singleDay={singleDay}
+          onMoveDay={moveSingleDay}
+          onClearDate={() =>
+            updateParams({ period: null, start: null, end: null })
+          }
+          onClearUnit={() => updateParams({ unit: null })}
+        />
+      )}
+      {!ledgerView && period === "today" && (
         <>
           <TodayActivityCards activity={todayActivity} />
           <TodayRegistered
@@ -1582,14 +1719,16 @@ export function SalesHistoryPage() {
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-sm font-semibold text-text-primary">
-              매출 찾기
+              {ledgerView ? "회계 이벤트 찾기" : "판매건 찾기"}
             </h2>
             <p className="mt-1 text-xs text-text-muted">
-              기간과 사업부를 먼저 선택하고 필요한 경우 검색하세요.
+              {ledgerView
+                ? "이벤트 발생일과 사업부를 먼저 선택하고 필요한 경우 검색하세요."
+                : "매출일과 사업부를 먼저 선택하고 필요한 경우 검색하세요."}
             </p>
           </div>
           <span className="text-xs font-medium text-text-secondary tabular-nums">
-            현재 결과 {filtered.length.toLocaleString("ko-KR")}건
+            현재 결과 {resultCount.toLocaleString("ko-KR")}건
           </span>
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[150px_150px_150px_minmax(260px,1fr)_auto]">
@@ -1779,9 +1918,9 @@ export function SalesHistoryPage() {
       <div className="mb-3 flex items-center justify-between gap-3">
         <p className="text-sm text-text-secondary">
           <strong className="tabular-nums text-text-primary">
-            {filtered.length}
+            {resultCount}
           </strong>
-          건의 매출
+          건의 {ledgerView ? "회계 이벤트" : "판매"}
         </p>
         {query !== debouncedQuery && (
           <span className="text-xs text-text-muted">검색 결과 갱신 중…</span>
@@ -1795,18 +1934,41 @@ export function SalesHistoryPage() {
             title="매출 내역을 불러오지 못했습니다."
             retry={() => void loadSales()}
           />
-        ) : rows.length ? (
+        ) : ledgerView && ledgerRows.length ? (
+          <>
+            <div className="hidden xl:block">
+              <AccountingLedgerTable
+                events={ledgerRows}
+                salesById={salesById}
+                onOpen={showDetail}
+              />
+            </div>
+            <div className="grid gap-3 bg-surface-secondary/60 p-3 md:grid-cols-2 xl:hidden">
+              {ledgerRows.map((event) => {
+                const sale = salesById.get(event.saleId);
+                return sale ? (
+                  <AccountingLedgerCard
+                    key={event.id}
+                    event={event}
+                    sale={sale}
+                    onOpen={() => showDetail(sale)}
+                  />
+                ) : null;
+              })}
+            </div>
+          </>
+        ) : !ledgerView && saleRows.length ? (
           <>
             <div className="hidden xl:block">
               <SalesTable
-                rows={rows}
+                rows={saleRows}
                 profileNames={profileNames}
                 duplicateWarnings={duplicateWarnings}
                 onOpen={showDetail}
               />
             </div>
             <div className="grid gap-3 bg-surface-secondary/60 p-3 md:grid-cols-2 xl:hidden">
-              {rows.map((sale) => (
+              {saleRows.map((sale) => (
                 <SaleMobileCard
                   key={sale.id}
                   sale={sale}
@@ -1825,14 +1987,18 @@ export function SalesHistoryPage() {
               title={
                 sales.length === 0
                   ? "아직 등록된 매출이 없습니다"
-                  : "현재 조건에 맞는 매출이 없습니다"
+                  : ledgerView
+                    ? "현재 조건에 맞는 회계 이벤트가 없습니다"
+                    : "현재 조건에 맞는 판매가 없습니다"
               }
               description={
                 sales.length === 0
                   ? "첫 매출을 등록하면 날짜와 사업부 기준으로 내역을 확인할 수 있습니다."
                   : query
                   ? `“${query}” 검색어와 현재 필터 조건에 맞는 매출이 없습니다.`
-                  : "날짜·사업부 또는 적용된 필터를 조정해 주세요."
+                  : ledgerView
+                    ? "이벤트 발생일·사업부 또는 적용된 필터를 조정해 주세요."
+                    : "매출일·사업부 또는 적용된 필터를 조정해 주세요."
               }
             />
             <div className="-mt-5 flex flex-wrap justify-center gap-2">
@@ -1849,11 +2015,11 @@ export function SalesHistoryPage() {
           </div>
         )}
       </Card>
-      {!loading && !loadError && filtered.length > 0 && (
+      {!loading && !loadError && resultCount > 0 && (
         <Pagination
           page={page}
           totalPages={totalPages}
-          totalLabel={`총 ${filtered.length}건`}
+          totalLabel={`총 ${resultCount}건`}
           onPageChange={(value) =>
             updateParams({ page: value > 1 ? String(value) : null }, false)
           }
@@ -2637,6 +2803,8 @@ function SaleDetailContent({
         </div>
       </section>
 
+      <SaleAccountingTimeline sale={sale} refunds={refunds} />
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-start">
         <div className="overflow-hidden rounded-2xl border border-border bg-surface px-5 [&>section:first-child]:border-t-0 sm:px-7">
       <DetailSection title="판매 항목">
@@ -2931,6 +3099,146 @@ function SaleDetailContent({
   );
 }
 
+function SaleAccountingTimeline({
+  sale,
+  refunds,
+}: {
+  sale: SaleRow;
+  refunds: RefundRow[];
+}) {
+  const finalAmount = calculateFinalSaleAmount(
+    sale.originalAmount,
+    sale.additionalAmount,
+    sale.discountAmount,
+  );
+  const saleVoided = sale.status === "cancelled";
+  const events = [
+    {
+      id: `sale:${sale.id}`,
+      date: sale.saleDate,
+      label: "판매",
+      detail: sale.productName,
+      amount: finalAmount,
+      direction: "sale" as const,
+      voided: saleVoided,
+    },
+    ...sale.paymentLedger.map((payment) => ({
+      id: `payment:${payment.id}`,
+      date: payment.paymentDate,
+      label: accountingEventLabel(
+        payment.source === "outstanding_collection"
+          ? "outstanding_collection"
+          : payment.source === "adjustment"
+            ? "adjustment"
+            : "initial_payment",
+      ),
+      detail: paymentMethodLabels[payment.method],
+      amount: payment.amount,
+      direction: "paid" as const,
+      voided: Boolean(payment.voidedAt),
+    })),
+    ...refunds.map((refund) => ({
+      id: `refund:${refund.id}`,
+      date: refund.refundDate || sale.saleDate,
+      label: "환불",
+      detail: refund.reason || "환불 사유 미입력",
+      amount: refund.amount,
+      direction: "refund" as const,
+      voided: Boolean(refund.voidedAt),
+    })),
+    ...(sale.status === "cancelled"
+      ? [
+          {
+            id: `cancel:${sale.id}`,
+            date: sale.cancelledAt || sale.saleDate,
+            label:
+              sale.cancellationType === "entry_error"
+                ? "오등록 정정"
+                : "취소",
+            detail: sale.cancellationReason || "취소 사유 미입력",
+            amount: 0,
+            direction: "audit" as const,
+            voided: false,
+          },
+        ]
+      : []),
+  ].sort(
+    (left, right) =>
+      left.date.localeCompare(right.date) || left.id.localeCompare(right.id),
+  );
+
+  return (
+    <section
+      className="rounded-2xl border border-border bg-surface p-5 sm:p-6"
+      aria-labelledby="sale-accounting-timeline-title"
+    >
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h3
+            id="sale-accounting-timeline-title"
+            className="font-bold text-text-primary"
+          >
+            거래 이벤트 타임라인
+          </h3>
+          <p className="mt-1 text-xs text-text-muted">
+            같은 거래의 판매·수납·환불·정정 기록
+          </p>
+        </div>
+        <Badge tone="gray">{events.length}건</Badge>
+      </div>
+      <ol className="mt-5 grid gap-3 lg:grid-cols-2">
+        {events.map((event) => (
+          <li
+            key={event.id}
+            className={cn(
+              "rounded-xl border border-border bg-surface-secondary px-4 py-3",
+              event.voided && "opacity-60",
+            )}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge
+                    tone={
+                      event.direction === "refund"
+                        ? "red"
+                        : event.direction === "audit"
+                          ? "gray"
+                          : event.direction === "paid"
+                            ? "blue"
+                            : "green"
+                    }
+                  >
+                    {event.label}
+                  </Badge>
+                  {event.voided && <Badge tone="gray">집계 제외</Badge>}
+                </div>
+                <p className="mt-2 truncate text-xs text-text-muted">
+                  {koDate(event.date.slice(0, 10))} · {event.detail}
+                </p>
+              </div>
+              {event.amount > 0 && (
+                <strong
+                  className={cn(
+                    "shrink-0 text-sm tabular-nums",
+                    event.direction === "refund"
+                      ? "text-error"
+                      : "text-text-primary",
+                    event.voided && "line-through",
+                  )}
+                >
+                  {event.direction === "refund" ? "-" : ""}
+                  {won(event.amount)}
+                </strong>
+              )}
+            </div>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
 function DetailHeroText({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
@@ -3067,6 +3375,249 @@ function DetailText({
 
 function DetailMemo({ label, value }: { label: string; value: string }) {
   return <div><p className="text-xs font-semibold text-text-muted">{label}</p><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 text-text-secondary">{value}</p></div>;
+}
+
+function AccountingLedgerSummary({
+  range,
+  unitName,
+  summary,
+}: {
+  range: { start: string; end: string };
+  unitName: string;
+  summary: {
+    salesAmount: number;
+    paidAmount: number;
+    refundAmount: number;
+    netAmount: number;
+    outstandingAmount: number;
+  };
+}) {
+  const rangeLabel =
+    range.start && range.end
+      ? range.start === range.end
+        ? koDate(range.start)
+        : `${koDate(range.start)} ~ ${koDate(range.end)}`
+      : "전체 기간";
+  const metrics = [
+    ["판매금액", summary.salesAmount, "매출일 기준"],
+    ["실수납액", summary.paidAmount, "결제일 기준"],
+    ["환불액", summary.refundAmount, "환불일 기준"],
+    ["순수납액", summary.netAmount, "실수납 - 환불"],
+  ] as const;
+
+  return (
+    <section className="mb-5 overflow-hidden rounded-2xl border border-primary/15 bg-surface">
+      <div className="flex flex-col gap-2 border-b border-border bg-primary-subtle px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-5">
+        <div>
+          <p className="text-xs font-semibold text-text-secondary">
+            Dashboard와 동일한 회계 기준
+          </p>
+          <h2 className="mt-1 text-lg font-bold text-text-primary tabular-nums">
+            {rangeLabel}
+          </h2>
+        </div>
+        <Badge tone="blue">{unitName}</Badge>
+      </div>
+      <div className="grid sm:grid-cols-2 xl:grid-cols-5">
+        {metrics.map(([label, value, description]) => (
+          <div
+            key={label}
+            className="border-b border-border px-4 py-4 sm:px-5 xl:border-b-0 xl:border-r"
+          >
+            <span className="text-[11px] font-semibold text-text-muted">
+              {label}
+            </span>
+            <strong className="mt-1 block text-xl font-bold text-text-primary tabular-nums">
+              {won(value)}
+            </strong>
+            <span className="mt-1 block text-xs text-text-muted">
+              {description}
+            </span>
+          </div>
+        ))}
+        <div className="bg-warning-soft/45 px-4 py-4 sm:px-5">
+          <span className="text-[11px] font-semibold text-warning">
+            현재 전체 미수금
+          </span>
+          <strong className="mt-1 block text-xl font-bold text-text-primary tabular-nums">
+            {won(summary.outstandingAmount)}
+          </strong>
+          <span className="mt-1 block text-xs leading-5 text-text-muted">
+            기간 합계가 아닌 현재 잔액 Snapshot
+          </span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+const eventBadgeTone = (event: AccountingEvent) => {
+  if (event.kind === "refund") return "red" as const;
+  if (event.kind === "outstanding_collection") return "blue" as const;
+  if (event.kind === "cancellation" || event.kind === "entry_error")
+    return "gray" as const;
+  if (event.kind === "adjustment") return "amber" as const;
+  return "green" as const;
+};
+
+function EventAmount({
+  value,
+  tone = "default",
+}: {
+  value: number;
+  tone?: "default" | "danger";
+}) {
+  if (!value) return <span className="text-text-muted">-</span>;
+  return (
+    <strong
+      className={cn(
+        "font-semibold tabular-nums",
+        tone === "danger" ? "text-error" : "text-text-primary",
+      )}
+    >
+      {tone === "danger" ? "-" : ""}
+      {won(value)}
+    </strong>
+  );
+}
+
+function AccountingLedgerTable({
+  events,
+  salesById,
+  onOpen,
+}: {
+  events: AccountingEvent[];
+  salesById: Map<string, SaleRow>;
+  onOpen: (sale: SaleRow) => void;
+}) {
+  return (
+    <Table className="min-w-[1080px]">
+      <thead className="sticky top-0 z-10 bg-surface">
+        <tr>
+          <th>발생일</th>
+          <th>이벤트</th>
+          <th>반려견 / 보호자</th>
+          <th>사업부 / 상품</th>
+          <th className="text-right">판매</th>
+          <th className="text-right">실수납</th>
+          <th className="text-right">환불</th>
+          <th>담당자</th>
+        </tr>
+      </thead>
+      <tbody>
+        {events.map((event) => {
+          const sale = salesById.get(event.saleId);
+          if (!sale) return null;
+          return (
+            <tr
+              key={event.id}
+              tabIndex={0}
+              role="link"
+              className="cursor-pointer hover:bg-primary-subtle/60 focus:bg-primary-subtle focus:outline-none"
+              onClick={() => onOpen(sale)}
+              onKeyDown={(keyboardEvent) => {
+                if (
+                  keyboardEvent.key === "Enter" ||
+                  keyboardEvent.key === " "
+                ) {
+                  keyboardEvent.preventDefault();
+                  onOpen(sale);
+                }
+              }}
+            >
+              <td className="whitespace-nowrap tabular-nums">
+                {koDate(event.eventDate)}
+              </td>
+              <td>
+                <Badge tone={eventBadgeTone(event)}>
+                  {accountingEventLabel(event.kind)}
+                </Badge>
+                {event.paymentMethod && (
+                  <span className="mt-1 block text-xs text-text-muted">
+                    {paymentMethodLabels[
+                      event.paymentMethod as keyof typeof paymentMethodLabels
+                    ] || event.paymentMethod}
+                  </span>
+                )}
+              </td>
+              <td>
+                <strong className="block max-w-44 truncate text-text-primary">
+                  {sale.dogName}
+                </strong>
+                <span className="mt-1 block max-w-44 truncate text-xs text-text-muted">
+                  {sale.customerName || "보호자 미등록"}
+                </span>
+              </td>
+              <td>
+                <strong className="block max-w-52 truncate text-text-primary">
+                  {sale.productName}
+                </strong>
+                <span className="mt-1 block text-xs text-text-muted">
+                  {sale.businessUnitName}
+                </span>
+              </td>
+              <td data-numeric className="text-right">
+                <EventAmount value={event.saleAmount} />
+              </td>
+              <td data-numeric className="text-right">
+                <EventAmount value={event.paidAmount} />
+              </td>
+              <td data-numeric className="text-right">
+                <EventAmount value={event.refundAmount} tone="danger" />
+              </td>
+              <td>{sale.staffName || "미지정"}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </Table>
+  );
+}
+
+function AccountingLedgerCard({
+  event,
+  sale,
+  onOpen,
+}: {
+  event: AccountingEvent;
+  sale: SaleRow;
+  onOpen: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="min-h-32 rounded-2xl border border-border bg-surface p-4 text-left transition-colors hover:border-primary/25 hover:bg-primary-subtle/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      onClick={onOpen}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <Badge tone={eventBadgeTone(event)}>
+            {accountingEventLabel(event.kind)}
+          </Badge>
+          <span className="ml-2 text-xs text-text-muted tabular-nums">
+            {koDate(event.eventDate)}
+          </span>
+        </div>
+        <Eye size={16} className="text-text-muted" />
+      </div>
+      <strong className="mt-3 block truncate text-base text-text-primary">
+        {sale.dogName} · {sale.customerName || "보호자 미등록"}
+      </strong>
+      <span className="mt-1 block truncate text-xs text-text-muted">
+        {sale.businessUnitName} · {sale.productName}
+      </span>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-right text-sm">
+        <EventAmount value={event.saleAmount} />
+        <EventAmount value={event.paidAmount} />
+        <EventAmount value={event.refundAmount} tone="danger" />
+      </div>
+      <div className="mt-1 grid grid-cols-3 gap-2 text-right text-[10px] text-text-muted">
+        <span>판매</span>
+        <span>실수납</span>
+        <span>환불</span>
+      </div>
+    </button>
+  );
 }
 
 function SalesHistoryContext({

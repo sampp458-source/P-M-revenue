@@ -1,3 +1,5 @@
+import { calculateSalesAggregate } from "../paymentLedgerMetrics";
+
 export interface DashboardSale {
   id: string;
   saleDate: string;
@@ -22,6 +24,7 @@ export interface DashboardSale {
   outstandingAmount: number;
   netAmount: number;
   status: string;
+  cancellationType?: string | null;
   createdAt: string;
 }
 
@@ -151,8 +154,8 @@ export function calculateRangeOverview(sales: DashboardSale[], units: BusinessUn
     divisions,
     total,
     previousTotal,
-    salesAmount: sumFinalSaleAmount(selected),
-    previousSalesAmount: sumFinalSaleAmount(previous),
+    salesAmount: calculateSalesAggregate(selected, range),
+    previousSalesAmount: calculateSalesAggregate(previous, comparisonRange),
     paid: sum(selected, "paidAmount"),
     previousPaid: sum(previous, "paidAmount"),
     count: selected.length,
@@ -192,8 +195,11 @@ export function calculateSalesRangeOverview(
       const previousRows = previous.filter(
         (sale) => sale.businessUnitId === unit.id,
       );
-      const salesAmount = sumFinalSaleAmount(rows);
-      const previousSalesAmount = sumFinalSaleAmount(previousRows);
+      const salesAmount = calculateSalesAggregate(rows, range);
+      const previousSalesAmount = calculateSalesAggregate(
+        previousRows,
+        comparisonRange,
+      );
       return {
         ...unit,
         salesAmount,
@@ -283,7 +289,7 @@ export function calculateDailySales(
     const rows = activeByDate.get(cursor) ?? [];
     result.push({
       date: cursor,
-      salesAmount: sumFinalSaleAmount(rows),
+      salesAmount: calculateSalesAggregate(rows, { from: cursor, to: cursor }),
       count: rows.length,
       cancelledCount: cancelledByDate.get(cursor) ?? 0,
     });
