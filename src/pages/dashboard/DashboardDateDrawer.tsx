@@ -180,7 +180,7 @@ export function DashboardDateDrawer({
         style={dashboardThemeStyle(themeCode)}
         className="dashboard-date-drawer pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(480px,44vw)]"
       >
-        <div className="dashboard-drawer-header flex shrink-0 items-start justify-between gap-3 border-b px-4 py-[0.55rem] sm:px-5">
+        <div className="dashboard-drawer-header flex shrink-0 items-start justify-between gap-3 border-b px-4 py-2 sm:px-5">
           <div className="flex min-w-0 items-start gap-3">
             <span className="dashboard-drawer-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
               <CalendarDays size={17} />
@@ -362,7 +362,7 @@ function UnitLedgerSections({
                 key={payment.id}
                 type="button"
                 onClick={() => onOpenSale(sale.id)}
-                className="flex min-h-10 w-full flex-col items-stretch gap-1.5 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-left transition-colors hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between min-[430px]:gap-3"
+                className="flex min-h-10 w-full flex-col items-stretch gap-1 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2 text-left transition-colors hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between min-[430px]:gap-3"
               >
                 <span className="min-w-0">
                   <strong className="block break-keep text-sm leading-5 text-white">
@@ -400,7 +400,7 @@ function UnitLedgerSections({
                 key={id}
                 type="button"
                 onClick={() => onOpenSale(sale.id)}
-                className="flex min-h-10 w-full items-center justify-between gap-3 rounded-xl border border-rose-200/15 bg-rose-100/[0.045] px-3 py-2.5 text-left transition-colors hover:border-rose-200/30 hover:bg-rose-100/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
+                className="flex min-h-10 w-full items-center justify-between gap-3 rounded-xl border border-rose-200/15 bg-rose-100/[0.045] px-3 py-2 text-left transition-colors hover:border-rose-200/30 hover:bg-rose-100/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
               >
                 <span className="min-w-0">
                   <strong className="block truncate text-sm text-white">
@@ -452,7 +452,7 @@ function BusinessUnitSummaryRow({
       type="button"
       onClick={onClick}
       style={dashboardThemeStyle(themeCode)}
-      className="dashboard-drawer-unit-row flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border bg-white/[0.035] px-3.5 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2"
+      className="dashboard-drawer-unit-row flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border bg-white/[0.035] px-3.5 py-[0.5625rem] text-left transition-colors focus:outline-none focus-visible:ring-2"
     >
       <span className="inline-flex min-w-0 items-center gap-2.5">
         <span className="dashboard-theme-dot h-2 w-2 shrink-0 rounded-full" aria-hidden="true" />
@@ -519,7 +519,7 @@ function BusinessUnitTransactions({
               key={sale.id}
               type="button"
               onClick={() => onOpenSale(sale.id)}
-              className="group block min-h-10 w-full rounded-xl border border-white/10 bg-white/[0.045] p-3 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+              className="group block min-h-10 w-full rounded-xl border border-white/10 bg-white/[0.045] p-2.5 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
             >
               <span className="flex flex-col items-stretch gap-2 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-3">
                 <span className="min-w-0">
@@ -542,7 +542,7 @@ function BusinessUnitTransactions({
                   </span>
                 </span>
               </span>
-              <span className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-2.5">
+              <span className="mt-2 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-2">
                 <StatusBadge
                   status={sale.status as
                     | "normal"

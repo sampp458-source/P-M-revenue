@@ -149,14 +149,14 @@ export function DashboardKpiHero({
         </div>
       </div>
       <Card className="dashboard-surface dashboard-hero-surface relative overflow-hidden p-0 shadow-none">
-        <span className="dashboard-hero-accent absolute inset-y-4 left-0 w-1.5 rounded-r-full" aria-hidden="true" />
+        <span className="dashboard-hero-accent absolute inset-y-4 left-0 w-[5px] rounded-r-full" aria-hidden="true" />
         <button
           type="button"
           aria-label="결제·환불 통합 원장 열기"
           onClick={onNet}
           className="absolute inset-0 z-10 rounded-[inherit] transition-colors duration-200 hover:bg-primary/[0.025] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         />
-        <div className="relative flex flex-col gap-5 px-6 py-6 sm:px-8 sm:py-7 xl:flex-row xl:items-end xl:justify-between xl:gap-14 xl:px-9">
+        <div className="relative flex flex-col gap-5 px-6 py-[1.375rem] sm:px-8 sm:py-[1.625rem] xl:flex-row xl:items-end xl:justify-between xl:gap-14 xl:px-9">
           <div className="min-w-0">
             <p className="text-[11px] font-bold tracking-[0.04em] text-primary">
               {periodLabel} 순수납
@@ -166,7 +166,7 @@ export function DashboardKpiHero({
             </strong>
             <p className="mt-2 text-[13px] leading-5 text-[#66758a]">실제 입금에서 환불을 뺀 순유입</p>
           </div>
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1 border-t border-primary/[0.08] pt-4 text-[13px] xl:justify-end xl:border-l xl:border-t-0 xl:py-2 xl:pl-9">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1 border-t border-primary/[0.08] pt-4 text-[13px] xl:justify-end xl:border-l xl:border-t-0 xl:py-1.5 xl:pl-9">
             <span className="text-[#66758a]">실수납</span>
             <strong className="whitespace-nowrap text-text-primary tabular-nums">{won(paidAmount)}</strong>
             <span className="text-[#9aa5b3]">−</span>
@@ -177,12 +177,12 @@ export function DashboardKpiHero({
           </div>
         </div>
       </Card>
-      <div className="!mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="!mt-[18px] grid items-stretch gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {items.map((item) => (
           <Card
             key={item.label}
             className={cn(
-              "dashboard-surface dashboard-supporting-surface dashboard-kpi-card relative flex min-h-40 min-w-0 flex-col p-5 shadow-none transition-[border-color,background-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-primary/20 sm:min-h-44 sm:p-6",
+              "dashboard-surface dashboard-supporting-surface dashboard-kpi-card relative flex h-full min-h-40 min-w-0 flex-col p-5 shadow-none transition-[border-color,background-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-primary/20 sm:min-h-44 sm:p-6",
               item.className,
             )}
           >
@@ -194,12 +194,12 @@ export function DashboardKpiHero({
                 className="absolute inset-0 z-10 rounded-[inherit] transition-colors duration-200 hover:bg-primary/[0.025] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
               />
             )}
-            <p className={cn("text-xs font-semibold", item.labelClass)}>
+            <p className={cn("min-h-5 text-xs font-semibold leading-5", item.labelClass)}>
               {item.label}
             </p>
             <strong
               className={cn(
-                "dashboard-card-number mt-4 block whitespace-nowrap font-bold",
+                "dashboard-card-number mt-3.5 block whitespace-nowrap font-bold leading-none",
                 item.valueClass,
               )}
             >
@@ -294,7 +294,7 @@ export function BusinessUnitCard({
           </span>
         </span>
 
-        <span className="mt-auto grid grid-cols-2 gap-x-5 gap-y-4 border-t border-border/60 pt-5">
+        <span className="mt-auto grid grid-cols-2 gap-x-4 gap-y-3.5 border-t border-border/60 pt-4.5">
           <BusinessMetric label="판매금액" value={revenue} />
           <BusinessMetric label="실수납" value={receivedAmount} />
           <BusinessMetric label="환불" value={refundAmount} danger />
