@@ -234,7 +234,7 @@ function AppLayout() {
         </div>
         <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 py-4">
           {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-5 last:mb-0"><p className="mb-2 px-3 text-[9px] font-bold uppercase tracking-[0.18em] text-blue-100/40">{group}</p><div className="space-y-0.5">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
-              <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `group relative flex min-h-10 items-center gap-3 rounded-xl px-3.5 py-2 text-[13px] font-medium transition-[color,background-color,transform] duration-200 ${isActive ? "bg-white/[0.085] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]" : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.045] hover:text-white"}`}>
+              <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `app-sidebar-link group relative flex min-h-10 items-center gap-3 rounded-xl px-3.5 py-2 text-[13px] font-medium transition-[color,background-color,transform] duration-150 ${isActive ? "is-active bg-white/[0.085] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]" : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.045] hover:text-white"}`}>
                 {({ isActive }) => <><span className={`absolute inset-y-2.5 left-0 w-0.5 rounded-full transition-colors ${isActive ? "bg-[#8fc1e8]" : "bg-transparent"}`} /><Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} /><span>{label}</span></>}
               </NavLink>
             ))}</div></div>)}

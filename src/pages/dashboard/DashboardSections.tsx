@@ -145,19 +145,19 @@ export function DashboardKpiHero({
         </div>
       </div>
       <Card className="dashboard-surface dashboard-hero-surface relative overflow-hidden p-0 shadow-none">
-        <span className="dashboard-hero-accent absolute inset-y-0 left-0 w-1.5" aria-hidden="true" />
+        <span className="dashboard-hero-accent absolute inset-y-5 left-0 w-1 rounded-r-full" aria-hidden="true" />
         <button
           type="button"
           aria-label="결제·환불 통합 원장 열기"
           onClick={onNet}
           className="absolute inset-0 z-10 rounded-[inherit] transition-colors duration-200 hover:bg-primary/[0.025] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         />
-        <div className="relative flex flex-col gap-5 p-5 sm:p-7 xl:flex-row xl:items-end xl:justify-between xl:gap-12 xl:px-8 xl:py-7">
+        <div className="relative flex flex-col gap-6 px-6 py-6 sm:px-8 sm:py-7 xl:flex-row xl:items-end xl:justify-between xl:gap-14 xl:px-9">
           <div className="min-w-0">
             <p className="text-[11px] font-bold tracking-[0.04em] text-primary">
               {periodLabel} 순수납
             </p>
-            <strong className="dashboard-hero-number mt-2.5 block whitespace-nowrap font-bold text-[#234f79]">
+            <strong className="dashboard-hero-number mt-3 block whitespace-nowrap font-bold text-[#234f79]">
               {won(paidAmount - refund)}
             </strong>
             <p className="mt-2.5 text-[13px] leading-5 text-[#778395]">실제 입금에서 환불을 뺀 순유입</p>
@@ -178,7 +178,7 @@ export function DashboardKpiHero({
           <Card
             key={item.label}
             className={cn(
-              "dashboard-surface dashboard-supporting-surface relative flex min-h-40 min-w-0 flex-col p-5 shadow-none transition-[border-color,background-color,transform] duration-200 hover:-translate-y-px hover:border-primary/20 sm:p-5",
+              "dashboard-surface dashboard-supporting-surface dashboard-kpi-card relative flex min-h-40 min-w-0 flex-col p-5 shadow-none transition-[border-color,background-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-primary/20 sm:min-h-44 sm:p-6",
               item.className,
             )}
           >
@@ -195,7 +195,7 @@ export function DashboardKpiHero({
             </p>
             <strong
               className={cn(
-                "dashboard-card-number mt-3 block whitespace-nowrap font-bold",
+                "dashboard-card-number mt-4 block whitespace-nowrap font-bold",
                 item.valueClass,
               )}
             >
@@ -212,7 +212,7 @@ export function DashboardKpiHero({
                 {item.targetText}
               </span>
             )}
-            <p className={cn("mt-auto pt-3 text-xs leading-5", item.descriptionClass)}>
+            <p className={cn("mt-auto pt-4 text-xs leading-5", item.descriptionClass)}>
               {item.description}
             </p>
           </Card>
@@ -267,7 +267,7 @@ export function BusinessUnitCard({
       >
         <span className="flex items-center justify-between gap-3">
           <span className="inline-flex min-w-0 items-center gap-2.5">
-            <span className={cn("dashboard-unit-symbol flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", tone.symbol)} aria-hidden="true">
+            <span className={cn("dashboard-unit-symbol flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-current/10", tone.symbol)} aria-hidden="true">
               {businessUnitIcon(code)}
             </span>
             <span className="truncate text-base font-bold text-text-primary">{name}</span>
@@ -349,7 +349,7 @@ function businessUnitIcon(code: string) {
 }
 
 export function RecentSales({ rows, onOpen }: { rows: DashboardSale[]; onOpen: () => void }) {
-  return <Card className="dashboard-activity-surface overflow-hidden p-0 shadow-none"><div className="flex items-center justify-between gap-4 px-5 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-6"><div><p className="dashboard-eyebrow text-[10px] font-bold uppercase text-primary">Latest activity</p><h2 className="dashboard-section-title mt-1 font-bold text-text-primary">최근 매출</h2><p className="mt-1 text-xs text-text-muted">선택 조건의 최신 등록 5건</p></div><Button aria-label="매출 내역으로 이동" variant="ghost" onClick={onOpen}>전체 거래 보기 <ArrowRight size={16} /></Button></div>{rows.length ? <div className="px-3 pb-3 sm:px-4 sm:pb-4">{rows.map((sale, index) => { const tone = businessUnitCardTone(businessUnitCodeFromName(sale.businessUnitName)); return <button key={sale.id} type="button" className="group relative grid min-h-[72px] w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl px-3 py-3 text-left transition-[background-color,transform] duration-200 hover:translate-x-0.5 hover:bg-primary-subtle/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-4 sm:px-4" onClick={onOpen}><span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", tone.symbol)}><ReceiptText size={16} /><span className="sr-only">{sale.businessUnitName}</span></span><span className="min-w-0"><span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><strong className="max-w-full truncate text-sm text-text-primary">{sale.dogName || "(반려견 없음)"}</strong><StatusBadge status={sale.status as "normal" | "partial_refund" | "full_refund" | "cancelled"} tone={sale.status === "cancelled" ? "gray" : undefined} /></span><span className="mt-0.5 block truncate text-xs leading-5 text-text-secondary">{sale.productName}</span><span className="mt-0.5 block truncate text-[11px] leading-4 text-text-muted">{sale.customerName || "보호자 미등록"} · {paymentLabel(sale.paymentMethod)} · {sale.saleDate}</span></span><span className="col-span-2 flex min-w-0 items-center justify-between gap-2 pl-12 sm:col-span-1 sm:block sm:pl-0 sm:text-right"><span className="text-[10px] font-semibold text-text-muted sm:hidden">{sale.businessUnitName}</span><strong className="whitespace-nowrap text-sm text-primary tabular-nums sm:text-base">{won(sale.netAmount)}</strong></span>{index < rows.length - 1 && <span className="absolute inset-x-4 bottom-0 h-px bg-border/55" aria-hidden="true" />}</button>; })}</div> : <EmptyState title="등록된 매출이 없습니다." />}</Card>;
+  return <Card className="dashboard-activity-surface overflow-hidden p-0 shadow-none"><div className="flex items-center justify-between gap-4 px-5 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-6"><div><p className="dashboard-eyebrow text-[10px] font-bold uppercase text-primary">Latest activity</p><h2 className="dashboard-section-title mt-1 font-bold text-text-primary">최근 매출</h2><p className="mt-1 text-xs text-text-muted">선택 조건의 최신 등록 5건</p></div><Button aria-label="매출 내역으로 이동" variant="ghost" onClick={onOpen}>전체 거래 보기 <ArrowRight size={16} /></Button></div>{rows.length ? <div className="dashboard-activity-list px-3 pb-3 sm:px-4 sm:pb-4">{rows.map((sale) => { const tone = businessUnitCardTone(businessUnitCodeFromName(sale.businessUnitName)); return <button key={sale.id} type="button" className="dashboard-activity-row group relative grid min-h-[72px] w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl px-3 py-3 text-left transition-[background-color,transform] duration-200 hover:translate-x-0.5 hover:bg-primary-subtle/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-4 sm:px-4" onClick={onOpen}><span className={cn("dashboard-activity-symbol relative z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white", tone.symbol)}><ReceiptText size={16} /><span className="sr-only">{sale.businessUnitName}</span></span><span className="min-w-0"><span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><strong className="max-w-full truncate text-sm text-text-primary">{sale.dogName || "(반려견 없음)"}</strong><StatusBadge status={sale.status as "normal" | "partial_refund" | "full_refund" | "cancelled"} tone={sale.status === "cancelled" ? "gray" : undefined} /></span><span className="mt-0.5 block truncate text-xs leading-5 text-text-secondary">{sale.productName}</span><span className="mt-0.5 block truncate text-[11px] leading-4 text-text-muted">{sale.customerName || "보호자 미등록"} · {paymentLabel(sale.paymentMethod)} · {activityDateLabel(sale.saleDate)}</span></span><span className="col-span-2 flex min-w-0 items-center justify-between gap-2 pl-12 sm:col-span-1 sm:block sm:pl-0 sm:text-right"><span className="text-[10px] font-semibold text-text-muted sm:hidden">{sale.businessUnitName}</span><strong className="whitespace-nowrap text-base font-bold text-primary tabular-nums">{won(sale.netAmount)}</strong></span></button>; })}</div> : <EmptyState title="등록된 매출이 없습니다." />}</Card>;
 }
 
 function businessUnitCodeFromName(name: string) {
@@ -365,6 +365,11 @@ function paymentLabel(method: string) {
   if (method === "cash") return "현금";
   if (method === "outstanding") return "미수";
   return "기타";
+}
+
+function activityDateLabel(date: string) {
+  const [, month, day] = date.split("-");
+  return `${Number(month)}월 ${Number(day)}일`;
 }
 
 export function OperationalAlerts({ alerts, onOpen }: { alerts: { outstandingCount: number; outstandingTotal: number; refundCount: number; refundTotal: number; cancelledCount: number; todayCount: number }; onOpen: () => void }) {

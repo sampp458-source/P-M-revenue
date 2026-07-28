@@ -157,36 +157,43 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
     border-color: var(--pm-dashboard-border);
     border-radius: var(--pm-dashboard-radius-lg);
     background: var(--pm-dashboard-surface-primary);
-    box-shadow: 0 1px 2px rgb(23 36 58 / .02);
+    box-shadow: 0 1px 2px rgb(23 36 58 / .025);
   }
   .dashboard-hero-surface {
     background:
-      linear-gradient(110deg, rgb(244 249 252 / .82), transparent 46%),
+      radial-gradient(circle at 3% 50%, rgb(98 153 194 / .11), transparent 22%),
+      linear-gradient(102deg, rgb(247 250 252 / .9), transparent 38%),
       #fff;
     box-shadow:
       0 1px 2px rgb(23 36 58 / .025),
       0 18px 42px rgb(39 76 119 / .07);
   }
   .dashboard-hero-accent {
-    background: linear-gradient(180deg, #274c77 0%, #5c93bd 56%, #a9cfe8 100%);
+    background: linear-gradient(180deg, #274c77 0%, #5c93bd 72%, #9fc8e2 100%);
   }
   .dashboard-period-surface {
-    border-bottom: 1px solid rgb(221 228 235 / .82);
+    border-bottom: 1px solid rgb(221 228 235 / .58);
     background: transparent;
   }
   .dashboard-period-toolbar {
-    min-height: 3rem;
-    padding: .375rem 0 .5rem;
+    min-height: 2.75rem;
+    padding: .25rem 0 .375rem;
   }
   .dashboard-supporting-surface {
     background: linear-gradient(180deg, #fff 0%, #fdfdfc 100%);
+  }
+  .dashboard-kpi-card {
+    box-shadow: 0 8px 24px rgb(23 36 58 / .035);
+  }
+  .dashboard-kpi-card:hover {
+    box-shadow: 0 14px 32px rgb(23 36 58 / .065);
   }
   .dashboard-calendar-surface {
     background: #fff;
     box-shadow: 0 14px 38px rgb(23 36 58 / .045);
   }
   .dashboard-calendar-day {
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / .52);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .58);
   }
   .dashboard-calendar-active {
     box-shadow:
@@ -196,25 +203,25 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   .dashboard-calendar-selected {
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / .7),
-      0 8px 20px rgb(39 76 119 / .14);
+      0 9px 22px rgb(39 76 119 / .16);
   }
   .dashboard-calendar-today {
     box-shadow: inset 0 0 0 1px rgb(39 76 119 / .3);
   }
   .dashboard-calendar-level-0 {
-    background: #fafbfc;
+    background: #fbfcfd;
   }
   .dashboard-calendar-level-1 {
-    background: #f4f8fb;
+    background: #f2f7fa;
   }
   .dashboard-calendar-level-2 {
-    background: #eaf3f9;
+    background: #e7f1f7;
   }
   .dashboard-calendar-level-3 {
-    background: #dcecf6;
+    background: #d7e9f4;
   }
   .dashboard-calendar-level-4 {
-    background: #c8e0ef;
+    background: #c1dcec;
   }
   .dashboard-trend-surface {
     border: 1px solid var(--pm-dashboard-border);
@@ -231,6 +238,7 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   }
   .dashboard-trend-bar {
     background: #8eb5d1;
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .35);
   }
   .dashboard-trend-bar-emphasis {
     background: linear-gradient(180deg, #4f83ad 0%, var(--pm-dashboard-brand) 100%);
@@ -245,8 +253,26 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   .dashboard-activity-surface {
     border: 1px solid var(--pm-dashboard-border);
     border-radius: 1.125rem;
-    background: linear-gradient(180deg, #fff 0%, #fafbfbd9 100%);
-    box-shadow: 0 16px 44px rgb(23 36 58 / .04);
+    background: #fff;
+    box-shadow: 0 12px 36px rgb(23 36 58 / .035);
+  }
+  .dashboard-activity-list {
+    position: relative;
+  }
+  .dashboard-activity-list::before {
+    position: absolute;
+    top: .75rem;
+    bottom: 1.25rem;
+    left: 2.125rem;
+    width: 1px;
+    background: linear-gradient(180deg, rgb(47 159 199 / .3), rgb(67 89 168 / .16), transparent);
+    content: "";
+  }
+  .dashboard-activity-row + .dashboard-activity-row {
+    margin-top: .125rem;
+  }
+  .dashboard-activity-symbol {
+    box-shadow: 0 0 0 4px #fff;
   }
   .dashboard-section-title {
     font-size: clamp(1.05rem, 1.8vw, 1.25rem);
@@ -257,6 +283,10 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   }
   .dashboard-business-card {
     isolation: isolate;
+    box-shadow: 0 10px 28px rgb(23 36 58 / .035);
+  }
+  .dashboard-business-card:hover {
+    box-shadow: 0 16px 36px rgb(23 36 58 / .065);
   }
   .dashboard-unit-daycare {
     --pm-unit-glow: rgb(47 159 199 / .085);
@@ -326,6 +356,10 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   .app-sidebar-profile {
     background: linear-gradient(135deg, rgb(255 255 255 / .075), rgb(255 255 255 / .035));
     box-shadow: inset 0 1px 0 rgb(255 255 255 / .035);
+  }
+  .app-sidebar-link.is-active {
+    background:
+      linear-gradient(90deg, rgb(143 193 232 / .11), rgb(255 255 255 / .055));
   }
 
   @media (min-width: 1024px) and (max-width: 1279px) {
