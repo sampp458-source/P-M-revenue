@@ -2,7 +2,10 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   BarChart3,
   Boxes,
+  CalendarDays,
+  CalendarRange,
   ChevronRight,
+  Clock3,
   ClipboardPlus,
   Dog,
   Eye,
@@ -17,8 +20,10 @@ import {
   ReceiptText,
   Settings,
   ShieldCheck,
+  Sparkles,
   UserCog,
   UserRound,
+  WalletCards,
   X,
 } from "lucide-react";
 import {
@@ -34,6 +39,8 @@ import {
 import { Button, Input } from "./components/ui";
 import { useAuth } from "./auth/AuthContext";
 import { safeReturnTo } from "./auth/authStateLogic";
+import { useModule } from "./app/ModuleContext";
+import type { AppModule } from "./app/moduleState";
 import { ReportsPage } from "./pages/ReportsDB";
 import { DashboardPage } from "./pages/DashboardDB";
 import { SaleFormPage as LegacySaleFormPage } from "./pages/Sales";
@@ -59,6 +66,12 @@ const menus: MenuItem[] = [
   { to: "/reports", label: "월별 보고서", icon: BarChart3, group: "분석" },
   { to: "/settings", label: "설정", icon: Settings, group: "분석" },
   { to: "/staff", label: "직원 관리", icon: UserCog, adminOnly: true, group: "관리" },
+];
+interface OperationsMenuItem { to: string; label: string; icon: typeof CalendarDays; end?: boolean }
+const operationsMenus: OperationsMenuItem[] = [
+  { to: "/operations/today", label: "오늘", icon: Clock3 },
+  { to: "/operations/calendar", label: "캘린더", icon: CalendarDays },
+  { to: "/operations/settings", label: "일정 설정", icon: Settings },
 ];
 const savedEmailKey = "pm-saved-login-email";
 const autoLoginPreferenceKey = "pm-auto-login-enabled";
@@ -99,12 +112,16 @@ export default function App() {
         path="/login"
         element={<LoginRoute loggedIn={loggedIn} />}
       />
-      <Route path="/signup" element={loggedIn ? <Navigate to="/dashboard" replace /> : <SignupPage />} />
+      <Route path="/signup" element={loggedIn ? <Navigate to="/select-module" replace /> : <SignupPage />} />
       <Route path="/find-account" element={<FindAccountPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route
-        element={<ProtectedLayout loggedIn={loggedIn} />}
+        path="/select-module"
+        element={<ModuleGateRoute loggedIn={loggedIn} />}
+      />
+      <Route
+        element={<ProtectedLayout loggedIn={loggedIn} module="finance" />}
       >
         {menus.map(() => null)}
         <Route index element={<Navigate to="/dashboard" replace />} />
@@ -119,6 +136,46 @@ export default function App() {
         <Route path="settings" element={<SettingsPage />} />
         <Route path="staff" element={<AdminOnly><StaffManagementPage /></AdminOnly>} />
       </Route>
+      <Route
+        path="operations"
+        element={<ProtectedLayout loggedIn={loggedIn} module="operations" />}
+      >
+        <Route index element={<Navigate to="/operations/today" replace />} />
+        <Route
+          path="today"
+          element={
+            <OperationsStubPage
+              icon={Clock3}
+              eyebrow="TODAY"
+              title="오늘"
+              description="오늘의 수업과 회사 일정을 한눈에 확인하는 화면을 준비하고 있습니다."
+            />
+          }
+        />
+        <Route
+          path="calendar"
+          element={
+            <OperationsStubPage
+              icon={CalendarDays}
+              eyebrow="CALENDAR"
+              title="캘린더"
+              description="유치원·교육센터·호텔과 공통 일정을 함께 보는 캘린더를 준비하고 있습니다."
+            />
+          }
+        />
+        <Route
+          path="settings"
+          element={
+            <OperationsStubPage
+              icon={Settings}
+              eyebrow="SETTINGS"
+              title="일정 설정"
+              description="캘린더와 일정 유형을 관리하는 설정 화면을 준비하고 있습니다."
+            />
+          }
+        />
+        <Route path="*" element={<Navigate to="/operations/today" replace />} />
+      </Route>
       <Route path="*" element={<NotFound loggedIn={loggedIn} />} />
     </Routes>
   );
@@ -129,14 +186,67 @@ function LoginRoute({ loggedIn }: { loggedIn: boolean }) {
   const returnTo = safeReturnTo(
     (location.state as { returnTo?: unknown } | null)?.returnTo,
   );
-  return loggedIn ? <Navigate to={returnTo} replace /> : <LoginPage />;
+  return loggedIn ? (
+    <Navigate
+      to="/select-module"
+      replace
+      state={{ pendingReturnTo: returnTo }}
+    />
+  ) : (
+    <LoginPage />
+  );
 }
 
-function ProtectedLayout({ loggedIn }: { loggedIn: boolean }) {
+function ProtectedLayout({
+  loggedIn,
+  module,
+}: {
+  loggedIn: boolean;
+  module: AppModule;
+}) {
   const location = useLocation();
-  if (loggedIn) return <AppLayout />;
   const returnTo = `${location.pathname}${location.search}${location.hash}`;
-  return <Navigate to="/login" replace state={{ returnTo }} />;
+  const { gateCompleted } = useModule();
+  if (!loggedIn) return <Navigate to="/login" replace state={{ returnTo }} />;
+  if (!gateCompleted) return <ModuleGateRedirect returnTo={returnTo} />;
+  return module === "finance" ? <AppLayout /> : <OperationsAppLayout />;
+}
+
+function ModuleGateRedirect({ returnTo }: { returnTo: string }) {
+  const { rememberPendingReturnTo } = useModule();
+  useEffect(() => {
+    rememberPendingReturnTo(returnTo);
+  }, [rememberPendingReturnTo, returnTo]);
+  return (
+    <Navigate
+      to="/select-module"
+      replace
+      state={{ pendingReturnTo: returnTo }}
+    />
+  );
+}
+
+function ModuleGateRoute({ loggedIn }: { loggedIn: boolean }) {
+  const location = useLocation();
+  const { rememberPendingReturnTo } = useModule();
+  const pendingReturnTo = (
+    location.state as { pendingReturnTo?: unknown } | null
+  )?.pendingReturnTo;
+  useEffect(() => {
+    if (loggedIn && pendingReturnTo) {
+      rememberPendingReturnTo(pendingReturnTo);
+    }
+  }, [loggedIn, pendingReturnTo, rememberPendingReturnTo]);
+  if (!loggedIn) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ returnTo: "/select-module" }}
+      />
+    );
+  }
+  return <ModuleGatePage pendingReturnTo={pendingReturnTo} />;
 }
 
 function LoginPage() {
@@ -221,6 +331,128 @@ function LoginPage() {
   );
 }
 
+function ModuleGatePage({
+  pendingReturnTo,
+}: {
+  pendingReturnTo?: unknown;
+}) {
+  const { profile } = useAuth();
+  const { chooseModule } = useModule();
+  const modules = [
+    {
+      id: "operations" as const,
+      title: "스케줄 관리",
+      description: "수업과 회사 일정을 관리합니다",
+      icon: CalendarRange,
+      accent: "from-[#e9f5fb] to-[#f7fbfd]",
+      iconStyle: "bg-[#d9eef8] text-[#276d91]",
+    },
+    {
+      id: "finance" as const,
+      title: "매출 관리",
+      description: "매출·수납·미수·환불을 관리합니다",
+      icon: WalletCards,
+      accent: "from-[#edf3f8] to-[#fafcfd]",
+      iconStyle: "bg-[#dfeaf3] text-primary",
+    },
+  ];
+  return (
+    <main className="module-gate-shell relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-app-background px-4 py-8 sm:px-6">
+      <div className="module-gate-orb module-gate-orb-one" aria-hidden="true" />
+      <div className="module-gate-orb module-gate-orb-two" aria-hidden="true" />
+      <section className="relative z-10 w-full max-w-[840px]">
+        <div className="mb-8 text-center sm:mb-10">
+          <div className="mx-auto mb-5 flex h-[58px] w-[116px] items-center justify-center rounded-2xl bg-[#1e3a5f] shadow-[0_12px_32px_rgba(30,58,95,0.16)]">
+            <BrandLogo
+              className="h-[58px] w-[116px]"
+              imageClassName="h-[142px] w-[142px]"
+            />
+          </div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+            P&amp;M OS
+          </p>
+          <h1 className="mt-2 text-[clamp(1.75rem,5vw,2.5rem)] font-bold tracking-[-0.04em] text-text-primary">
+            오늘 사용할 업무를 선택하세요
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-text-secondary">
+            {profile?.name ? `${profile.name}님, ` : ""}
+            필요한 모듈로 바로 시작할 수 있습니다.
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          {modules.map((module) => {
+            const Icon = module.icon;
+            return (
+              <button
+                key={module.id}
+                type="button"
+                onClick={() => chooseModule(module.id, pendingReturnTo)}
+                className={`module-gate-card group relative min-h-[188px] overflow-hidden rounded-[24px] border border-border bg-gradient-to-br ${module.accent} p-6 text-left shadow-[0_12px_36px_rgba(23,36,58,0.06)] transition duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_18px_44px_rgba(23,36,58,0.1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-3 sm:p-7`}
+              >
+                <div
+                  className={`flex h-12 w-12 items-center justify-center rounded-2xl ${module.iconStyle}`}
+                >
+                  <Icon size={24} strokeWidth={1.9} />
+                </div>
+                <div className="mt-7 flex items-end justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold tracking-[-0.025em] text-text-primary">
+                      {module.title}
+                    </h2>
+                    <p className="mt-1.5 text-sm text-text-secondary">
+                      {module.description}
+                    </p>
+                  </div>
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border-strong bg-white/75 text-primary transition group-hover:translate-x-0.5 group-hover:border-primary/30 group-hover:bg-white">
+                    <ChevronRight size={19} />
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <p className="mt-6 text-center text-xs text-text-muted">
+          진입 후에도 App Switcher에서 자유롭게 전환할 수 있습니다.
+        </p>
+      </section>
+    </main>
+  );
+}
+
+function AppSwitcher({ module }: { module: AppModule }) {
+  const { switchModule } = useModule();
+  return (
+    <label className="block">
+      <span className="sr-only">P&amp;M OS 모듈 선택</span>
+      <div className="relative">
+        <Sparkles
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-blue-100/55"
+          size={15}
+        />
+        <select
+          aria-label="P&M OS 모듈 선택"
+          value={module}
+          onChange={(event) => switchModule(event.target.value as AppModule)}
+          className="h-10 w-full appearance-none rounded-xl border border-white/[0.08] bg-white/[0.055] pl-9 pr-9 text-xs font-semibold text-white outline-none transition hover:border-white/[0.14] hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-white/65"
+        >
+          <option className="text-text-primary" value="operations">
+            스케줄 관리
+          </option>
+          <option className="text-text-primary" value="finance">
+            매출 관리
+          </option>
+        </select>
+        <ChevronRight
+          aria-hidden="true"
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-blue-100/55"
+          size={15}
+        />
+      </div>
+    </label>
+  );
+}
+
 function AppLayout() {
   const { signOut, user, profile, businessUnits } = useAuth();
   const [open, setOpen] = useState(false);
@@ -244,6 +476,9 @@ function AppLayout() {
           >
             <X />
           </button>
+        </div>
+        <div className="shrink-0 px-3 pb-2 pt-2">
+          <AppSwitcher module="finance" />
         </div>
         <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 pb-2 pt-0.5">
           {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-3 last:mb-0"><p className="mb-0.5 px-3 text-[8px] font-medium uppercase leading-none tracking-[0.17em] text-blue-100/24">{group}</p><div className="space-y-0.5">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
@@ -300,6 +535,187 @@ function AppLayout() {
         </main>
       </div>
     </div>
+  );
+}
+
+function OperationsAppLayout() {
+  const { signOut, user, profile } = useAuth();
+  const [open, setOpen] = useState(false);
+  const location = useLocation();
+  const current =
+    operationsMenus.find((item) =>
+      item.end
+        ? location.pathname === item.to
+        : location.pathname.startsWith(item.to),
+    )?.label || "스케줄 관리";
+  return (
+    <div className="min-h-screen bg-app-background">
+      <aside
+        className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        <div className="flex h-[72px] shrink-0 items-center justify-start border-b border-white/[0.035]">
+          <BrandLogo
+            className="h-[72px] w-[156px] translate-x-px"
+            imageClassName="h-[156px] w-[156px]"
+          />
+          <button
+            className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-xl text-blue-100/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:hidden"
+            onClick={() => setOpen(false)}
+            aria-label="메뉴 닫기"
+          >
+            <X />
+          </button>
+        </div>
+        <div className="shrink-0 px-3 pb-2 pt-2">
+          <AppSwitcher module="operations" />
+        </div>
+        <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 pb-2 pt-0.5">
+          <div className="mb-3">
+            <p className="mb-0.5 px-3 text-[8px] font-medium uppercase leading-none tracking-[0.17em] text-blue-100/24">
+              일정
+            </p>
+            <div className="space-y-0.5">
+              {operationsMenus.map(({ to, label, icon: Icon, end }) => (
+                <NavLink
+                  end={end}
+                  key={to}
+                  to={to}
+                  onClick={() => setOpen(false)}
+                  className={({ isActive }) =>
+                    `app-sidebar-link group relative flex min-h-9 items-center gap-3.5 rounded-[11px] px-3 py-1 text-sm font-medium transition-[color,background-color,transform] duration-150 ${
+                      isActive
+                        ? "is-active bg-white/[0.075] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                        : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-white"
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span
+                        className={`absolute inset-y-2.5 left-0 w-0.5 rounded-full transition-colors ${
+                          isActive ? "bg-[#8fc1e8]" : "bg-transparent"
+                        }`}
+                      />
+                      <Icon
+                        size={18}
+                        strokeWidth={isActive ? 2.2 : 1.75}
+                      />
+                      <span>{label}</span>
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        </nav>
+        <div className="shrink-0 border-t border-white/[0.055] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+          <div className="app-sidebar-profile mb-1.5 flex items-center gap-1.5 rounded-xl border border-white/[0.045] px-1.5 py-0.5">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-blue-50">
+              <UserRound size={14} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <b className="block truncate text-xs text-white">
+                {profile?.name || "이름 미등록"}
+              </b>
+              <span className="mt-0.5 block truncate text-[10px] text-blue-100/52">
+                {profile?.role === "admin" ? "관리자" : "직원"} · {user?.email}
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => void signOut()}
+            className="flex min-h-10 w-full items-center gap-3 rounded-[13px] px-2.5 py-2 text-sm text-blue-50/60 transition hover:bg-white/[0.055] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          >
+            <LogOut size={18} />
+            로그아웃
+          </button>
+        </div>
+      </aside>
+      {open && (
+        <button
+          className="pm-drawer-overlay fixed inset-0 z-30 bg-slate-950/45 backdrop-blur-[2px] lg:hidden"
+          onClick={() => setOpen(false)}
+          aria-label="메뉴 배경 닫기"
+        />
+      )}
+      <div className="lg:pl-64">
+        <header className="no-print sticky top-0 z-20 flex h-[52px] items-center justify-between border-b border-border/80 bg-white/95 px-4 backdrop-blur-md sm:px-6">
+          <div className="flex items-center gap-3">
+            <button
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-border-strong text-text-secondary transition hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:hidden"
+              onClick={() => setOpen(true)}
+              aria-label="메뉴 열기"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="hidden text-slate-400 sm:inline">스케줄 관리</span>
+              <ChevronRight
+                size={14}
+                className="hidden text-slate-300 sm:inline"
+              />
+              <b className="text-text-primary">{current}</b>
+            </div>
+          </div>
+          <div className="hidden text-right sm:block">
+            <b className="block text-sm text-text-primary">
+              {profile?.name || "이름 미등록"}
+            </b>
+            <span className="text-xs text-text-muted">
+              {profile?.role === "admin" ? "관리자" : "직원"}
+            </span>
+          </div>
+        </header>
+        <main className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}
+
+function OperationsStubPage({
+  icon: Icon,
+  eyebrow,
+  title,
+  description,
+}: {
+  icon: typeof CalendarDays;
+  eyebrow: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <section className="operations-stub mx-auto max-w-5xl">
+      <div className="mb-6">
+        <p className="text-[11px] font-bold tracking-[0.17em] text-primary">
+          {eyebrow}
+        </p>
+        <h1 className="mt-1.5 text-2xl font-bold tracking-[-0.035em] text-text-primary sm:text-[1.75rem]">
+          {title}
+        </h1>
+      </div>
+      <div className="relative overflow-hidden rounded-[24px] border border-border bg-white px-5 py-12 shadow-[0_12px_36px_rgba(23,36,58,0.045)] sm:px-10 sm:py-16">
+        <div
+          className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#72b8d7] via-[#497da6] to-[#274c77]"
+          aria-hidden="true"
+        />
+        <div className="mx-auto max-w-lg text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-soft text-primary">
+            <Icon size={27} strokeWidth={1.8} />
+          </div>
+          <h2 className="mt-6 text-xl font-bold tracking-[-0.025em] text-text-primary">
+            준비 중
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">
+            {description}
+          </p>
+          <p className="mt-5 inline-flex rounded-full border border-border bg-surface-secondary px-3 py-1.5 text-xs font-medium text-text-muted">
+            P&amp;M OS · Operations
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 function AdminOnly({ children }: { children: ReactNode }) {
