@@ -132,10 +132,10 @@ export function DashboardKpiHero({
   ];
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-col gap-2 px-1 sm:flex-row sm:items-center sm:justify-between">
+    <div className="space-y-4">
+      <div className="flex flex-col gap-2 px-1.5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-primary">현재 적용 기준</p>
+          <p className="dashboard-eyebrow text-[10px] font-bold uppercase text-primary">현재 적용 기준</p>
           <strong className="mt-1 block text-sm text-text-primary tabular-nums">{rangeLabel}</strong>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -151,33 +151,33 @@ export function DashboardKpiHero({
           onClick={onNet}
           className="absolute inset-0 z-10 rounded-[inherit] transition-colors duration-200 hover:bg-primary/[0.025] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         />
-        <div className="relative flex flex-col gap-5 p-5 sm:p-7 lg:flex-row lg:items-end lg:justify-between lg:gap-10 lg:p-8">
+        <div className="relative flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between lg:gap-12 lg:px-9 lg:py-8">
           <div className="min-w-0">
-            <p className="text-xs font-bold tracking-[0.02em] text-primary">
+            <p className="text-[11px] font-bold tracking-[0.04em] text-primary">
               {periodLabel} 순수납
             </p>
-            <strong className="dashboard-hero-number mt-2 block whitespace-nowrap font-bold text-primary">
+            <strong className="dashboard-hero-number mt-2.5 block whitespace-nowrap font-bold text-[#234f79]">
               {won(paidAmount - refund)}
             </strong>
-            <p className="mt-2 text-[13px] leading-5 text-text-muted">실제 입금에서 환불을 뺀 순유입</p>
+            <p className="mt-2.5 text-[13px] leading-5 text-[#778395]">실제 입금에서 환불을 뺀 순유입</p>
           </div>
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 border-t border-primary/10 pt-4 text-[13px] lg:justify-end lg:border-l lg:border-t-0 lg:py-2 lg:pl-8">
-            <span className="text-text-muted">실수납</span>
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1.5 border-t border-primary/[0.08] pt-5 text-[13px] lg:justify-end lg:border-l lg:border-t-0 lg:py-2.5 lg:pl-9">
+            <span className="text-[#778395]">실수납</span>
             <strong className="whitespace-nowrap text-text-primary tabular-nums">{won(paidAmount)}</strong>
-            <span className="text-text-muted">−</span>
-            <span className="text-text-muted">환불</span>
+            <span className="text-[#9aa5b3]">−</span>
+            <span className="text-[#778395]">환불</span>
             <strong className="whitespace-nowrap text-error tabular-nums">{won(refund)}</strong>
-            <span className="text-text-muted">=</span>
+            <span className="text-[#9aa5b3]">=</span>
             <strong className="whitespace-nowrap text-primary tabular-nums">{won(paidAmount - refund)}</strong>
           </div>
         </div>
       </Card>
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {items.map((item) => (
           <Card
             key={item.label}
             className={cn(
-              "dashboard-surface relative flex min-h-40 min-w-0 flex-col p-4 shadow-none transition-[border-color,background-color] duration-200 hover:border-primary/20 sm:p-5",
+              "dashboard-surface dashboard-supporting-surface relative flex min-h-40 min-w-0 flex-col p-5 shadow-none transition-[border-color,background-color,transform] duration-200 hover:-translate-y-px hover:border-primary/20 sm:p-5",
               item.className,
             )}
           >
@@ -251,11 +251,13 @@ export function BusinessUnitCard({
   return (
     <Card
       className={cn(
-        "dashboard-surface group relative h-full min-h-[20rem] overflow-hidden p-0 shadow-none transition-[transform,border-color,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/20",
+        "dashboard-surface dashboard-business-card group relative h-full min-h-[20rem] overflow-hidden p-0 shadow-none transition-[transform,border-color,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/25",
+        tone.card,
         selected && "border-primary/30 bg-primary-subtle/60 ring-2 ring-primary/10",
         muted && "opacity-60 hover:opacity-100",
       )}
     >
+      <span className="dashboard-unit-accent absolute inset-x-6 top-0 h-[3px] rounded-b-full opacity-80" aria-hidden="true" />
       <button
         type="button"
         className="relative flex min-h-[20rem] w-full flex-col p-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:p-6"
@@ -273,7 +275,7 @@ export function BusinessUnitCard({
           </span>
         </span>
 
-        <span className="mt-7 block">
+        <span className="mt-8 block">
           <span className="text-xs font-semibold text-text-secondary">
             {restricted ? "선택 날짜 순수납" : "선택 기간 순수납"}
           </span>
@@ -285,7 +287,7 @@ export function BusinessUnitCard({
           </span>
         </span>
 
-        <span className="mt-auto grid grid-cols-2 gap-x-4 gap-y-4 border-t border-border/70 pt-5">
+        <span className="mt-auto grid grid-cols-2 gap-x-5 gap-y-4 border-t border-border/60 pt-5">
           <BusinessMetric label="판매금액" value={revenue} />
           <BusinessMetric label="실수납" value={receivedAmount} />
           <BusinessMetric label="환불" value={refundAmount} danger />
@@ -325,15 +327,15 @@ function BusinessMetric({
 
 function businessUnitCardTone(code: string) {
   if (code === "daycare") {
-    return { dot: "bg-sky-500", label: "bg-sky-50 text-sky-700" };
+    return { dot: "bg-sky-500", label: "bg-sky-50/80 text-sky-700", card: "dashboard-unit-daycare" };
   }
   if (code === "training") {
-    return { dot: "bg-violet-500", label: "bg-violet-50 text-violet-700" };
+    return { dot: "bg-violet-500", label: "bg-violet-50/80 text-violet-700", card: "dashboard-unit-training" };
   }
   if (code === "hotel") {
-    return { dot: "bg-amber-500", label: "bg-amber-50 text-amber-700" };
+    return { dot: "bg-amber-500", label: "bg-amber-50/80 text-amber-700", card: "dashboard-unit-hotel" };
   }
-  return { dot: "bg-slate-400", label: "bg-slate-100 text-slate-600" };
+  return { dot: "bg-slate-400", label: "bg-slate-100 text-slate-600", card: "" };
 }
 
 export function RecentSales({ rows, onOpen }: { rows: DashboardSale[]; onOpen: () => void }) {

@@ -212,16 +212,16 @@ function AppLayout() {
   return (
     <div className="min-h-screen bg-app-background">
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-[280px] flex-col bg-[#172f4d] text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-[268px] lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[280px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-[268px] lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="flex h-20 shrink-0 items-center justify-between border-b border-white/[0.08] px-5">
+        <div className="flex h-20 shrink-0 items-center justify-between border-b border-white/[0.065] px-5">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-xs font-black text-[#1e3a5f] shadow-sm">
+            <div className="flex h-10 w-10 items-center justify-center rounded-[14px] border border-white/70 bg-white/95 text-xs font-black text-[#1e3a5f] shadow-[0_8px_24px_rgba(4,18,35,0.12)]">
               P&M
             </div>
             <div>
-              <b className="block text-sm tracking-wide">매출관리</b>
-              <span className="text-[10px] tracking-[0.14em] text-blue-100/55">INTERNAL</span>
+              <b className="block text-[15px] tracking-[-0.01em]">매출관리</b>
+              <span className="text-[9px] font-semibold tracking-[0.18em] text-blue-100/45">INTERNAL</span>
             </div>
           </div>
           <button
@@ -232,18 +232,18 @@ function AppLayout() {
             <X />
           </button>
         </div>
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
-          {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-5 last:mb-0"><p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-blue-100/40">{group}</p><div className="space-y-1">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
-              <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `group relative flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${isActive ? "bg-white text-[#173453] shadow-[0_7px_20px_rgba(4,18,35,0.16)]" : "text-blue-50/70 hover:bg-white/[0.08] hover:text-white"}`}>
-                {({ isActive }) => <><span className={`absolute inset-y-2 left-0 w-0.5 rounded-full transition-colors ${isActive ? "bg-primary" : "bg-transparent"}`} /><Icon size={18} strokeWidth={isActive ? 2.25 : 1.8} /><span>{label}</span></>}
+        <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3.5 py-5">
+          {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-6 last:mb-0"><p className="mb-2.5 px-3 text-[9px] font-bold uppercase tracking-[0.18em] text-blue-100/35">{group}</p><div className="space-y-1">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
+              <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `group relative flex min-h-11 items-center gap-3 rounded-[13px] px-3.5 py-2.5 text-sm font-medium transition-[color,background-color,transform] duration-200 ${isActive ? "bg-white/[0.11] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]" : "text-blue-50/65 hover:translate-x-0.5 hover:bg-white/[0.055] hover:text-white"}`}>
+                {({ isActive }) => <><span className={`absolute inset-y-2.5 left-0 w-0.5 rounded-full transition-colors ${isActive ? "bg-[#8fc1e8]" : "bg-transparent"}`} /><Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} /><span>{label}</span></>}
               </NavLink>
             ))}</div></div>)}
         </nav>
-        <div className="shrink-0 border-t border-white/[0.08] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <div className="mb-2 flex items-center gap-3 rounded-xl bg-white/[0.06] px-3 py-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-blue-50"><UserRound size={17} /></div><div className="min-w-0 flex-1"><b className="block truncate text-xs text-white">{profile?.name || "이름 미등록"}</b><span className="mt-0.5 block truncate text-[11px] text-blue-100/55">{profile?.role === "admin" ? "관리자" : "직원"} · {user?.email}</span></div></div>
+        <div className="shrink-0 border-t border-white/[0.065] p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))]">
+          <div className="app-sidebar-profile mb-2.5 flex items-center gap-3 rounded-[14px] border border-white/[0.055] px-3 py-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.09] text-blue-50"><UserRound size={17} /></div><div className="min-w-0 flex-1"><b className="block truncate text-xs text-white">{profile?.name || "이름 미등록"}</b><span className="mt-0.5 block truncate text-[11px] text-blue-100/50">{profile?.role === "admin" ? "관리자" : "직원"} · {user?.email}</span></div></div>
           <button
             onClick={() => void signOut()}
-            className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-blue-50/70 transition hover:bg-white/[0.08] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            className="flex min-h-11 w-full items-center gap-3 rounded-[13px] px-3 py-2.5 text-sm text-blue-50/60 transition hover:bg-white/[0.055] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
           >
             <LogOut size={18} />
             로그아웃

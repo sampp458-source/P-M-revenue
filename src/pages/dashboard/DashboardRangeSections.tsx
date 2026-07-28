@@ -125,11 +125,11 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
     ? activeRange.from
     : `${activeRange.from} ~ ${activeRange.to}`;
   return (
-    <Card className="dashboard-surface p-3 shadow-none sm:p-6">
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <Card className="dashboard-surface dashboard-calendar-surface p-3.5 shadow-none sm:p-7">
+      <div className="mb-5 flex flex-col gap-4 sm:mb-6 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-bold text-text-primary">{monthTitle}</h2>
+            <h2 className="dashboard-section-title font-bold text-text-primary">{monthTitle}</h2>
             <Badge>월 전체 캘린더</Badge>
           </div>
           <p className="mt-1 text-[13px] leading-5 text-text-muted">
@@ -140,7 +140,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
           <p className="mt-1 text-[11px] leading-4 text-text-muted">
             선택 기간 밖 날짜도 월 전체 흐름을 확인할 수 있도록 흐리게 표시합니다.
           </p>
-          <div className="mt-2 flex flex-wrap gap-x-3 gap-y-2 text-[11px] text-text-muted" aria-label="캘린더 표시 기준">
+          <div className="mt-3 flex flex-wrap gap-x-3.5 gap-y-2 text-[11px] text-[#7e8998]" aria-label="캘린더 표시 기준">
             <CalendarIndicator color="border-primary bg-primary-subtle" label="선택 기간" square />
             <CalendarIndicator color="border-primary bg-white" label="선택일" square />
             <CalendarIndicator color="border-primary border-dashed bg-white" label="오늘" square />
@@ -161,12 +161,12 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-7 gap-0.5 text-center text-[11px] font-semibold text-text-muted sm:gap-1">
+      <div className="grid grid-cols-7 gap-0.5 border-b border-border/55 pb-1.5 text-center text-[11px] font-semibold text-[#7e8998] sm:gap-1">
         {["일", "월", "화", "수", "목", "금", "토"].map((day) => (
-          <span key={day} className="py-1">{day}</span>
+          <span key={day} className="py-1.5">{day}</span>
         ))}
       </div>
-      <div className="mt-1 grid grid-cols-7 gap-0.5 sm:gap-1">
+      <div className="mt-2 grid grid-cols-7 gap-0.5 sm:mt-2.5 sm:gap-1.5">
         {monthDays(month).map((date, index) => {
           if (!date) {
             return <span key={`empty-${index}`} className="min-h-16 rounded-md bg-surface-secondary/45 sm:min-h-24 sm:rounded-lg" />;
@@ -189,7 +189,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
               type="button"
               onClick={() => onSelect(date)}
               className={cn(
-                "relative min-h-16 overflow-hidden rounded-md border p-1 text-left transition-[transform,border-color,background-color,opacity] duration-200 ease-out hover:-translate-y-px hover:border-primary/30 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-24 sm:rounded-lg sm:p-2",
+                "relative min-h-16 overflow-hidden rounded-md border p-1.5 text-left transition-[transform,border-color,background-color,opacity] duration-200 ease-out hover:-translate-y-px hover:border-primary/30 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-24 sm:rounded-[10px] sm:p-2.5",
                 hideAmounts
                   ? inActiveRange
                     ? "bg-surface-secondary/80 hover:bg-primary-subtle"

@@ -136,25 +136,70 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
     --pm-dashboard-radius-md: .875rem;
     --pm-dashboard-radius-lg: 1.125rem;
     --pm-dashboard-surface-primary: #fff;
-    --pm-dashboard-surface-secondary: #fafbfc;
-    --pm-dashboard-surface-highlight: #f3f8fc;
-    --pm-dashboard-border: #e8edf2;
+    --pm-dashboard-surface-secondary: #fbfbfa;
+    --pm-dashboard-surface-highlight: #f4f8fc;
+    --pm-dashboard-border: #e6ebf0;
     --pm-dashboard-drawer: #142b46;
     --pm-dashboard-section-gap: clamp(2rem, 4vw, 3rem);
     --pm-dashboard-hero-number: clamp(2rem, 10.5vw, 4rem);
     --pm-dashboard-section-number: clamp(1.7rem, 7vw, 2.4rem);
     --pm-dashboard-card-number: clamp(1.35rem, 5.5vw, 2rem);
+    color: #1b293d;
   }
   .dashboard-surface {
     border-color: var(--pm-dashboard-border);
     border-radius: var(--pm-dashboard-radius-lg);
     background: var(--pm-dashboard-surface-primary);
-    box-shadow: 0 1px 2px rgb(23 36 58 / .025);
+    box-shadow: 0 1px 2px rgb(23 36 58 / .02);
   }
   .dashboard-hero-surface {
     background:
-      radial-gradient(circle at 92% 8%, rgb(39 76 119 / .055), transparent 36%),
-      linear-gradient(135deg, #f9fcff 0%, var(--pm-dashboard-surface-highlight) 62%, #fbfcfd 100%);
+      radial-gradient(circle at 88% 0%, rgb(75 116 157 / .07), transparent 34%),
+      linear-gradient(135deg, #fff 0%, #f8fbfe 58%, #f4f8fc 100%);
+    box-shadow:
+      0 1px 2px rgb(23 36 58 / .025),
+      0 18px 48px rgb(39 76 119 / .055);
+  }
+  .dashboard-supporting-surface {
+    background: linear-gradient(180deg, #fff 0%, #fdfdfc 100%);
+  }
+  .dashboard-calendar-surface {
+    background: linear-gradient(180deg, #fff 0%, #fdfdfc 100%);
+    box-shadow: 0 14px 40px rgb(23 36 58 / .04);
+  }
+  .dashboard-section-title {
+    font-size: clamp(1.05rem, 1.8vw, 1.25rem);
+    letter-spacing: -.025em;
+  }
+  .dashboard-eyebrow {
+    letter-spacing: .11em;
+  }
+  .dashboard-business-card {
+    isolation: isolate;
+  }
+  .dashboard-unit-daycare {
+    --pm-unit-glow: rgb(14 165 233 / .085);
+    background: radial-gradient(circle at 88% 6%, var(--pm-unit-glow), transparent 32%), #fff;
+  }
+  .dashboard-unit-training {
+    --pm-unit-glow: rgb(139 92 246 / .075);
+    background: radial-gradient(circle at 88% 6%, var(--pm-unit-glow), transparent 32%), #fff;
+  }
+  .dashboard-unit-hotel {
+    --pm-unit-glow: rgb(245 158 11 / .09);
+    background: radial-gradient(circle at 88% 6%, var(--pm-unit-glow), transparent 32%), #fff;
+  }
+  .dashboard-unit-accent {
+    background: var(--pm-unit-accent, #94a3b8);
+  }
+  .dashboard-unit-daycare .dashboard-unit-accent {
+    --pm-unit-accent: #38a7d8;
+  }
+  .dashboard-unit-training .dashboard-unit-accent {
+    --pm-unit-accent: #8a73cf;
+  }
+  .dashboard-unit-hotel .dashboard-unit-accent {
+    --pm-unit-accent: #d69b3b;
   }
   .dashboard-hero-number {
     font-size: var(--pm-dashboard-hero-number);
@@ -176,6 +221,21 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   }
   aside.dashboard-date-drawer {
     background: var(--pm-dashboard-drawer) !important;
+  }
+
+  .app-sidebar {
+    background:
+      radial-gradient(circle at 15% 0%, rgb(115 154 194 / .16), transparent 27%),
+      linear-gradient(180deg, #183552 0%, #142d48 55%, #12283f 100%) !important;
+    border-right: 1px solid rgb(255 255 255 / .045);
+  }
+  .app-sidebar-nav {
+    scrollbar-color: rgb(255 255 255 / .14) transparent;
+    scrollbar-width: thin;
+  }
+  .app-sidebar-profile {
+    background: linear-gradient(135deg, rgb(255 255 255 / .075), rgb(255 255 255 / .035));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / .035);
   }
 
   @media (min-width: 1024px) and (max-width: 1279px) {
