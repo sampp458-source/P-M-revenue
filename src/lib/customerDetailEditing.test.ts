@@ -13,6 +13,10 @@ const dogManagement = readFileSync(
   new URL("../pages/DogManagement.tsx", import.meta.url),
   "utf8",
 );
+const dogProfile = readFileSync(
+  new URL("../pages/DogProfileModal.tsx", import.meta.url),
+  "utf8",
+);
 
 const customerList = readFileSync(
   new URL("../pages/Pets.tsx", import.meta.url),
@@ -33,7 +37,8 @@ describe("customer editing inside pet workflow", () => {
   });
 
   it("edits the selected Customer Master without leaving the pet screen", () => {
-    expect(dogManagement).toContain("보호자 수정");
+    expect(dogProfile).toContain("보호자 정보");
+    expect(dogProfile).toContain("onEditOwner");
     expect(dogManagement).toContain("보호자 정보 수정");
     expect(dogManagement).toContain('label="주소"');
     expect(dogManagement).toContain('.from("customers")');

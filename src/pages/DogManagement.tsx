@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Pencil, Plus } from "lucide-react";
+import { Eye, Pencil, Plus } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import {
   Button,
@@ -33,6 +33,11 @@ import {
   hasCustomerIdentity,
   normalizeCustomerPhone,
 } from "./customerIdentity";
+import {
+  DogProfileModal,
+  type DogProfileDog,
+} from "./DogProfileModal";
+import type { DogProfileActivity } from "./dogProfile";
 import { CustomerList } from "./Pets";
 
 interface OwnerOption {
@@ -67,6 +72,7 @@ interface DogForm {
   sex: "male" | "female" | "";
   birthDate: string;
   weight: string;
+  neutered: "" | "yes" | "no";
   memo: string;
 }
 
@@ -92,6 +98,7 @@ const emptyForm = (): DogForm => ({
   sex: "",
   birthDate: "",
   weight: "",
+  neutered: "",
   memo: "",
 });
 
@@ -105,6 +112,10 @@ export function PetManagementPage() {
   const [activeFilter, setActiveFilter] = useState("active");
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<DogForm | null>(null);
+  const [profileDogId, setProfileDogId] = useState<string | null>(null);
+  const [profileActivities, setProfileActivities] = useState<DogProfileActivity[]>([]);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState("");
   const [ownerSearch, setOwnerSearch] = useState("");
   const [ownerCreating, setOwnerCreating] = useState(false);
   const [ownerEditing, setOwnerEditing] = useState<OwnerOption | null>(null);
@@ -170,6 +181,49 @@ export function PetManagementPage() {
     void loadData();
   }, [loadData]);
 
+  const loadProfileActivities = useCallback(async (dogId: string) => {
+    setProfileLoading(true);
+    setProfileError("");
+    const result = await supabase
+      .from("sales")
+      .select(
+        "id, sale_date, created_at, business_unit_id, business_unit_name, product_name, quantity, unit_label, status, cancellation_type",
+      )
+      .eq("dog_id", dogId)
+      .order("sale_date", { ascending: false })
+      .order("created_at", { ascending: false });
+    setProfileLoading(false);
+    if (result.error) {
+      logSupabaseError("반려견 프로필 이용 이력 조회", result.error, result.status);
+      setProfileActivities([]);
+      setProfileError("이용 이력을 불러오지 못했습니다.");
+      return;
+    }
+    setProfileActivities(
+      (result.data ?? []).map((row) => ({
+        id: row.id,
+        saleDate: row.sale_date,
+        createdAt: row.created_at,
+        businessUnitId: row.business_unit_id,
+        businessUnitName: row.business_unit_name,
+        productName: row.product_name,
+        quantity: Math.max(1, Number(row.quantity) || 1),
+        unitLabel: row.unit_label,
+        status: row.status,
+        cancellationType: row.cancellation_type,
+      })),
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!profileDogId) {
+      setProfileActivities([]);
+      setProfileError("");
+      return;
+    }
+    void loadProfileActivities(profileDogId);
+  }, [loadProfileActivities, profileDogId]);
+
   const breeds = useMemo(
     () => [...new Set(dogs.map((dog) => dog.breed).filter((value): value is string => Boolean(value)))].sort(),
     [dogs],
@@ -207,6 +261,21 @@ export function PetManagementPage() {
     () => owners.find((owner) => owner.id === editing?.customerId) ?? null,
     [editing?.customerId, owners],
   );
+  const profileDog = useMemo(
+    () => dogs.find((dog) => dog.id === profileDogId) ?? null,
+    [dogs, profileDogId],
+  );
+  const profileOwner = useMemo(
+    () =>
+      owners.find((owner) => owner.id === profileDog?.customerId) ?? null,
+    [owners, profileDog?.customerId],
+  );
+  const openProfile = (dogId: string) => {
+    setProfileActivities([]);
+    setProfileError("");
+    setProfileLoading(true);
+    setProfileDogId(dogId);
+  };
 
   const openEdit = (dog: DogRow) => {
     setFormError("");
@@ -221,6 +290,8 @@ export function PetManagementPage() {
       sex: dog.sex ?? "",
       birthDate: dog.birthDate ?? "",
       weight: dog.weight === null ? "" : String(dog.weight),
+      neutered:
+        dog.neutered === null ? "" : dog.neutered ? "yes" : "no",
       memo: dog.memo ?? "",
     });
   };
@@ -395,6 +466,8 @@ export function PetManagementPage() {
       sex: editing.sex || null,
       birth_date: editing.birthDate || null,
       weight,
+      neutered:
+        editing.neutered === "" ? null : editing.neutered === "yes",
       memo: editing.memo.trim() || null,
     };
     setSaving(true);
@@ -467,12 +540,19 @@ export function PetManagementPage() {
             <Table className="min-w-[1100px]">
               <thead><tr><th>반려견명</th><th>보호자명</th><th>연락처</th><th>견종</th><th>성별</th><th>생년월일</th><th>체중</th><th>상태</th><th>메모</th><th className="text-right">관리</th></tr></thead>
               <tbody>{rows.map((dog) => {
-                const owner = owners.find((item) => item.id === dog.customerId) ?? null;
                 return <tr key={dog.id}>
-                  <td className="font-semibold text-slate-900">{dog.name}</td><td>{dog.ownerName || "미등록"}</td><td>{dog.ownerPhone || "-"}</td><td>{dog.breed || "-"}</td><td>{dog.sex === "male" ? "수컷" : dog.sex === "female" ? "암컷" : "-"}</td><td>{dog.birthDate ? koDate(dog.birthDate) : "-"}</td><td>{dog.weight === null ? "-" : `${dog.weight}kg`}</td><td><StatusBadge status={dog.active ? "active" : "inactive"} /></td><td className="max-w-xs truncate">{dog.memo || "-"}</td>
+                  <td className="font-semibold text-slate-900">
+                    <button
+                      type="button"
+                      className="rounded-md text-left hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      onClick={() => openProfile(dog.id)}
+                    >
+                      {dog.name}
+                    </button>
+                  </td><td>{dog.ownerName || "미등록"}</td><td>{dog.ownerPhone || "-"}</td><td>{dog.breed || "-"}</td><td>{dog.sex === "male" ? "수컷" : dog.sex === "female" ? "암컷" : "-"}</td><td>{dog.birthDate ? koDate(dog.birthDate) : "-"}</td><td>{dog.weight === null ? "-" : `${dog.weight}kg`}</td><td><StatusBadge status={dog.active ? "active" : "inactive"} /></td><td className="max-w-xs truncate">{dog.memo || "-"}</td>
                   <td><div className="flex flex-wrap justify-end gap-2">
-                    {owner && <Button variant="secondary" onClick={() => openOwnerEdit(owner)}><Pencil size={15} />보호자 수정</Button>}
-                    {profile?.role === "admin" && <><Button variant="secondary" onClick={() => openEdit(dog)}>반려견 수정</Button>{dog.active && <Button variant="secondary" onClick={() => setDeactivating(dog)}>비활성화</Button>}</>}
+                    <Button variant="secondary" onClick={() => openProfile(dog.id)}><Eye size={15} />프로필</Button>
+                    {profile?.role === "admin" && dog.active && <Button variant="secondary" onClick={() => setDeactivating(dog)}>비활성화</Button>}
                   </div></td>
                 </tr>;
               })}</tbody>
@@ -481,7 +561,31 @@ export function PetManagementPage() {
         </Card>
         {!loading && !loadError && filtered.length > 0 && <Pagination page={page} totalPages={totalPages} totalLabel={`총 ${filtered.length}마리`} onPageChange={setPage} />}
       </>}
-      <Modal open={!!editing && !ownerCreating && !ownerEditing} onClose={() => !saving && setEditing(null)} title={editing?.id ? "반려견 수정" : "반려견 등록"} wide>
+      <DogProfileModal
+        dog={
+          editing || ownerCreating || ownerEditing
+            ? null
+            : (profileDog as DogProfileDog | null)
+        }
+        owner={profileOwner}
+        activities={profileActivities}
+        loading={profileLoading}
+        error={profileError}
+        canEditDog={profile?.role === "admin"}
+        onClose={() => setProfileDogId(null)}
+        onEditDog={() => {
+          if (profileDog) openEdit(profileDog);
+        }}
+        onEditOwner={() => openOwnerEdit(profileOwner)}
+        onOpenOwnerMaster={() => {
+          setProfileDogId(null);
+          setView("customers");
+        }}
+        onRetry={() => {
+          if (profileDogId) void loadProfileActivities(profileDogId);
+        }}
+      />
+      <Modal open={!!editing && !ownerCreating && !ownerEditing} onClose={() => !saving && setEditing(null)} title={editing?.id ? "반려견 정보 수정" : "반려견 등록"} wide>
         {editing && <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Field label={profile?.role === "staff" && !editing.id ? "보호자 연결" : "보호자 연결 (선택)"}>
@@ -529,6 +633,7 @@ export function PetManagementPage() {
           <Field label="성별"><Select value={editing.sex} disabled={saving} onChange={(e) => setEditing({ ...editing, sex: e.target.value as DogForm["sex"] })}><option value="">선택</option><option value="male">수컷</option><option value="female">암컷</option></Select></Field>
           <Field label="생년월일"><Input type="date" value={editing.birthDate} disabled={saving} onChange={(e) => setEditing({ ...editing, birthDate: e.target.value })} /></Field>
           <Field label="체중(kg)"><Input name="weight" aria-describedby={formError ? "dog-form-error" : undefined} type="number" min="0.01" step="0.01" value={editing.weight} disabled={saving} onChange={(e) => setEditing({ ...editing, weight: e.target.value })} /></Field>
+          <Field label="중성화"><Select value={editing.neutered} disabled={saving} onChange={(e) => setEditing({ ...editing, neutered: e.target.value as DogForm["neutered"] })}><option value="">미등록</option><option value="yes">완료</option><option value="no">미완료</option></Select></Field>
           <div className="sm:col-span-2"><Field label="메모"><Textarea rows={3} value={editing.memo} disabled={saving} onChange={(e) => setEditing({ ...editing, memo: e.target.value })} /></Field></div>
           {duplicateDog && !allowDuplicateDog && <div className="rounded-xl bg-warning-soft p-3 text-sm text-text-secondary sm:col-span-2"><p>같은 보호자에게 <strong className="text-text-primary">{duplicateDog.name}</strong>이(가) 이미 등록되어 있습니다.</p><div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => { setQuery(duplicateDog.name); setEditing(null); setDuplicateDog(null); }}>기존 반려견 보기</Button><Button type="button" variant="ghost" onClick={() => { setAllowDuplicateDog(true); setFormError(""); }}>그래도 새로 등록</Button></div></div>}
           {formError && <p id="dog-form-error" role="alert" className="text-sm text-error sm:col-span-2">{formError}</p>}<Button className="sm:col-span-2" disabled={saving}>{saving ? "저장 중..." : "저장"}</Button>
