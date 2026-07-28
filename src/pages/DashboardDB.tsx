@@ -27,6 +27,10 @@ import {
   filterAccountingEvents,
   type AccountingEventView,
 } from "./accountingLedgerEvents";
+import {
+  dashboardThemeCode,
+  dashboardThemeStyle,
+} from "./dashboard/dashboardTheme";
 
 const validPeriods = new Set<DashboardPeriod>(["today", "yesterday", "this_week", "last_week", "this_month", "last_month", "custom"]);
 const validComparisons = new Set<DashboardCompare>(["day", "week", "month", "previous"]);
@@ -296,7 +300,12 @@ export function DashboardPage() {
   );
   const representedTotal = coreDivisions.reduce((total, division) => total + division.revenue, 0);
   const otherRevenue = Math.max(0, overview.salesAmount - representedTotal);
-  const selectedUnitName = units.find((unit) => unit.id === unitId)?.name ?? "전체 사업부";
+  const selectedUnit = units.find((unit) => unit.id === unitId);
+  const selectedUnitName = selectedUnit?.name ?? "전체 사업부";
+  const selectedThemeCode = dashboardThemeCode(
+    selectedUnit?.code,
+    selectedUnit?.name,
+  );
   const compareLabel = dashboardCompareLabel(compare);
   const periodLabel = dashboardPeriodLabel(period);
   const rangeLabel =
@@ -417,7 +426,11 @@ export function DashboardPage() {
 
   if (loading) return <DashboardSkeleton />;
   if (error) return <ErrorState title="대시보드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." retry={() => void load()} />;
-  return <div className="dashboard-shell pt-1">
+  return <div
+    className="dashboard-shell pt-1"
+    data-dashboard-theme={selectedThemeCode}
+    style={dashboardThemeStyle(selectedThemeCode)}
+  >
     {!isAdmin && (
       <Card className="mb-6 overflow-hidden border-warning/20 bg-warning-soft/45 p-0">
         <button
@@ -467,11 +480,11 @@ export function DashboardPage() {
       {isAdmin && otherRevenue > 0 && <p className="mt-3 rounded-xl border border-warning/20 bg-warning-soft px-4 py-3 text-sm text-text-secondary">기타·비활성 사업부 매출 {won(otherRevenue)}이 총매출에 포함되어 있습니다.</p>}
     </section>
     <div className={dateDrawerOpen ? "transition-[padding] duration-200 lg:pr-[min(480px,44vw)]" : "transition-[padding] duration-200"}>
-      <div className="mt-10"><SalesHeatmapCalendar month={calendarMonth} activeRange={range} data={calendarData} totalData={calendarTotalData} unitName={selectedUnitName} today={today} selectedDate={selectedDate} hideAmounts={!isAdmin} onMonth={setCalendarMonth} onSelect={selectCalendarDate} /></div>
+      <div className="mt-10"><SalesHeatmapCalendar month={calendarMonth} activeRange={range} data={calendarData} totalData={calendarTotalData} unitName={selectedUnitName} themeCode={selectedThemeCode} today={today} selectedDate={selectedDate} hideAmounts={!isAdmin} onMonth={setCalendarMonth} onSelect={selectCalendarDate} /></div>
       {isAdmin && <div className="mt-8"><RecentSales rows={recent} onOpen={() => navigate(`/sales?period=custom&start=${range.from}&end=${range.to}${unitId ? `&unit=${unitId}` : ""}`)} /></div>}
       {isAdmin && <div className="mt-8"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={selectCalendarDate} /></div>}
     </div>
-    <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} summary={selectedDateSummary} rows={selectedDateSales} payments={selectedDatePayments} refunds={selectedDateRefunds} paymentMethodTotals={selectedDatePaymentMethods} units={units} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onOpenSales={() => openSales(selectedDate, unitId)} />
+    <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} themeCode={selectedThemeCode} summary={selectedDateSummary} rows={selectedDateSales} payments={selectedDatePayments} refunds={selectedDateRefunds} paymentMethodTotals={selectedDatePaymentMethods} units={units} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onOpenSales={() => openSales(selectedDate, unitId)} />
     <DashboardAccountingDrawer
       open={Boolean(accountingDrawerView)}
       view={accountingDrawerView ?? "sales"}

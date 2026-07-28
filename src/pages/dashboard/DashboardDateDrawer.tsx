@@ -10,6 +10,12 @@ import {
   type DashboardSale,
 } from "./dashboardMetrics";
 import type { PaymentLedgerEntry } from "../paymentLedgerMetrics";
+import {
+  dashboardThemeCode,
+  dashboardThemeMap,
+  dashboardThemeStyle,
+  type DashboardThemeCode,
+} from "./dashboardTheme";
 
 const paymentLabels: Record<string, string> = {
   card: "카드",
@@ -39,6 +45,7 @@ export function DashboardDateDrawer({
   open,
   date,
   unitName,
+  themeCode,
   summary,
   rows,
   payments,
@@ -52,6 +59,7 @@ export function DashboardDateDrawer({
   open: boolean;
   date: string;
   unitName: string;
+  themeCode: DashboardThemeCode;
   summary: DailyRevenue;
   rows: DashboardSale[];
   payments: Array<{
@@ -168,18 +176,20 @@ export function DashboardDateDrawer({
       />
       <aside
         aria-labelledby={titleId}
-        className="dashboard-date-drawer pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-white/10 text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(480px,44vw)]"
+        data-dashboard-theme={themeCode}
+        style={dashboardThemeStyle(themeCode)}
+        className="dashboard-date-drawer pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(480px,44vw)]"
       >
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/[0.08] px-5 py-3.5 sm:px-6">
+        <div className="dashboard-drawer-header flex shrink-0 items-start justify-between gap-4 border-b px-5 py-3 sm:px-6">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-blue-100">
+            <span className="dashboard-drawer-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
               <CalendarDays size={18} />
             </span>
             <div className="min-w-0">
               <h2 id={titleId} className="text-xl font-bold tracking-[-0.025em] text-white tabular-nums">
                 {date}
               </h2>
-              <p className="mt-1 break-keep text-sm font-semibold leading-5 text-blue-100">
+              <p className="dashboard-drawer-accent-text mt-0.5 break-keep text-sm font-semibold leading-5">
                 {unitName}
                 <span className="ml-1.5 font-normal text-slate-300">· 날짜별 거래 상세</span>
               </p>
@@ -190,20 +200,20 @@ export function DashboardDateDrawer({
             type="button"
             aria-label="날짜 상세 닫기"
             onClick={onClose}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+            className="dashboard-drawer-control flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2"
           >
             <X size={20} />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain">
-          <div className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#142b46]/95 p-4 backdrop-blur sm:px-6 sm:py-5">
-          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035] p-4 text-white sm:p-5">
-            <p className="text-xs font-semibold text-blue-200">판매금액</p>
-            <strong className="mt-2 block whitespace-nowrap text-[clamp(1.75rem,8vw,2.75rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
+          <div className="dashboard-drawer-summary sticky top-0 z-10 border-b p-3.5 backdrop-blur sm:px-6 sm:py-4">
+          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035] p-3.5 text-white sm:p-4">
+            <p className="dashboard-drawer-accent-text text-xs font-semibold">판매금액</p>
+            <strong className="mt-1.5 block whitespace-nowrap text-[clamp(1.7rem,8vw,2.55rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
               {won(summary.salesAmount)}
             </strong>
-            <div className="mt-4 grid grid-cols-1 gap-2 border-t border-white/[0.08] pt-3.5 min-[430px]:grid-cols-3 min-[430px]:gap-3">
+            <div className="mt-3 grid grid-cols-1 gap-2 border-t border-white/[0.08] pt-3 min-[430px]:grid-cols-3 min-[430px]:gap-3">
               <Summary label="실수납" value={won(summary.revenue)} />
               <Summary label="현재 미수" value={won(summary.outstanding)} warning={summary.outstanding > 0} />
               <Summary label="환불" value={won(summary.refund)} warning={summary.refund > 0} />
@@ -214,7 +224,7 @@ export function DashboardDateDrawer({
           <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
           <div>
             <div className="-mx-1 mb-4 overflow-x-auto px-1 pb-1">
-              <div className="flex min-w-max gap-1 rounded-xl bg-white/[0.045] p-1" role="tablist" aria-label="날짜 상세 사업부">
+              <div className="flex min-w-max gap-1 rounded-xl bg-white/[0.045] p-0.5" role="tablist" aria-label="날짜 상세 사업부">
                 <UnitTab active={selectedUnitId === "all"} onClick={() => setSelectedUnitId("all")}>
                   전체
                 </UnitTab>
@@ -223,7 +233,7 @@ export function DashboardDateDrawer({
                     key={group.id}
                     active={selectedUnitId === group.id}
                     onClick={() => setSelectedUnitId(group.id)}
-                    dot={businessUnitTone(group.code).dot}
+                    dotColor={dashboardThemeMap[dashboardThemeCode(group.code, group.name)].accent}
                   >
                     {group.name}
                   </UnitTab>
@@ -279,12 +289,12 @@ function UnitTab({
   active,
   onClick,
   children,
-  dot,
+  dotColor,
 }: {
   active: boolean;
   onClick: () => void;
   children: string;
-  dot?: string;
+  dotColor?: string;
 }) {
   return (
     <button
@@ -293,13 +303,13 @@ function UnitTab({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        "inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300",
+        "dashboard-drawer-tab inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2",
         active
-          ? "bg-white text-[#173d65]"
+          ? "dashboard-drawer-tab-active bg-white"
           : "text-slate-300 hover:bg-white/[0.07] hover:text-white",
       )}
     >
-      {dot && <span className={cn("h-1.5 w-1.5 rounded-full", dot)} aria-hidden="true" />}
+      {dotColor && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dotColor }} aria-hidden="true" />}
       {children}
     </button>
   );
@@ -435,19 +445,17 @@ function BusinessUnitSummaryRow({
   group: SaleGroup;
   onClick: () => void;
 }) {
-  const tone = businessUnitTone(group.code);
   const stats = groupStats(group);
+  const themeCode = dashboardThemeCode(group.code, group.name);
   return (
     <button
       type="button"
       onClick={onClick}
-      className={cn(
-        "flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border bg-white/[0.035] px-4 py-3 text-left transition-colors hover:bg-white/[0.07] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300",
-        tone.border,
-      )}
+      style={dashboardThemeStyle(themeCode)}
+      className="dashboard-drawer-unit-row flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border bg-white/[0.035] px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2"
     >
       <span className="inline-flex min-w-0 items-center gap-2.5">
-        <span className={cn("h-2 w-2 shrink-0 rounded-full", tone.dot)} aria-hidden="true" />
+        <span className="dashboard-theme-dot h-2 w-2 shrink-0 rounded-full" aria-hidden="true" />
         <span className="min-w-0">
           <strong className="block truncate text-sm text-white">{group.name}</strong>
           <span className="mt-1 block text-[11px] text-slate-300">
@@ -472,18 +480,19 @@ function BusinessUnitTransactions({
   group: SaleGroup;
   onOpenSale: (saleId: string) => void;
 }) {
-  const tone = businessUnitTone(group.code);
   const stats = groupStats(group);
+  const themeCode = dashboardThemeCode(group.code, group.name);
   return (
     <section
       aria-labelledby={`dashboard-date-unit-${group.id}`}
-      className={cn("overflow-hidden rounded-2xl border", tone.border)}
+      style={dashboardThemeStyle(themeCode)}
+      className="dashboard-drawer-unit-section overflow-hidden rounded-2xl border"
       role="tabpanel"
     >
-      <div className={cn("flex items-center justify-between gap-3 border-b px-4 py-3", tone.header, tone.border)}>
+      <div className="dashboard-drawer-unit-header flex items-center justify-between gap-3 border-b px-4 py-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className={cn("h-2 w-2 shrink-0 rounded-full", tone.dot)} aria-hidden="true" />
+            <span className="dashboard-theme-dot h-2 w-2 shrink-0 rounded-full" aria-hidden="true" />
             <h3 id={`dashboard-date-unit-${group.id}`} className="truncate text-sm font-bold text-white">
               {group.name}
             </h3>
@@ -561,35 +570,6 @@ function BusinessUnitTransactions({
       )}
     </section>
   );
-}
-
-function businessUnitTone(code: string) {
-  if (code === "daycare") {
-    return {
-      border: "border-sky-300/20",
-      header: "bg-sky-300/[0.08]",
-      dot: "bg-sky-300",
-    };
-  }
-  if (code === "training") {
-    return {
-      border: "border-violet-300/20",
-      header: "bg-violet-300/[0.08]",
-      dot: "bg-violet-300",
-    };
-  }
-  if (code === "hotel") {
-    return {
-      border: "border-amber-300/20",
-      header: "bg-amber-300/[0.08]",
-      dot: "bg-amber-300",
-    };
-  }
-  return {
-    border: "border-slate-300/20",
-    header: "bg-slate-300/[0.08]",
-    dot: "bg-slate-300",
-  };
 }
 
 function Summary({

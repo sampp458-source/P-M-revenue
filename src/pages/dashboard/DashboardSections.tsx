@@ -3,6 +3,10 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import { Badge, Button, Card, EmptyState, Select, Skeleton, StatusBadge, cn } from "../../components/ui";
 import { monthLabel, shortWon, won } from "../../lib/format";
 import { formatRevenueComparison, type BusinessUnitOption, type DashboardSale } from "./dashboardMetrics";
+import {
+  dashboardThemeCode,
+  dashboardThemeStyle,
+} from "./dashboardTheme";
 
 export function DashboardFilters({ month, unitId, months, units, onMonth, onUnit }: { month: string; unitId: string; months: string[]; units: BusinessUnitOption[]; onMonth: (value: string) => void; onUnit: (value: string) => void }) {
   return <Card className="mb-5 overflow-hidden"><div className="flex flex-col gap-4 p-4 sm:flex-row sm:items-end sm:p-5"><div className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary sm:flex"><CalendarDays size={20} /></div><label className="block flex-1"><span className="mb-1.5 block text-xs font-semibold text-text-secondary">조회 월</span><Select aria-label="대시보드 조회 월" value={month} onChange={(event) => onMonth(event.target.value)}>{months.map((value) => <option key={value} value={value}>{monthLabel(value)}</option>)}</Select></label><label className="block flex-1"><span className="mb-1.5 block text-xs font-semibold text-text-secondary">사업부</span><Select aria-label="대시보드 사업부" value={unitId} onChange={(event) => onUnit(event.target.value)}><option value="">전체 사업부</option>{units.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></label><div className="rounded-xl border border-primary/10 bg-primary-subtle px-4 py-2.5 text-sm text-text-secondary sm:min-w-44"><span className="block text-[11px] font-medium">현재 조회</span><strong className="text-text-primary">{monthLabel(month)}</strong></div></div></Card>;
@@ -248,16 +252,16 @@ export function BusinessUnitCard({
   onClick?: () => void;
 }) {
   const netAmount = receivedAmount - refundAmount;
-  const tone = businessUnitCardTone(code);
+  const themeCode = dashboardThemeCode(code, name);
   return (
-    <Card
-      className={cn(
-        "dashboard-surface dashboard-business-card group relative h-full min-h-[20rem] overflow-hidden p-0 shadow-none transition-[transform,border-color,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/25",
-        tone.card,
-        selected && "border-primary/30 bg-primary-subtle/60 ring-2 ring-primary/10",
-        muted && "opacity-60 hover:opacity-100",
-      )}
-    >
+    <div className="h-full" style={dashboardThemeStyle(themeCode)}>
+      <Card
+        className={cn(
+          "dashboard-surface dashboard-business-card group relative h-full min-h-[20rem] overflow-hidden p-0 shadow-none transition-[transform,border-color,background-color,box-shadow,opacity] duration-200 ease-out hover:-translate-y-0.5",
+          selected && "dashboard-business-card-selected",
+          muted && "dashboard-business-card-muted",
+        )}
+      >
       <span className="dashboard-unit-accent absolute inset-x-6 top-0 h-1 rounded-b-full opacity-90" aria-hidden="true" />
       <button
         type="button"
@@ -267,12 +271,12 @@ export function BusinessUnitCard({
       >
         <span className="flex items-center justify-between gap-3">
           <span className="inline-flex min-w-0 items-center gap-2.5">
-            <span className={cn("dashboard-unit-symbol flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-current/10", tone.symbol)} aria-hidden="true">
+            <span className="dashboard-unit-symbol flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border" aria-hidden="true">
               {businessUnitIcon(code)}
             </span>
             <span className="truncate text-base font-bold text-text-primary">{name}</span>
           </span>
-          <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-[0.08em]", tone.label)}>
+          <span className="dashboard-unit-label inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-[0.08em]">
             <Building2 size={12} />
             0{order}
           </span>
@@ -297,7 +301,8 @@ export function BusinessUnitCard({
           <BusinessMetric label="현재 미수" value={outstandingAmount} warning />
         </span>
       </button>
-    </Card>
+      </Card>
+    </div>
   );
 }
 
@@ -328,19 +333,6 @@ function BusinessMetric({
   );
 }
 
-function businessUnitCardTone(code: string) {
-  if (code === "daycare") {
-    return { dot: "bg-sky-500", symbol: "bg-sky-50 text-sky-700", label: "bg-sky-50/80 text-sky-700", card: "dashboard-unit-daycare" };
-  }
-  if (code === "training") {
-    return { dot: "bg-indigo-500", symbol: "bg-indigo-50 text-indigo-700", label: "bg-indigo-50/80 text-indigo-700", card: "dashboard-unit-training" };
-  }
-  if (code === "hotel") {
-    return { dot: "bg-amber-500", symbol: "bg-amber-50 text-amber-700", label: "bg-amber-50/80 text-amber-700", card: "dashboard-unit-hotel" };
-  }
-  return { dot: "bg-slate-400", symbol: "bg-slate-100 text-slate-600", label: "bg-slate-100 text-slate-600", card: "" };
-}
-
 function businessUnitIcon(code: string) {
   if (code === "daycare") return <PawPrint size={17} strokeWidth={1.9} />;
   if (code === "training") return <GraduationCap size={17} strokeWidth={1.9} />;
@@ -349,14 +341,7 @@ function businessUnitIcon(code: string) {
 }
 
 export function RecentSales({ rows, onOpen }: { rows: DashboardSale[]; onOpen: () => void }) {
-  return <Card className="dashboard-activity-surface overflow-hidden p-0 shadow-none"><div className="flex items-center justify-between gap-4 px-5 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-6"><div><p className="dashboard-eyebrow text-[10px] font-bold uppercase text-primary">Latest activity</p><h2 className="dashboard-section-title mt-1 font-bold text-text-primary">최근 매출</h2><p className="mt-1 text-xs text-text-muted">선택 조건의 최신 등록 5건</p></div><Button aria-label="매출 내역으로 이동" variant="ghost" onClick={onOpen}>전체 거래 보기 <ArrowRight size={16} /></Button></div>{rows.length ? <div className="dashboard-activity-list px-3 pb-3 sm:px-4 sm:pb-4">{rows.map((sale) => { const tone = businessUnitCardTone(businessUnitCodeFromName(sale.businessUnitName)); return <button key={sale.id} type="button" className="dashboard-activity-row group relative grid min-h-[72px] w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl px-3 py-3 text-left transition-[background-color,transform] duration-200 hover:translate-x-0.5 hover:bg-primary-subtle/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-4 sm:px-4" onClick={onOpen}><span className={cn("dashboard-activity-symbol relative z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white", tone.symbol)}><ReceiptText size={16} /><span className="sr-only">{sale.businessUnitName}</span></span><span className="min-w-0"><span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><strong className="max-w-full truncate text-sm text-text-primary">{sale.dogName || "(반려견 없음)"}</strong><StatusBadge status={sale.status as "normal" | "partial_refund" | "full_refund" | "cancelled"} tone={sale.status === "cancelled" ? "gray" : undefined} /></span><span className="mt-0.5 block truncate text-xs leading-5 text-text-secondary">{sale.productName}</span><span className="mt-0.5 block truncate text-[11px] leading-4 text-text-muted">{sale.customerName || "보호자 미등록"} · {paymentLabel(sale.paymentMethod)} · {activityDateLabel(sale.saleDate)}</span></span><span className="col-span-2 flex min-w-0 items-center justify-between gap-2 pl-12 sm:col-span-1 sm:block sm:pl-0 sm:text-right"><span className="text-[10px] font-semibold text-text-muted sm:hidden">{sale.businessUnitName}</span><strong className="whitespace-nowrap text-base font-bold text-primary tabular-nums">{won(sale.netAmount)}</strong></span></button>; })}</div> : <EmptyState title="등록된 매출이 없습니다." />}</Card>;
-}
-
-function businessUnitCodeFromName(name: string) {
-  if (name.includes("유치원")) return "daycare";
-  if (name.includes("교육")) return "training";
-  if (name.includes("호텔")) return "hotel";
-  return "";
+  return <Card className="dashboard-activity-surface overflow-hidden p-0 shadow-none"><div className="flex items-center justify-between gap-4 px-5 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-6"><div><p className="dashboard-eyebrow dashboard-theme-text text-[10px] font-bold uppercase">Latest activity</p><h2 className="dashboard-section-title mt-1 font-bold text-text-primary">최근 매출</h2><p className="mt-1 text-xs text-text-muted">선택 조건의 최신 등록 5건</p></div><Button aria-label="매출 내역으로 이동" variant="ghost" onClick={onOpen}>전체 거래 보기 <ArrowRight size={16} /></Button></div>{rows.length ? <div className="dashboard-activity-list px-3 pb-3 sm:px-4 sm:pb-4">{rows.map((sale) => { const themeCode = dashboardThemeCode(null, sale.businessUnitName); return <button key={sale.id} type="button" style={dashboardThemeStyle(themeCode)} className="dashboard-activity-row group relative grid min-h-[76px] w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl px-3 py-3.5 text-left transition-[background-color,transform] duration-200 hover:translate-x-0.5 focus:outline-none focus-visible:ring-2 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-4 sm:px-4" onClick={onOpen}><span className="dashboard-activity-symbol dashboard-unit-symbol relative z-[1] flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border"><ReceiptText size={16} /><span className="sr-only">{sale.businessUnitName}</span></span><span className="min-w-0"><span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><strong className="max-w-full truncate text-sm text-text-primary">{sale.dogName || "(반려견 없음)"}</strong><StatusBadge status={sale.status as "normal" | "partial_refund" | "full_refund" | "cancelled"} tone={sale.status === "cancelled" ? "gray" : undefined} /></span><span className="mt-0.5 block truncate text-xs leading-5 text-text-secondary">{sale.productName}</span><span className="mt-0.5 block truncate text-[11px] leading-4 text-text-muted">{sale.customerName || "보호자 미등록"} · {paymentLabel(sale.paymentMethod)} · {activityDateLabel(sale.saleDate)}</span></span><span className="col-span-2 flex min-w-0 items-center justify-between gap-2 pl-12 sm:col-span-1 sm:block sm:pl-0 sm:text-right"><span className="text-[10px] font-semibold text-text-muted sm:hidden">{sale.businessUnitName}</span><strong className="dashboard-theme-text whitespace-nowrap text-base font-bold tabular-nums">{won(sale.netAmount)}</strong></span></button>; })}</div> : <EmptyState title="등록된 매출이 없습니다." />}</Card>;
 }
 
 function paymentLabel(method: string) {
