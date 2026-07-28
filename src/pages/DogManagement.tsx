@@ -51,7 +51,6 @@ import {
   type DogProfileActivity,
   type DogProfileActivityRow,
 } from "./dogProfile";
-import { CustomerList } from "./Pets";
 
 interface OwnerOption {
   id: string;
@@ -197,6 +196,12 @@ function DogRowActions({
         <Eye size={15} />
         프로필
       </Button>
+      {owner && (
+        <Button variant="secondary" onClick={onEditOwner}>
+          <Pencil size={15} />
+          보호자 수정
+        </Button>
+      )}
       <div ref={rootRef} className="relative">
         <button
           ref={triggerRef}
@@ -228,19 +233,6 @@ function DogRowActions({
             style={menuPosition}
             className="fixed z-[70] min-w-48 overflow-hidden rounded-xl border border-border bg-surface p-1.5 text-left shadow-lg"
           >
-            {owner && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onEditOwner();
-                }}
-                className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-text-secondary transition hover:bg-surface-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                보호자 정보 수정
-              </button>
-            )}
             {canManageDog && (
               <button
                 type="button"
@@ -276,7 +268,6 @@ function DogRowActions({
 
 export function PetManagementPage() {
   const { profile } = useAuth();
-  const [view, setView] = useState<"dogs" | "customers">("dogs");
   const [dogs, setDogs] = useState<DogRow[]>([]);
   const [owners, setOwners] = useState<OwnerOption[]>([]);
   const [ownerAddressSupported, setOwnerAddressSupported] = useState(true);
@@ -324,9 +315,9 @@ export function PetManagementPage() {
       setDogs([]);
       setLoadError("반려견 목록을 불러오지 못했습니다.");
     } else if (ownersResult.error) {
-      logSupabaseError("보호자 목록 조회", ownersResult.error, ownersResult.status);
+      logSupabaseError("보호자 연결 정보 조회", ownersResult.error, ownersResult.status);
       setDogs([]);
-      setLoadError("보호자 목록을 불러오지 못했습니다.");
+      setLoadError("보호자 연결 정보를 불러오지 못했습니다.");
     } else {
       setDogs(
         (dogsResult.data ?? []).map((dog) => {
@@ -705,21 +696,16 @@ export function PetManagementPage() {
       <PageHeader
         title="반려견 관리"
         description="반려견을 기준으로 보호자 연결 정보와 기본 정보를 관리합니다."
-        action={view === "dogs" ? <Button onClick={() => { setFormError(""); setOwnerSearch(""); setDuplicateDog(null); setAllowDuplicateDog(false); setEditing(emptyForm()); }}><Plus size={17} />반려견 등록</Button> : undefined}
+        action={<Button onClick={() => { setFormError(""); setOwnerSearch(""); setDuplicateDog(null); setAllowDuplicateDog(false); setEditing(emptyForm()); }}><Plus size={17} />반려견 등록</Button>}
       />
-      <div className="mb-4 flex gap-2" aria-label="관리 대상 선택">
-        <Button variant={view === "dogs" ? "primary" : "secondary"} onClick={() => setView("dogs")}>반려견 목록</Button>
-        <Button variant={view === "customers" ? "primary" : "secondary"} onClick={() => setView("customers")}>보호자 목록</Button>
-      </div>
-      {view === "customers" ? <CustomerList onAddDog={(customer) => { setView("dogs"); setFormError(""); setOwnerSearch(`${customer.name || "이름 미등록"} ${customer.phone || ""}`.trim()); setDuplicateDog(null); setAllowDuplicateDog(false); setEditing({ ...emptyForm(), customerId: customer.id }); }} /> : <>
-        <FilterToolbar className="sm:grid-cols-3">
+      <FilterToolbar className="sm:grid-cols-3">
             <SearchBox aria-label="반려견 검색" placeholder="반려견명, 보호자명, 연락처 또는 견종 검색" value={query} onClear={() => { setQuery(""); setPage(1); }} onChange={(e) => { setQuery(e.target.value); setPage(1); }} />
             <Select value={breed} onChange={(e) => { setBreed(e.target.value); setPage(1); }}><option value="">전체 견종</option>{breeds.map((item) => <option key={item}>{item}</option>)}</Select>
             <Select value={activeFilter} onChange={(e) => { setActiveFilter(e.target.value); setPage(1); }}><option value="">전체 상태</option><option value="active">활성</option><option value="inactive">비활성</option></Select>
-        </FilterToolbar>
-        <Card className="overflow-hidden">
-          {loading ? <LoadingState /> : loadError ? <ErrorState title={loadError} retry={() => void loadData()} /> : rows.length ? (
-            <Table className="min-w-[1100px]">
+      </FilterToolbar>
+      <Card className="overflow-hidden">
+        {loading ? <LoadingState /> : loadError ? <ErrorState title={loadError} retry={() => void loadData()} /> : rows.length ? (
+          <Table className="min-w-[1180px]">
               <thead><tr><th>반려견명</th><th>보호자명</th><th>연락처</th><th>견종</th><th>성별</th><th>생년월일</th><th>체중</th><th>상태</th><th>메모</th><th className="text-right">관리</th></tr></thead>
               <tbody>{rows.map((dog) => {
                 const owner = owners.find((item) => item.id === dog.customerId) ?? null;
@@ -747,10 +733,9 @@ export function PetManagementPage() {
                 </tr>;
               })}</tbody>
             </Table>
-          ) : <EmptyState title="등록된 반려견이 없습니다" description="검색 조건을 확인하거나 반려견을 등록해 주세요." />}
-        </Card>
-        {!loading && !loadError && filtered.length > 0 && <Pagination page={page} totalPages={totalPages} totalLabel={`총 ${filtered.length}마리`} onPageChange={setPage} />}
-      </>}
+        ) : <EmptyState title="등록된 반려견이 없습니다" description="검색 조건을 확인하거나 반려견을 등록해 주세요." />}
+      </Card>
+      {!loading && !loadError && filtered.length > 0 && <Pagination page={page} totalPages={totalPages} totalLabel={`총 ${filtered.length}마리`} onPageChange={setPage} />}
       <DogProfileModal
         dog={
           editing || ownerCreating || ownerEditing
@@ -767,10 +752,6 @@ export function PetManagementPage() {
           if (profileDog) openEdit(profileDog);
         }}
         onEditOwner={() => openOwnerEdit(profileOwner)}
-        onOpenOwnerMaster={() => {
-          setProfileDogId(null);
-          setView("customers");
-        }}
         onRetry={() => {
           if (profileDogId) void loadProfileActivities(profileDogId);
         }}

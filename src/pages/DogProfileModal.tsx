@@ -70,7 +70,6 @@ export function DogProfileModal({
   onClose,
   onEditDog,
   onEditOwner,
-  onOpenOwnerMaster,
   onRetry,
 }: {
   dog: DogProfileDog | null;
@@ -82,7 +81,6 @@ export function DogProfileModal({
   onClose: () => void;
   onEditDog: () => void;
   onEditOwner: () => void;
-  onOpenOwnerMaster: () => void;
   onRetry: () => void;
 }) {
   if (!dog) return null;
@@ -156,21 +154,17 @@ export function DogProfileModal({
         >
           {owner ? (
             <div className="rounded-2xl border border-border bg-surface p-5">
-              <button
-                type="button"
-                onClick={onOpenOwnerMaster}
-                className="group flex items-center gap-3 rounded-lg text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
+              <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary">
                   <UserRound size={19} />
                 </span>
                 <span>
-                  <strong className="block text-base text-text-primary group-hover:text-primary">
+                  <strong className="block text-base text-text-primary">
                     {owner.name || "이름 미등록"}
                   </strong>
                   <span className="text-xs text-text-muted">보호자 프로필 보기</span>
                 </span>
-              </button>
+              </div>
               <dl className="mt-5 grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
                 <ProfileField
                   icon={<Phone size={15} />}

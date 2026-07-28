@@ -128,12 +128,21 @@ describe("dog profile audit and Customer Master connection", () => {
   it("extends the existing dog workflow without replacing its edit actions", () => {
     expect(managementUi).toContain("<Eye size={15} />");
     expect(managementUi).toContain("프로필");
-    expect(managementUi).toContain("보호자 정보 수정");
+    expect(managementUi).toContain("보호자 수정");
     expect(managementUi).toContain("반려견 정보 수정");
     expect(managementUi).toContain("관리 더보기");
     expect(managementUi).toContain(
       'title={editing?.id ? "반려견 수정" : "반려견 등록"}',
     );
+  });
+
+  it("opens directly on the dog list without the redundant customer-list tab", () => {
+    expect(managementUi).not.toContain('from "./Pets"');
+    expect(managementUi).not.toContain('useState<"dogs" | "customers">');
+    expect(managementUi).not.toContain("보호자 목록</Button>");
+    expect(managementUi).not.toContain("<CustomerList");
+    expect(managementUi).toContain("반려견 검색");
+    expect(managementUi).toContain("보호자 수정");
   });
 
   it("keeps the requested profile section order", () => {
