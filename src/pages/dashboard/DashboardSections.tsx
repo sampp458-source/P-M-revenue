@@ -1,4 +1,4 @@
-import { AlertCircle, ArrowRight, Building2, CalendarDays, ReceiptText, Target, TrendingUp } from "lucide-react";
+import { AlertCircle, ArrowRight, BedDouble, Building2, CalendarDays, GraduationCap, PawPrint, ReceiptText, Target, TrendingUp } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Badge, Button, Card, EmptyState, Select, Skeleton, StatusBadge, cn } from "../../components/ui";
 import { monthLabel, shortWon, won } from "../../lib/format";
@@ -146,14 +146,13 @@ export function DashboardKpiHero({
       </div>
       <Card className="dashboard-surface dashboard-hero-surface relative overflow-hidden p-0 shadow-none">
         <span className="dashboard-hero-accent absolute inset-y-0 left-0 w-1.5" aria-hidden="true" />
-        <span className="pointer-events-none absolute right-5 top-2 text-[clamp(3rem,9vw,7rem)] font-black tracking-[-0.08em] text-primary/[0.035]" aria-hidden="true">P&amp;M</span>
         <button
           type="button"
           aria-label="결제·환불 통합 원장 열기"
           onClick={onNet}
           className="absolute inset-0 z-10 rounded-[inherit] transition-colors duration-200 hover:bg-primary/[0.025] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         />
-        <div className="relative flex flex-col gap-6 p-6 sm:p-8 xl:flex-row xl:items-end xl:justify-between xl:gap-12 xl:px-9 xl:py-8">
+        <div className="relative flex flex-col gap-5 p-5 sm:p-7 xl:flex-row xl:items-end xl:justify-between xl:gap-12 xl:px-8 xl:py-7">
           <div className="min-w-0">
             <p className="text-[11px] font-bold tracking-[0.04em] text-primary">
               {periodLabel} 순수납
@@ -268,7 +267,9 @@ export function BusinessUnitCard({
       >
         <span className="flex items-center justify-between gap-3">
           <span className="inline-flex min-w-0 items-center gap-2.5">
-            <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", tone.dot)} aria-hidden="true" />
+            <span className={cn("dashboard-unit-symbol flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", tone.symbol)} aria-hidden="true">
+              {businessUnitIcon(code)}
+            </span>
             <span className="truncate text-base font-bold text-text-primary">{name}</span>
           </span>
           <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold tracking-[0.08em]", tone.label)}>
@@ -329,19 +330,41 @@ function BusinessMetric({
 
 function businessUnitCardTone(code: string) {
   if (code === "daycare") {
-    return { dot: "bg-sky-500", label: "bg-sky-50/80 text-sky-700", card: "dashboard-unit-daycare" };
+    return { dot: "bg-sky-500", symbol: "bg-sky-50 text-sky-700", label: "bg-sky-50/80 text-sky-700", card: "dashboard-unit-daycare" };
   }
   if (code === "training") {
-    return { dot: "bg-violet-500", label: "bg-violet-50/80 text-violet-700", card: "dashboard-unit-training" };
+    return { dot: "bg-indigo-500", symbol: "bg-indigo-50 text-indigo-700", label: "bg-indigo-50/80 text-indigo-700", card: "dashboard-unit-training" };
   }
   if (code === "hotel") {
-    return { dot: "bg-amber-500", label: "bg-amber-50/80 text-amber-700", card: "dashboard-unit-hotel" };
+    return { dot: "bg-amber-500", symbol: "bg-amber-50 text-amber-700", label: "bg-amber-50/80 text-amber-700", card: "dashboard-unit-hotel" };
   }
-  return { dot: "bg-slate-400", label: "bg-slate-100 text-slate-600", card: "" };
+  return { dot: "bg-slate-400", symbol: "bg-slate-100 text-slate-600", label: "bg-slate-100 text-slate-600", card: "" };
+}
+
+function businessUnitIcon(code: string) {
+  if (code === "daycare") return <PawPrint size={17} strokeWidth={1.9} />;
+  if (code === "training") return <GraduationCap size={17} strokeWidth={1.9} />;
+  if (code === "hotel") return <BedDouble size={17} strokeWidth={1.9} />;
+  return <Building2 size={17} strokeWidth={1.9} />;
 }
 
 export function RecentSales({ rows, onOpen }: { rows: DashboardSale[]; onOpen: () => void }) {
-  return <Card className="dashboard-activity-surface overflow-hidden p-0 shadow-none"><div className="flex items-center justify-between gap-4 px-5 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-6"><div><p className="dashboard-eyebrow text-[10px] font-bold uppercase text-primary">Latest activity</p><h2 className="dashboard-section-title mt-1 font-bold text-text-primary">최근 매출</h2><p className="mt-1 text-xs text-text-muted">선택 조건의 최신 등록 5건</p></div><Button aria-label="매출 내역으로 이동" variant="ghost" onClick={onOpen}>전체 보기 <ArrowRight size={16} /></Button></div>{rows.length ? <div className="px-3 pb-3 sm:px-4 sm:pb-4">{rows.map((sale, index) => <button key={sale.id} type="button" className="group relative grid min-h-[76px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl px-3 py-3.5 text-left transition-[background-color,transform] duration-200 hover:translate-x-0.5 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:gap-4 sm:px-4" onClick={onOpen}><span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border border-primary/10 bg-white text-primary shadow-[0_4px_14px_rgba(39,76,119,0.06)]"><ReceiptText size={17} /><span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-primary" /></span><span className="min-w-0"><span className="flex flex-wrap items-center gap-x-2 gap-y-1"><strong className="truncate text-sm text-text-primary">{sale.dogName || "(반려견 없음)"}</strong><span className="text-xs text-text-muted">{sale.customerName || "보호자 미등록"}</span><StatusBadge status={sale.status as "normal" | "partial_refund" | "full_refund" | "cancelled"} tone={sale.status === "cancelled" ? "gray" : undefined} /></span><span className="mt-1 block truncate text-xs leading-5 text-text-secondary">{sale.businessUnitName} · {sale.productName} · {sale.staffName || "담당자 미지정"}</span><span className="mt-0.5 block text-[11px] text-text-muted tabular-nums">{sale.saleDate}</span></span><span className="flex shrink-0 items-center gap-2"><strong className="whitespace-nowrap text-sm text-primary tabular-nums sm:text-base">{won(sale.netAmount)}</strong><ArrowRight size={15} className="hidden text-text-muted transition-transform group-hover:translate-x-0.5 sm:block" /></span>{index < rows.length - 1 && <span className="absolute inset-x-4 bottom-0 h-px bg-border/60" aria-hidden="true" />}</button>)}</div> : <EmptyState title="등록된 매출이 없습니다." />}</Card>;
+  return <Card className="dashboard-activity-surface overflow-hidden p-0 shadow-none"><div className="flex items-center justify-between gap-4 px-5 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-6"><div><p className="dashboard-eyebrow text-[10px] font-bold uppercase text-primary">Latest activity</p><h2 className="dashboard-section-title mt-1 font-bold text-text-primary">최근 매출</h2><p className="mt-1 text-xs text-text-muted">선택 조건의 최신 등록 5건</p></div><Button aria-label="매출 내역으로 이동" variant="ghost" onClick={onOpen}>전체 거래 보기 <ArrowRight size={16} /></Button></div>{rows.length ? <div className="px-3 pb-3 sm:px-4 sm:pb-4">{rows.map((sale, index) => { const tone = businessUnitCardTone(businessUnitCodeFromName(sale.businessUnitName)); return <button key={sale.id} type="button" className="group relative grid min-h-[72px] w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-3 rounded-xl px-3 py-3 text-left transition-[background-color,transform] duration-200 hover:translate-x-0.5 hover:bg-primary-subtle/55 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-4 sm:px-4" onClick={onOpen}><span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-xl", tone.symbol)}><ReceiptText size={16} /><span className="sr-only">{sale.businessUnitName}</span></span><span className="min-w-0"><span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1"><strong className="max-w-full truncate text-sm text-text-primary">{sale.dogName || "(반려견 없음)"}</strong><StatusBadge status={sale.status as "normal" | "partial_refund" | "full_refund" | "cancelled"} tone={sale.status === "cancelled" ? "gray" : undefined} /></span><span className="mt-0.5 block truncate text-xs leading-5 text-text-secondary">{sale.productName}</span><span className="mt-0.5 block truncate text-[11px] leading-4 text-text-muted">{sale.customerName || "보호자 미등록"} · {paymentLabel(sale.paymentMethod)} · {sale.saleDate}</span></span><span className="col-span-2 flex min-w-0 items-center justify-between gap-2 pl-12 sm:col-span-1 sm:block sm:pl-0 sm:text-right"><span className="text-[10px] font-semibold text-text-muted sm:hidden">{sale.businessUnitName}</span><strong className="whitespace-nowrap text-sm text-primary tabular-nums sm:text-base">{won(sale.netAmount)}</strong></span>{index < rows.length - 1 && <span className="absolute inset-x-4 bottom-0 h-px bg-border/55" aria-hidden="true" />}</button>; })}</div> : <EmptyState title="등록된 매출이 없습니다." />}</Card>;
+}
+
+function businessUnitCodeFromName(name: string) {
+  if (name.includes("유치원")) return "daycare";
+  if (name.includes("교육")) return "training";
+  if (name.includes("호텔")) return "hotel";
+  return "";
+}
+
+function paymentLabel(method: string) {
+  if (method === "card") return "카드";
+  if (method === "transfer") return "계좌이체";
+  if (method === "cash") return "현금";
+  if (method === "outstanding") return "미수";
+  return "기타";
 }
 
 export function OperationalAlerts({ alerts, onOpen }: { alerts: { outstandingCount: number; outstandingTotal: number; refundCount: number; refundTotal: number; cancelledCount: number; todayCount: number }; onOpen: () => void }) {

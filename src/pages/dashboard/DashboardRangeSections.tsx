@@ -16,7 +16,7 @@ const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [
 
 export function DashboardPeriodFilters({ period, range, unitName, compare, onPeriod, onCustom, onMovePeriod, onCompare }: { period: DashboardPeriod; range: DashboardDateRange; unitName: string; compare: DashboardCompare; onPeriod: (period: DashboardPeriod) => void; onCustom: (range: DashboardDateRange) => void; onMovePeriod: (direction: number) => void; onCompare: (compare: DashboardCompare) => void }) {
   return (
-    <Card className="dashboard-period-surface mb-4 overflow-hidden p-1.5 shadow-none sm:p-2">
+    <div className="dashboard-period-surface dashboard-period-toolbar mb-4">
       <div className="flex flex-col gap-1.5 xl:flex-row xl:items-center">
         <div className="flex min-w-0 gap-1 overflow-x-auto pb-0.5" aria-label="빠른 조회 기간">
           {periodOptions.map((option) => (
@@ -25,7 +25,7 @@ export function DashboardPeriodFilters({ period, range, unitName, compare, onPer
               type="button"
               onClick={() => onPeriod(option.value)}
               className={cn(
-                "min-h-10 shrink-0 rounded-[9px] border px-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-8 sm:px-2.5",
+                "min-h-9 shrink-0 rounded-lg border px-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-8",
                 period === option.value
                   ? "border-primary bg-primary text-white"
                   : "border-transparent bg-transparent text-text-secondary hover:border-primary/15 hover:bg-primary-subtle",
@@ -40,7 +40,7 @@ export function DashboardPeriodFilters({ period, range, unitName, compare, onPer
           <Button type="button" variant="ghost" className="h-9 min-h-9 shrink-0 px-2 sm:h-8 sm:min-h-8" aria-label="이전 기간" onClick={() => onMovePeriod(-1)}>
             <ChevronLeft size={16} />
           </Button>
-          <div className="flex min-h-9 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-white/70 px-2.5 sm:min-h-8">
+          <div className="flex min-h-9 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-surface-secondary/80 px-2.5 sm:min-h-8">
             <strong className="truncate text-xs text-text-primary tabular-nums sm:text-sm">
               {range.from === range.to ? range.from : `${range.from} ~ ${range.to}`}
             </strong>
@@ -52,8 +52,7 @@ export function DashboardPeriodFilters({ period, range, unitName, compare, onPer
             <ChevronRight size={16} />
           </Button>
         </div>
-        <div className="flex min-w-0 items-center gap-1.5 border-t border-border/50 pt-1.5 xl:ml-1.5 xl:border-l xl:border-t-0 xl:pl-2 xl:pt-0">
-          <span className="shrink-0 text-[11px] font-semibold text-text-muted">비교</span>
+        <div className="flex min-w-0 items-center gap-1 border-t border-border/45 pt-1.5 xl:ml-1 xl:border-l xl:border-t-0 xl:pl-2 xl:pt-0">
           <div className="flex min-w-0 gap-1 overflow-x-auto" aria-label="대시보드 비교 기준">
             {period === "custom" && <CompareButton active={compare === "previous"} onClick={() => onCompare("previous")}>직전 기간</CompareButton>}
             {compareOptions.map((option) => <CompareButton key={option.value} active={compare === option.value} onClick={() => onCompare(option.value)}>{option.label}</CompareButton>)}
@@ -61,14 +60,14 @@ export function DashboardPeriodFilters({ period, range, unitName, compare, onPer
         </div>
       </div>
       {period === "custom" && (
-        <div className="mt-1.5 grid gap-1.5 border-t border-border/50 pt-1.5 sm:grid-cols-2 lg:max-w-[360px]">
+        <div className="mt-1.5 grid gap-1.5 border-t border-border/45 pt-1.5 sm:grid-cols-2 lg:max-w-[360px]">
           <label className="sr-only" htmlFor="dashboard-period-from">시작일</label>
           <Input id="dashboard-period-from" className="h-9 min-h-9 sm:h-8 sm:min-h-8" aria-label="직접 선택 시작일" type="date" value={range.from} onChange={(event) => onCustom({ from: event.target.value, to: range.to })} />
           <label className="sr-only" htmlFor="dashboard-period-to">종료일</label>
           <Input id="dashboard-period-to" className="h-9 min-h-9 sm:h-8 sm:min-h-8" aria-label="직접 선택 종료일" type="date" min={range.from} value={range.to} onChange={(event) => onCustom({ from: range.from, to: event.target.value })} />
         </div>
       )}
-    </Card>
+    </div>
   );
 }
 
@@ -84,7 +83,7 @@ function CompareButton({ active, onClick, children }: { active: boolean; onClick
 
 export function DailyRevenueTrend({ data, selectedDate, unitName, onSelect }: { data: DailyRevenue[]; selectedDate: string; unitName: string; onSelect: (date: string) => void }) {
   const max = Math.max(0, ...data.map((row) => Math.max(0, row.revenue)));
-  return <Card className="dashboard-trend-surface overflow-hidden p-5 shadow-none sm:p-7"><div className="mb-6 flex items-end justify-between gap-4"><div><p className="dashboard-eyebrow text-[10px] font-bold uppercase text-primary">Cash flow</p><h2 className="dashboard-section-title mt-1 font-bold text-text-primary">날짜별 실수납 추이</h2><p className="mt-1 text-xs text-text-muted">{unitName} · 결제일 기준 유효 결제원장 합계</p></div><span className="hidden rounded-full border border-primary/10 bg-white/70 px-3 py-1.5 text-[11px] font-semibold text-primary sm:inline">일별 흐름</span></div>{data.length ? <div className="dashboard-trend-chart overflow-x-auto rounded-2xl px-2 pb-3 pt-4 sm:px-4"><div className="flex h-64 min-w-full items-end gap-2" style={{ width: `${Math.max(100, data.length * 52)}px` }}>{data.map((row) => { const height = max > 0 ? Math.max(4, Math.sqrt(Math.max(0, row.revenue) / max) * 172) : 4; return <button key={row.date} type="button" onClick={() => onSelect(row.date)} className={cn("group relative flex h-full min-w-10 flex-1 flex-col items-center justify-end rounded-xl px-1 pt-8 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", selectedDate === row.date && "bg-white/80 shadow-[0_8px_24px_rgba(39,76,119,0.08)]")} aria-label={`${row.date} 실수납 ${won(row.revenue)}`}><span className="pointer-events-none absolute left-1/2 top-1 z-10 hidden w-36 -translate-x-1/2 rounded-xl bg-[#172f4d] px-3 py-2 text-left text-[11px] leading-5 text-white shadow-lg group-hover:block group-focus-visible:block"><strong className="block">{Number(row.date.slice(5, 7))}월 {Number(row.date.slice(8))}일</strong><span className="block text-blue-100">실수납 {won(row.revenue)}</span><span className="block text-rose-200">환불 {won(row.refund)}</span></span><span className="mb-2 hidden text-[10px] font-semibold text-text-secondary group-hover:block sm:block">{shortWon(row.revenue)}</span><span className={cn("dashboard-trend-bar w-full max-w-8 rounded-t-lg transition-[height,filter,opacity] duration-200", selectedDate === row.date ? "brightness-95" : "opacity-75 group-hover:opacity-100")} style={{ height }} /><span className="mt-2.5 text-[10px] text-text-muted">{Number(row.date.slice(8))}일</span></button>; })}</div></div> : <p className="rounded-xl bg-surface-secondary p-5 text-center text-sm text-text-muted">선택 기간에 표시할 수납 내역이 없습니다.</p>}</Card>;
+  return <Card className="dashboard-trend-surface overflow-hidden p-5 shadow-none sm:p-6"><div className="mb-4 flex items-end justify-between gap-4"><div><p className="dashboard-eyebrow text-[10px] font-bold uppercase text-primary">Cash flow</p><h2 className="dashboard-section-title mt-1 font-bold text-text-primary">날짜별 실수납 추이</h2><p className="mt-1 text-xs text-text-muted">{unitName} · 결제일 기준 유효 결제원장 합계</p></div><span className="hidden rounded-full bg-primary-subtle px-3 py-1.5 text-[11px] font-semibold text-primary sm:inline">일별 흐름</span></div>{data.length ? <div className="dashboard-trend-chart overflow-x-auto rounded-xl px-2 pb-2 pt-3 sm:px-3"><div className="flex h-52 min-w-full items-end gap-1.5" style={{ width: `${Math.max(100, data.length * 48)}px` }}>{data.map((row) => { const height = max > 0 ? Math.max(4, Math.sqrt(Math.max(0, row.revenue) / max) * 132) : 4; const isPeak = row.revenue === max && max > 0; const isSelected = selectedDate === row.date; const isWeekend = [0, 6].includes(new Date(`${row.date}T00:00:00`).getDay()); return <button key={row.date} type="button" onClick={() => onSelect(row.date)} className={cn("group relative flex h-full min-w-10 flex-1 flex-col items-center justify-end rounded-lg px-1 pt-7 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", isWeekend && "dashboard-trend-weekend", isSelected && "bg-white/90")} aria-label={`${row.date} 실수납 ${won(row.revenue)}`}><span className="dashboard-trend-tooltip pointer-events-none absolute left-1/2 top-0 z-10 hidden w-36 -translate-x-1/2 rounded-xl px-3 py-2 text-left text-[11px] leading-5 text-white shadow-lg group-hover:block group-focus-visible:block"><strong className="block">{Number(row.date.slice(5, 7))}월 {Number(row.date.slice(8))}일</strong><span className="block text-blue-100">실수납 {won(row.revenue)}</span><span className="block text-rose-200">환불 {won(row.refund)}</span></span>{isPeak && <span className="mb-1.5 text-[10px] font-bold text-primary">{shortWon(row.revenue)}</span>}<span className={cn("dashboard-trend-bar w-full max-w-9 rounded-t-md transition-[height,filter,opacity] duration-200", isPeak || isSelected ? "dashboard-trend-bar-emphasis" : "opacity-65 group-hover:opacity-95")} style={{ height }} />{row.refund > 0 && <span className="mt-1 h-1.5 w-1.5 rounded-full bg-error" title={`환불 ${won(row.refund)}`} />}<span className={cn("mt-1.5 text-[10px]", isSelected ? "font-bold text-primary" : "text-text-muted")}>{Number(row.date.slice(8))}일</span></button>; })}</div></div> : <p className="rounded-xl bg-surface-secondary p-5 text-center text-sm text-text-muted">선택 기간에 표시할 수납 내역이 없습니다.</p>}</Card>;
 }
 
 const monthDays = (month: string) => {
@@ -109,7 +108,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
   const filtered = unitName !== "전체 사업부";
   const max = Math.max(0, ...data.map((row) => Math.max(0, row.revenue)));
   const intensity = (amount: number) => max <= 0 ? 0 : Math.min(4, Math.max(1, Math.ceil(Math.sqrt(Math.max(0, amount) / max) * 4)));
-  const tones = ["bg-white", "bg-[#f7fbfe]", "bg-[#eff7fc]", "bg-[#e6f2fa]", "bg-[#d9ebf7]"];
+  const tones = ["dashboard-calendar-level-0", "dashboard-calendar-level-1", "dashboard-calendar-level-2", "dashboard-calendar-level-3", "dashboard-calendar-level-4"];
   const [year, monthNumber] = month.split("-").map(Number);
   const monthTitle = `${year}년 ${monthNumber}월 전체`;
   const activeRangeLabel = activeRange.from === activeRange.to
@@ -128,16 +127,11 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
               ? "날짜를 선택하면 해당 날짜의 사업부별 거래를 확인합니다."
               : `${unitName} 판매일·결제일 분리 기준 · KPI 적용 기간 ${activeRangeLabel}`}
           </p>
-          <p className="mt-1 text-[11px] leading-4 text-text-muted">
-            선택 기간 밖 날짜도 월 전체 흐름을 확인할 수 있도록 흐리게 표시합니다.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-x-3.5 gap-y-2 text-[11px] text-[#7e8998]" aria-label="캘린더 표시 기준">
-            <CalendarIndicator color="border-primary bg-primary-subtle" label="선택 기간" square />
-            <CalendarIndicator color="border-primary bg-white" label="선택일" square />
+          <div className="mt-3 flex flex-wrap gap-x-3.5 gap-y-2 text-[11px] text-[#778395]" aria-label="캘린더 표시 기준">
+            <CalendarIndicator color="border-primary bg-primary-subtle" label="선택일" square />
             <CalendarIndicator color="border-primary border-dashed bg-white" label="오늘" square />
-            <CalendarIndicator color="bg-slate-500" label="판매" />
-            <CalendarIndicator color="bg-primary" label="수납" />
             <CalendarIndicator color="bg-error" label="환불" />
+            <CalendarIndicator color="bg-warning" label="미수" />
           </div>
         </div>
         <div className="flex items-center justify-between gap-1 sm:justify-start">
@@ -168,6 +162,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
           const hasSales = (row?.count ?? 0) > 0;
           const hasReceipt = (row?.revenue ?? 0) > 0;
           const hasRefund = (row?.refund ?? 0) > 0;
+          const hasOutstanding = (row?.outstanding ?? 0) > 0;
           const inActiveRange = date >= activeRange.from && date <= activeRange.to;
           const indicatorLabel = [
             hasSales ? "판매 있음" : "",
@@ -193,7 +188,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                 selectedDate === date && "opacity-100",
                 today === date && selectedDate !== date && "dashboard-calendar-today border-primary/80",
                 (hasSales || hasReceipt || hasRefund) && "dashboard-calendar-active",
-                !hasSales && !hasReceipt && !hasRefund && "bg-surface-secondary/45 text-text-muted",
+                !hasSales && !hasReceipt && !hasRefund && "dashboard-calendar-level-0 text-text-muted",
               )}
               title={`${date} · ${unitName} 실수납 ${won(amount)} · 판매금액 ${won(row?.salesAmount ?? 0)} · 판매 ${row?.count ?? 0}건${inActiveRange ? " · KPI 선택 기간 포함" : " · KPI 선택 기간 밖"}`}
               aria-label={`${hideAmounts ? `${date} 거래 상세 열기` : `${date} ${unitName} 실수납 ${won(amount)} 판매금액 ${won(row?.salesAmount ?? 0)} 판매 ${row?.count ?? 0}건${filtered ? ` 전체 실수납 ${won(totalRow?.revenue ?? 0)}` : ""}`}${indicatorLabel ? `, ${indicatorLabel}` : ""}`}
@@ -209,9 +204,8 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                 )}
               </span>
               <span className="mt-1.5 flex min-h-2 items-center gap-1" aria-hidden="true">
-                {hasSales && <span className="h-1.5 w-1.5 rounded-full bg-slate-500" />}
-                {hasReceipt && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
                 {hasRefund && <span className="h-1.5 w-1.5 rounded-full bg-error" />}
+                {hasOutstanding && <span className="h-1.5 w-1.5 rounded-full bg-warning" />}
               </span>
               {hideAmounts ? (
                 <span className="mt-1 block text-[9px] font-semibold text-primary sm:text-[10px]">내역 보기</span>
@@ -224,7 +218,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                     {hasReceipt ? shortWon(amount) : "0원"}
                   </strong>
                   <span className="mt-0.5 block truncate text-[8px] leading-3 text-text-muted min-[430px]:text-[9px] sm:text-[10px]">
-                    판매 {shortWon(row?.salesAmount ?? 0)} · {row?.count ?? 0}건
+                    {row?.count ?? 0}건
                   </span>
                   {filtered && (
                     <span className="mt-0.5 hidden truncate text-[9px] text-text-secondary sm:block">

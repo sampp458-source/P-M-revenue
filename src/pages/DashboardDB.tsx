@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Banknote } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
-import { Badge, Button, Card, ErrorState, PageHeader } from "../components/ui";
+import { Badge, Button, Card, ErrorState } from "../components/ui";
 import { won } from "../lib/format";
 import { supabase } from "../lib/supabase";
 import { BusinessUnitCard, DashboardKpiHero, DashboardSkeleton, RecentSales } from "./dashboard/DashboardSections";
@@ -417,8 +417,7 @@ export function DashboardPage() {
 
   if (loading) return <DashboardSkeleton />;
   if (error) return <ErrorState title="대시보드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." retry={() => void load()} />;
-  return <div className="dashboard-shell">
-    <PageHeader title="대시보드" />
+  return <div className="dashboard-shell pt-1">
     {!isAdmin && (
       <Card className="mb-6 overflow-hidden border-warning/20 bg-warning-soft/45 p-0">
         <button
@@ -469,9 +468,9 @@ export function DashboardPage() {
     </section>
     <div className={dateDrawerOpen ? "transition-[padding] duration-200 lg:pr-[min(480px,44vw)]" : "transition-[padding] duration-200"}>
       <div className="mt-10"><SalesHeatmapCalendar month={calendarMonth} activeRange={range} data={calendarData} totalData={calendarTotalData} unitName={selectedUnitName} today={today} selectedDate={selectedDate} hideAmounts={!isAdmin} onMonth={setCalendarMonth} onSelect={selectCalendarDate} /></div>
+      {isAdmin && <div className="mt-8"><RecentSales rows={recent} onOpen={() => navigate(`/sales?period=custom&start=${range.from}&end=${range.to}${unitId ? `&unit=${unitId}` : ""}`)} /></div>}
       {isAdmin && <div className="mt-8"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={selectCalendarDate} /></div>}
     </div>
-    {isAdmin && <div className="mt-8"><RecentSales rows={recent} onOpen={() => navigate(`/sales?period=custom&start=${range.from}&end=${range.to}${unitId ? `&unit=${unitId}` : ""}`)} /></div>}
     <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} summary={selectedDateSummary} rows={selectedDateSales} payments={selectedDatePayments} refunds={selectedDateRefunds} paymentMethodTotals={selectedDatePaymentMethods} units={units} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onOpenSales={() => openSales(selectedDate, unitId)} />
     <DashboardAccountingDrawer
       open={Boolean(accountingDrawerView)}

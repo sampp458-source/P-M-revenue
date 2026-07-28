@@ -170,7 +170,7 @@ export function DashboardDateDrawer({
         aria-labelledby={titleId}
         className="dashboard-date-drawer pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-white/10 text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(480px,44vw)]"
       >
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/[0.08] px-5 py-3.5 sm:px-6">
           <div className="flex min-w-0 items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-blue-100">
               <CalendarDays size={18} />
@@ -197,13 +197,13 @@ export function DashboardDateDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain">
-          <div className="sticky top-0 z-10 border-b border-white/10 bg-[#142b46]/95 p-4 backdrop-blur sm:p-6">
-          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045] p-5 text-white sm:p-6">
+          <div className="sticky top-0 z-10 border-b border-white/[0.08] bg-[#142b46]/95 p-4 backdrop-blur sm:px-6 sm:py-5">
+          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035] p-4 text-white sm:p-5">
             <p className="text-xs font-semibold text-blue-200">판매금액</p>
             <strong className="mt-2 block whitespace-nowrap text-[clamp(1.75rem,8vw,2.75rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
               {won(summary.salesAmount)}
             </strong>
-            <div className="mt-5 grid grid-cols-1 gap-2 border-t border-white/10 pt-4 min-[430px]:grid-cols-3 min-[430px]:gap-3">
+            <div className="mt-4 grid grid-cols-1 gap-2 border-t border-white/[0.08] pt-3.5 min-[430px]:grid-cols-3 min-[430px]:gap-3">
               <Summary label="실수납" value={won(summary.revenue)} />
               <Summary label="현재 미수" value={won(summary.outstanding)} warning={summary.outstanding > 0} />
               <Summary label="환불" value={won(summary.refund)} warning={summary.refund > 0} />
@@ -265,8 +265,8 @@ export function DashboardDateDrawer({
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-white/10 bg-[#142b46] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
-          <Button type="button" className="w-full" onClick={onOpenSales}>
+        <div className="shrink-0 border-t border-white/[0.08] bg-[#142b46] p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:px-6">
+          <Button type="button" variant="secondary" className="w-full border-white/10 bg-white/[0.06] text-white hover:bg-white/[0.1]" onClick={onOpenSales}>
             전체 매출 내역 보기 <ExternalLink size={16} />
           </Button>
         </div>
