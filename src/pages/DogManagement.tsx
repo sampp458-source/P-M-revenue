@@ -540,6 +540,7 @@ export function PetManagementPage() {
             <Table className="min-w-[1100px]">
               <thead><tr><th>반려견명</th><th>보호자명</th><th>연락처</th><th>견종</th><th>성별</th><th>생년월일</th><th>체중</th><th>상태</th><th>메모</th><th className="text-right">관리</th></tr></thead>
               <tbody>{rows.map((dog) => {
+                const owner = owners.find((item) => item.id === dog.customerId) ?? null;
                 return <tr key={dog.id}>
                   <td className="font-semibold text-slate-900">
                     <button
@@ -552,7 +553,8 @@ export function PetManagementPage() {
                   </td><td>{dog.ownerName || "미등록"}</td><td>{dog.ownerPhone || "-"}</td><td>{dog.breed || "-"}</td><td>{dog.sex === "male" ? "수컷" : dog.sex === "female" ? "암컷" : "-"}</td><td>{dog.birthDate ? koDate(dog.birthDate) : "-"}</td><td>{dog.weight === null ? "-" : `${dog.weight}kg`}</td><td><StatusBadge status={dog.active ? "active" : "inactive"} /></td><td className="max-w-xs truncate">{dog.memo || "-"}</td>
                   <td><div className="flex flex-wrap justify-end gap-2">
                     <Button variant="secondary" onClick={() => openProfile(dog.id)}><Eye size={15} />프로필</Button>
-                    {profile?.role === "admin" && dog.active && <Button variant="secondary" onClick={() => setDeactivating(dog)}>비활성화</Button>}
+                    {owner && <Button variant="secondary" onClick={() => openOwnerEdit(owner)}><Pencil size={15} />보호자 수정</Button>}
+                    {profile?.role === "admin" && <><Button variant="secondary" onClick={() => openEdit(dog)}>반려견 수정</Button>{dog.active && <Button variant="secondary" onClick={() => setDeactivating(dog)}>비활성화</Button>}</>}
                   </div></td>
                 </tr>;
               })}</tbody>
@@ -585,7 +587,7 @@ export function PetManagementPage() {
           if (profileDogId) void loadProfileActivities(profileDogId);
         }}
       />
-      <Modal open={!!editing && !ownerCreating && !ownerEditing} onClose={() => !saving && setEditing(null)} title={editing?.id ? "반려견 정보 수정" : "반려견 등록"} wide>
+      <Modal open={!!editing && !ownerCreating && !ownerEditing} onClose={() => !saving && setEditing(null)} title={editing?.id ? "반려견 수정" : "반려견 등록"} wide>
         {editing && <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Field label={profile?.role === "staff" && !editing.id ? "보호자 연결" : "보호자 연결 (선택)"}>

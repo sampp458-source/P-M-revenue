@@ -102,6 +102,28 @@ describe("dog profile audit and Customer Master connection", () => {
     expect(managementUi).toContain(".update(values)");
   });
 
+  it("extends the existing dog workflow without replacing its edit actions", () => {
+    expect(managementUi).toContain("<Eye size={15} />프로필");
+    expect(managementUi).toContain("<Pencil size={15} />보호자 수정");
+    expect(managementUi).toContain(">반려견 수정</Button>");
+    expect(managementUi).toContain(
+      'title={editing?.id ? "반려견 수정" : "반려견 등록"}',
+    );
+  });
+
+  it("keeps the requested profile section order", () => {
+    const sections = [
+      'title="반려견 정보"',
+      'title="보호자 정보"',
+      'title="이용 정보"',
+      'title="메모"',
+      'title="Timeline"',
+    ].map((title) => profileUi.indexOf(title));
+
+    expect(sections.every((index) => index >= 0)).toBe(true);
+    expect(sections).toEqual([...sections].sort((a, b) => a - b));
+  });
+
   it("records Dog Master updates without changing master or accounting columns", () => {
     expect(migration).toContain("create trigger dogs_master_audit");
     expect(migration).toContain("'shared_master'");

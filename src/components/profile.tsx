@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { cn } from "./ui";
+import { Card, cn } from "./ui";
 
 export function ProfileContent({
   children,
@@ -90,14 +90,16 @@ export function ProfileInfoGrid({
   className?: string;
 }) {
   return (
-    <dl
-      className={cn(
-        "grid gap-x-6 gap-y-4 rounded-2xl border border-border bg-surface-secondary/60 p-5 sm:grid-cols-2 lg:grid-cols-4",
-        className,
-      )}
-    >
-      {children}
-    </dl>
+    <Card className="p-5">
+      <dl
+        className={cn(
+          "grid gap-x-6 gap-y-4 sm:grid-cols-2 lg:grid-cols-4",
+          className,
+        )}
+      >
+        {children}
+      </dl>
+    </Card>
   );
 }
 
