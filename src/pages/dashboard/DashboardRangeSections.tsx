@@ -87,7 +87,7 @@ function CompareButton({ active, onClick, children }: { active: boolean; onClick
 
 export function DailyRevenueTrend({ data, selectedDate, unitName, onSelect }: { data: DailyRevenue[]; selectedDate: string; unitName: string; onSelect: (date: string) => void }) {
   const max = Math.max(0, ...data.map((row) => Math.max(0, row.revenue)));
-  return <Card className="dashboard-trend-surface overflow-hidden p-5 shadow-none sm:p-6"><div className="mb-4 flex items-end justify-between gap-4"><div><p className="dashboard-eyebrow dashboard-theme-text text-[10px] font-bold uppercase">Cash flow</p><h2 className="dashboard-section-title mt-1 font-bold text-text-primary">날짜별 실수납 추이</h2><p className="mt-1 text-xs text-text-muted">{unitName} · 결제일 기준 유효 결제원장 합계</p></div><span className="dashboard-theme-pill hidden rounded-full px-3 py-1.5 text-[11px] font-semibold sm:inline">일별 흐름</span></div>{data.length ? <div className="dashboard-trend-chart overflow-x-auto rounded-xl px-2 pb-2 pt-3 sm:px-3"><div className="flex h-52 min-w-full items-end gap-1" style={{ width: `${Math.max(100, data.length * 46)}px` }}>{data.map((row) => { const height = max > 0 ? Math.max(4, Math.sqrt(Math.max(0, row.revenue) / max) * 132) : 4; const isPeak = row.revenue === max && max > 0; const isSelected = selectedDate === row.date; const isWeekend = [0, 6].includes(new Date(`${row.date}T00:00:00`).getDay()); return <button key={row.date} type="button" onClick={() => onSelect(row.date)} className={cn("dashboard-trend-day group relative flex h-full min-w-10 flex-1 flex-col items-center justify-end rounded-lg px-0.5 pt-7 transition-colors duration-150 focus:outline-none focus-visible:ring-2", isWeekend && "dashboard-trend-weekend", isSelected && "dashboard-trend-day-selected")} aria-label={`${row.date} 실수납 ${won(row.revenue)}`}><span className="dashboard-trend-tooltip pointer-events-none absolute left-1/2 top-0 z-10 hidden w-36 -translate-x-1/2 rounded-xl px-3 py-2 text-left text-[11px] leading-5 text-white shadow-lg group-hover:block group-focus-visible:block"><strong className="block">{Number(row.date.slice(5, 7))}월 {Number(row.date.slice(8))}일</strong><span className="dashboard-trend-tooltip-value block">실수납 {won(row.revenue)}</span><span className="block text-rose-200">환불 {won(row.refund)}</span></span>{isPeak && <span className="dashboard-theme-text mb-1.5 text-[10px] font-bold">{shortWon(row.revenue)}</span>}<span className={cn("dashboard-trend-bar w-full max-w-10 origin-bottom rounded-t-md transition-[height,filter,opacity,transform] duration-200 group-hover:scale-x-[1.04]", isSelected ? "dashboard-trend-bar-selected" : isPeak ? "dashboard-trend-bar-emphasis" : "opacity-[0.62] group-hover:opacity-95")} style={{ height }} />{row.refund > 0 && <span className="mt-1 h-1.5 w-1.5 rounded-full bg-error" title={`환불 ${won(row.refund)}`} />}<span className={cn("mt-1.5 text-[10px]", isSelected ? "dashboard-theme-text font-bold" : "text-text-muted")}>{Number(row.date.slice(8))}일</span></button>; })}</div></div> : <p className="rounded-xl bg-surface-secondary p-5 text-center text-sm text-text-muted">선택 기간에 표시할 수납 내역이 없습니다.</p>}</Card>;
+  return <Card className="dashboard-trend-surface overflow-hidden p-4 shadow-none sm:p-5"><div className="mb-3 flex items-end justify-between gap-4"><div><p className="dashboard-eyebrow dashboard-theme-text text-[10px] font-bold uppercase">Cash flow</p><h2 className="dashboard-section-title mt-1 font-bold text-text-primary">날짜별 실수납 추이</h2><p className="mt-1 text-xs text-text-muted">{unitName} · 결제일 기준 유효 결제원장 합계</p></div><span className="dashboard-theme-pill hidden rounded-full px-3 py-1.5 text-[11px] font-semibold sm:inline">일별 흐름</span></div>{data.length ? <div className="dashboard-trend-chart overflow-x-auto rounded-xl px-2 pb-2 pt-2 sm:px-3"><div className="flex h-48 min-w-full items-end gap-1.5" style={{ width: `${Math.max(100, data.length * 46)}px` }}>{data.map((row) => { const height = max > 0 ? Math.max(4, Math.sqrt(Math.max(0, row.revenue) / max) * 124) : 4; const isPeak = row.revenue === max && max > 0; const isSelected = selectedDate === row.date; const isWeekend = [0, 6].includes(new Date(`${row.date}T00:00:00`).getDay()); return <button key={row.date} type="button" onClick={() => onSelect(row.date)} className={cn("dashboard-trend-day group relative flex h-full min-w-10 flex-1 flex-col items-center justify-end rounded-lg px-0.5 pt-6 transition-colors duration-150 focus:outline-none focus-visible:ring-2", isWeekend && "dashboard-trend-weekend", isSelected && "dashboard-trend-day-selected")} aria-label={`${row.date} 실수납 ${won(row.revenue)}`}><span className="dashboard-trend-tooltip pointer-events-none absolute left-1/2 top-0 z-10 hidden w-36 -translate-x-1/2 rounded-xl px-3 py-2 text-left text-[11px] leading-5 text-white shadow-lg group-hover:block group-focus-visible:block"><strong className="block">{Number(row.date.slice(5, 7))}월 {Number(row.date.slice(8))}일</strong><span className="dashboard-trend-tooltip-value block">실수납 {won(row.revenue)}</span><span className="block text-rose-200">환불 {won(row.refund)}</span></span>{isPeak && <span className="dashboard-theme-text mb-1 text-[10px] font-bold">{shortWon(row.revenue)}</span>}<span className={cn("dashboard-trend-bar w-full max-w-9 origin-bottom rounded-t-md transition-[height,filter,opacity,transform] duration-200 group-hover:scale-x-[1.04]", isSelected ? "dashboard-trend-bar-selected" : isPeak ? "dashboard-trend-bar-emphasis" : "opacity-[0.62] group-hover:opacity-95")} style={{ height }} />{row.refund > 0 && <span className="mt-1 h-1.5 w-1.5 rounded-full bg-error" title={`환불 ${won(row.refund)}`} />}<span className={cn("mt-1.5 text-[10px]", isSelected ? "dashboard-theme-text font-bold" : "text-text-muted")}>{Number(row.date.slice(8))}일</span></button>; })}</div></div> : <p className="rounded-xl bg-surface-secondary p-5 text-center text-sm text-text-muted">선택 기간에 표시할 수납 내역이 없습니다.</p>}</Card>;
 }
 
 const monthDays = (month: string) => {
@@ -131,33 +131,17 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
   const [year, monthNumber] = month.split("-").map(Number);
   const monthTitle = `${year}년 ${monthNumber}월`;
   const theme = dashboardThemeMap[themeCode];
-  const activeRangeLabel = activeRange.from === activeRange.to
-    ? activeRange.from
-    : `${activeRange.from} ~ ${activeRange.to}`;
   return (
-    <Card className="dashboard-surface dashboard-calendar-surface p-3.5 shadow-none sm:p-7">
-      <div className="mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="dashboard-section-title font-bold text-text-primary">{monthTitle}</h2>
-            <span className="dashboard-theme-badge inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold">
-              <span className="dashboard-theme-dot h-1.5 w-1.5 rounded-full" aria-hidden="true" />
-              {theme.label}
-            </span>
-          </div>
-          <p className="mt-1 text-[13px] leading-5 text-text-muted">
-            {hideAmounts
-              ? "날짜를 선택하면 해당 날짜의 사업부별 거래를 확인합니다."
-              : `${unitName} 판매일·결제일 분리 기준 · KPI 적용 기간 ${activeRangeLabel}`}
-          </p>
-          <div className="mt-2.5 flex flex-wrap gap-x-3.5 gap-y-2 text-[11px] text-[#778395]" aria-label="캘린더 표시 기준">
-            <CalendarIndicator color="dashboard-calendar-legend-selected" label="선택일" square />
-            <CalendarIndicator color="dashboard-calendar-legend-today" label="오늘" square />
-            <CalendarIndicator color="bg-error" label="환불" />
-            <CalendarIndicator color="bg-warning" label="미수" />
-          </div>
+    <Card className="dashboard-surface dashboard-calendar-surface p-3.5 shadow-none sm:p-6">
+      <div className="mb-3 flex items-center justify-between gap-3 sm:mb-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h2 className="dashboard-section-title font-bold text-text-primary">{monthTitle}</h2>
+          <span className="dashboard-theme-badge inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold">
+            <span className="dashboard-theme-dot h-1.5 w-1.5 rounded-full" aria-hidden="true" />
+            {theme.label}
+          </span>
         </div>
-        <div className="flex items-center gap-1 sm:justify-start">
+        <div className="flex shrink-0 items-center gap-0.5">
           <Button type="button" variant="ghost" className="h-9 min-h-9 px-2.5" aria-label="이전 달" onClick={() => onMonth(moveMonth(month, -1))}>
             <ChevronLeft size={17} />
           </Button>
@@ -198,7 +182,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
               type="button"
               onClick={() => onSelect(date)}
               className={cn(
-                "dashboard-calendar-day relative min-h-[4.25rem] overflow-hidden rounded-md border p-2 text-left transition-[transform,border-color,background-color,box-shadow,opacity] duration-150 ease-out hover:-translate-y-0.5 hover:opacity-100 focus:outline-none focus-visible:ring-2 sm:min-h-[6.5rem] sm:rounded-xl sm:p-3",
+                "dashboard-calendar-day relative min-h-[4.25rem] overflow-hidden rounded-md border p-2 text-left transition-[transform,border-color,background-color,box-shadow,opacity] duration-150 ease-out hover:-translate-y-px hover:opacity-100 focus:outline-none focus-visible:ring-2 sm:min-h-[6.5rem] sm:rounded-xl sm:p-3",
                 hideAmounts
                   ? inActiveRange
                     ? "bg-surface-secondary/80 hover:bg-primary-subtle"
@@ -255,15 +239,6 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
         })}
       </div>
     </Card>
-  );
-}
-
-function CalendarIndicator({ color, label, square = false }: { color: string; label: string; square?: boolean }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={cn(square ? "h-3 w-3 rounded border" : "h-1.5 w-1.5 rounded-full", color)} aria-hidden="true" />
-      {label}
-    </span>
   );
 }
 

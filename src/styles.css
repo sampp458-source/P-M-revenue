@@ -215,32 +215,37 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
       0 3px 10px rgb(var(--pm-theme-rgb) / .06);
   }
   .dashboard-calendar-selected {
+    border-width: 2px;
     border-color: var(--pm-theme-accent);
-    background: var(--pm-theme-tint-2);
+    background: color-mix(in srgb, var(--pm-theme-accent) 22%, white);
     opacity: 1;
     box-shadow:
-      0 0 0 2px rgb(var(--pm-theme-rgb) / .2),
       inset 0 1px 0 rgb(255 255 255 / .7),
-      0 9px 22px rgb(var(--pm-theme-rgb) / .18);
+      0 4px 10px rgb(var(--pm-theme-rgb) / .11);
+  }
+  .dashboard-calendar-selected > span:first-child > span:first-child,
+  .dashboard-calendar-selected > strong {
+    font-weight: 800;
   }
   .dashboard-calendar-today {
     border-color: rgb(var(--pm-theme-rgb) / .8);
-    box-shadow: inset 0 0 0 1px rgb(var(--pm-theme-rgb) / .38);
+    border-style: dashed;
+    box-shadow: inset 0 0 0 1px rgb(var(--pm-theme-rgb) / .24);
   }
   .dashboard-calendar-level-0 {
     background: #fbfcfd;
   }
   .dashboard-calendar-level-1 {
-    background: var(--pm-theme-tint-1);
+    background: color-mix(in srgb, var(--pm-theme-accent) 8%, white);
   }
   .dashboard-calendar-level-2 {
-    background: var(--pm-theme-tint-2);
+    background: color-mix(in srgb, var(--pm-theme-accent) 14%, white);
   }
   .dashboard-calendar-level-3 {
-    background: var(--pm-theme-tint-3);
+    background: color-mix(in srgb, var(--pm-theme-accent) 22%, white);
   }
   .dashboard-calendar-level-4 {
-    background: var(--pm-theme-tint-4);
+    background: color-mix(in srgb, var(--pm-theme-accent) 31%, white);
   }
   .dashboard-calendar-legend-selected {
     border-color: var(--pm-theme-accent);
@@ -275,7 +280,7 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   .dashboard-trend-chart {
     border: 1px solid rgb(228 235 241 / .8);
     background:
-      linear-gradient(rgb(var(--pm-theme-rgb) / .04) 1px, transparent 1px),
+      linear-gradient(rgb(var(--pm-theme-rgb) / .028) 1px, transparent 1px),
       #fbfcfd;
     background-size: 100% 33.333%;
   }
@@ -292,15 +297,15 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
     background: var(--pm-theme-accent);
     box-shadow:
       0 0 0 2px #fff,
-      0 0 0 4px rgb(var(--pm-theme-rgb) / .28),
-      0 7px 16px rgb(var(--pm-theme-rgb) / .2);
+      0 0 0 4px rgb(var(--pm-theme-rgb) / .38),
+      0 6px 14px rgb(var(--pm-theme-rgb) / .18);
     opacity: 1;
   }
   .dashboard-trend-day-selected {
     background: var(--pm-theme-tint-1);
   }
   .dashboard-trend-weekend {
-    background: rgb(var(--pm-theme-rgb) / .018);
+    background: rgb(var(--pm-theme-rgb) / .012);
   }
   .dashboard-trend-tooltip {
     border-top: 2px solid var(--pm-theme-accent);
@@ -324,11 +329,12 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
     bottom: 1.25rem;
     left: 2.125rem;
     width: 1px;
-    background: linear-gradient(180deg, rgb(47 159 199 / .3), rgb(67 89 168 / .16), transparent);
+    background: linear-gradient(180deg, rgb(148 163 184 / .24), rgb(148 163 184 / .1), transparent);
     content: "";
   }
   .dashboard-activity-row + .dashboard-activity-row {
-    margin-top: .125rem;
+    margin-top: .0625rem;
+    border-top: 1px solid rgb(231 235 240 / .52);
   }
   .dashboard-activity-row:hover {
     background: var(--pm-theme-tint-1);
@@ -365,10 +371,22 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
       0 17px 38px rgb(var(--pm-theme-rgb) / .12);
   }
   .dashboard-business-card-muted {
-    opacity: .84;
+    opacity: 1;
+    border-color: var(--pm-dashboard-border);
+    background: #fff;
+    box-shadow: 0 8px 22px rgb(23 36 58 / .028);
+  }
+  .dashboard-business-card-muted .dashboard-unit-accent {
+    background: #cbd5e1;
+    opacity: .58;
+  }
+  .dashboard-business-card-muted .dashboard-section-number {
+    color: #344054;
   }
   .dashboard-business-card-muted:hover {
-    opacity: 1;
+    border-color: rgb(var(--pm-theme-rgb) / .24);
+    background: color-mix(in srgb, var(--pm-theme-accent) 3%, white);
+    box-shadow: 0 12px 28px rgb(23 36 58 / .05);
   }
   .dashboard-unit-accent {
     background: var(--pm-theme-accent);

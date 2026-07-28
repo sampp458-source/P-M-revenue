@@ -212,9 +212,9 @@ function AppLayout() {
   return (
     <div className="min-h-screen bg-app-background">
       <aside
-        className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[280px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-[268px] lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[276px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-[260px] lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/[0.055] px-4.5">
+        <div className="flex h-14 shrink-0 items-center justify-between border-b border-white/[0.055] px-4">
           <div className="flex items-center gap-2.5">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/70 bg-white/95 text-[11px] font-black text-[#1e3a5f] shadow-[0_6px_18px_rgba(4,18,35,0.1)]">
               P&M
@@ -232,18 +232,18 @@ function AppLayout() {
             <X />
           </button>
         </div>
-        <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 py-4">
-          {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-5 last:mb-0"><p className="mb-2 px-3 text-[9px] font-bold uppercase tracking-[0.18em] text-blue-100/40">{group}</p><div className="space-y-0.5">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
-              <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `app-sidebar-link group relative flex min-h-10 items-center gap-3 rounded-xl px-3.5 py-2 text-[13px] font-medium transition-[color,background-color,transform] duration-150 ${isActive ? "is-active bg-white/[0.085] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]" : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.045] hover:text-white"}`}>
+        <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 py-3.5">
+          {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-4 last:mb-0"><p className="mb-1.5 px-3 text-[9px] font-bold uppercase tracking-[0.18em] text-blue-100/40">{group}</p><div className="space-y-0.5">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
+              <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `app-sidebar-link group relative flex min-h-9 items-center gap-3 rounded-xl px-3.5 py-1.5 text-[13px] font-medium transition-[color,background-color,transform] duration-150 ${isActive ? "is-active bg-white/[0.085] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.045)]" : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.045] hover:text-white"}`}>
                 {({ isActive }) => <><span className={`absolute inset-y-2.5 left-0 w-0.5 rounded-full transition-colors ${isActive ? "bg-[#8fc1e8]" : "bg-transparent"}`} /><Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} /><span>{label}</span></>}
               </NavLink>
             ))}</div></div>)}
         </nav>
-        <div className="shrink-0 border-t border-white/[0.055] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <div className="app-sidebar-profile mb-2 flex items-center gap-2.5 rounded-xl border border-white/[0.045] px-3 py-2.5"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-blue-50"><UserRound size={16} /></div><div className="min-w-0 flex-1"><b className="block truncate text-xs text-white">{profile?.name || "이름 미등록"}</b><span className="mt-0.5 block truncate text-[10px] text-blue-100/52">{profile?.role === "admin" ? "관리자" : "직원"} · {user?.email}</span></div></div>
+        <div className="shrink-0 border-t border-white/[0.055] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+          <div className="app-sidebar-profile mb-1.5 flex items-center gap-2.5 rounded-xl border border-white/[0.045] px-2.5 py-2"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-blue-50"><UserRound size={16} /></div><div className="min-w-0 flex-1"><b className="block truncate text-xs text-white">{profile?.name || "이름 미등록"}</b><span className="mt-0.5 block truncate text-[10px] text-blue-100/52">{profile?.role === "admin" ? "관리자" : "직원"} · {user?.email}</span></div></div>
           <button
             onClick={() => void signOut()}
-            className="flex min-h-11 w-full items-center gap-3 rounded-[13px] px-3 py-2.5 text-sm text-blue-50/60 transition hover:bg-white/[0.055] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            className="flex min-h-10 w-full items-center gap-3 rounded-[13px] px-2.5 py-2 text-sm text-blue-50/60 transition hover:bg-white/[0.055] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
           >
             <LogOut size={18} />
             로그아웃
@@ -257,7 +257,7 @@ function AppLayout() {
           aria-label="메뉴 배경 닫기"
         />
       )}
-      <div className="lg:pl-[268px]">
+      <div className="lg:pl-[260px]">
         <header className="no-print sticky top-0 z-20 flex h-18 items-center justify-between border-b border-border bg-white/95 px-4 backdrop-blur-md sm:px-6">
           <div className="flex items-center gap-3">
             <button
@@ -282,7 +282,7 @@ function AppLayout() {
             <span className="sr-only">조회된 사업부 {businessUnits.length}개</span>
           </div>
         </header>
-        <main className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
+        <main className={`mx-auto max-w-[1600px] ${location.pathname === "/dashboard" ? "p-4 sm:p-5 lg:p-5" : "p-4 sm:p-6 lg:p-8"}`}>
           <Outlet />
         </main>
       </div>

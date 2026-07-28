@@ -180,13 +180,13 @@ export function DashboardDateDrawer({
         style={dashboardThemeStyle(themeCode)}
         className="dashboard-date-drawer pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(480px,44vw)]"
       >
-        <div className="dashboard-drawer-header flex shrink-0 items-start justify-between gap-4 border-b px-5 py-3 sm:px-6">
+        <div className="dashboard-drawer-header flex shrink-0 items-start justify-between gap-3 border-b px-4 py-2.5 sm:px-5">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="dashboard-drawer-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
-              <CalendarDays size={18} />
+            <span className="dashboard-drawer-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
+              <CalendarDays size={17} />
             </span>
             <div className="min-w-0">
-              <h2 id={titleId} className="text-xl font-bold tracking-[-0.025em] text-white tabular-nums">
+              <h2 id={titleId} className="text-lg font-bold tracking-[-0.025em] text-white tabular-nums">
                 {date}
               </h2>
               <p className="dashboard-drawer-accent-text mt-0.5 break-keep text-sm font-semibold leading-5">
@@ -200,20 +200,20 @@ export function DashboardDateDrawer({
             type="button"
             aria-label="날짜 상세 닫기"
             onClick={onClose}
-            className="dashboard-drawer-control flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2"
+            className="dashboard-drawer-control flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2"
           >
             <X size={20} />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain">
-          <div className="dashboard-drawer-summary sticky top-0 z-10 border-b p-3.5 backdrop-blur sm:px-6 sm:py-4">
-          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035] p-3.5 text-white sm:p-4">
+          <div className="dashboard-drawer-summary sticky top-0 z-10 border-b p-3 backdrop-blur sm:px-5 sm:py-3.5">
+          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035] p-3 text-white sm:p-3.5">
             <p className="dashboard-drawer-accent-text text-xs font-semibold">판매금액</p>
-            <strong className="mt-1.5 block whitespace-nowrap text-[clamp(1.7rem,8vw,2.55rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
+            <strong className="mt-1 block whitespace-nowrap text-[clamp(1.6rem,7vw,2.3rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
               {won(summary.salesAmount)}
             </strong>
-            <div className="mt-3 grid grid-cols-1 gap-2 border-t border-white/[0.08] pt-3 min-[430px]:grid-cols-3 min-[430px]:gap-3">
+            <div className="mt-2.5 grid grid-cols-1 gap-1.5 border-t border-white/[0.08] pt-2.5 min-[430px]:grid-cols-3 min-[430px]:gap-2">
               <Summary label="실수납" value={won(summary.revenue)} />
               <Summary label="현재 미수" value={won(summary.outstanding)} warning={summary.outstanding > 0} />
               <Summary label="환불" value={won(summary.refund)} warning={summary.refund > 0} />
@@ -221,9 +221,9 @@ export function DashboardDateDrawer({
           </div>
           </div>
 
-          <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
+          <div className="p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:p-5">
           <div>
-            <div className="-mx-1 mb-4 overflow-x-auto px-1 pb-1">
+            <div className="-mx-1 mb-3 overflow-x-auto px-1 pb-1">
               <div className="flex min-w-max gap-1 rounded-xl bg-white/[0.045] p-0.5" role="tablist" aria-label="날짜 상세 사업부">
                 <UnitTab active={selectedUnitId === "all"} onClick={() => setSelectedUnitId("all")}>
                   전체
@@ -257,7 +257,7 @@ export function DashboardDateDrawer({
                 )}
               </div>
             ) : selectedGroup ? (
-              <div className="space-y-6">
+              <div className="space-y-5">
                 <UnitLedgerSections
                   payments={visiblePayments}
                   refunds={visibleRefunds}
@@ -275,8 +275,8 @@ export function DashboardDateDrawer({
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-white/[0.08] bg-[#142b46] p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:px-6">
-          <Button type="button" variant="secondary" className="w-full border-white/10 bg-white/[0.06] text-white hover:bg-white/[0.1]" onClick={onOpenSales}>
+        <div className="shrink-0 border-t border-white/[0.08] bg-[#142b46] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-5">
+          <Button type="button" variant="secondary" className="h-9 min-h-9 w-full border-white/10 bg-white/[0.06] py-1.5 text-white hover:bg-white/[0.1]" onClick={onOpenSales}>
             전체 매출 내역 보기 <ExternalLink size={16} />
           </Button>
         </div>
@@ -303,7 +303,7 @@ function UnitTab({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        "dashboard-drawer-tab inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2",
+        "dashboard-drawer-tab inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2",
         active
           ? "dashboard-drawer-tab-active bg-white"
           : "text-slate-300 hover:bg-white/[0.07] hover:text-white",
@@ -362,7 +362,7 @@ function UnitLedgerSections({
                 key={payment.id}
                 type="button"
                 onClick={() => onOpenSale(sale.id)}
-                className="flex min-h-11 w-full flex-col items-stretch gap-2 rounded-xl border border-white/10 bg-white/[0.045] px-3.5 py-3 text-left transition-colors hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between min-[430px]:gap-3"
+                className="flex min-h-10 w-full flex-col items-stretch gap-1.5 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-left transition-colors hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between min-[430px]:gap-3"
               >
                 <span className="min-w-0">
                   <strong className="block break-keep text-sm leading-5 text-white">
@@ -400,7 +400,7 @@ function UnitLedgerSections({
                 key={id}
                 type="button"
                 onClick={() => onOpenSale(sale.id)}
-                className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-rose-200/15 bg-rose-100/[0.045] px-3.5 py-3 text-left transition-colors hover:border-rose-200/30 hover:bg-rose-100/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
+                className="flex min-h-10 w-full items-center justify-between gap-3 rounded-xl border border-rose-200/15 bg-rose-100/[0.045] px-3 py-2.5 text-left transition-colors hover:border-rose-200/30 hover:bg-rose-100/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
               >
                 <span className="min-w-0">
                   <strong className="block truncate text-sm text-white">
@@ -452,7 +452,7 @@ function BusinessUnitSummaryRow({
       type="button"
       onClick={onClick}
       style={dashboardThemeStyle(themeCode)}
-      className="dashboard-drawer-unit-row flex min-h-16 w-full items-center justify-between gap-3 rounded-xl border bg-white/[0.035] px-4 py-3 text-left transition-colors focus:outline-none focus-visible:ring-2"
+      className="dashboard-drawer-unit-row flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border bg-white/[0.035] px-3.5 py-2.5 text-left transition-colors focus:outline-none focus-visible:ring-2"
     >
       <span className="inline-flex min-w-0 items-center gap-2.5">
         <span className="dashboard-theme-dot h-2 w-2 shrink-0 rounded-full" aria-hidden="true" />
@@ -489,7 +489,7 @@ function BusinessUnitTransactions({
       className="dashboard-drawer-unit-section overflow-hidden rounded-2xl border"
       role="tabpanel"
     >
-      <div className="dashboard-drawer-unit-header flex items-center justify-between gap-3 border-b px-4 py-3">
+      <div className="dashboard-drawer-unit-header flex items-center justify-between gap-3 border-b px-3.5 py-2.5">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="dashboard-theme-dot h-2 w-2 shrink-0 rounded-full" aria-hidden="true" />
@@ -513,13 +513,13 @@ function BusinessUnitTransactions({
       </div>
 
       {group.rows.length ? (
-        <div className="space-y-2 p-2.5">
+        <div className="space-y-1.5 p-2">
           {group.rows.map((sale) => (
             <button
               key={sale.id}
               type="button"
               onClick={() => onOpenSale(sale.id)}
-              className="group block min-h-11 w-full rounded-xl border border-white/10 bg-white/[0.045] p-3.5 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+              className="group block min-h-10 w-full rounded-xl border border-white/10 bg-white/[0.045] p-3 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
             >
               <span className="flex flex-col items-stretch gap-2 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-3">
                 <span className="min-w-0">
@@ -542,7 +542,7 @@ function BusinessUnitTransactions({
                   </span>
                 </span>
               </span>
-              <span className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-3">
+              <span className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-2.5">
                 <StatusBadge
                   status={sale.status as
                     | "normal"
