@@ -191,7 +191,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                     ? tones[intensity(amount)]
                     : "bg-slate-50/55",
                 inActiveRange ? "dashboard-calendar-in-range" : "border-border/70 opacity-50",
-                selectedDate === date ? "dashboard-calendar-selected" : "border-border/70",
+                selectedDate === date ? "dashboard-calendar-selected !border-2" : "border-border/70",
                 selectedDate === date && "opacity-100",
                 today === date && selectedDate !== date && "dashboard-calendar-today",
                 (hasSales || hasReceipt || hasRefund) && "dashboard-calendar-active",
