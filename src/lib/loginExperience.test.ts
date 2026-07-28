@@ -15,9 +15,12 @@ describe("P&M OS login experience", () => {
     expect(appSource).not.toMatch(/welcome back/i);
     expect(appSource).toContain("회사 운영을");
     expect(appSource).toContain("하나의 시스템으로");
+    expect(appSource).toContain("P&amp;M의 모든 업무를 하나에서");
     expect(appSource).toContain('title="운영"');
     expect(appSource).toContain('title="회계"');
     expect(appSource).toContain('title="고객"');
+    expect(appSource).not.toContain("매출을 더 정확하게");
+    expect(appSource).not.toContain("3개 사업부 통합");
   });
 
   it("keeps the existing sign-in and preference behavior", () => {
@@ -26,14 +29,20 @@ describe("P&M OS login experience", () => {
     expect(appSource).toContain("pm-auto-login-enabled");
     expect(appSource).toContain('autoComplete="username"');
     expect(appSource).toContain('autoComplete="current-password"');
+    expect(appSource).toContain('disabled={submitting}');
   });
 
   it("provides accessible loading and premium focus states", () => {
     expect(appSource).toContain('role="status"');
     expect(appSource).toContain('aria-live="polite"');
     expect(appSource).toContain('aria-busy={submitting}');
+    expect(appSource).toContain('aria-label="계정 도움말"');
+    expect(appSource).toContain('className="login-input h-[50px]');
+    expect(appSource).toContain('className="login-submit group h-[50px]');
+    expect(appSource).toContain("login-mobile-brand");
     expect(styles).toContain(".login-input:focus");
     expect(styles).toContain(".login-checkbox:focus-visible");
+    expect(styles).toContain(".login-form-fields > :nth-child(5)");
     expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
   });
 });

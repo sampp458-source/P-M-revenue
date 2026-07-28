@@ -303,10 +303,7 @@ function LoginPage() {
   };
   return (
     <main className="login-shell flex min-h-[100dvh] overflow-x-hidden bg-app-background">
-      <section className="login-brand-panel relative hidden w-[50%] flex-col justify-between overflow-hidden px-10 py-9 text-white lg:flex xl:px-14 xl:py-11 2xl:px-20">
-        <div className="login-orb login-orb-top" aria-hidden="true" />
-        <div className="login-orb login-orb-bottom" aria-hidden="true" />
-        <div className="login-brand-grid" aria-hidden="true" />
+      <section className="login-brand-panel relative hidden w-[54%] flex-col justify-between overflow-hidden px-10 py-9 text-white lg:flex xl:px-14 xl:py-11 2xl:px-20">
         <div className="relative z-10 flex items-center gap-4">
           <BrandLogo
             className="h-[62px] w-[136px]"
@@ -327,30 +324,30 @@ function LoginPage() {
             하나의 시스템으로
           </h1>
           <p className="mt-6 max-w-lg text-[15px] leading-7 text-blue-100/72 xl:text-base">
-            오늘의 일정부터 숫자의 흐름과 고객 경험까지,
-            <br className="hidden xl:block" /> P&amp;M의 모든 업무가 자연스럽게
-            이어집니다.
+            스케줄부터 회계와 고객 정보까지
+            <br className="hidden xl:block" /> P&amp;M의 모든 업무를 하나에서
+            연결합니다.
           </p>
-          <div className="mt-10 grid max-w-xl grid-cols-3 gap-3">
+          <div className="login-capabilities mt-10 grid max-w-xl grid-cols-3">
             <BrandCapability
               icon={CalendarRange}
               title="운영"
-              description="일정과 현장 흐름"
+              description="스케줄과 오늘의 업무"
             />
             <BrandCapability
               icon={WalletCards}
               title="회계"
-              description="판매와 수납 흐름"
+              description="매출·수납·미수·환불"
             />
             <BrandCapability
               icon={UserRound}
               title="고객"
-              description="보호자와 반려견"
+              description="보호자와 반려견 정보"
             />
           </div>
         </div>
         <div className="relative z-10 flex items-center justify-between text-[11px] tracking-[0.02em] text-blue-100/48">
-          <span>Built for the way P&amp;M works.</span>
+          <span>© 2026 P&amp;M</span>
           <span>{appVersion}</span>
         </div>
       </section>
@@ -360,27 +357,32 @@ function LoginPage() {
           onSubmit={submit}
           className="login-form-panel relative z-10 w-full max-w-[440px] rounded-[30px] border border-white/80 bg-white/92 p-6 shadow-[0_28px_80px_rgba(23,36,58,0.11)] backdrop-blur-xl sm:p-9 lg:border-transparent lg:bg-transparent lg:p-2 lg:shadow-none lg:backdrop-blur-none"
         >
-          <div className="mb-8 flex items-center justify-between lg:hidden">
-            <BrandLogo
-              className="h-[62px] w-[136px]"
-              imageClassName="module-gate-logo h-[170px] w-[170px]"
-            />
-            <span className="text-[11px] font-medium text-text-muted">
-              {appVersion}
-            </span>
-          </div>
-          <div className="mb-8">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
+          <div className="login-mobile-brand mb-7 lg:hidden">
+            <div className="flex items-center justify-between">
+              <BrandLogo
+                className="h-[54px] w-[120px]"
+                imageClassName="module-gate-logo h-[156px] w-[156px]"
+              />
+              <span className="text-[11px] font-medium text-text-muted">
+                {appVersion}
+              </span>
+            </div>
+            <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
               P&amp;M OS
             </p>
-            <h2 className="mt-3 text-[2rem] font-bold tracking-[-0.045em] text-text-primary sm:text-[2.2rem]">
-              업무를 시작하세요
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-text-secondary">
-              P&amp;M 업무 계정으로 로그인해 주세요.
+            <p className="mt-1.5 text-[17px] font-semibold tracking-[-0.025em] text-text-primary">
+              회사 운영을 하나의 시스템으로
             </p>
           </div>
-          <div className="space-y-4">
+          <div className="mb-8">
+            <h2 className="text-[2rem] font-bold tracking-[-0.045em] text-text-primary sm:text-[2.2rem]">
+              로그인
+            </h2>
+            <p className="mt-2 text-[15px] leading-6 text-text-secondary">
+              업무를 시작하세요
+            </p>
+          </div>
+          <div className="login-form-fields space-y-4">
             <label className="block">
               <span className="mb-2 block text-sm font-semibold text-text-primary">
                 이메일
@@ -388,7 +390,7 @@ function LoginPage() {
               <div className="login-input-wrap relative">
                 <Mail
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-4 top-[18px] text-text-muted transition-colors"
+                  className="pointer-events-none absolute left-4 top-4 text-text-muted transition-colors"
                   size={18}
                 />
                 <Input
@@ -399,10 +401,12 @@ function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   autoComplete="username"
                   placeholder="name@company.com"
-                  className="login-input h-[54px] rounded-[15px] pl-12"
+                  className="login-input h-[50px] rounded-[14px] pl-12"
                   disabled={submitting}
-                  aria-invalid={Boolean(error && !email)}
-                  aria-describedby={error ? "login-error" : undefined}
+                  aria-invalid={Boolean((error && !email) || authError)}
+                  aria-describedby={
+                    error || authError ? "login-error" : undefined
+                  }
                 />
               </div>
             </label>
@@ -413,7 +417,7 @@ function LoginPage() {
               <div className="login-input-wrap relative">
                 <LockKeyhole
                   aria-hidden="true"
-                  className="pointer-events-none absolute left-4 top-[18px] text-text-muted transition-colors"
+                  className="pointer-events-none absolute left-4 top-4 text-text-muted transition-colors"
                   size={18}
                 />
                 <Input
@@ -424,16 +428,18 @@ function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                   placeholder="비밀번호 입력"
-                  className="login-input h-[54px] rounded-[15px] pl-12 pr-14"
+                  className="login-input h-[50px] rounded-[14px] pl-12 pr-14"
                   disabled={submitting}
-                  aria-invalid={Boolean(error && !password)}
-                  aria-describedby={error ? "login-error" : undefined}
+                  aria-invalid={Boolean((error && !password) || authError)}
+                  aria-describedby={
+                    error || authError ? "login-error" : undefined
+                  }
                 />
                 <button
                   type="button"
                   disabled={submitting}
                   onClick={() => setShowPassword((value) => !value)}
-                  className="absolute right-1 top-1 flex h-[46px] w-[46px] items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="absolute right-0.5 top-0.5 flex h-[46px] w-[46px] items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label={
                     showPassword ? "비밀번호 숨기기" : "비밀번호 보기"
                   }
@@ -478,7 +484,7 @@ function LoginPage() {
               </div>
             )}
             <Button
-              className="login-submit group h-[54px] w-full rounded-[15px] text-[15px]"
+              className="login-submit group h-[50px] w-full rounded-[14px] text-[15px]"
               disabled={submitting}
               aria-busy={submitting}
             >
@@ -490,7 +496,7 @@ function LoginPage() {
                     size={18}
                   />
                 ) : null}
-                {submitting ? "업무 공간을 여는 중..." : "P&M OS 시작하기"}
+                {submitting ? "로그인 중..." : "로그인"}
                 {!submitting && (
                   <ChevronRight
                     aria-hidden="true"
@@ -544,7 +550,7 @@ function BrandCapability({
   description: string;
 }) {
   return (
-    <div className="login-capability rounded-2xl border border-white/[0.09] bg-white/[0.055] px-4 py-4 backdrop-blur-sm">
+    <div className="login-capability px-4 py-1">
       <Icon
         aria-hidden="true"
         className="text-[#a8d4ed]"
