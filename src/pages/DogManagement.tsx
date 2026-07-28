@@ -28,7 +28,6 @@ import {
   Textarea,
   Toast,
 } from "../components/ui";
-import { koDate } from "../lib/format";
 import { isMissingCustomerAddressColumn } from "../lib/customerAddressCapability";
 import { formatPhone } from "../lib/phone";
 import { supabase } from "../lib/supabase";
@@ -113,6 +112,25 @@ const emptyForm = (): DogForm => ({
   neutered: "",
   memo: "",
 });
+
+function dogListSecondary(dog: DogRow) {
+  const details: string[] = [];
+  if (dog.sex === "male") details.push("수컷");
+  if (dog.sex === "female") details.push("암컷");
+  if (dog.birthDate) {
+    const [year, month, day] = dog.birthDate.split("-").map(Number);
+    const today = new Date();
+    let age = today.getFullYear() - year;
+    if (
+      today.getMonth() + 1 < month ||
+      (today.getMonth() + 1 === month && today.getDate() < day)
+    ) {
+      age -= 1;
+    }
+    if (Number.isFinite(age) && age >= 0) details.push(`${age}세`);
+  }
+  return details.join(" · ");
+}
 
 async function loadOwnerOptions() {
   const result = await supabase
@@ -705,45 +723,138 @@ export function PetManagementPage() {
       </FilterToolbar>
       <Card className="overflow-hidden">
         {loading ? <LoadingState /> : loadError ? <ErrorState title={loadError} retry={() => void loadData()} /> : rows.length ? (
-          <Table
-            className="min-w-[1180px]"
-            scrollResetKey={[
-              query,
-              breed,
-              activeFilter,
-              page,
-              profileDogId,
-              ownerEditing?.id,
-              editing?.id,
-            ].join("|")}
-          >
-              <thead><tr><th>반려견명</th><th>보호자명</th><th>연락처</th><th>견종</th><th>성별</th><th>생년월일</th><th>체중</th><th>상태</th><th>메모</th><th className="text-right">관리</th></tr></thead>
-              <tbody>{rows.map((dog) => {
-                const owner = owners.find((item) => item.id === dog.customerId) ?? null;
-                return <tr key={dog.id}>
-                  <td className="font-semibold text-slate-900">
-                    <button
-                      type="button"
-                      className="rounded-md text-left hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                      onClick={() => openProfile(dog.id)}
-                    >
-                      {dog.name}
-                    </button>
-                  </td><td>{dog.ownerName || "미등록"}</td><td>{dog.ownerPhone ? formatPhone(dog.ownerPhone) : "-"}</td><td>{dog.breed || "-"}</td><td>{dog.sex === "male" ? "수컷" : dog.sex === "female" ? "암컷" : "-"}</td><td>{dog.birthDate ? koDate(dog.birthDate) : "-"}</td><td>{dog.weight === null ? "-" : `${dog.weight}kg`}</td><td><StatusBadge status={dog.active ? "active" : "inactive"} /></td><td className="max-w-xs truncate">{dog.memo || "-"}</td>
-                  <td>
-                    <DogRowActions
-                      dog={dog}
-                      owner={owner}
-                      canManageDog={profile?.role === "admin"}
-                      onOpenProfile={() => openProfile(dog.id)}
-                      onEditOwner={() => openOwnerEdit(owner)}
-                      onEditDog={() => openEdit(dog)}
-                      onDeactivate={() => setDeactivating(dog)}
-                    />
-                  </td>
-                </tr>;
-              })}</tbody>
-            </Table>
+          <>
+            <div className="hidden xl:block">
+              <Table
+                className="table-fixed"
+                scrollResetKey={[
+                  query,
+                  breed,
+                  activeFilter,
+                  page,
+                  profileDogId,
+                  ownerEditing?.id,
+                  editing?.id,
+                ].join("|")}
+              >
+                <colgroup>
+                  <col />
+                  <col className="w-[15%]" />
+                  <col className="w-36" />
+                  <col className="w-[14%]" />
+                  <col className="w-20" />
+                  <col className="w-[268px]" />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th>반려견</th>
+                    <th>보호자</th>
+                    <th>연락처</th>
+                    <th>견종</th>
+                    <th className="text-center">상태</th>
+                    <th className="text-right">관리</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((dog) => {
+                    const owner =
+                      owners.find((item) => item.id === dog.customerId) ?? null;
+                    const secondary = dogListSecondary(dog);
+                    return (
+                      <tr key={dog.id}>
+                        <td>
+                          <button
+                            type="button"
+                            className="block min-w-0 rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            onClick={() => openProfile(dog.id)}
+                          >
+                            <span className="block font-semibold text-text-primary transition hover:text-primary">
+                              {dog.name}
+                            </span>
+                            {secondary && (
+                              <span className="mt-1 block text-xs font-normal text-text-muted">
+                                {secondary}
+                              </span>
+                            )}
+                          </button>
+                        </td>
+                        <td className="font-medium text-text-secondary">
+                          {dog.ownerName || "미등록"}
+                        </td>
+                        <td className="tabular-nums">
+                          {dog.ownerPhone ? formatPhone(dog.ownerPhone) : "미등록"}
+                        </td>
+                        <td>{dog.breed || "미등록"}</td>
+                        <td className="text-center">
+                          <StatusBadge status={dog.active ? "active" : "inactive"} />
+                        </td>
+                        <td>
+                          <DogRowActions
+                            dog={dog}
+                            owner={owner}
+                            canManageDog={profile?.role === "admin"}
+                            onOpenProfile={() => openProfile(dog.id)}
+                            onEditOwner={() => openOwnerEdit(owner)}
+                            onEditDog={() => openEdit(dog)}
+                            onDeactivate={() => setDeactivating(dog)}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </div>
+            <div className="divide-y divide-border xl:hidden">
+              {rows.map((dog) => {
+                const owner =
+                  owners.find((item) => item.id === dog.customerId) ?? null;
+                const secondary = dogListSecondary(dog);
+                return (
+                  <article key={dog.id} className="p-4 sm:p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      <button
+                        type="button"
+                        className="min-w-0 rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        onClick={() => openProfile(dog.id)}
+                      >
+                        <strong className="block text-base text-text-primary">
+                          {dog.name}
+                        </strong>
+                        <span className="mt-1 block text-sm text-text-secondary">
+                          {[dog.breed || "견종 미등록", secondary]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </button>
+                      <StatusBadge status={dog.active ? "active" : "inactive"} />
+                    </div>
+                    <dl className="mt-4 grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 border-t border-border pt-4 text-sm">
+                      <dt className="text-text-muted">보호자</dt>
+                      <dd className="font-medium text-text-primary">
+                        {dog.ownerName || "미등록"}
+                      </dd>
+                      <dt className="text-text-muted">연락처</dt>
+                      <dd className="whitespace-nowrap tabular-nums text-text-secondary">
+                        {dog.ownerPhone ? formatPhone(dog.ownerPhone) : "미등록"}
+                      </dd>
+                    </dl>
+                    <div className="mt-4 border-t border-border pt-3">
+                      <DogRowActions
+                        dog={dog}
+                        owner={owner}
+                        canManageDog={profile?.role === "admin"}
+                        onOpenProfile={() => openProfile(dog.id)}
+                        onEditOwner={() => openOwnerEdit(owner)}
+                        onEditDog={() => openEdit(dog)}
+                        onDeactivate={() => setDeactivating(dog)}
+                      />
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </>
         ) : <EmptyState title="등록된 반려견이 없습니다" description="검색 조건을 확인하거나 반려견을 등록해 주세요." />}
       </Card>
       {!loading && !loadError && filtered.length > 0 && <Pagination page={page} totalPages={totalPages} totalLabel={`총 ${filtered.length}마리`} onPageChange={setPage} />}
