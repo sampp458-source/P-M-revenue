@@ -366,7 +366,7 @@ export function PetManagementPage() {
     const result = await supabase
       .from("sales")
       .select(
-        "id, sale_date, created_at, business_unit_id, business_unit_name, product_name, quantity, status, cancellation_type, products(unit_label)",
+        "id, sale_date, created_at, business_unit_id, business_unit_name, product_name, quantity, status, cancellation_type, product:products!sales_product_id_fkey(unit_label)",
       )
       .eq("dog_id", dogId)
       .order("sale_date", { ascending: false })

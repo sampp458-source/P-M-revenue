@@ -21,7 +21,7 @@ export interface DogProfileActivityRow {
   quantity: number | null;
   status: string;
   cancellation_type: string | null;
-  products:
+  product:
     | { unit_label: string | null }
     | Array<{ unit_label: string | null }>
     | null;
@@ -30,7 +30,7 @@ export interface DogProfileActivityRow {
 export function mapDogProfileActivity(
   row: DogProfileActivityRow,
 ): DogProfileActivity {
-  const product = Array.isArray(row.products) ? row.products[0] : row.products;
+  const product = Array.isArray(row.product) ? row.product[0] : row.product;
 
   return {
     id: row.id,

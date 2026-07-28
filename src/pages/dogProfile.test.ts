@@ -67,7 +67,7 @@ describe("dog profile usage and timeline", () => {
         quantity: 9,
         status: "normal",
         cancellation_type: null,
-        products: { unit_label: "박" },
+        product: { unit_label: "박" },
       }),
     ).toEqual(
       expect.objectContaining({
@@ -163,7 +163,9 @@ describe("dog profile audit and Customer Master connection", () => {
   });
 
   it("loads units through the product relation instead of a missing sales column", () => {
-    expect(managementUi).toContain("products(unit_label)");
+    expect(managementUi).toContain(
+      "product:products!sales_product_id_fkey(unit_label)",
+    );
     expect(managementUi).not.toContain(
       "quantity, unit_label, status, cancellation_type",
     );
