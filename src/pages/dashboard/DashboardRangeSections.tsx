@@ -87,7 +87,7 @@ function CompareButton({ active, onClick, children }: { active: boolean; onClick
 
 export function DailyRevenueTrend({ data, selectedDate, unitName, onSelect }: { data: DailyRevenue[]; selectedDate: string; unitName: string; onSelect: (date: string) => void }) {
   const max = Math.max(0, ...data.map((row) => Math.max(0, row.revenue)));
-  return <Card className="dashboard-trend-surface overflow-hidden px-4 py-3.5 shadow-none sm:px-5 sm:py-4"><div className="mb-2 flex items-end justify-between gap-4"><div><p className="dashboard-eyebrow dashboard-theme-text text-[9px] font-bold uppercase">Cash flow</p><h2 className="dashboard-section-title mt-0.5 font-bold text-text-primary">날짜별 실수납 추이</h2><p className="mt-0.5 text-xs leading-4 text-[#667085]">{unitName} · 결제일 기준 유효 결제원장 합계</p></div><span className="dashboard-theme-pill hidden rounded-full px-3 py-1 text-[11px] font-semibold sm:inline">일별 흐름</span></div>{data.length ? <div className="dashboard-trend-chart overflow-x-auto rounded-xl px-2 pb-2 pt-1 sm:px-3"><div className="flex h-48 min-w-full items-end gap-1.5" style={{ width: `${Math.max(100, data.length * 46)}px` }}>{data.map((row) => { const height = max > 0 && row.revenue > 0 ? (row.revenue / max) * 132 : 1; const isPeak = row.revenue === max && max > 0; const isSelected = selectedDate === row.date; const isWeekend = [0, 6].includes(new Date(`${row.date}T00:00:00`).getDay()); return <button key={row.date} type="button" onClick={() => onSelect(row.date)} className={cn("dashboard-trend-day group relative flex h-full min-w-10 flex-1 flex-col items-center justify-end rounded-lg px-0.5 pt-5 transition-colors duration-150 focus:outline-none focus-visible:ring-2", isWeekend && "dashboard-trend-weekend", isSelected && "dashboard-trend-day-selected")} aria-label={`${row.date} 실수납 ${won(row.revenue)}`}><span className="dashboard-trend-tooltip pointer-events-none absolute left-1/2 top-0 z-10 hidden w-36 -translate-x-1/2 rounded-xl px-3 py-2 text-left text-[11px] leading-5 text-white shadow-lg group-hover:block group-focus-visible:block"><strong className="block">{Number(row.date.slice(5, 7))}월 {Number(row.date.slice(8))}일</strong><span className="dashboard-trend-tooltip-value block">실수납 {won(row.revenue)}</span><span className="block text-rose-200">환불 {won(row.refund)}</span></span>{isPeak && <span className="dashboard-theme-text pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 whitespace-nowrap text-[10px] font-bold">{shortWon(row.revenue)}</span>}<span className={cn("dashboard-trend-bar w-full max-w-9 origin-bottom rounded-t-md transition-[height,filter,opacity,transform] duration-200 group-hover:scale-x-[1.04]", isSelected ? "dashboard-trend-bar-selected" : isPeak ? "dashboard-trend-bar-emphasis" : row.revenue > 0 ? "opacity-[0.62] group-hover:opacity-95" : "dashboard-trend-bar-empty")} style={{ height }} />{row.refund > 0 && <span className="mt-1 h-1.5 w-1.5 rounded-full bg-error" title={`환불 ${won(row.refund)}`} />}<span className={cn("mt-1.5 text-[10px]", isSelected ? "dashboard-theme-text font-bold" : "text-[#8a94a3]")}>{Number(row.date.slice(8))}일</span></button>; })}</div></div> : <p className="rounded-xl bg-surface-secondary p-5 text-center text-sm text-text-muted">선택 기간에 표시할 수납 내역이 없습니다.</p>}</Card>;
+  return <Card className="dashboard-trend-surface overflow-hidden px-4 py-3 shadow-none sm:px-5"><div className="mb-1.5 flex items-end justify-between gap-4"><div><p className="dashboard-eyebrow dashboard-theme-text text-[8px] font-bold uppercase">Cash flow</p><h2 className="dashboard-section-title font-bold text-text-primary">날짜별 실수납 추이</h2><p className="text-[11px] leading-4 text-[#778395]">{unitName} · 결제일 기준 유효 결제원장 합계</p></div><span className="dashboard-theme-pill hidden rounded-full px-2 py-0.5 text-[10px] font-semibold sm:inline">일별 흐름</span></div>{data.length ? <div className="dashboard-trend-chart overflow-x-auto rounded-xl px-2 pb-2 pt-1 sm:px-3"><div className="flex h-[12.75rem] min-w-full items-end gap-1.5" style={{ width: `${Math.max(100, data.length * 46)}px` }}>{data.map((row) => { const height = max > 0 && row.revenue > 0 ? (row.revenue / max) * 148 : 1; const isPeak = row.revenue === max && max > 0; const isSelected = selectedDate === row.date; const isWeekend = [0, 6].includes(new Date(`${row.date}T00:00:00`).getDay()); return <button key={row.date} type="button" onClick={() => onSelect(row.date)} className={cn("dashboard-trend-day group relative flex h-full min-w-10 flex-1 flex-col items-center justify-end rounded-lg px-0.5 pt-5 transition-colors duration-150 focus:outline-none focus-visible:ring-2", isWeekend && "dashboard-trend-weekend", isSelected && "dashboard-trend-day-selected")} aria-label={`${row.date} 실수납 ${won(row.revenue)}`}><span className="dashboard-trend-tooltip pointer-events-none absolute left-1/2 top-0 z-10 hidden w-36 -translate-x-1/2 rounded-xl px-3 py-2 text-left text-[11px] leading-5 text-white shadow-lg group-hover:block group-focus-visible:block"><strong className="block">{Number(row.date.slice(5, 7))}월 {Number(row.date.slice(8))}일</strong><span className="dashboard-trend-tooltip-value block">실수납 {won(row.revenue)}</span><span className="block text-rose-200">환불 {won(row.refund)}</span></span>{isPeak && <span className="dashboard-theme-text pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 whitespace-nowrap text-[10px] font-bold">{shortWon(row.revenue)}</span>}<span className={cn("dashboard-trend-bar w-full max-w-9 origin-bottom rounded-t-md transition-[height,filter,opacity,transform] duration-200 group-hover:scale-x-[1.04]", isSelected ? "dashboard-trend-bar-selected" : isPeak ? "dashboard-trend-bar-emphasis" : row.revenue > 0 ? "opacity-[0.62] group-hover:opacity-95" : "dashboard-trend-bar-empty")} style={{ height }} />{row.refund > 0 && <span className="mt-1 h-1.5 w-1.5 rounded-full bg-error" title={`환불 ${won(row.refund)}`} />}<span className={cn("mt-1.5 text-[10px]", isSelected ? "dashboard-theme-text font-bold" : "text-[#8a94a3]")}>{Number(row.date.slice(8))}일</span></button>; })}</div></div> : <p className="rounded-xl bg-surface-secondary p-5 text-center text-sm text-text-muted">선택 기간에 표시할 수납 내역이 없습니다.</p>}</Card>;
 }
 
 const monthDays = (month: string) => {
@@ -161,7 +161,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
       <div className="mt-2 grid grid-cols-7 gap-0.5 sm:mt-2.5 sm:gap-1.5">
         {monthDays(month).map((date, index) => {
           if (!date) {
-            return <span key={`empty-${index}`} className="min-h-[4.25rem] rounded-md bg-surface-secondary/30 sm:min-h-[6.5rem] sm:rounded-lg" />;
+            return <span key={`empty-${index}`} className="min-h-3 rounded-md bg-surface-secondary/20 sm:min-h-4 sm:rounded-lg" />;
           }
           const row = byDate.get(date);
           const totalRow = totalsByDate.get(date);
@@ -204,12 +204,14 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                 <span className="text-[13px] font-bold text-text-primary sm:text-[15px]">
                   {Number(date.slice(8))}
                 </span>
-                {today === date && selectedDate === date ? (
-                  <span className="dashboard-theme-fill h-1.5 w-1.5 shrink-0 rounded-full" aria-label="오늘" />
-                ) : today === date ? (
-                  <span className="dashboard-theme-fill absolute right-0.5 top-0.5 rounded-full px-1 py-0.5 text-[7px] font-bold leading-none text-white min-[430px]:static min-[430px]:px-1.5 min-[430px]:text-[9px]">
-                    오늘
-                  </span>
+                {today === date ? (
+                  <span
+                    className={cn(
+                      "dashboard-calendar-today-dot h-1.5 w-1.5 shrink-0 rounded-full",
+                      selectedDate === date ? "dashboard-theme-fill" : "border border-current bg-white",
+                    )}
+                    aria-label="오늘"
+                  />
                 ) : null}
               </span>
               <span className="mt-1.5 flex min-h-2 items-center gap-1" aria-hidden="true">
@@ -222,11 +224,14 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                 <>
                   <strong className={cn(
                     "mt-1.5 block whitespace-nowrap text-[clamp(0.5rem,2.5vw,0.7rem)] font-bold tracking-[-0.035em] tabular-nums sm:text-[13px]",
-                    hasReceipt ? "dashboard-theme-text" : "text-text-muted",
+                    hasReceipt ? "dashboard-theme-text" : "dashboard-calendar-empty-value",
                   )}>
                     {hasReceipt ? shortWon(amount) : "0원"}
                   </strong>
-                  <span className="mt-1 block truncate text-[8px] font-medium leading-3 text-text-muted min-[430px]:text-[9px] sm:text-[10px]">
+                  <span className={cn(
+                    "mt-1 block truncate text-[8px] font-medium leading-3 min-[430px]:text-[9px] sm:text-[10px]",
+                    hasSales ? "text-text-muted" : "dashboard-calendar-empty-meta",
+                  )}>
                     {row?.count ?? 0}건
                   </span>
                   {filtered && (

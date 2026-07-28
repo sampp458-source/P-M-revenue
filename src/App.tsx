@@ -235,19 +235,19 @@ function AppLayout() {
       <aside
         className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="flex h-11 shrink-0 items-center justify-between border-b border-white/[0.05] px-2">
-          <BrandLogo className="h-11 w-[94px] translate-x-[3px] translate-y-[5px]" imageClassName="h-[120px] w-[120px]" />
+        <div className="flex h-[76px] shrink-0 items-center justify-center border-b border-white/[0.035]">
+          <BrandLogo className="h-[76px] w-full" imageClassName="h-36 w-36" />
           <button
-            className="flex h-11 w-11 -translate-y-0.5 items-center justify-center rounded-xl text-blue-100/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:hidden"
+            className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-xl text-blue-100/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:hidden"
             onClick={() => setOpen(false)}
             aria-label="메뉴 닫기"
           >
             <X />
           </button>
         </div>
-        <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 py-2">
-          {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-2.5 last:mb-0"><p className="mb-0.5 px-3 text-[8px] font-medium uppercase tracking-[0.17em] text-blue-100/28">{group}</p><div className="space-y-0.5">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
-              <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `app-sidebar-link group relative flex min-h-[33px] items-center gap-3 rounded-[11px] px-3 py-1 text-[13px] font-medium transition-[color,background-color,transform] duration-150 ${isActive ? "is-active bg-white/[0.075] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-white"}`}>
+        <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 pb-2 pt-0.5">
+          {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-3 last:mb-0"><p className="mb-0.5 px-3 text-[8px] font-medium uppercase tracking-[0.17em] text-blue-100/24">{group}</p><div className="space-y-0.5">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
+              <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `app-sidebar-link group relative flex min-h-9 items-center gap-3.5 rounded-[11px] px-3 py-1 text-sm font-medium transition-[color,background-color,transform] duration-150 ${isActive ? "is-active bg-white/[0.075] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-white"}`}>
                 {({ isActive }) => <><span className={`absolute inset-y-2.5 left-0 w-0.5 rounded-full transition-colors ${isActive ? "bg-[#8fc1e8]" : "bg-transparent"}`} /><Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} /><span>{label}</span></>}
               </NavLink>
             ))}</div></div>)}

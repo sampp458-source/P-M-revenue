@@ -207,13 +207,13 @@ export function DashboardDateDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain">
-          <div className="dashboard-drawer-summary sticky top-0 z-10 border-b p-2.5 backdrop-blur sm:px-5 sm:py-3">
-          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035] p-2.5 text-white sm:p-3">
+          <div className="dashboard-drawer-summary sticky top-0 z-10 border-b p-2 backdrop-blur sm:px-5 sm:py-2.5">
+          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035] p-2 text-white sm:p-2.5">
             <p className="dashboard-drawer-accent-text text-xs font-semibold">판매금액</p>
             <strong className="mt-0.5 block whitespace-nowrap text-[clamp(1.6rem,7vw,2.3rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
               {won(summary.salesAmount)}
             </strong>
-            <div className="mt-2 grid grid-cols-1 gap-1.5 border-t border-white/[0.08] pt-2 min-[430px]:grid-cols-3 min-[430px]:gap-2">
+            <div className="mt-1.5 grid grid-cols-1 gap-1 border-t border-white/[0.08] pt-1.5 min-[430px]:grid-cols-3 min-[430px]:gap-2">
               <Summary label="실수납" value={won(summary.revenue)} />
               <Summary label="현재 미수" value={won(summary.outstanding)} warning={summary.outstanding > 0} />
               <Summary label="환불" value={won(summary.refund)} warning={summary.refund > 0} />
@@ -223,7 +223,7 @@ export function DashboardDateDrawer({
 
           <div className="p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:p-5">
           <div>
-            <div className="-mx-1 mb-2.5 overflow-x-auto px-1 pb-1">
+            <div className="-mx-1 mb-2 overflow-x-auto px-1 pb-1">
               <div className="flex min-w-max gap-1 rounded-xl bg-white/[0.045] p-0.5" role="tablist" aria-label="날짜 상세 사업부">
                 <UnitTab active={selectedUnitId === "all"} onClick={() => setSelectedUnitId("all")}>
                   전체
@@ -276,7 +276,7 @@ export function DashboardDateDrawer({
         </div>
 
         <div className="shrink-0 border-t border-white/[0.08] bg-[#142b46] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-5">
-          <Button type="button" variant="secondary" className="h-[34px] min-h-[34px] w-full border-white/10 bg-white/[0.06] py-1 text-white hover:bg-white/[0.1]" onClick={onOpenSales}>
+          <Button type="button" variant="secondary" className="h-[34px] min-h-[34px] w-full border-white/10 bg-white/[0.055] py-1 text-slate-200 hover:bg-white/[0.09] hover:text-white" onClick={onOpenSales}>
             전체 매출 내역 보기 <ExternalLink size={16} />
           </Button>
         </div>
@@ -513,13 +513,13 @@ function BusinessUnitTransactions({
       </div>
 
       {group.rows.length ? (
-        <div className="space-y-1.5 p-2">
+        <div className="space-y-1 p-1.5">
           {group.rows.map((sale) => (
             <button
               key={sale.id}
               type="button"
               onClick={() => onOpenSale(sale.id)}
-              className="group block min-h-10 w-full rounded-xl border border-white/10 bg-white/[0.045] p-2.5 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+              className="group block min-h-10 w-full rounded-xl border border-white/10 bg-white/[0.045] p-2 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
             >
               <span className="flex flex-col items-stretch gap-2 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-3">
                 <span className="min-w-0">
