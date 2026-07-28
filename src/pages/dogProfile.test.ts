@@ -179,7 +179,10 @@ describe("dog profile audit and Customer Master connection", () => {
       '<EmptyState compact title="표시할 Timeline이 없습니다." />',
     );
     expect(sharedUi).toContain("scrollRef.current.scrollLeft = 0");
-    expect(sharedUi).toContain("dialogRef.current.scrollTop = 0");
+    expect(sharedUi).toContain("scrollRef.current.scrollTop = 0");
+    expect(sharedUi).toContain(
+      "flex max-h-[calc(100dvh-0.5rem)] w-full flex-col overflow-hidden",
+    );
   });
 
   it("uses customer-friendly labels and formatted display phones", () => {

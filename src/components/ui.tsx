@@ -258,18 +258,19 @@ export function Modal({
   resetKey?: string | number;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
   useEffect(() => {
-    if (!open || !dialogRef.current) return;
-    dialogRef.current.scrollTop = 0;
-    dialogRef.current.scrollLeft = 0;
+    if (!open || !scrollRef.current) return;
+    scrollRef.current.scrollTop = 0;
+    scrollRef.current.scrollLeft = 0;
     requestAnimationFrame(() => {
-      if (!dialogRef.current) return;
-      dialogRef.current.scrollTop = 0;
-      dialogRef.current.scrollLeft = 0;
+      if (!scrollRef.current) return;
+      scrollRef.current.scrollTop = 0;
+      scrollRef.current.scrollLeft = 0;
     });
   }, [open, resetKey]);
   useEffect(() => {
@@ -305,11 +306,11 @@ export function Modal({
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
-          "pm-modal-panel max-h-[calc(100dvh-0.5rem)] w-full overflow-auto rounded-t-[24px] bg-surface sm:max-h-[90vh] sm:rounded-[24px]",
+          "pm-modal-panel flex max-h-[calc(100dvh-0.5rem)] w-full flex-col overflow-hidden rounded-t-[24px] bg-surface sm:max-h-[90vh] sm:rounded-[24px]",
           extraWide ? "max-w-6xl" : wide ? "max-w-3xl" : "max-w-lg",
         )}
       >
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-surface px-5 py-4 sm:px-6">
+        <div className="z-10 flex shrink-0 items-center justify-between border-b border-border bg-surface px-5 py-4 sm:px-6">
           <h2 id={titleId} className="text-lg font-semibold text-text-primary">{title}</h2>
           <button
             type="button"
@@ -320,7 +321,12 @@ export function Modal({
             <X size={20} />
           </button>
         </div>
-        <div className="p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6">{children}</div>
+        <div
+          ref={scrollRef}
+          className="min-h-0 overflow-auto p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-6"
+        >
+          {children}
+        </div>
       </div>
     </div>
   );
