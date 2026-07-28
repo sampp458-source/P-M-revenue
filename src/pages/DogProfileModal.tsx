@@ -5,7 +5,15 @@ import {
   Phone,
   UserRound,
 } from "lucide-react";
-import type { ReactNode } from "react";
+import {
+  ProfileContent,
+  ProfileField,
+  ProfileHeader,
+  ProfileInfoGrid,
+  ProfileSection,
+  ProfileTimeline,
+  ProfileTimelineItem,
+} from "../components/profile";
 import {
   Button,
   EmptyState,
@@ -83,40 +91,35 @@ export function DogProfileModal({
 
   return (
     <Modal open title="반려견 프로필" onClose={onClose} extraWide>
-      <div className="space-y-7">
-        <header className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
-          <div className="min-w-0">
-            <div className="mb-2 flex flex-wrap items-center gap-2">
-              <StatusBadge status={dog.active ? "active" : "inactive"} />
-              {dog.breed && (
-                <span className="rounded-full bg-surface-secondary px-2.5 py-1 text-xs font-semibold text-text-secondary">
-                  {dog.breed}
-                </span>
-              )}
-            </div>
-            <h3 className="truncate text-3xl font-bold tracking-[-0.04em] text-text-primary sm:text-4xl">
-              {dog.name}
-            </h3>
-            <p className="mt-2 text-sm text-text-secondary">
+      <ProfileContent>
+        <ProfileHeader
+          title={dog.name}
+          status={<StatusBadge status={dog.active ? "active" : "inactive"} />}
+          tags={
+            dog.breed ? (
+              <span className="rounded-full bg-surface-secondary px-2.5 py-1 text-xs font-semibold text-text-secondary">
+                {dog.breed}
+              </span>
+            ) : null
+          }
+          summary={
+            <>
               보호자 {owner?.name || "미등록"} · 최근 이용{" "}
               {dates.recentDate ? koDate(dates.recentDate) : "없음"}
-            </p>
-          </div>
-          {canEditDog && (
+            </>
+          }
+          actions={
+            canEditDog ? (
             <Button variant="secondary" onClick={onEditDog}>
               <Pencil size={16} />
               반려견 정보 수정
             </Button>
-          )}
-        </header>
+            ) : null
+          }
+        />
 
-        <section aria-labelledby="dog-profile-basic-title">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h4 id="dog-profile-basic-title" className="text-base font-bold text-text-primary">
-              반려견 정보
-            </h4>
-          </div>
-          <dl className="grid gap-x-6 gap-y-4 rounded-2xl border border-border bg-surface-secondary/60 p-5 sm:grid-cols-2 lg:grid-cols-4">
+        <ProfileSection id="dog-profile-basic-title" title="반려견 정보">
+          <ProfileInfoGrid>
             <ProfileField label="이름" value={dog.name} />
             <ProfileField label="품종" value={detailValue(dog.breed)} />
             <ProfileField
@@ -135,21 +138,21 @@ export function DogProfileModal({
               label="중성화"
               value={dog.neutered === null ? "미등록" : dog.neutered ? "완료" : "미완료"}
             />
-          </dl>
-        </section>
+          </ProfileInfoGrid>
+        </ProfileSection>
 
-        <section aria-labelledby="dog-profile-owner-title">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <h4 id="dog-profile-owner-title" className="text-base font-bold text-text-primary">
-              보호자 정보
-            </h4>
-            {owner && (
+        <ProfileSection
+          id="dog-profile-owner-title"
+          title="보호자 정보"
+          action={
+            owner ? (
               <Button variant="secondary" onClick={onEditOwner}>
                 <Pencil size={15} />
                 수정
               </Button>
-            )}
-          </div>
+            ) : null
+          }
+        >
           {owner ? (
             <div className="rounded-2xl border border-border bg-surface p-5">
               <button
@@ -178,9 +181,11 @@ export function DogProfileModal({
                   label="주소"
                   value={detailValue(owner.address)}
                 />
-                <div className="sm:col-span-2">
-                  <ProfileField label="메모" value={detailValue(owner.memo)} />
-                </div>
+                <ProfileField
+                  className="sm:col-span-2"
+                  label="메모"
+                  value={detailValue(owner.memo)}
+                />
               </dl>
             </div>
           ) : (
@@ -188,18 +193,18 @@ export function DogProfileModal({
               연결된 보호자가 없습니다.
             </div>
           )}
-        </section>
+        </ProfileSection>
 
-        <section aria-labelledby="dog-profile-usage-title">
-          <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-            <h4 id="dog-profile-usage-title" className="text-base font-bold text-text-primary">
-              이용 정보
-            </h4>
+        <ProfileSection
+          id="dog-profile-usage-title"
+          title="이용 정보"
+          action={
             <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
               <span>첫 이용 {dates.firstDate ? koDate(dates.firstDate) : "-"}</span>
               <span>최근 이용 {dates.recentDate ? koDate(dates.recentDate) : "-"}</span>
             </div>
-          </div>
+          }
+        >
           {loading ? (
             <LoadingState />
           ) : error ? (
@@ -238,106 +243,71 @@ export function DogProfileModal({
           ) : (
             <EmptyState title="아직 이용 기록이 없습니다." />
           )}
-        </section>
+        </ProfileSection>
 
-        <section aria-labelledby="dog-profile-memo-title">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h4 id="dog-profile-memo-title" className="text-base font-bold text-text-primary">
-              메모
-            </h4>
-            {canEditDog && (
+        <ProfileSection
+          id="dog-profile-memo-title"
+          title="메모"
+          action={
+            canEditDog ? (
               <Button variant="ghost" onClick={onEditDog}>
                 <Pencil size={15} />
                 수정
               </Button>
-            )}
-          </div>
+            ) : null
+          }
+        >
           <p className="min-h-20 whitespace-pre-wrap rounded-2xl bg-amber-50/70 p-5 text-sm leading-7 text-text-secondary">
             {dog.memo || "등록된 주의사항이나 특이사항이 없습니다."}
           </p>
-        </section>
+        </ProfileSection>
 
-        <section aria-labelledby="dog-profile-timeline-title">
-          <div className="mb-4 flex items-end justify-between gap-3">
-            <div>
-              <h4 id="dog-profile-timeline-title" className="text-base font-bold text-text-primary">
-                Timeline
-              </h4>
-              <p className="mt-1 text-xs text-text-muted">확인된 이용 기록을 최신순으로 표시합니다.</p>
-            </div>
-            <span className="text-xs font-semibold text-text-muted">
-              총 {activeActivities.length.toLocaleString("ko-KR")}건
-            </span>
-          </div>
+        <ProfileSection
+          id="dog-profile-timeline-title"
+          title="Timeline"
+          description="확인된 이용 기록을 최신순으로 표시합니다."
+        >
           {loading ? (
             <LoadingState />
           ) : error ? (
             <ErrorState title={error} retry={onRetry} />
           ) : activeActivities.length ? (
-            <ol className="relative ml-2 border-l border-border">
-              {activeActivities.map((activity) => {
+            <ProfileTimeline
+              countLabel={`총 ${activeActivities.length.toLocaleString("ko-KR")}건`}
+            >
+              {activeActivities.map((activity, index) => {
                 const themeCode = dashboardThemeCode(
                   activity.businessUnitId,
                   activity.businessUnitName,
                 );
                 return (
-                  <li
+                  <ProfileTimelineItem
                     key={activity.id}
                     style={dashboardThemeStyle(themeCode)}
-                    className="relative pb-6 pl-6 last:pb-0"
-                  >
-                    <span className="absolute -left-[5px] top-1.5 h-2.5 w-2.5 rounded-full bg-[var(--pm-theme-accent)] ring-4 ring-white" />
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-bold text-text-primary">
-                            {koDate(activity.saleDate)}
-                          </span>
-                          <span className="rounded-full bg-[var(--pm-theme-tint-2)] px-2 py-0.5 text-[11px] font-bold text-[var(--pm-theme-accent)]">
-                            {activity.businessUnitName}
-                          </span>
-                        </div>
-                        <p className="mt-1 break-words text-sm text-text-secondary">
-                          {activity.productName}
-                        </p>
-                      </div>
+                    last={index === activeActivities.length - 1}
+                    date={koDate(activity.saleDate)}
+                    badge={
+                      <span className="rounded-full bg-[var(--pm-theme-tint-2)] px-2 py-0.5 text-[11px] font-bold text-[var(--pm-theme-accent)]">
+                        {activity.businessUnitName}
+                      </span>
+                    }
+                    title={activity.productName}
+                    meta={
                       <span className="flex shrink-0 items-center gap-1 text-xs text-text-muted">
                         <Clock3 size={13} />
                         {activity.quantity.toLocaleString("ko-KR")}
                         {activity.unitLabel || "건"}
                       </span>
-                    </div>
-                  </li>
+                    }
+                  />
                 );
               })}
-            </ol>
+            </ProfileTimeline>
           ) : (
             <EmptyState title="표시할 Timeline이 없습니다." />
           )}
-        </section>
-      </div>
+        </ProfileSection>
+      </ProfileContent>
     </Modal>
-  );
-}
-
-function ProfileField({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: string | number;
-  icon?: ReactNode;
-}) {
-  return (
-    <div className="min-w-0">
-      <dt className="flex items-center gap-1.5 text-xs font-semibold text-text-muted">
-        {icon}
-        {label}
-      </dt>
-      <dd className="mt-1.5 break-words text-sm font-medium text-text-primary">
-        {value}
-      </dd>
-    </div>
   );
 }
