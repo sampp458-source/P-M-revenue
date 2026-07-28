@@ -279,6 +279,7 @@ interface CustomerRow {
   id: string;
   name: string | null;
   phone: string | null;
+  address: string | null;
   memo: string | null;
   is_active: boolean;
   created_at: string;
@@ -305,14 +306,19 @@ export function CustomerList({
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [notice, setNotice] = useState("");
-  const [form, setForm] = useState({ name: "", phone: "", memo: "" });
+  const [form, setForm] = useState({
+    name: "",
+    phone: "",
+    address: "",
+    memo: "",
+  });
 
   const loadCustomers = useCallback(async () => {
     setLoading(true);
     setError(false);
     let request = supabase
       .from("customers")
-      .select("id, name, phone, memo, is_active, created_at, updated_at", {
+      .select("id, name, phone, address, memo, is_active, created_at, updated_at", {
         count: "exact",
       })
       .order("created_at", { ascending: false });
@@ -379,6 +385,7 @@ export function CustomerList({
     const values = {
       name: name || null,
       phone: phone || null,
+      address: form.address.trim() || null,
       memo: form.memo.trim() || null,
     };
     const result = editingCustomer
@@ -414,7 +421,7 @@ export function CustomerList({
 
     setCreating(false);
     setEditingCustomer(null);
-    setForm({ name: "", phone: "", memo: "" });
+    setForm({ name: "", phone: "", address: "", memo: "" });
     setNotice(editingCustomer ? "보호자 정보를 수정했습니다." : "보호자를 등록했습니다.");
     await loadCustomers();
   };
@@ -482,11 +489,12 @@ export function CustomerList({
       ) : error ? (
         <ErrorState retry={() => void loadCustomers()} />
       ) : customers.length ? (
-        <Table className="min-w-[760px]">
+        <Table className="min-w-[900px]">
             <thead>
               <tr>
                 <th>보호자명</th>
                 <th>연락처</th>
+                <th>주소</th>
                 <th>메모</th>
                 <th>상태</th>
                 <th>최근 수정</th>
@@ -500,6 +508,7 @@ export function CustomerList({
                     {customer.name || "이름 미등록"}
                   </td>
                   <td>{customer.phone || "연락처 미등록"}</td>
+                  <td className="max-w-xs truncate">{customer.address || "-"}</td>
                   <td className="max-w-xs truncate">{customer.memo || "-"}</td>
                   <td>
                     <StatusBadge status={customer.is_active ? "active" : "inactive"} tone={customer.is_active ? "blue" : "gray"} />
@@ -518,6 +527,7 @@ export function CustomerList({
                           setForm({
                             name: customer.name || "",
                             phone: customer.phone || "",
+                            address: customer.address || "",
                             memo: customer.memo || "",
                           });
                         }}
@@ -555,7 +565,7 @@ export function CustomerList({
           setCreating(false);
           setEditingCustomer(null);
           setSaveError("");
-          setForm({ name: "", phone: "", memo: "" });
+          setForm({ name: "", phone: "", address: "", memo: "" });
         }}
         title={editingCustomer ? "보호자 수정" : "보호자 등록"}
       >
@@ -578,6 +588,14 @@ export function CustomerList({
               disabled={saving}
               aria-invalid={Boolean(saveError && !form.name.trim() && !form.phone.trim())}
               aria-describedby={saveError ? "customer-form-error" : undefined}
+            />
+          </Field>
+          <Field label="주소">
+            <Input
+              name="customerAddress"
+              value={form.address}
+              onChange={(event) => setForm({ ...form, address: event.target.value })}
+              disabled={saving}
             />
           </Field>
           <Field label="메모">

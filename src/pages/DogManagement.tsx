@@ -39,6 +39,8 @@ interface OwnerOption {
   id: string;
   name: string | null;
   phone: string | null;
+  address: string | null;
+  memo: string | null;
   is_active: boolean;
 }
 
@@ -68,7 +70,19 @@ interface DogForm {
   memo: string;
 }
 
-interface OwnerForm { name: string; phone: string; memo: string }
+interface OwnerForm {
+  name: string;
+  phone: string;
+  address: string;
+  memo: string;
+}
+
+const emptyOwnerForm = (): OwnerForm => ({
+  name: "",
+  phone: "",
+  address: "",
+  memo: "",
+});
 
 const emptyForm = (): DogForm => ({
   id: null,
@@ -93,7 +107,8 @@ export function PetManagementPage() {
   const [editing, setEditing] = useState<DogForm | null>(null);
   const [ownerSearch, setOwnerSearch] = useState("");
   const [ownerCreating, setOwnerCreating] = useState(false);
-  const [ownerForm, setOwnerForm] = useState<OwnerForm>({ name: "", phone: "", memo: "" });
+  const [ownerEditing, setOwnerEditing] = useState<OwnerOption | null>(null);
+  const [ownerForm, setOwnerForm] = useState<OwnerForm>(emptyOwnerForm);
   const [ownerSaving, setOwnerSaving] = useState(false);
   const [ownerError, setOwnerError] = useState("");
   const [deactivating, setDeactivating] = useState<DogRow | null>(null);
@@ -117,8 +132,7 @@ export function PetManagementPage() {
         .order("name"),
       supabase
         .from("customers")
-        .select("id, name, phone, is_active")
-        .eq("is_active", true)
+        .select("id, name, phone, address, memo, is_active")
         .order("name"),
     ]);
     if (dogsResult.error) {
@@ -179,8 +193,20 @@ export function PetManagementPage() {
   const rows = filtered.slice((page - 1) * pageSize, page * pageSize);
   const visibleOwners = useMemo(() => {
     const keyword = ownerSearch.trim().toLocaleLowerCase("ko");
-    return owners.filter((owner) => owner.id === editing?.customerId || !keyword || [owner.name, owner.phone].some((value) => value?.toLocaleLowerCase("ko").includes(keyword)));
+    return owners.filter(
+      (owner) =>
+        owner.id === editing?.customerId ||
+        (owner.is_active &&
+          (!keyword ||
+            [owner.name, owner.phone].some((value) =>
+              value?.toLocaleLowerCase("ko").includes(keyword),
+            ))),
+    );
   }, [editing?.customerId, ownerSearch, owners]);
+  const selectedOwner = useMemo(
+    () => owners.find((owner) => owner.id === editing?.customerId) ?? null,
+    [editing?.customerId, owners],
+  );
 
   const openEdit = (dog: DogRow) => {
     setFormError("");
@@ -203,8 +229,25 @@ export function PetManagementPage() {
     const initial = ownerSearch.trim();
     const looksLikePhone = /^[0-9\-\s]+$/.test(initial);
     setOwnerError("");
-    setOwnerForm({ name: looksLikePhone ? "" : initial, phone: looksLikePhone ? initial : "", memo: "" });
+    setOwnerEditing(null);
+    setOwnerForm({
+      ...emptyOwnerForm(),
+      name: looksLikePhone ? "" : initial,
+      phone: looksLikePhone ? initial : "",
+    });
     setOwnerCreating(true);
+  };
+
+  const openOwnerEdit = (owner: OwnerOption | null = selectedOwner) => {
+    if (!owner) return;
+    setOwnerError("");
+    setOwnerForm({
+      name: owner.name ?? "",
+      phone: owner.phone ?? "",
+      address: owner.address ?? "",
+      memo: owner.memo ?? "",
+    });
+    setOwnerEditing(owner);
   };
 
   const saveOwner = async (event: FormEvent) => {
@@ -218,8 +261,17 @@ export function PetManagementPage() {
       requestAnimationFrame(() => { const field = formElement.elements.namedItem("ownerName"); if (field instanceof HTMLElement) field.focus(); });
       return;
     }
-    const duplicate = findCustomerPhoneDuplicate(owners, phone);
+    const duplicate = findCustomerPhoneDuplicate(
+      owners.filter((owner) => owner.id !== ownerEditing?.id),
+      phone,
+    );
     if (duplicate) {
+      if (ownerEditing) {
+        setOwnerError(
+          `동일 연락처의 기존 보호자(${duplicate.name || "이름 미등록"})가 있습니다.`,
+        );
+        return;
+      }
       setEditing((current) => current ? { ...current, customerId: duplicate.id } : current);
       setOwnerSearch(`${duplicate.name || "이름 미등록"} ${duplicate.phone || ""}`.trim());
       setOwnerCreating(false);
@@ -227,24 +279,74 @@ export function PetManagementPage() {
       return;
     }
     setOwnerSaving(true); setOwnerError("");
-    const result = await supabase.from("customers").insert({ name: name || null, phone: phone || null, memo: ownerForm.memo.trim() || null, is_active: true }).select("id, name, phone, is_active").single();
+    const values = {
+      name: name || null,
+      phone: phone || null,
+      address: ownerForm.address.trim() || null,
+      memo: ownerForm.memo.trim() || null,
+    };
+    const result = ownerEditing
+      ? await supabase
+          .from("customers")
+          .update(values)
+          .eq("id", ownerEditing.id)
+          .select("id, name, phone, address, memo, is_active")
+          .single()
+      : await supabase
+          .from("customers")
+          .insert({ ...values, is_active: true })
+          .select("id, name, phone, address, memo, is_active")
+          .single();
     setOwnerSaving(false);
     if (result.error) {
-      logSupabaseError("반려견 관리 보호자 등록", result.error, result.status);
+      logSupabaseError(
+        ownerEditing
+          ? "반려견 상세 보호자 수정"
+          : "반려견 관리 보호자 등록",
+        result.error,
+        result.status,
+      );
       setOwnerError(
         partyMutationError(
           result.error,
-          "보호자를 등록하지 못했습니다. 입력 내용을 확인해 주세요.",
+          ownerEditing
+            ? "보호자 정보를 수정하지 못했습니다. 입력 내용을 확인해 주세요."
+            : "보호자를 등록하지 못했습니다. 입력 내용을 확인해 주세요.",
         ),
       );
       return;
     }
-    const created = result.data;
-    setOwners((current) => [...current, created].sort((a, b) => (a.name || "").localeCompare(b.name || "", "ko")));
-    setEditing((current) => current ? { ...current, customerId: created.id } : current);
-    setOwnerSearch(`${created.name || "이름 미등록"} ${created.phone || ""}`.trim());
+    const savedOwner = result.data;
+    setOwners((current) => {
+      const next = ownerEditing
+        ? current.map((owner) =>
+            owner.id === savedOwner.id ? savedOwner : owner,
+          )
+        : [...current, savedOwner];
+      return next.sort((a, b) =>
+        (a.name || "").localeCompare(b.name || "", "ko"),
+      );
+    });
+    setDogs((current) =>
+      current.map((dog) =>
+        dog.customerId === savedOwner.id
+          ? {
+              ...dog,
+              ownerName: savedOwner.name,
+              ownerPhone: savedOwner.phone,
+            }
+          : dog,
+      ),
+    );
+    setEditing((current) => current ? { ...current, customerId: savedOwner.id } : current);
+    setOwnerSearch(`${savedOwner.name || "이름 미등록"} ${savedOwner.phone || ""}`.trim());
     setOwnerCreating(false);
-    setNotice("새 보호자를 등록하고 자동으로 선택했습니다.");
+    setOwnerEditing(null);
+    setNotice(
+      ownerEditing
+        ? "보호자 정보를 수정했습니다."
+        : "새 보호자를 등록하고 자동으로 선택했습니다.",
+    );
   };
 
   const save = async (event: FormEvent) => {
@@ -364,18 +466,64 @@ export function PetManagementPage() {
           {loading ? <LoadingState /> : loadError ? <ErrorState title={loadError} retry={() => void loadData()} /> : rows.length ? (
             <Table className="min-w-[1100px]">
               <thead><tr><th>반려견명</th><th>보호자명</th><th>연락처</th><th>견종</th><th>성별</th><th>생년월일</th><th>체중</th><th>상태</th><th>메모</th><th className="text-right">관리</th></tr></thead>
-              <tbody>{rows.map((dog) => <tr key={dog.id}>
-                <td className="font-semibold text-slate-900">{dog.name}</td><td>{dog.ownerName || "미등록"}</td><td>{dog.ownerPhone || "-"}</td><td>{dog.breed || "-"}</td><td>{dog.sex === "male" ? "수컷" : dog.sex === "female" ? "암컷" : "-"}</td><td>{dog.birthDate ? koDate(dog.birthDate) : "-"}</td><td>{dog.weight === null ? "-" : `${dog.weight}kg`}</td><td><StatusBadge status={dog.active ? "active" : "inactive"} /></td><td className="max-w-xs truncate">{dog.memo || "-"}</td>
-                <td>{profile?.role === "admin" ? <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => openEdit(dog)}><Pencil size={15} />수정</Button>{dog.active && <Button variant="secondary" onClick={() => setDeactivating(dog)}>비활성화</Button>}</div> : <span className="text-sm text-slate-400">조회 전용</span>}</td>
-              </tr>)}</tbody>
+              <tbody>{rows.map((dog) => {
+                const owner = owners.find((item) => item.id === dog.customerId) ?? null;
+                return <tr key={dog.id}>
+                  <td className="font-semibold text-slate-900">{dog.name}</td><td>{dog.ownerName || "미등록"}</td><td>{dog.ownerPhone || "-"}</td><td>{dog.breed || "-"}</td><td>{dog.sex === "male" ? "수컷" : dog.sex === "female" ? "암컷" : "-"}</td><td>{dog.birthDate ? koDate(dog.birthDate) : "-"}</td><td>{dog.weight === null ? "-" : `${dog.weight}kg`}</td><td><StatusBadge status={dog.active ? "active" : "inactive"} /></td><td className="max-w-xs truncate">{dog.memo || "-"}</td>
+                  <td><div className="flex flex-wrap justify-end gap-2">
+                    {owner && <Button variant="secondary" onClick={() => openOwnerEdit(owner)}><Pencil size={15} />보호자 수정</Button>}
+                    {profile?.role === "admin" && <><Button variant="secondary" onClick={() => openEdit(dog)}>반려견 수정</Button>{dog.active && <Button variant="secondary" onClick={() => setDeactivating(dog)}>비활성화</Button>}</>}
+                  </div></td>
+                </tr>;
+              })}</tbody>
             </Table>
           ) : <EmptyState title="등록된 반려견이 없습니다" description="검색 조건을 확인하거나 반려견을 등록해 주세요." />}
         </Card>
         {!loading && !loadError && filtered.length > 0 && <Pagination page={page} totalPages={totalPages} totalLabel={`총 ${filtered.length}마리`} onPageChange={setPage} />}
       </>}
-      <Modal open={!!editing && !ownerCreating} onClose={() => !saving && setEditing(null)} title={editing?.id ? "반려견 수정" : "반려견 등록"} wide>
+      <Modal open={!!editing && !ownerCreating && !ownerEditing} onClose={() => !saving && setEditing(null)} title={editing?.id ? "반려견 수정" : "반려견 등록"} wide>
         {editing && <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2 sm:col-span-2"><Field label={profile?.role === "staff" && !editing.id ? "보호자 연결" : "보호자 연결 (선택)"}><SearchBox aria-label="보호자 이름 또는 연락처 검색" placeholder="보호자 이름 또는 연락처 검색" value={ownerSearch} onClear={() => setOwnerSearch("")} onChange={(event) => setOwnerSearch(event.target.value)} /></Field><div className="grid gap-2 sm:grid-cols-[1fr_auto]"><Select className="min-w-0" name="customerId" aria-describedby={formError ? "dog-form-error" : undefined} value={editing.customerId} disabled={saving} onChange={(e) => { setDuplicateDog(null); setAllowDuplicateDog(false); setEditing({ ...editing, customerId: e.target.value }); }}><option value="">보호자 미등록</option>{visibleOwners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name || "이름 미등록"} · {owner.phone || "연락처 미등록"}</option>)}</Select><Button type="button" variant="secondary" disabled={saving} onClick={openOwnerCreate}><Plus size={16} />새 보호자</Button></div>{ownerSearch.trim() && visibleOwners.length === 0 && <p className="text-sm text-text-muted">검색된 활성 보호자가 없습니다. 새 보호자를 바로 등록할 수 있습니다.</p>}</div>
+          <div className="space-y-2 sm:col-span-2">
+            <Field label={profile?.role === "staff" && !editing.id ? "보호자 연결" : "보호자 연결 (선택)"}>
+              <SearchBox aria-label="보호자 이름 또는 연락처 검색" placeholder="보호자 이름 또는 연락처 검색" value={ownerSearch} onClear={() => setOwnerSearch("")} onChange={(event) => setOwnerSearch(event.target.value)} />
+            </Field>
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <Select className="min-w-0" name="customerId" aria-describedby={formError ? "dog-form-error" : undefined} value={editing.customerId} disabled={saving} onChange={(e) => { setDuplicateDog(null); setAllowDuplicateDog(false); setEditing({ ...editing, customerId: e.target.value }); }}>
+                <option value="">보호자 미등록</option>
+                {visibleOwners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name || "이름 미등록"} · {owner.phone || "연락처 미등록"}</option>)}
+              </Select>
+              <Button type="button" variant="secondary" disabled={saving} onClick={openOwnerCreate}><Plus size={16} />새 보호자</Button>
+            </div>
+            {selectedOwner && (
+              <div className="mt-3 rounded-xl border border-border bg-surface-secondary p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <strong className="block text-sm text-text-primary">
+                      {selectedOwner.name || "이름 미등록"}
+                    </strong>
+                    <p className="mt-1 text-sm text-text-secondary">
+                      {selectedOwner.phone || "연락처 미등록"}
+                    </p>
+                  </div>
+                  <Button type="button" variant="secondary" className="min-h-9 px-3 py-1.5 text-sm" disabled={saving} onClick={() => openOwnerEdit()}>
+                    <Pencil size={15} />
+                    보호자 수정
+                  </Button>
+                </div>
+                <dl className="mt-3 grid gap-3 border-t border-border pt-3 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs font-semibold text-text-muted">주소</dt>
+                    <dd className="mt-1 break-words text-text-secondary">{selectedOwner.address || "미등록"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-semibold text-text-muted">메모</dt>
+                    <dd className="mt-1 break-words text-text-secondary">{selectedOwner.memo || "없음"}</dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+            {ownerSearch.trim() && visibleOwners.length === 0 && <p className="text-sm text-text-muted">검색된 활성 보호자가 없습니다. 새 보호자를 바로 등록할 수 있습니다.</p>}
+          </div>
           <Field label="반려견명" required><Input name="name" aria-invalid={Boolean(formError && !editing.name.trim())} aria-describedby={formError ? "dog-form-error" : undefined} value={editing.name} disabled={saving} onChange={(e) => { setDuplicateDog(null); setAllowDuplicateDog(false); setEditing({ ...editing, name: e.target.value }); }} /></Field>
           <Field label="견종"><Input list="dog-breeds" value={editing.breed} disabled={saving} onChange={(e) => setEditing({ ...editing, breed: e.target.value })} /><datalist id="dog-breeds">{breeds.map((item) => <option key={item} value={item} />)}</datalist></Field>
           <Field label="성별"><Select value={editing.sex} disabled={saving} onChange={(e) => setEditing({ ...editing, sex: e.target.value as DogForm["sex"] })}><option value="">선택</option><option value="male">수컷</option><option value="female">암컷</option></Select></Field>
@@ -386,13 +534,26 @@ export function PetManagementPage() {
           {formError && <p id="dog-form-error" role="alert" className="text-sm text-error sm:col-span-2">{formError}</p>}<Button className="sm:col-span-2" disabled={saving}>{saving ? "저장 중..." : "저장"}</Button>
         </form>}
       </Modal>
-      <Modal open={ownerCreating} onClose={() => !ownerSaving && setOwnerCreating(false)} title="새 보호자 등록">
+      <Modal
+        open={ownerCreating || !!ownerEditing}
+        onClose={() => {
+          if (ownerSaving) return;
+          setOwnerCreating(false);
+          setOwnerEditing(null);
+          setOwnerError("");
+        }}
+        title={ownerEditing ? "보호자 정보 수정" : "새 보호자 등록"}
+      >
         <form onSubmit={saveOwner} className="space-y-4">
           <Field label="보호자명" help="이름 또는 연락처 중 하나는 필수입니다."><Input name="ownerName" value={ownerForm.name} disabled={ownerSaving} aria-invalid={Boolean(ownerError && !ownerForm.name.trim() && !ownerForm.phone.trim())} aria-describedby={ownerError ? "owner-create-error" : undefined} onChange={(event) => setOwnerForm({ ...ownerForm, name: event.target.value })} /></Field>
           <Field label="연락처"><Input name="ownerPhone" value={ownerForm.phone} disabled={ownerSaving} aria-invalid={Boolean(ownerError && !ownerForm.name.trim() && !ownerForm.phone.trim())} aria-describedby={ownerError ? "owner-create-error" : undefined} onChange={(event) => setOwnerForm({ ...ownerForm, phone: event.target.value })} /></Field>
+          <Field label="주소"><Input name="ownerAddress" value={ownerForm.address} disabled={ownerSaving} onChange={(event) => setOwnerForm({ ...ownerForm, address: event.target.value })} /></Field>
           <Field label="메모"><Textarea rows={3} value={ownerForm.memo} disabled={ownerSaving} onChange={(event) => setOwnerForm({ ...ownerForm, memo: event.target.value })} /></Field>
           {ownerError && <p id="owner-create-error" role="alert" className="text-sm text-red-600">{ownerError}</p>}
-          <div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={ownerSaving} onClick={() => setOwnerCreating(false)}>취소</Button><Button disabled={ownerSaving}>{ownerSaving ? "저장 중..." : "보호자 등록"}</Button></div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="secondary" disabled={ownerSaving} onClick={() => { setOwnerCreating(false); setOwnerEditing(null); setOwnerError(""); }}>취소</Button>
+            <Button disabled={ownerSaving}>{ownerSaving ? "저장 중..." : ownerEditing ? "변경 저장" : "보호자 등록"}</Button>
+          </div>
         </form>
       </Modal>
       <ConfirmModal open={!!deactivating} onClose={() => setDeactivating(null)} onConfirm={() => void deactivate()} title="반려견 비활성화" confirmLabel="비활성화" processing={processing} description={<><b className="text-slate-900">{deactivating?.name}</b>을 비활성화하시겠습니까? 기존 매출과 이용 이력은 유지됩니다.</>} />

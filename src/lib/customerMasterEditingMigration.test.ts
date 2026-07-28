@@ -37,7 +37,7 @@ describe("shared Customer Master editing", () => {
     expect(migration).toContain("to_jsonb(old)");
     expect(migration).toContain("to_jsonb(new)");
     expect(customerUi).toContain(
-      ".select(\"id, name, phone, memo, is_active, created_at, updated_at\"",
+      ".select(\"id, name, phone, address, memo, is_active, created_at, updated_at\"",
     );
   });
 
