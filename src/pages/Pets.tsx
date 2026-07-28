@@ -21,7 +21,6 @@ import {
   Toast,
 } from "../components/ui";
 import { koDate, net, won } from "../lib/format";
-import { useAuth } from "../auth/AuthContext";
 import { supabase } from "../lib/supabase";
 import {
   logSupabaseError,
@@ -36,6 +35,14 @@ import {
 } from "./customerIdentity";
 
 const divisions: Division[] = ["유치원", "교육센터", "호텔"];
+const customerUpdatedLabel = (value: string) =>
+  new Intl.DateTimeFormat("ko-KR", {
+    year: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 
 export function PetManagementPage() {
   const d = useData();
@@ -275,6 +282,7 @@ interface CustomerRow {
   memo: string | null;
   is_active: boolean;
   created_at: string;
+  updated_at: string;
 }
 
 export function CustomerList({
@@ -282,8 +290,6 @@ export function CustomerList({
 }: {
   onAddDog?: (customer: Pick<CustomerRow, "id" | "name" | "phone">) => void;
 } = {}) {
-  const { profile } = useAuth();
-  const isAdmin = profile?.role === "admin";
   const pageSize = 10;
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -306,7 +312,7 @@ export function CustomerList({
     setError(false);
     let request = supabase
       .from("customers")
-      .select("id, name, phone, memo, is_active, created_at", {
+      .select("id, name, phone, memo, is_active, created_at, updated_at", {
         count: "exact",
       })
       .order("created_at", { ascending: false });
@@ -345,11 +351,7 @@ export function CustomerList({
       requestAnimationFrame(() => { const field = formElement.elements.namedItem("customerName"); if (field instanceof HTMLElement) field.focus(); });
       return;
     }
-    if (editingCustomer && !isAdmin) {
-      setSaveError("보호자 수정 권한이 없습니다.");
-      return;
-    }
-    if (!editingCustomer && phone) {
+    if (phone) {
       const duplicateResult = await supabase
         .from("customers")
         .select("id, name, phone")
@@ -359,7 +361,9 @@ export function CustomerList({
         return;
       }
       const duplicate = findCustomerPhoneDuplicate(
-        duplicateResult.data ?? [],
+        (duplicateResult.data ?? []).filter(
+          (customer) => customer.id !== editingCustomer?.id,
+        ),
         phone,
       );
       if (duplicate) {
@@ -485,7 +489,7 @@ export function CustomerList({
                 <th>연락처</th>
                 <th>메모</th>
                 <th>상태</th>
-                <th>등록일</th>
+                <th>최근 수정</th>
                 <th>관리</th>
               </tr>
             </thead>
@@ -500,14 +504,14 @@ export function CustomerList({
                   <td>
                     <StatusBadge status={customer.is_active ? "active" : "inactive"} tone={customer.is_active ? "blue" : "gray"} />
                   </td>
-                  <td>{koDate(customer.created_at)}</td>
+                  <td>{customerUpdatedLabel(customer.updated_at)}</td>
                   <td>
                     <div className="flex flex-wrap items-center gap-2">
                       {customer.is_active && onAddDog && <Button variant="secondary" className="min-h-8 px-2 py-1 text-xs" onClick={() => onAddDog(customer)}><Plus size={14} />반려견 추가</Button>}
-                      {isAdmin ? <>
                       <button
                         className="icon-btn"
                         title="보호자 수정"
+                        aria-label={`${customer.name || "이름 미등록 보호자"} 수정`}
                         onClick={() => {
                           setEditingCustomer(customer);
                           setSaveError("");
@@ -529,7 +533,6 @@ export function CustomerList({
                           비활성화
                         </Button>
                       )}
-                      </> : !onAddDog && <span className="text-sm text-slate-400">조회 전용</span>}
                     </div>
                   </td>
                 </tr>
