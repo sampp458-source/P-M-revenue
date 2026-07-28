@@ -46,6 +46,7 @@ import { PetManagementPage } from "./pages/DogManagement";
 import { SignupPage } from "./pages/SignupPage";
 import { StaffManagementPage } from "./pages/StaffManagement";
 import { FindAccountPage, ForgotPasswordPage, ResetPasswordPage } from "./pages/AccountRecoveryPages";
+import pmLogo from "./assets/pm-logo.png";
 
 interface MenuItem { to: string; label: string; icon: typeof LayoutDashboard; end?: boolean; adminOnly?: boolean; group: "업무" | "관리" | "분석" }
 const menus: MenuItem[] = [
@@ -62,6 +63,27 @@ const menus: MenuItem[] = [
 const savedEmailKey = "pm-saved-login-email";
 const autoLoginPreferenceKey = "pm-auto-login-enabled";
 const appVersion = `v${__APP_VERSION__}`;
+
+function BrandLogo({
+  className = "",
+  imageClassName = "h-[150px] w-[150px]",
+}: {
+  className?: string;
+  imageClassName?: string;
+}) {
+  return (
+    <span
+      className={`relative block shrink-0 ${className}`}
+    >
+      <img
+        src={pmLogo}
+        alt="P&M"
+        className={`pointer-events-none absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain ${imageClassName}`}
+      />
+    </span>
+  );
+}
+
 export default function App() {
   const { user, loading } = useAuth();
   const loggedIn = Boolean(user);
@@ -161,9 +183,8 @@ function LoginPage() {
       <section className="login-brand-panel relative hidden w-[46%] flex-col justify-between overflow-hidden p-10 text-white lg:flex xl:p-14">
         <div className="login-orb login-orb-top" aria-hidden="true" />
         <div className="login-orb login-orb-bottom" aria-hidden="true" />
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-base font-black text-primary shadow-lg shadow-slate-950/10">P&M</div>
-          <div><strong className="block text-sm tracking-wide">P&M 매출관리</strong><span className="text-xs text-blue-100/65">INTERNAL WORKSPACE</span></div>
+        <div className="relative z-10 flex items-center">
+          <BrandLogo className="h-[60px] w-[124px]" imageClassName="h-[168px] w-[168px]" />
         </div>
         <div className="relative z-10 max-w-xl pb-8">
           <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-2 text-xs font-semibold text-blue-50 backdrop-blur-sm"><ShieldCheck size={15} /> P&M 임직원 전용 보안 시스템</div>
@@ -175,7 +196,7 @@ function LoginPage() {
       </section>
       <section className="flex flex-1 items-center justify-center px-5 py-8 sm:px-8 lg:px-12">
         <form onSubmit={submit} className="w-full max-w-[420px] rounded-[28px] border border-border bg-white p-6 shadow-[0_24px_70px_rgba(23,36,58,0.10)] sm:p-9 lg:border-0 lg:shadow-none">
-          <div className="mb-8 flex items-center justify-between lg:hidden"><div className="flex items-center gap-3"><div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary text-sm font-black text-white shadow-md">P&M</div><div><strong className="block text-sm text-text-primary">P&M 매출관리</strong><span className="text-[11px] text-text-muted">INTERNAL</span></div></div><span className="text-xs font-medium text-text-muted">{appVersion}</span></div>
+          <div className="mb-8 flex items-center justify-between lg:hidden"><BrandLogo className="h-12 w-[108px] rounded-xl bg-primary shadow-sm" imageClassName="h-[146px] w-[146px]" /><span className="text-xs font-medium text-text-muted">{appVersion}</span></div>
           <div className="mb-8"><p className="mb-2 text-xs font-bold uppercase tracking-[0.16em] text-primary">Welcome back</p><h2 className="text-[2rem] font-bold tracking-[-0.035em] text-text-primary">로그인</h2><p className="mt-2 text-sm leading-6 text-text-secondary">업무 계정으로 안전하게 접속하세요.</p></div>
           <div className="space-y-5">
             <label className="block">
@@ -212,18 +233,10 @@ function AppLayout() {
   return (
     <div className="min-h-screen bg-app-background">
       <aside
-        className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[276px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-[260px] lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="flex h-[52px] shrink-0 items-center justify-between border-b border-white/[0.05] px-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-white/70 bg-white/95 text-[11px] font-black text-[#1e3a5f] shadow-[0_6px_18px_rgba(4,18,35,0.1)]">
-              P&M
-            </div>
-            <div>
-              <b className="block text-[15px] tracking-[-0.01em]">매출관리</b>
-              <span className="text-[9px] font-semibold tracking-[0.18em] text-blue-100/45">INTERNAL</span>
-            </div>
-          </div>
+        <div className="flex h-12 shrink-0 items-center justify-between border-b border-white/[0.05] px-2">
+          <BrandLogo className="h-12 w-[100px]" imageClassName="h-[132px] w-[132px]" />
           <button
             className="flex h-11 w-11 items-center justify-center rounded-xl text-blue-100/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:hidden"
             onClick={() => setOpen(false)}
@@ -232,15 +245,15 @@ function AppLayout() {
             <X />
           </button>
         </div>
-        <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 py-3">
-          {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-3.5 last:mb-0"><p className="mb-1 px-3 text-[8px] font-semibold uppercase tracking-[0.17em] text-blue-100/32">{group}</p><div className="space-y-0.5">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
-              <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `app-sidebar-link group relative flex min-h-[34px] items-center gap-3 rounded-[11px] px-3.5 py-1 text-[13px] font-medium transition-[color,background-color,transform] duration-150 ${isActive ? "is-active bg-white/[0.08] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.045] hover:text-white"}`}>
+        <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 py-2.5">
+          {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-3 last:mb-0"><p className="mb-1 px-3 text-[8px] font-medium uppercase tracking-[0.17em] text-blue-100/28">{group}</p><div className="space-y-0.5">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
+              <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `app-sidebar-link group relative flex min-h-[33px] items-center gap-3 rounded-[11px] px-3 py-1 text-[13px] font-medium transition-[color,background-color,transform] duration-150 ${isActive ? "is-active bg-white/[0.075] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-white"}`}>
                 {({ isActive }) => <><span className={`absolute inset-y-2.5 left-0 w-0.5 rounded-full transition-colors ${isActive ? "bg-[#8fc1e8]" : "bg-transparent"}`} /><Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} /><span>{label}</span></>}
               </NavLink>
             ))}</div></div>)}
         </nav>
         <div className="shrink-0 border-t border-white/[0.055] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
-          <div className="app-sidebar-profile mb-1.5 flex items-center gap-2.5 rounded-xl border border-white/[0.045] px-2.5 py-1.5"><div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-blue-50"><UserRound size={16} /></div><div className="min-w-0 flex-1"><b className="block truncate text-xs text-white">{profile?.name || "이름 미등록"}</b><span className="mt-0.5 block truncate text-[10px] text-blue-100/52">{profile?.role === "admin" ? "관리자" : "직원"} · {user?.email}</span></div></div>
+          <div className="app-sidebar-profile mb-1.5 flex items-center gap-2 rounded-xl border border-white/[0.045] px-2 py-1"><div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-blue-50"><UserRound size={15} /></div><div className="min-w-0 flex-1"><b className="block truncate text-xs text-white">{profile?.name || "이름 미등록"}</b><span className="mt-0.5 block truncate text-[10px] text-blue-100/52">{profile?.role === "admin" ? "관리자" : "직원"} · {user?.email}</span></div></div>
           <button
             onClick={() => void signOut()}
             className="flex min-h-10 w-full items-center gap-3 rounded-[13px] px-2.5 py-2 text-sm text-blue-50/60 transition hover:bg-white/[0.055] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
@@ -257,7 +270,7 @@ function AppLayout() {
           aria-label="메뉴 배경 닫기"
         />
       )}
-      <div className="lg:pl-[260px]">
+      <div className="lg:pl-64">
         <header className="no-print sticky top-0 z-20 flex h-[52px] items-center justify-between border-b border-border/80 bg-white/95 px-4 backdrop-blur-md sm:px-6">
           <div className="flex items-center gap-3">
             <button

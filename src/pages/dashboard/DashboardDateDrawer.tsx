@@ -180,7 +180,7 @@ export function DashboardDateDrawer({
         style={dashboardThemeStyle(themeCode)}
         className="dashboard-date-drawer pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(480px,44vw)]"
       >
-        <div className="dashboard-drawer-header flex shrink-0 items-start justify-between gap-3 border-b px-4 py-2 sm:px-5">
+        <div className="dashboard-drawer-header flex shrink-0 items-start justify-between gap-3 border-b px-4 py-[7px] sm:px-5">
           <div className="flex min-w-0 items-start gap-3">
             <span className="dashboard-drawer-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
               <CalendarDays size={17} />
@@ -276,7 +276,7 @@ export function DashboardDateDrawer({
         </div>
 
         <div className="shrink-0 border-t border-white/[0.08] bg-[#142b46] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-5">
-          <Button type="button" variant="secondary" className="h-9 min-h-9 w-full border-white/10 bg-white/[0.06] py-1.5 text-white hover:bg-white/[0.1]" onClick={onOpenSales}>
+          <Button type="button" variant="secondary" className="h-[34px] min-h-[34px] w-full border-white/10 bg-white/[0.06] py-1 text-white hover:bg-white/[0.1]" onClick={onOpenSales}>
             전체 매출 내역 보기 <ExternalLink size={16} />
           </Button>
         </div>
