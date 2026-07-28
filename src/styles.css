@@ -148,6 +148,7 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
     --pm-theme-tint-2: #e6eff5;
     --pm-theme-tint-3: #d5e5ef;
     --pm-theme-tint-4: #bfd9e8;
+    --pm-calendar-tint-base: var(--pm-theme-accent);
     --pm-dashboard-refund: #c85a62;
     --pm-dashboard-warning: #c38a2b;
     --pm-dashboard-section-gap: clamp(2rem, 4vw, 3rem);
@@ -172,7 +173,8 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
       0 18px 42px rgb(39 76 119 / .07);
   }
   .dashboard-hero-accent {
-    background: linear-gradient(180deg, #274c77 0%, #5c93bd 72%, #9fc8e2 100%);
+    background: linear-gradient(180deg, #214d78 0%, #4e91c2 68%, #8bc3e5 100%);
+    box-shadow: 1px 0 0 rgb(39 76 119 / .08);
   }
   .dashboard-period-surface {
     border-bottom: 1px solid rgb(221 228 235 / .58);
@@ -217,7 +219,7 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   .dashboard-calendar-selected {
     border-width: 2px;
     border-color: var(--pm-theme-accent);
-    background: color-mix(in srgb, var(--pm-theme-accent) 22%, white);
+    background: color-mix(in srgb, var(--pm-calendar-tint-base) 24%, white);
     opacity: 1;
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / .7),
@@ -236,16 +238,28 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
     background: #fbfcfd;
   }
   .dashboard-calendar-level-1 {
-    background: color-mix(in srgb, var(--pm-theme-accent) 8%, white);
+    background: color-mix(in srgb, var(--pm-calendar-tint-base) 8%, white);
   }
   .dashboard-calendar-level-2 {
-    background: color-mix(in srgb, var(--pm-theme-accent) 14%, white);
+    background: color-mix(in srgb, var(--pm-calendar-tint-base) 14%, white);
   }
   .dashboard-calendar-level-3 {
-    background: color-mix(in srgb, var(--pm-theme-accent) 22%, white);
+    background: color-mix(in srgb, var(--pm-calendar-tint-base) 22%, white);
   }
   .dashboard-calendar-level-4 {
-    background: color-mix(in srgb, var(--pm-theme-accent) 31%, white);
+    background: color-mix(in srgb, var(--pm-calendar-tint-base) 31%, white);
+  }
+  .dashboard-shell[data-dashboard-theme="all"] {
+    --pm-calendar-tint-base: #3f8fc7;
+  }
+  .dashboard-shell[data-dashboard-theme="hotel"] .dashboard-calendar-level-2 {
+    background: color-mix(in srgb, var(--pm-calendar-tint-base) 12%, white);
+  }
+  .dashboard-shell[data-dashboard-theme="hotel"] .dashboard-calendar-level-3 {
+    background: color-mix(in srgb, var(--pm-calendar-tint-base) 19%, white);
+  }
+  .dashboard-shell[data-dashboard-theme="hotel"] .dashboard-calendar-level-4 {
+    background: color-mix(in srgb, var(--pm-calendar-tint-base) 27%, white);
   }
   .dashboard-calendar-legend-selected {
     border-color: var(--pm-theme-accent);
@@ -287,6 +301,11 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   .dashboard-trend-bar {
     background: rgb(var(--pm-theme-rgb) / .55);
     box-shadow: inset 0 1px 0 rgb(255 255 255 / .35);
+  }
+  .dashboard-trend-bar-empty {
+    background: rgb(var(--pm-theme-rgb) / .18);
+    box-shadow: none;
+    opacity: 1;
   }
   .dashboard-trend-bar-emphasis {
     background: linear-gradient(180deg, rgb(var(--pm-theme-rgb) / .72) 0%, var(--pm-theme-accent) 100%);
@@ -334,10 +353,13 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   }
   .dashboard-activity-row + .dashboard-activity-row {
     margin-top: .0625rem;
-    border-top: 1px solid rgb(231 235 240 / .52);
+    border-top: 1px solid rgb(231 235 240 / .42);
   }
   .dashboard-activity-row:hover {
-    background: var(--pm-theme-tint-1);
+    background: color-mix(in srgb, var(--pm-theme-accent) 4%, white);
+  }
+  .dashboard-activity-row:active {
+    background: color-mix(in srgb, var(--pm-theme-accent) 5%, white);
   }
   .dashboard-activity-symbol {
     box-shadow: 0 0 0 4px #fff;

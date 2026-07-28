@@ -180,7 +180,7 @@ export function DashboardDateDrawer({
         style={dashboardThemeStyle(themeCode)}
         className="dashboard-date-drawer pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(480px,44vw)]"
       >
-        <div className="dashboard-drawer-header flex shrink-0 items-start justify-between gap-3 border-b px-4 py-2.5 sm:px-5">
+        <div className="dashboard-drawer-header flex shrink-0 items-start justify-between gap-3 border-b px-4 py-[0.55rem] sm:px-5">
           <div className="flex min-w-0 items-start gap-3">
             <span className="dashboard-drawer-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
               <CalendarDays size={17} />
@@ -207,13 +207,13 @@ export function DashboardDateDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain">
-          <div className="dashboard-drawer-summary sticky top-0 z-10 border-b p-3 backdrop-blur sm:px-5 sm:py-3.5">
-          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035] p-3 text-white sm:p-3.5">
+          <div className="dashboard-drawer-summary sticky top-0 z-10 border-b p-2.5 backdrop-blur sm:px-5 sm:py-3">
+          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035] p-2.5 text-white sm:p-3">
             <p className="dashboard-drawer-accent-text text-xs font-semibold">판매금액</p>
-            <strong className="mt-1 block whitespace-nowrap text-[clamp(1.6rem,7vw,2.3rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
+            <strong className="mt-0.5 block whitespace-nowrap text-[clamp(1.6rem,7vw,2.3rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
               {won(summary.salesAmount)}
             </strong>
-            <div className="mt-2.5 grid grid-cols-1 gap-1.5 border-t border-white/[0.08] pt-2.5 min-[430px]:grid-cols-3 min-[430px]:gap-2">
+            <div className="mt-2 grid grid-cols-1 gap-1.5 border-t border-white/[0.08] pt-2 min-[430px]:grid-cols-3 min-[430px]:gap-2">
               <Summary label="실수납" value={won(summary.revenue)} />
               <Summary label="현재 미수" value={won(summary.outstanding)} warning={summary.outstanding > 0} />
               <Summary label="환불" value={won(summary.refund)} warning={summary.refund > 0} />
@@ -223,7 +223,7 @@ export function DashboardDateDrawer({
 
           <div className="p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:p-5">
           <div>
-            <div className="-mx-1 mb-3 overflow-x-auto px-1 pb-1">
+            <div className="-mx-1 mb-2.5 overflow-x-auto px-1 pb-1">
               <div className="flex min-w-max gap-1 rounded-xl bg-white/[0.045] p-0.5" role="tablist" aria-label="날짜 상세 사업부">
                 <UnitTab active={selectedUnitId === "all"} onClick={() => setSelectedUnitId("all")}>
                   전체
