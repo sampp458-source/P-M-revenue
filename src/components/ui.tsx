@@ -151,8 +151,29 @@ export function Card({
 export function FilterToolbar({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <Card className="mb-6 p-4 sm:p-5"><div className={cn("grid gap-3 sm:gap-4", className)}>{children}</div></Card>;
 }
-export function Table({ className = "", children, ...props }: TableHTMLAttributes<HTMLTableElement>) {
-  return <div className="overflow-x-auto overscroll-x-contain rounded-[inherit]"><table className={cn("data-table", className)} {...props}>{children}</table></div>;
+export function Table({
+  className = "",
+  children,
+  scrollResetKey,
+  ...props
+}: TableHTMLAttributes<HTMLTableElement> & {
+  scrollResetKey?: string | number;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollLeft = 0;
+  }, [scrollResetKey]);
+  return (
+    <div
+      ref={scrollRef}
+      className="overflow-x-auto overscroll-x-contain rounded-[inherit]"
+    >
+      <table className={cn("data-table", className)} {...props}>
+        {children}
+      </table>
+    </div>
+  );
 }
 
 export function Pagination({ page, totalPages, totalLabel, onPageChange }: { page: number; totalPages: number; totalLabel: string; onPageChange: (page: number) => void }) {
@@ -226,6 +247,7 @@ export function Modal({
   children,
   wide = false,
   extraWide = false,
+  resetKey,
 }: {
   open: boolean;
   title: string;
@@ -233,12 +255,23 @@ export function Modal({
   children: ReactNode;
   wide?: boolean;
   extraWide?: boolean;
+  resetKey?: string | number;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  useEffect(() => {
+    if (!open || !dialogRef.current) return;
+    dialogRef.current.scrollTop = 0;
+    dialogRef.current.scrollLeft = 0;
+    requestAnimationFrame(() => {
+      if (!dialogRef.current) return;
+      dialogRef.current.scrollTop = 0;
+      dialogRef.current.scrollLeft = 0;
+    });
+  }, [open, resetKey]);
   useEffect(() => {
     if (!open) return;
     openerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -298,13 +331,27 @@ export function ConfirmModal({ open, title, description, confirmLabel = "확인"
 export function EmptyState({
   title = "표시할 데이터가 없습니다",
   description,
+  compact = false,
 }: {
   title?: string;
   description?: string;
+  compact?: boolean;
 }) {
   return (
-    <div className="flex min-h-48 flex-col items-center justify-center p-6 text-center sm:p-8">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-subtle"><Search className="text-text-muted" size={22} /></div>
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center text-center",
+        compact ? "min-h-28 p-4" : "min-h-48 p-6 sm:p-8",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-2xl bg-primary-subtle",
+          compact ? "mb-3 h-10 w-10" : "mb-4 h-12 w-12",
+        )}
+      >
+        <Search className="text-text-muted" size={compact ? 18 : 22} />
+      </div>
       <p className="font-semibold text-text-primary">{title}</p>
       {description && (
         <p className="mt-1.5 max-w-md text-sm leading-6 text-text-secondary">{description}</p>

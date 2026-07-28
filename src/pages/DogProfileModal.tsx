@@ -96,9 +96,16 @@ export function DogProfileModal({
         : "최근 이용 없음";
 
   return (
-    <Modal open title="반려견 프로필" onClose={onClose} wide>
-      <ProfileContent>
+    <Modal
+      open
+      title="반려견 프로필"
+      onClose={onClose}
+      resetKey={dog.id}
+      wide
+    >
+      <ProfileContent className="pt-1">
         <ProfileHeader
+          className="pt-1"
           title={dog.name}
           status={<StatusBadge status={dog.active ? "active" : "inactive"} />}
           summary={
@@ -153,7 +160,7 @@ export function DogProfileModal({
           }
         >
           {owner ? (
-            <div className="rounded-2xl border border-border bg-surface p-5">
+            <div className="rounded-2xl border border-border bg-surface p-4">
               <div className="flex items-center gap-3">
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary">
                   <UserRound size={19} />
@@ -165,7 +172,7 @@ export function DogProfileModal({
                   <span className="text-xs text-text-muted">보호자 프로필 보기</span>
                 </span>
               </div>
-              <dl className="mt-5 grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
+              <dl className="mt-4 grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
                 <ProfileField
                   icon={<Phone size={15} />}
                   label="전화번호"
@@ -244,7 +251,7 @@ export function DogProfileModal({
               })}
             </div>
           ) : (
-            <EmptyState title="아직 이용 기록이 없습니다." />
+            <EmptyState compact title="아직 이용 기록이 없습니다." />
           )}
         </ProfileSection>
 
@@ -309,7 +316,7 @@ export function DogProfileModal({
               })}
             </ProfileTimeline>
           ) : (
-            <EmptyState title="표시할 Timeline이 없습니다." />
+            <EmptyState compact title="표시할 Timeline이 없습니다." />
           )}
         </ProfileSection>
       </ProfileContent>

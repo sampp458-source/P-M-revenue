@@ -705,7 +705,18 @@ export function PetManagementPage() {
       </FilterToolbar>
       <Card className="overflow-hidden">
         {loading ? <LoadingState /> : loadError ? <ErrorState title={loadError} retry={() => void loadData()} /> : rows.length ? (
-          <Table className="min-w-[1180px]">
+          <Table
+            className="min-w-[1180px]"
+            scrollResetKey={[
+              query,
+              breed,
+              activeFilter,
+              page,
+              profileDogId,
+              ownerEditing?.id,
+              editing?.id,
+            ].join("|")}
+          >
               <thead><tr><th>반려견명</th><th>보호자명</th><th>연락처</th><th>견종</th><th>성별</th><th>생년월일</th><th>체중</th><th>상태</th><th>메모</th><th className="text-right">관리</th></tr></thead>
               <tbody>{rows.map((dog) => {
                 const owner = owners.find((item) => item.id === dog.customerId) ?? null;

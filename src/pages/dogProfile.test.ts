@@ -110,6 +110,10 @@ describe("dog profile audit and Customer Master connection", () => {
     new URL("./DogManagement.tsx", import.meta.url),
     "utf8",
   );
+  const sharedUi = readFileSync(
+    new URL("../components/ui.tsx", import.meta.url),
+    "utf8",
+  );
   const migration = readFileSync(
     new URL(
       "../../supabase/migrations/202607280004_dog_master_audit.sql",
@@ -163,6 +167,19 @@ describe("dog profile audit and Customer Master connection", () => {
     expect(profileUi).toContain("최근 이용 확인 불가");
     expect(profileUi).toContain("최근 이용 없음");
     expect(profileUi).toContain('title="아직 이용 기록이 없습니다."');
+  });
+
+  it("resets list and profile scrolling while keeping empty states compact", () => {
+    expect(managementUi).toContain("scrollResetKey=");
+    expect(profileUi).toContain("resetKey={dog.id}");
+    expect(profileUi).toContain(
+      '<EmptyState compact title="아직 이용 기록이 없습니다." />',
+    );
+    expect(profileUi).toContain(
+      '<EmptyState compact title="표시할 Timeline이 없습니다." />',
+    );
+    expect(sharedUi).toContain("scrollRef.current.scrollLeft = 0");
+    expect(sharedUi).toContain("dialogRef.current.scrollTop = 0");
   });
 
   it("uses customer-friendly labels and formatted display phones", () => {

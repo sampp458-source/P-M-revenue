@@ -17,15 +17,22 @@ export function ProfileHeader({
   tags,
   summary,
   actions,
+  className = "",
 }: {
   title: string;
   status?: ReactNode;
   tags?: ReactNode;
   summary?: ReactNode;
   actions?: ReactNode;
+  className?: string;
 }) {
   return (
-    <header className="flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
+    <header
+      className={cn(
+        "flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between",
+        className,
+      )}
+    >
       <div className="min-w-0">
         {(status || tags) && (
           <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -33,7 +40,7 @@ export function ProfileHeader({
             {tags}
           </div>
         )}
-        <h2 className="truncate text-3xl font-bold tracking-[-0.04em] text-text-primary sm:text-4xl">
+        <h2 className="break-words text-3xl font-bold leading-tight tracking-[-0.04em] text-text-primary sm:text-4xl">
           {title}
         </h2>
         {summary && (
