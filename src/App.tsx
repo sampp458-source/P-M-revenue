@@ -660,8 +660,8 @@ function AppLayout() {
       <aside
         className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="flex h-[72px] shrink-0 items-center justify-start border-b border-white/[0.035]">
-          <BrandLogo className="h-[72px] w-[156px] translate-x-px" imageClassName="h-[156px] w-[156px]" />
+        <div className="flex h-[68px] shrink-0 items-center justify-start border-b border-white/[0.035]">
+          <BrandLogo className="h-[68px] w-[140px] translate-x-px" imageClassName="h-32 w-32" />
           <button
             className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-xl text-blue-100/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:hidden"
             onClick={() => setOpen(false)}
@@ -674,14 +674,14 @@ function AppLayout() {
           <AppSwitcher module="finance" />
         </div>
         <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 pb-2 pt-0.5">
-          {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-3 last:mb-0"><p className="mb-0.5 px-3 text-[8px] font-medium uppercase leading-none tracking-[0.17em] text-blue-100/24">{group}</p><div className="space-y-0.5">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
+          {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-4 last:mb-0"><p className="mb-1.5 px-3 text-[9px] font-medium uppercase leading-none tracking-[0.16em] text-blue-100/55">{group}</p><div className="space-y-0.5">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
               <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `app-sidebar-link group relative flex min-h-9 items-center gap-3.5 rounded-[11px] px-3 py-1 text-sm font-medium transition-[color,background-color,transform] duration-150 ${isActive ? "is-active bg-white/[0.075] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-white"}`}>
                 {({ isActive }) => <><span className={`absolute inset-y-2.5 left-0 w-0.5 rounded-full transition-colors ${isActive ? "bg-[#8fc1e8]" : "bg-transparent"}`} /><Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} /><span>{label}</span></>}
               </NavLink>
             ))}</div></div>)}
         </nav>
         <div className="shrink-0 border-t border-white/[0.055] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
-          <div className="app-sidebar-profile mb-1.5 flex items-center gap-1.5 rounded-xl border border-white/[0.045] px-1.5 py-0.5"><div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-blue-50"><UserRound size={14} /></div><div className="min-w-0 flex-1"><b className="block truncate text-xs text-white">{profile?.name || "이름 미등록"}</b><span className="mt-0.5 block truncate text-[10px] text-blue-100/52">{profile?.role === "admin" ? "관리자" : "직원"} · {user?.email}</span></div></div>
+          <div className="app-sidebar-profile mb-4 flex items-center gap-1.5 rounded-xl border border-white/[0.045] px-1.5 py-0.5"><div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-blue-50"><UserRound size={14} /></div><div className="min-w-0 flex-1"><b className="block truncate text-xs text-white">{profile?.name || "이름 미등록"}</b><span className="mt-0.5 block truncate text-[10px] text-blue-100/52">{profile?.role === "admin" ? "관리자" : "직원"} · {user?.email}</span></div></div>
           <button
             onClick={() => void signOut()}
             className="flex min-h-10 w-full items-center gap-3 rounded-[13px] px-2.5 py-2 text-sm text-blue-50/60 transition hover:bg-white/[0.055] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
@@ -746,10 +746,10 @@ function OperationsAppLayout() {
       <aside
         className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="flex h-[72px] shrink-0 items-center justify-start border-b border-white/[0.035]">
+        <div className="flex h-[68px] shrink-0 items-center justify-start border-b border-white/[0.035]">
           <BrandLogo
-            className="h-[72px] w-[156px] translate-x-px"
-            imageClassName="h-[156px] w-[156px]"
+            className="h-[68px] w-[140px] translate-x-px"
+            imageClassName="h-32 w-32"
           />
           <button
             className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-xl text-blue-100/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:hidden"
@@ -763,8 +763,8 @@ function OperationsAppLayout() {
           <AppSwitcher module="operations" />
         </div>
         <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 pb-2 pt-0.5">
-          <div className="mb-3">
-            <p className="mb-0.5 px-3 text-[8px] font-medium uppercase leading-none tracking-[0.17em] text-blue-100/24">
+          <div className="mb-4">
+            <p className="mb-1.5 px-3 text-[9px] font-medium uppercase leading-none tracking-[0.16em] text-blue-100/55">
               일정
             </p>
             <div className="space-y-0.5">
@@ -804,7 +804,7 @@ function OperationsAppLayout() {
           </div>
         </nav>
         <div className="shrink-0 border-t border-white/[0.055] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
-          <div className="app-sidebar-profile mb-1.5 flex items-center gap-1.5 rounded-xl border border-white/[0.045] px-1.5 py-0.5">
+          <div className="app-sidebar-profile mb-4 flex items-center gap-1.5 rounded-xl border border-white/[0.045] px-1.5 py-0.5">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-blue-50">
               <UserRound size={14} />
             </div>

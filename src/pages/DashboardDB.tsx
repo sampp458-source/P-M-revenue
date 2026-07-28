@@ -455,8 +455,6 @@ export function DashboardPage() {
       <section className="mb-10" aria-label={`${periodLabel} 핵심 매출 지표`}>
         <DashboardKpiHero
           periodLabel={periodLabel}
-          rangeLabel={rangeLabel}
-          unitName={selectedUnitName}
           compareLabel={compareLabel}
           salesAmount={selectedOverview.salesAmount}
           previousSalesAmount={selectedOverview.previousSalesAmount}

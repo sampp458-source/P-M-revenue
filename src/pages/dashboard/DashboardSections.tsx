@@ -1,6 +1,6 @@
 import { AlertCircle, ArrowRight, BedDouble, Building2, CalendarDays, GraduationCap, PawPrint, ReceiptText, Target, TrendingUp } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Badge, Button, Card, EmptyState, Select, Skeleton, StatusBadge, cn } from "../../components/ui";
+import { Button, Card, EmptyState, Select, Skeleton, StatusBadge, cn } from "../../components/ui";
 import { monthLabel, shortWon, won } from "../../lib/format";
 import { formatRevenueComparison, type BusinessUnitOption, type DashboardSale } from "./dashboardMetrics";
 import {
@@ -19,8 +19,6 @@ export function MetricCard({ label, value, description, progress, featured = fal
 
 export function DashboardKpiHero({
   periodLabel,
-  rangeLabel,
-  unitName,
   compareLabel,
   salesAmount,
   previousSalesAmount,
@@ -37,8 +35,6 @@ export function DashboardKpiHero({
   onOutstanding,
 }: {
   periodLabel: string;
-  rangeLabel: string;
-  unitName: string;
   compareLabel: string;
   salesAmount: number;
   previousSalesAmount: number;
@@ -137,17 +133,6 @@ export function DashboardKpiHero({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2 px-1.5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="dashboard-eyebrow text-[10px] font-bold uppercase text-primary">현재 적용 기준</p>
-          <strong className="mt-1 block text-sm text-text-primary tabular-nums">{rangeLabel}</strong>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge tone="blue">{periodLabel}</Badge>
-          <Badge>{unitName}</Badge>
-          <span className="text-xs text-text-muted">{compareLabel} 비교</span>
-        </div>
-      </div>
       <Card className="dashboard-surface dashboard-hero-surface relative overflow-hidden p-0 shadow-none">
         <span className="dashboard-hero-accent absolute inset-y-4 left-0 w-1 rounded-r-full" aria-hidden="true" />
         <button
@@ -166,7 +151,7 @@ export function DashboardKpiHero({
             </strong>
             <p className="mt-2.5 text-[13px] leading-5 text-[#66758a]">실제 입금에서 환불을 뺀 순유입</p>
           </div>
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1 border-t border-primary/[0.08] pt-4 text-[13px] xl:justify-end xl:border-l xl:border-t-0 xl:py-1.5 xl:pl-9">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1 border-t border-primary/[0.08] pt-4 text-sm xl:justify-end xl:border-l xl:border-t-0 xl:py-1.5 xl:pl-9">
             <span className="text-[#66758a]">실수납</span>
             <strong className="whitespace-nowrap text-text-primary tabular-nums">{won(paidAmount)}</strong>
             <span className="text-[#9aa5b3]">−</span>
