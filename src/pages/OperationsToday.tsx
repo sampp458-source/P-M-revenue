@@ -144,10 +144,10 @@ export function OperationsTodayPage() {
           }}
         />
 
-        <aside className="space-y-5">
+        <div className="space-y-5" role="complementary" aria-label="오늘 요약과 할 일">
           <TodaySummary schedules={previewSchedules} />
           <TodayChecklist tasks={previewTasks} />
-        </aside>
+        </div>
       </div>
     </section>
   );
