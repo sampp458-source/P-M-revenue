@@ -22,6 +22,7 @@ import {
   Toast,
 } from "../components/ui";
 import { koDate } from "../lib/format";
+import { isMissingCustomerAddressColumn } from "../lib/customerAddressCapability";
 import { supabase } from "../lib/supabase";
 import {
   logSupabaseError,
@@ -102,6 +103,35 @@ const emptyForm = (): DogForm => ({
   memo: "",
 });
 
+async function loadOwnerOptions() {
+  const result = await supabase
+    .from("customers")
+    .select("id, name, phone, address, memo, is_active")
+    .order("name");
+
+  if (!isMissingCustomerAddressColumn(result.error)) {
+    return {
+      data: (result.data ?? []) as OwnerOption[],
+      error: result.error,
+      status: result.status,
+    };
+  }
+
+  const legacyResult = await supabase
+    .from("customers")
+    .select("id, name, phone, memo, is_active")
+    .order("name");
+
+  return {
+    data: (legacyResult.data ?? []).map((owner) => ({
+      ...owner,
+      address: null,
+    })) as OwnerOption[],
+    error: legacyResult.error,
+    status: legacyResult.status,
+  };
+}
+
 export function PetManagementPage() {
   const { profile } = useAuth();
   const [view, setView] = useState<"dogs" | "customers">("dogs");
@@ -141,15 +171,14 @@ export function PetManagementPage() {
         .from("dogs")
         .select("id, customer_id, name, breed, sex, birth_date, weight, neutered, memo, is_active, customers(id, name, phone, is_active)")
         .order("name"),
-      supabase
-        .from("customers")
-        .select("id, name, phone, address, memo, is_active")
-        .order("name"),
+      loadOwnerOptions(),
     ]);
     if (dogsResult.error) {
+      logSupabaseError("반려견 목록 조회", dogsResult.error, dogsResult.status);
       setDogs([]);
       setLoadError("반려견 목록을 불러오지 못했습니다.");
     } else if (ownersResult.error) {
+      logSupabaseError("보호자 목록 조회", ownersResult.error, ownersResult.status);
       setDogs([]);
       setLoadError("보호자 목록을 불러오지 못했습니다.");
     } else {
