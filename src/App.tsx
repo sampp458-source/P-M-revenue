@@ -52,6 +52,7 @@ import { ProductsPage } from "./pages/ProductManagement";
 import { PetManagementPage } from "./pages/DogManagement";
 import { SignupPage } from "./pages/SignupPage";
 import { StaffManagementPage } from "./pages/StaffManagement";
+import { OperationsSettingsPage } from "./pages/OperationsSettings";
 import { FindAccountPage, ForgotPasswordPage, ResetPasswordPage } from "./pages/AccountRecoveryPages";
 import pmLogo from "./assets/pm-logo.png";
 
@@ -163,13 +164,7 @@ export default function App() {
         />
         <Route
           path="settings"
-          element={
-            <OperationsStubPage
-              eyebrow="SETTINGS"
-              title="일정 설정"
-              description="캘린더와 일정 유형을 관리하는 설정 화면을 준비하고 있습니다."
-            />
-          }
+          element={<OperationsSettingsPage />}
         />
         <Route path="*" element={<Navigate to="/operations/today" replace />} />
       </Route>
