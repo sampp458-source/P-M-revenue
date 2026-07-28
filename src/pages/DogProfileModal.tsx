@@ -23,6 +23,7 @@ import {
   StatusBadge,
 } from "../components/ui";
 import { koDate } from "../lib/format";
+import { formatPhone } from "../lib/phone";
 import {
   dashboardThemeCode,
   dashboardThemeStyle,
@@ -88,24 +89,24 @@ export function DogProfileModal({
   const activeActivities = activeDogActivities(activities);
   const usage = summarizeDogUsage(activities);
   const dates = dogUsageDateRange(activities);
+  const recentUsageLabel = loading
+    ? "최근 이용 확인 중"
+    : error
+      ? "최근 이용 확인 불가"
+      : dates.recentDate
+        ? `최근 이용 ${koDate(dates.recentDate)}`
+        : "최근 이용 없음";
 
   return (
-    <Modal open title="반려견 프로필" onClose={onClose} extraWide>
+    <Modal open title="반려견 프로필" onClose={onClose} wide>
       <ProfileContent>
         <ProfileHeader
           title={dog.name}
           status={<StatusBadge status={dog.active ? "active" : "inactive"} />}
-          tags={
-            dog.breed ? (
-              <span className="rounded-full bg-surface-secondary px-2.5 py-1 text-xs font-semibold text-text-secondary">
-                {dog.breed}
-              </span>
-            ) : null
-          }
           summary={
             <>
-              보호자 {owner?.name || "미등록"} · 최근 이용{" "}
-              {dates.recentDate ? koDate(dates.recentDate) : "없음"}
+              {dog.breed || "품종 미등록"} · 보호자 {owner?.name || "미등록"} ·{" "}
+              {recentUsageLabel}
             </>
           }
           actions={
@@ -118,10 +119,10 @@ export function DogProfileModal({
           }
         />
 
+        <div className="grid items-start gap-7 lg:grid-cols-2">
+          <div className="space-y-7">
         <ProfileSection id="dog-profile-basic-title" title="반려견 정보">
-          <ProfileInfoGrid>
-            <ProfileField label="이름" value={dog.name} />
-            <ProfileField label="품종" value={detailValue(dog.breed)} />
+          <ProfileInfoGrid className="sm:grid-cols-2 lg:!grid-cols-2">
             <ProfileField
               label="성별"
               value={dog.sex === "male" ? "수컷" : dog.sex === "female" ? "암컷" : "미등록"}
@@ -167,14 +168,14 @@ export function DogProfileModal({
                   <strong className="block text-base text-text-primary group-hover:text-primary">
                     {owner.name || "이름 미등록"}
                   </strong>
-                  <span className="text-xs text-text-muted">보호자 Master 보기</span>
+                  <span className="text-xs text-text-muted">보호자 프로필 보기</span>
                 </span>
               </button>
               <dl className="mt-5 grid gap-4 border-t border-border pt-4 sm:grid-cols-2">
                 <ProfileField
                   icon={<Phone size={15} />}
                   label="전화번호"
-                  value={detailValue(owner.phone)}
+                  value={owner.phone ? formatPhone(owner.phone) : "미등록"}
                 />
                 <ProfileField
                   icon={<MapPin size={15} />}
@@ -194,15 +195,23 @@ export function DogProfileModal({
             </div>
           )}
         </ProfileSection>
+          </div>
 
+          <div className="space-y-7">
         <ProfileSection
           id="dog-profile-usage-title"
           title="이용 정보"
           action={
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
-              <span>첫 이용 {dates.firstDate ? koDate(dates.firstDate) : "-"}</span>
-              <span>최근 이용 {dates.recentDate ? koDate(dates.recentDate) : "-"}</span>
-            </div>
+            loading ? (
+              <span className="text-xs text-text-muted">확인 중</span>
+            ) : error ? (
+              <span className="text-xs font-medium text-error">조회 실패</span>
+            ) : (
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
+                <span>첫 이용 {dates.firstDate ? koDate(dates.firstDate) : "-"}</span>
+                <span>최근 이용 {dates.recentDate ? koDate(dates.recentDate) : "-"}</span>
+              </div>
+            )
           }
         >
           {loading ? (
@@ -210,7 +219,7 @@ export function DogProfileModal({
           ) : error ? (
             <ErrorState title={error} retry={onRetry} />
           ) : usage.length ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               {usage.map((item) => {
                 const themeCode = dashboardThemeCode(
                   item.businessUnitId,
@@ -261,6 +270,8 @@ export function DogProfileModal({
             {dog.memo || "등록된 주의사항이나 특이사항이 없습니다."}
           </p>
         </ProfileSection>
+          </div>
+        </div>
 
         <ProfileSection
           id="dog-profile-timeline-title"

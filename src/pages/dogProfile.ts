@@ -11,6 +11,41 @@ export interface DogProfileActivity {
   cancellationType: string | null;
 }
 
+export interface DogProfileActivityRow {
+  id: string;
+  sale_date: string;
+  created_at: string;
+  business_unit_id: string;
+  business_unit_name: string;
+  product_name: string;
+  quantity: number | null;
+  status: string;
+  cancellation_type: string | null;
+  products:
+    | { unit_label: string | null }
+    | Array<{ unit_label: string | null }>
+    | null;
+}
+
+export function mapDogProfileActivity(
+  row: DogProfileActivityRow,
+): DogProfileActivity {
+  const product = Array.isArray(row.products) ? row.products[0] : row.products;
+
+  return {
+    id: row.id,
+    saleDate: row.sale_date,
+    createdAt: row.created_at,
+    businessUnitId: row.business_unit_id,
+    businessUnitName: row.business_unit_name,
+    productName: row.product_name,
+    quantity: Math.max(1, Number(row.quantity) || 1),
+    unitLabel: product?.unit_label ?? null,
+    status: row.status,
+    cancellationType: row.cancellation_type,
+  };
+}
+
 export interface DogUsageSummary {
   businessUnitId: string;
   businessUnitName: string;

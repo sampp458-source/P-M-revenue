@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Eye, Pencil, Plus } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+import { Eye, MoreHorizontal, Pencil, Plus } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import {
   Button,
@@ -23,6 +30,7 @@ import {
 } from "../components/ui";
 import { koDate } from "../lib/format";
 import { isMissingCustomerAddressColumn } from "../lib/customerAddressCapability";
+import { formatPhone } from "../lib/phone";
 import { supabase } from "../lib/supabase";
 import {
   logSupabaseError,
@@ -38,7 +46,11 @@ import {
   DogProfileModal,
   type DogProfileDog,
 } from "./DogProfileModal";
-import type { DogProfileActivity } from "./dogProfile";
+import {
+  mapDogProfileActivity,
+  type DogProfileActivity,
+  type DogProfileActivityRow,
+} from "./dogProfile";
 import { CustomerList } from "./Pets";
 
 interface OwnerOption {
@@ -114,6 +126,7 @@ async function loadOwnerOptions() {
       data: (result.data ?? []) as OwnerOption[],
       error: result.error,
       status: result.status,
+      addressSupported: true,
     };
   }
 
@@ -129,7 +142,136 @@ async function loadOwnerOptions() {
     })) as OwnerOption[],
     error: legacyResult.error,
     status: legacyResult.status,
+    addressSupported: false,
   };
+}
+
+function DogRowActions({
+  dog,
+  owner,
+  canManageDog,
+  onOpenProfile,
+  onEditOwner,
+  onEditDog,
+  onDeactivate,
+}: {
+  dog: DogRow;
+  owner: OwnerOption | null;
+  canManageDog: boolean;
+  onOpenProfile: () => void;
+  onEditOwner: () => void;
+  onEditDog: () => void;
+  onDeactivate: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      triggerRef.current?.focus();
+    };
+    const closeForViewportChange = () => setOpen(false);
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", closeForViewportChange);
+    window.addEventListener("scroll", closeForViewportChange, true);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", closeForViewportChange);
+      window.removeEventListener("scroll", closeForViewportChange, true);
+    };
+  }, [open]);
+
+  return (
+    <div className="flex justify-end gap-2">
+      <Button variant="secondary" onClick={onOpenProfile}>
+        <Eye size={15} />
+        프로필
+      </Button>
+      <div ref={rootRef} className="relative">
+        <button
+          ref={triggerRef}
+          type="button"
+          aria-label={`${dog.name} 관리 더보기`}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => {
+            if (!open) {
+              const rect = triggerRef.current?.getBoundingClientRect();
+              if (rect) {
+                setMenuPosition({
+                  top: rect.bottom + 6,
+                  right: Math.max(12, window.innerWidth - rect.right),
+                });
+              }
+            }
+            setOpen((value) => !value);
+          }}
+          className="inline-flex min-h-11 items-center justify-center rounded-xl px-3 text-text-secondary transition hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+        >
+          <MoreHorizontal size={18} />
+          <span className="sr-only">더보기</span>
+        </button>
+        {open && (
+          <div
+            role="menu"
+            aria-label={`${dog.name} 관리`}
+            style={menuPosition}
+            className="fixed z-[70] min-w-48 overflow-hidden rounded-xl border border-border bg-surface p-1.5 text-left shadow-lg"
+          >
+            {owner && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onEditOwner();
+                }}
+                className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-text-secondary transition hover:bg-surface-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                보호자 정보 수정
+              </button>
+            )}
+            {canManageDog && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onEditDog();
+                }}
+                className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-text-secondary transition hover:bg-surface-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                반려견 정보 수정
+              </button>
+            )}
+            {canManageDog && dog.active && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onDeactivate();
+                }}
+                className="mt-1 w-full border-t border-border px-3 py-2 pt-2.5 text-left text-sm font-semibold text-error transition hover:bg-error-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-error"
+              >
+                비활성화
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function PetManagementPage() {
@@ -137,6 +279,7 @@ export function PetManagementPage() {
   const [view, setView] = useState<"dogs" | "customers">("dogs");
   const [dogs, setDogs] = useState<DogRow[]>([]);
   const [owners, setOwners] = useState<OwnerOption[]>([]);
+  const [ownerAddressSupported, setOwnerAddressSupported] = useState(true);
   const [query, setQuery] = useState("");
   const [breed, setBreed] = useState("");
   const [activeFilter, setActiveFilter] = useState("active");
@@ -161,9 +304,11 @@ export function PetManagementPage() {
   const [processing, setProcessing] = useState(false);
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState("");
+  const loadRequestIdRef = useRef(0);
   const pageSize = 20;
 
   const loadData = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
     setLoading(true);
     setLoadError("");
     const [dogsResult, ownersResult] = await Promise.all([
@@ -173,6 +318,7 @@ export function PetManagementPage() {
         .order("name"),
       loadOwnerOptions(),
     ]);
+    if (requestId !== loadRequestIdRef.current) return;
     if (dogsResult.error) {
       logSupabaseError("반려견 목록 조회", dogsResult.error, dogsResult.status);
       setDogs([]);
@@ -202,12 +348,16 @@ export function PetManagementPage() {
         }),
       );
       setOwners(ownersResult.data ?? []);
+      setOwnerAddressSupported(ownersResult.addressSupported);
     }
     setLoading(false);
   }, []);
 
   useEffect(() => {
     void loadData();
+    return () => {
+      loadRequestIdRef.current += 1;
+    };
   }, [loadData]);
 
   const loadProfileActivities = useCallback(async (dogId: string) => {
@@ -216,7 +366,7 @@ export function PetManagementPage() {
     const result = await supabase
       .from("sales")
       .select(
-        "id, sale_date, created_at, business_unit_id, business_unit_name, product_name, quantity, unit_label, status, cancellation_type",
+        "id, sale_date, created_at, business_unit_id, business_unit_name, product_name, quantity, status, cancellation_type, products(unit_label)",
       )
       .eq("dog_id", dogId)
       .order("sale_date", { ascending: false })
@@ -229,18 +379,9 @@ export function PetManagementPage() {
       return;
     }
     setProfileActivities(
-      (result.data ?? []).map((row) => ({
-        id: row.id,
-        saleDate: row.sale_date,
-        createdAt: row.created_at,
-        businessUnitId: row.business_unit_id,
-        businessUnitName: row.business_unit_name,
-        productName: row.product_name,
-        quantity: Math.max(1, Number(row.quantity) || 1),
-        unitLabel: row.unit_label,
-        status: row.status,
-        cancellationType: row.cancellation_type,
-      })),
+      (result.data ?? []).map((row) =>
+        mapDogProfileActivity(row as DogProfileActivityRow),
+      ),
     );
   }, []);
 
@@ -379,23 +520,31 @@ export function PetManagementPage() {
       return;
     }
     setOwnerSaving(true); setOwnerError("");
-    const values = {
+    const baseValues = {
       name: name || null,
       phone: phone || null,
-      address: ownerForm.address.trim() || null,
       memo: ownerForm.memo.trim() || null,
     };
+    const values = ownerAddressSupported
+      ? {
+          ...baseValues,
+          address: ownerForm.address.trim() || null,
+        }
+      : baseValues;
+    const ownerSelect = ownerAddressSupported
+      ? "id, name, phone, address, memo, is_active"
+      : "id, name, phone, memo, is_active";
     const result = ownerEditing
       ? await supabase
           .from("customers")
           .update(values)
           .eq("id", ownerEditing.id)
-          .select("id, name, phone, address, memo, is_active")
+          .select(ownerSelect)
           .single()
       : await supabase
           .from("customers")
           .insert({ ...values, is_active: true })
-          .select("id, name, phone, address, memo, is_active")
+          .select(ownerSelect)
           .single();
     setOwnerSaving(false);
     if (result.error) {
@@ -416,7 +565,11 @@ export function PetManagementPage() {
       );
       return;
     }
-    const savedOwner = result.data;
+    const resultOwner = result.data as unknown as OwnerOption;
+    const savedOwner: OwnerOption = {
+      ...resultOwner,
+      address: resultOwner.address ?? null,
+    };
     setOwners((current) => {
       const next = ownerEditing
         ? current.map((owner) =>
@@ -579,12 +732,18 @@ export function PetManagementPage() {
                     >
                       {dog.name}
                     </button>
-                  </td><td>{dog.ownerName || "미등록"}</td><td>{dog.ownerPhone || "-"}</td><td>{dog.breed || "-"}</td><td>{dog.sex === "male" ? "수컷" : dog.sex === "female" ? "암컷" : "-"}</td><td>{dog.birthDate ? koDate(dog.birthDate) : "-"}</td><td>{dog.weight === null ? "-" : `${dog.weight}kg`}</td><td><StatusBadge status={dog.active ? "active" : "inactive"} /></td><td className="max-w-xs truncate">{dog.memo || "-"}</td>
-                  <td><div className="flex flex-wrap justify-end gap-2">
-                    <Button variant="secondary" onClick={() => openProfile(dog.id)}><Eye size={15} />프로필</Button>
-                    {owner && <Button variant="secondary" onClick={() => openOwnerEdit(owner)}><Pencil size={15} />보호자 수정</Button>}
-                    {profile?.role === "admin" && <><Button variant="secondary" onClick={() => openEdit(dog)}>반려견 수정</Button>{dog.active && <Button variant="secondary" onClick={() => setDeactivating(dog)}>비활성화</Button>}</>}
-                  </div></td>
+                  </td><td>{dog.ownerName || "미등록"}</td><td>{dog.ownerPhone ? formatPhone(dog.ownerPhone) : "-"}</td><td>{dog.breed || "-"}</td><td>{dog.sex === "male" ? "수컷" : dog.sex === "female" ? "암컷" : "-"}</td><td>{dog.birthDate ? koDate(dog.birthDate) : "-"}</td><td>{dog.weight === null ? "-" : `${dog.weight}kg`}</td><td><StatusBadge status={dog.active ? "active" : "inactive"} /></td><td className="max-w-xs truncate">{dog.memo || "-"}</td>
+                  <td>
+                    <DogRowActions
+                      dog={dog}
+                      owner={owner}
+                      canManageDog={profile?.role === "admin"}
+                      onOpenProfile={() => openProfile(dog.id)}
+                      onEditOwner={() => openOwnerEdit(owner)}
+                      onEditDog={() => openEdit(dog)}
+                      onDeactivate={() => setDeactivating(dog)}
+                    />
+                  </td>
                 </tr>;
               })}</tbody>
             </Table>
@@ -683,7 +842,23 @@ export function PetManagementPage() {
         <form onSubmit={saveOwner} className="space-y-4">
           <Field label="보호자명" help="이름 또는 연락처 중 하나는 필수입니다."><Input name="ownerName" value={ownerForm.name} disabled={ownerSaving} aria-invalid={Boolean(ownerError && !ownerForm.name.trim() && !ownerForm.phone.trim())} aria-describedby={ownerError ? "owner-create-error" : undefined} onChange={(event) => setOwnerForm({ ...ownerForm, name: event.target.value })} /></Field>
           <Field label="연락처"><Input name="ownerPhone" value={ownerForm.phone} disabled={ownerSaving} aria-invalid={Boolean(ownerError && !ownerForm.name.trim() && !ownerForm.phone.trim())} aria-describedby={ownerError ? "owner-create-error" : undefined} onChange={(event) => setOwnerForm({ ...ownerForm, phone: event.target.value })} /></Field>
-          <Field label="주소"><Input name="ownerAddress" value={ownerForm.address} disabled={ownerSaving} onChange={(event) => setOwnerForm({ ...ownerForm, address: event.target.value })} /></Field>
+          <Field
+            label="주소"
+            help={
+              ownerAddressSupported
+                ? undefined
+                : "주소 저장 기능을 사용할 수 없습니다. 관리자에게 문의하세요."
+            }
+          >
+            <Input
+              name="ownerAddress"
+              value={ownerForm.address}
+              disabled={ownerSaving || !ownerAddressSupported}
+              onChange={(event) =>
+                setOwnerForm({ ...ownerForm, address: event.target.value })
+              }
+            />
+          </Field>
           <Field label="메모"><Textarea rows={3} value={ownerForm.memo} disabled={ownerSaving} onChange={(event) => setOwnerForm({ ...ownerForm, memo: event.target.value })} /></Field>
           {ownerError && <p id="owner-create-error" role="alert" className="text-sm text-red-600">{ownerError}</p>}
           <div className="flex justify-end gap-2">
