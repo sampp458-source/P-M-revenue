@@ -20,7 +20,6 @@ import {
   ReceiptText,
   Settings,
   ShieldCheck,
-  Sparkles,
   UserCog,
   UserRound,
   WalletCards,
@@ -40,6 +39,7 @@ import { Button, Input } from "./components/ui";
 import { useAuth } from "./auth/AuthContext";
 import { safeReturnTo } from "./auth/authStateLogic";
 import { useModule } from "./app/ModuleContext";
+import { AppSwitcher as AppSwitcherMenu } from "./app/AppSwitcher";
 import type { AppModule } from "./app/moduleState";
 import { ReportsPage } from "./pages/ReportsDB";
 import { DashboardPage } from "./pages/DashboardDB";
@@ -145,7 +145,6 @@ export default function App() {
           path="today"
           element={
             <OperationsStubPage
-              icon={Clock3}
               eyebrow="TODAY"
               title="오늘"
               description="오늘의 수업과 회사 일정을 한눈에 확인하는 화면을 준비하고 있습니다."
@@ -156,7 +155,6 @@ export default function App() {
           path="calendar"
           element={
             <OperationsStubPage
-              icon={CalendarDays}
               eyebrow="CALENDAR"
               title="캘린더"
               description="유치원·교육센터·호텔과 공통 일정을 함께 보는 캘린더를 준비하고 있습니다."
@@ -167,7 +165,6 @@ export default function App() {
           path="settings"
           element={
             <OperationsStubPage
-              icon={Settings}
               eyebrow="SETTINGS"
               title="일정 설정"
               description="캘린더와 일정 유형을 관리하는 설정 화면을 준비하고 있습니다."
@@ -336,7 +333,6 @@ function ModuleGatePage({
 }: {
   pendingReturnTo?: unknown;
 }) {
-  const { profile } = useAuth();
   const { chooseModule } = useModule();
   const modules = [
     {
@@ -357,29 +353,26 @@ function ModuleGatePage({
     },
   ];
   return (
-    <main className="module-gate-shell relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-app-background px-4 py-8 sm:px-6">
+    <main className="module-gate-shell relative flex min-h-[100dvh] items-center justify-center overflow-x-hidden bg-app-background px-4 py-6 sm:px-7 sm:py-8 lg:px-10">
       <div className="module-gate-orb module-gate-orb-one" aria-hidden="true" />
       <div className="module-gate-orb module-gate-orb-two" aria-hidden="true" />
-      <section className="relative z-10 w-full max-w-[840px]">
-        <div className="mb-8 text-center sm:mb-10">
-          <div className="mx-auto mb-5 flex h-[58px] w-[116px] items-center justify-center rounded-2xl bg-[#1e3a5f] shadow-[0_12px_32px_rgba(30,58,95,0.16)]">
-            <BrandLogo
-              className="h-[58px] w-[116px]"
-              imageClassName="h-[142px] w-[142px]"
-            />
-          </div>
+      <section className="relative z-10 w-full max-w-[1080px]">
+        <div className="mb-8 text-center sm:mb-11">
+          <BrandLogo
+            className="mx-auto mb-3 h-[76px] w-[164px]"
+            imageClassName="module-gate-logo h-[184px] w-[184px]"
+          />
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary">
             P&amp;M OS
           </p>
           <h1 className="mt-2 text-[clamp(1.75rem,5vw,2.5rem)] font-bold tracking-[-0.04em] text-text-primary">
-            오늘 사용할 업무를 선택하세요
+            어떤 업무를 시작할까요?
           </h1>
           <p className="mt-3 text-sm leading-6 text-text-secondary">
-            {profile?.name ? `${profile.name}님, ` : ""}
-            필요한 모듈로 바로 시작할 수 있습니다.
+            스케줄 관리와 매출 관리 중 필요한 업무를 선택하세요
           </p>
         </div>
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-5 md:grid-cols-2 lg:gap-6">
           {modules.map((module) => {
             const Icon = module.icon;
             return (
@@ -387,14 +380,14 @@ function ModuleGatePage({
                 key={module.id}
                 type="button"
                 onClick={() => chooseModule(module.id, pendingReturnTo)}
-                className={`module-gate-card group relative min-h-[188px] overflow-hidden rounded-[24px] border border-border bg-gradient-to-br ${module.accent} p-6 text-left shadow-[0_12px_36px_rgba(23,36,58,0.06)] transition duration-200 hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[0_18px_44px_rgba(23,36,58,0.1)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-3 sm:p-7`}
+                className={`module-gate-card group relative min-h-[190px] overflow-hidden rounded-[26px] border border-border bg-gradient-to-br ${module.accent} p-6 text-left shadow-[0_12px_36px_rgba(23,36,58,0.055)] transition duration-200 hover:-translate-y-1 hover:border-primary/35 hover:shadow-[0_20px_48px_rgba(23,36,58,0.11)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 sm:min-h-[230px] sm:p-9`}
               >
                 <div
                   className={`flex h-12 w-12 items-center justify-center rounded-2xl ${module.iconStyle}`}
                 >
                   <Icon size={24} strokeWidth={1.9} />
                 </div>
-                <div className="mt-7 flex items-end justify-between gap-4">
+                <div className="mt-9 flex items-end justify-between gap-5">
                   <div>
                     <h2 className="text-xl font-bold tracking-[-0.025em] text-text-primary">
                       {module.title}
@@ -411,9 +404,6 @@ function ModuleGatePage({
             );
           })}
         </div>
-        <p className="mt-6 text-center text-xs text-text-muted">
-          진입 후에도 App Switcher에서 자유롭게 전환할 수 있습니다.
-        </p>
       </section>
     </main>
   );
@@ -421,36 +411,7 @@ function ModuleGatePage({
 
 function AppSwitcher({ module }: { module: AppModule }) {
   const { switchModule } = useModule();
-  return (
-    <label className="block">
-      <span className="sr-only">P&amp;M OS 모듈 선택</span>
-      <div className="relative">
-        <Sparkles
-          aria-hidden="true"
-          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-blue-100/55"
-          size={15}
-        />
-        <select
-          aria-label="P&M OS 모듈 선택"
-          value={module}
-          onChange={(event) => switchModule(event.target.value as AppModule)}
-          className="h-10 w-full appearance-none rounded-xl border border-white/[0.08] bg-white/[0.055] pl-9 pr-9 text-xs font-semibold text-white outline-none transition hover:border-white/[0.14] hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-white/65"
-        >
-          <option className="text-text-primary" value="operations">
-            스케줄 관리
-          </option>
-          <option className="text-text-primary" value="finance">
-            매출 관리
-          </option>
-        </select>
-        <ChevronRight
-          aria-hidden="true"
-          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rotate-90 text-blue-100/55"
-          size={15}
-        />
-      </div>
-    </label>
-  );
+  return <AppSwitcherMenu module={module} onSwitch={switchModule} />;
 }
 
 function AppLayout() {
@@ -477,7 +438,7 @@ function AppLayout() {
             <X />
           </button>
         </div>
-        <div className="shrink-0 px-3 pb-2 pt-2">
+        <div className="shrink-0 px-3 pb-2 pt-3">
           <AppSwitcher module="finance" />
         </div>
         <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 pb-2 pt-0.5">
@@ -566,7 +527,7 @@ function OperationsAppLayout() {
             <X />
           </button>
         </div>
-        <div className="shrink-0 px-3 pb-2 pt-2">
+        <div className="shrink-0 px-3 pb-2 pt-3">
           <AppSwitcher module="operations" />
         </div>
         <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 pb-2 pt-0.5">
@@ -584,7 +545,7 @@ function OperationsAppLayout() {
                   className={({ isActive }) =>
                     `app-sidebar-link group relative flex min-h-9 items-center gap-3.5 rounded-[11px] px-3 py-1 text-sm font-medium transition-[color,background-color,transform] duration-150 ${
                       isActive
-                        ? "is-active bg-white/[0.075] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+                        ? "is-active bg-white/[0.1] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]"
                         : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-white"
                     }`
                   }
@@ -593,7 +554,9 @@ function OperationsAppLayout() {
                     <>
                       <span
                         className={`absolute inset-y-2.5 left-0 w-0.5 rounded-full transition-colors ${
-                          isActive ? "bg-[#8fc1e8]" : "bg-transparent"
+                          isActive
+                            ? "bg-[#9bd0ec] shadow-[0_0_10px_rgba(155,208,236,0.28)]"
+                            : "bg-transparent"
                         }`}
                       />
                       <Icon
@@ -639,10 +602,10 @@ function OperationsAppLayout() {
         />
       )}
       <div className="lg:pl-64">
-        <header className="no-print sticky top-0 z-20 flex h-[52px] items-center justify-between border-b border-border/80 bg-white/95 px-4 backdrop-blur-md sm:px-6">
+        <header className="no-print sticky top-0 z-20 flex h-[46px] items-center justify-between border-b border-border/80 bg-white/95 px-4 backdrop-blur-md sm:px-6">
           <div className="flex items-center gap-3">
             <button
-              className="flex h-11 w-11 items-center justify-center rounded-xl border border-border-strong text-text-secondary transition hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-strong text-text-secondary transition hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:hidden"
               onClick={() => setOpen(true)}
               aria-label="메뉴 열기"
             >
@@ -657,11 +620,11 @@ function OperationsAppLayout() {
               <b className="text-text-primary">{current}</b>
             </div>
           </div>
-          <div className="hidden text-right sm:block">
-            <b className="block text-sm text-text-primary">
+          <div className="hidden items-center gap-2.5 sm:flex">
+            <b className="text-sm leading-none text-text-primary">
               {profile?.name || "이름 미등록"}
             </b>
-            <span className="text-xs text-text-muted">
+            <span className="rounded-full bg-surface-secondary px-2 py-1 text-[10px] font-medium leading-none text-text-muted">
               {profile?.role === "admin" ? "관리자" : "직원"}
             </span>
           </div>
@@ -675,19 +638,17 @@ function OperationsAppLayout() {
 }
 
 function OperationsStubPage({
-  icon: Icon,
   eyebrow,
   title,
   description,
 }: {
-  icon: typeof CalendarDays;
   eyebrow: string;
   title: string;
   description: string;
 }) {
   return (
-    <section className="operations-stub mx-auto max-w-5xl">
-      <div className="mb-6">
+    <section className="operations-stub mx-auto max-w-3xl">
+      <div className="mb-4">
         <p className="text-[11px] font-bold tracking-[0.17em] text-primary">
           {eyebrow}
         </p>
@@ -695,23 +656,13 @@ function OperationsStubPage({
           {title}
         </h1>
       </div>
-      <div className="relative overflow-hidden rounded-[24px] border border-border bg-white px-5 py-12 shadow-[0_12px_36px_rgba(23,36,58,0.045)] sm:px-10 sm:py-16">
-        <div
-          className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#72b8d7] via-[#497da6] to-[#274c77]"
-          aria-hidden="true"
-        />
+      <div className="relative overflow-hidden rounded-[22px] border border-border/80 bg-white px-5 py-10 shadow-[0_8px_24px_rgba(23,36,58,0.035)] sm:px-8 sm:py-12">
         <div className="mx-auto max-w-lg text-center">
-          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-soft text-primary">
-            <Icon size={27} strokeWidth={1.8} />
-          </div>
-          <h2 className="mt-6 text-xl font-bold tracking-[-0.025em] text-text-primary">
+          <h2 className="text-lg font-bold tracking-[-0.025em] text-text-primary">
             준비 중
           </h2>
           <p className="mt-2 text-sm leading-6 text-text-secondary">
             {description}
-          </p>
-          <p className="mt-5 inline-flex rounded-full border border-border bg-surface-secondary px-3 py-1.5 text-xs font-medium text-text-muted">
-            P&amp;M OS · Operations
           </p>
         </div>
       </div>

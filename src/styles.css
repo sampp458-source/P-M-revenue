@@ -84,6 +84,9 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   animation: pm-module-card-in 220ms ease-out both;
 }
 .module-gate-card:nth-child(2) { animation-delay: 35ms; }
+.module-gate-logo {
+  filter: brightness(0) saturate(100%) invert(27%) sepia(19%) saturate(1749%) hue-rotate(169deg) brightness(91%) contrast(92%);
+}
 
 @layer components {
   .data-table {
