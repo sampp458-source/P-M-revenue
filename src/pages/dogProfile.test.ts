@@ -155,10 +155,10 @@ describe("dog profile audit and Customer Master connection", () => {
     expect(managementUi).toContain("<th>연락처</th>");
     expect(managementUi).toContain("<th>견종</th>");
     expect(managementUi).toContain(
-      '<th className="px-5 text-center">상태</th>',
+      '<th className="px-3 text-center">상태</th>',
     );
     expect(managementUi).toContain(
-      '<th className="pl-6 pr-5 text-right">관리</th>',
+      '<th className="px-3 text-center">관리</th>',
     );
     expect(managementUi).not.toContain("<th>성별</th>");
     expect(managementUi).not.toContain("<th>생년월일</th>");
@@ -166,13 +166,14 @@ describe("dog profile audit and Customer Master connection", () => {
     expect(managementUi).not.toContain("<th>중성화</th>");
     expect(managementUi).not.toContain('className="min-w-[1180px]"');
     expect(managementUi).toContain('className="divide-y divide-border xl:hidden"');
-    expect(managementUi).toContain('<col className="w-[288px]" />');
+    expect(managementUi).toContain('<col className="w-[22%]" />');
+    expect(managementUi).toContain('<col className="w-[252px]" />');
     expect(managementUi).toContain(
-      '<th className="pl-6 pr-5 text-right">관리</th>',
+      '<th className="px-3 text-center">관리</th>',
     );
-    expect(managementUi).toContain('<td className="pl-6 pr-5">');
+    expect(managementUi).toContain('<td className="px-3 text-center">');
     expect(managementUi).toContain(
-      "h-10 min-h-10 w-10 items-center justify-center",
+      "h-9 min-h-9 w-9 items-center justify-center",
     );
   });
 
