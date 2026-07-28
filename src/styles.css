@@ -50,15 +50,15 @@ aside { background: #1e3a5f !important; }
 main.min-h-screen > section:first-child { background: #1e3a5f !important; }
 .login-shell .login-brand-panel {
   background:
-    radial-gradient(circle at 12% 10%, rgb(112 177 216 / .22), transparent 32%),
-    radial-gradient(circle at 92% 74%, rgb(74 115 166 / .22), transparent 38%),
-    linear-gradient(145deg, #1d4268 0%, #173552 44%, #10263e 100%) !important;
+    radial-gradient(circle at 12% 10%, rgb(122 190 229 / .27), transparent 34%),
+    radial-gradient(circle at 92% 72%, rgb(78 127 179 / .16), transparent 40%),
+    linear-gradient(145deg, #214c74 0%, #193b5b 45%, #112b46 100%) !important;
 }
 .login-brand-panel::after {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 78% 46% at 62% 112%, rgb(143 194 224 / .08), transparent 72%),
+    radial-gradient(ellipse 78% 42% at 62% 112%, rgb(143 194 224 / .045), transparent 72%),
     linear-gradient(120deg, rgb(255 255 255 / .035), transparent 34%, rgb(7 24 40 / .08));
   content: "";
   pointer-events: none;
@@ -75,16 +75,16 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   transition: transform 180ms ease-out;
 }
 .login-capability + .login-capability {
-  border-left: 1px solid rgb(255 255 255 / .09);
+  border-left: 1px solid rgb(255 255 255 / .065);
 }
 .login-capability:hover {
   transform: translateY(-1px);
 }
 .login-form-side {
   background:
-    radial-gradient(circle at 100% 0%, rgb(166 203 227 / .16), transparent 32%),
-    radial-gradient(circle at 0% 100%, rgb(39 76 119 / .055), transparent 35%),
-    linear-gradient(180deg, #fbfcfd 0%, #f7f9fb 100%);
+    radial-gradient(circle at 100% 0%, rgb(166 203 227 / .18), transparent 34%),
+    radial-gradient(circle at 0% 48%, rgb(76 133 174 / .075), transparent 30%),
+    linear-gradient(180deg, #fafcfd 0%, #f5f8fa 100%);
 }
 .login-form-glow {
   position: absolute;
@@ -126,6 +126,29 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   background: #fff;
   box-shadow: 0 0 0 4px rgb(39 76 119 / .09), 0 8px 24px rgb(23 36 58 / .045);
 }
+.login-input:-webkit-autofill,
+.login-input:-webkit-autofill:hover {
+  border-color: #dce3eb;
+  -webkit-text-fill-color: #17243a;
+  caret-color: #17243a;
+  box-shadow:
+    0 0 0 1000px #fafbfc inset,
+    inset 0 1px 0 rgb(255 255 255 / .8);
+  transition:
+    background-color 9999s ease-out 0s,
+    color 9999s ease-out 0s;
+}
+.login-input:-webkit-autofill:focus {
+  border-color: rgb(39 76 119 / .55);
+  -webkit-text-fill-color: #17243a;
+  box-shadow:
+    0 0 0 1000px #fff inset,
+    0 0 0 4px rgb(39 76 119 / .09),
+    0 8px 24px rgb(23 36 58 / .045);
+}
+.login-input-wrap:has(.login-input:-webkit-autofill) > svg {
+  color: #274c77;
+}
 .login-input-wrap:focus-within > svg {
   color: #274c77;
 }
@@ -146,7 +169,7 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   position: relative;
   overflow: hidden;
   background: linear-gradient(135deg, #315d8d 0%, #274c77 48%, #203f64 100%) !important;
-  box-shadow: 0 12px 28px rgb(39 76 119 / .22), inset 0 1px 0 rgb(255 255 255 / .16);
+  box-shadow: 0 8px 20px rgb(39 76 119 / .17), inset 0 1px 0 rgb(255 255 255 / .16);
   transition: transform 180ms ease-out, box-shadow 180ms ease-out, filter 180ms ease-out;
 }
 .login-submit::before {
@@ -160,7 +183,7 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
 .login-submit:hover:not(:disabled) {
   transform: translateY(-1px);
   filter: brightness(1.02);
-  box-shadow: 0 14px 30px rgb(39 76 119 / .25), inset 0 1px 0 rgb(255 255 255 / .18);
+  box-shadow: 0 11px 26px rgb(39 76 119 / .21), inset 0 1px 0 rgb(255 255 255 / .18);
 }
 .login-submit:hover:not(:disabled)::before {
   transform: translateX(110%);
@@ -182,6 +205,34 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
 }
 .auth-loading-bar {
   animation: pm-auth-loading 1.15s ease-in-out infinite;
+}
+
+@media (min-width: 1440px) {
+  .login-form-panel {
+    top: -14px;
+    max-width: 488px !important;
+  }
+  .login-form-panel h2 {
+    font-size: 2.35rem;
+  }
+  .login-form-fields {
+    --tw-space-y-reverse: 0;
+  }
+  .login-form-fields > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1.125rem;
+  }
+  .login-input {
+    height: 53px;
+  }
+  .login-input-wrap > svg {
+    top: 17.5px;
+  }
+  .login-password-toggle {
+    top: 3.5px;
+  }
+  .login-submit {
+    height: 53px;
+  }
 }
 .module-gate-shell {
   background:

@@ -16,6 +16,7 @@ describe("P&M OS login experience", () => {
     expect(appSource).toContain("회사 운영을");
     expect(appSource).toContain("하나의 시스템으로");
     expect(appSource).toContain("P&amp;M의 모든 업무를 하나에서");
+    expect(appSource).toContain("오늘의 업무를 시작하세요");
     expect(appSource).toContain('title="운영"');
     expect(appSource).toContain('title="회계"');
     expect(appSource).toContain('title="고객"');
@@ -40,7 +41,10 @@ describe("P&M OS login experience", () => {
     expect(appSource).toContain('className="login-input h-[50px]');
     expect(appSource).toContain('className="login-submit group h-[50px]');
     expect(appSource).toContain("login-mobile-brand");
+    expect(appSource).not.toContain("login-submit-arrow");
     expect(styles).toContain(".login-input:focus");
+    expect(styles).toContain(".login-input:-webkit-autofill");
+    expect(styles).toContain("@media (min-width: 1440px)");
     expect(styles).toContain(".login-checkbox:focus-visible");
     expect(styles).toContain(".login-form-fields > :nth-child(5)");
     expect(styles).toContain("@media (prefers-reduced-motion: reduce)");

@@ -304,21 +304,21 @@ function LoginPage() {
   return (
     <main className="login-shell flex min-h-[100dvh] overflow-x-hidden bg-app-background">
       <section className="login-brand-panel relative hidden w-[54%] flex-col justify-between overflow-hidden px-10 py-9 text-white lg:flex xl:px-14 xl:py-11 2xl:px-20">
-        <div className="relative z-10 flex items-center gap-4">
+        <div className="relative z-10 flex items-center gap-3">
           <BrandLogo
             className="h-[62px] w-[136px]"
             imageClassName="h-[174px] w-[174px]"
           />
           <span className="h-6 w-px bg-white/15" aria-hidden="true" />
-          <span className="text-sm font-semibold tracking-[0.08em] text-blue-50/82">
+          <span className="text-[15px] font-semibold tracking-[0.08em] text-blue-50/82">
             P&amp;M OS
           </span>
         </div>
-        <div className="login-brand-content relative z-10 max-w-[620px] pb-4">
+        <div className="login-brand-content relative z-10 max-w-[640px] pb-4 lg:-top-3">
           <p className="text-xs font-bold uppercase tracking-[0.22em] text-[#a8d4ed]">
             P&amp;M Operating System
           </p>
-          <h1 className="mt-5 text-[clamp(2.75rem,4.1vw,4.65rem)] font-bold leading-[1.08] tracking-[-0.055em] text-white">
+          <h1 className="mt-5 text-[clamp(2.9rem,4.35vw,4.9rem)] font-bold leading-[1.08] tracking-[-0.055em] text-white">
             회사 운영을
             <br />
             하나의 시스템으로
@@ -379,7 +379,7 @@ function LoginPage() {
               로그인
             </h2>
             <p className="mt-2 text-[15px] leading-6 text-text-secondary">
-              업무를 시작하세요
+              오늘의 업무를 시작하세요
             </p>
           </div>
           <div className="login-form-fields space-y-4">
@@ -428,7 +428,7 @@ function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                   placeholder="비밀번호 입력"
-                  className="login-input h-[50px] rounded-[14px] pl-12 pr-14"
+                  className="login-input h-[50px] rounded-[14px] pl-12 pr-24"
                   disabled={submitting}
                   aria-invalid={Boolean((error && !password) || authError)}
                   aria-describedby={
@@ -439,7 +439,7 @@ function LoginPage() {
                   type="button"
                   disabled={submitting}
                   onClick={() => setShowPassword((value) => !value)}
-                  className="absolute right-0.5 top-0.5 flex h-[46px] w-[46px] items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="login-password-toggle absolute right-10 top-0.5 flex h-[46px] w-[46px] items-center justify-center rounded-xl text-text-muted transition-colors hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   aria-label={
                     showPassword ? "비밀번호 숨기기" : "비밀번호 보기"
                   }
@@ -452,7 +452,7 @@ function LoginPage() {
                 </button>
               </div>
             </label>
-            <div className="flex flex-col gap-1 text-sm text-text-secondary min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-text-secondary">
               <label className="login-check-label flex min-h-11 cursor-pointer items-center gap-2.5 rounded-lg px-1">
                 <input
                   type="checkbox"
@@ -497,18 +497,11 @@ function LoginPage() {
                   />
                 ) : null}
                 {submitting ? "로그인 중..." : "로그인"}
-                {!submitting && (
-                  <ChevronRight
-                    aria-hidden="true"
-                    className="login-submit-arrow transition-transform duration-200 group-hover:translate-x-0.5"
-                    size={18}
-                  />
-                )}
               </span>
             </Button>
           </div>
           <nav
-            className="mt-7 flex flex-wrap justify-center gap-x-5 gap-y-3 text-[13px] font-semibold text-primary"
+            className="mt-7 flex flex-wrap justify-center gap-x-6 gap-y-3 text-[13px] font-semibold text-primary"
             aria-label="계정 도움말"
           >
             <Link
@@ -530,7 +523,7 @@ function LoginPage() {
               비밀번호 찾기
             </Link>
           </nav>
-          <p className="mt-7 flex items-center justify-center gap-2 text-center text-xs leading-5 text-text-muted">
+          <p className="mt-8 flex items-center justify-center gap-2 text-center text-xs leading-5 text-text-muted">
             <ShieldCheck aria-hidden="true" size={14} />
             승인된 P&amp;M 구성원만 이용할 수 있습니다.
           </p>
@@ -554,13 +547,13 @@ function BrandCapability({
       <Icon
         aria-hidden="true"
         className="text-[#a8d4ed]"
-        size={18}
+        size={20}
         strokeWidth={1.8}
       />
       <strong className="mt-4 block text-sm font-semibold text-white">
         {title}
       </strong>
-      <span className="mt-1 block text-[11px] leading-5 text-blue-100/52">
+      <span className="mt-1 block text-[11px] leading-5 text-blue-100/66">
         {description}
       </span>
     </div>
