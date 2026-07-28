@@ -151,7 +151,7 @@ export function DashboardKpiHero({
           onClick={onNet}
           className="absolute inset-0 z-10 rounded-[inherit] transition-colors duration-200 hover:bg-primary/[0.025] focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
         />
-        <div className="relative flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between lg:gap-12 lg:px-9 lg:py-8">
+        <div className="relative flex flex-col gap-6 p-6 sm:p-8 xl:flex-row xl:items-end xl:justify-between xl:gap-12 xl:px-9 xl:py-8">
           <div className="min-w-0">
             <p className="text-[11px] font-bold tracking-[0.04em] text-primary">
               {periodLabel} 순수납
@@ -161,7 +161,7 @@ export function DashboardKpiHero({
             </strong>
             <p className="mt-2.5 text-[13px] leading-5 text-[#778395]">실제 입금에서 환불을 뺀 순유입</p>
           </div>
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1.5 border-t border-primary/[0.08] pt-5 text-[13px] lg:justify-end lg:border-l lg:border-t-0 lg:py-2.5 lg:pl-9">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-2.5 gap-y-1.5 border-t border-primary/[0.08] pt-5 text-[13px] xl:justify-end xl:border-l xl:border-t-0 xl:py-2.5 xl:pl-9">
             <span className="text-[#778395]">실수납</span>
             <strong className="whitespace-nowrap text-text-primary tabular-nums">{won(paidAmount)}</strong>
             <span className="text-[#9aa5b3]">−</span>
