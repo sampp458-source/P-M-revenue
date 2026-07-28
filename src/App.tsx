@@ -235,8 +235,8 @@ function AppLayout() {
       <aside
         className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="flex h-[76px] shrink-0 items-center justify-center border-b border-white/[0.035]">
-          <BrandLogo className="h-[76px] w-full" imageClassName="h-36 w-36" />
+        <div className="flex h-[72px] shrink-0 items-center justify-start border-b border-white/[0.035]">
+          <BrandLogo className="h-[72px] w-[156px] translate-x-px" imageClassName="h-[156px] w-[156px]" />
           <button
             className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-xl text-blue-100/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:hidden"
             onClick={() => setOpen(false)}
@@ -246,7 +246,7 @@ function AppLayout() {
           </button>
         </div>
         <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 pb-2 pt-0.5">
-          {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-3 last:mb-0"><p className="mb-0.5 px-3 text-[8px] font-medium uppercase tracking-[0.17em] text-blue-100/24">{group}</p><div className="space-y-0.5">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
+          {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-3 last:mb-0"><p className="mb-0.5 px-3 text-[8px] font-medium uppercase leading-none tracking-[0.17em] text-blue-100/24">{group}</p><div className="space-y-0.5">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
               <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `app-sidebar-link group relative flex min-h-9 items-center gap-3.5 rounded-[11px] px-3 py-1 text-sm font-medium transition-[color,background-color,transform] duration-150 ${isActive ? "is-active bg-white/[0.075] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-white"}`}>
                 {({ isActive }) => <><span className={`absolute inset-y-2.5 left-0 w-0.5 rounded-full transition-colors ${isActive ? "bg-[#8fc1e8]" : "bg-transparent"}`} /><Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} /><span>{label}</span></>}
               </NavLink>
