@@ -209,10 +209,10 @@ function DogRowActions({
   }, [open]);
 
   return (
-    <div className="inline-flex w-full items-center justify-center gap-1.5">
+    <div className="mx-auto inline-flex w-fit items-center justify-center gap-1.5">
       <Button
         variant="secondary"
-        className="h-9 min-h-9 gap-1.5 rounded-lg px-2.5 py-1.5 text-xs"
+        className="h-9 min-h-9 gap-1.5 rounded-lg border-primary/25 bg-primary-subtle px-[0.5625rem] py-1.5 text-xs text-primary hover:border-primary/40 hover:bg-primary-soft"
         onClick={onOpenProfile}
       >
         <Eye size={15} />
@@ -221,7 +221,7 @@ function DogRowActions({
       {owner && (
         <Button
           variant="secondary"
-          className="h-9 min-h-9 gap-1.5 rounded-lg px-2.5 py-1.5 text-xs"
+          className="h-9 min-h-9 gap-1.5 rounded-lg px-[0.5625rem] py-1.5 text-xs"
           onClick={onEditOwner}
         >
           <Pencil size={15} />
@@ -247,7 +247,7 @@ function DogRowActions({
             }
             setOpen((value) => !value);
           }}
-          className="inline-flex h-9 min-h-9 w-9 items-center justify-center rounded-lg border border-transparent p-0 text-text-secondary transition hover:border-primary/20 hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="inline-flex h-9 min-h-9 w-9 items-center justify-center rounded-lg border border-transparent p-0 leading-none text-text-secondary transition hover:border-primary/20 hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&>svg]:block"
         >
           <MoreHorizontal size={18} />
           <span className="sr-only">더보기</span>
@@ -292,6 +292,7 @@ function DogRowActions({
   );
 }
 
+// UI freeze: preserve this layout after the final polish; bug fixes only.
 export function PetManagementPage() {
   const { profile } = useAuth();
   const [dogs, setDogs] = useState<DogRow[]>([]);
@@ -722,11 +723,11 @@ export function PetManagementPage() {
       <PageHeader
         title="반려견 관리"
         description="반려견을 기준으로 보호자 연결 정보와 기본 정보를 관리합니다."
-        action={<Button onClick={() => { setFormError(""); setOwnerSearch(""); setDuplicateDog(null); setAllowDuplicateDog(false); setEditing(emptyForm()); }}><Plus size={17} />반려견 등록</Button>}
+        action={<Button onClick={() => { setFormError(""); setOwnerSearch(""); setDuplicateDog(null); setAllowDuplicateDog(false); setEditing(emptyForm()); }}><Plus size={19} />반려견 등록</Button>}
       />
       <div className="[&>section]:mb-4">
         <FilterToolbar className="sm:grid-cols-[minmax(0,5fr)_minmax(0,3fr)_minmax(9rem,2fr)]">
-              <SearchBox aria-label="반려견 검색" placeholder="반려견명, 보호자명, 연락처 또는 견종 검색" value={query} onClear={() => { setQuery(""); setPage(1); }} onChange={(e) => { setQuery(e.target.value); setPage(1); }} />
+              <SearchBox className="[&_input]:placeholder:text-[#8793a3]" aria-label="반려견 검색" placeholder="반려견명, 보호자명, 연락처 또는 견종 검색" value={query} onClear={() => { setQuery(""); setPage(1); }} onChange={(e) => { setQuery(e.target.value); setPage(1); }} />
               <Select value={breed} onChange={(e) => { setBreed(e.target.value); setPage(1); }}><option value="">전체 견종</option>{breeds.map((item) => <option key={item}>{item}</option>)}</Select>
               <Select value={activeFilter} onChange={(e) => { setActiveFilter(e.target.value); setPage(1); }}><option value="">전체 상태</option><option value="active">활성</option><option value="inactive">비활성</option></Select>
         </FilterToolbar>
@@ -736,7 +737,7 @@ export function PetManagementPage() {
           <>
             <div className="hidden xl:block">
               <Table
-                className="table-fixed [&_td]:py-3.5 [&_th]:h-12 [&_th]:border-b-border-strong [&_th]:bg-surface-secondary/70 [&_th]:py-3"
+                className="table-fixed [&_td]:py-3.5 [&_th]:h-[52px] [&_th]:border-b-border-strong [&_th]:bg-surface-secondary/70 [&_th]:py-3"
                 scrollResetKey={[
                   query,
                   breed,
@@ -773,7 +774,7 @@ export function PetManagementPage() {
                     return (
                       <tr
                         key={dog.id}
-                        className="bg-surface [&>td]:align-middle"
+                        className="bg-surface hover:[&>td]:!bg-[#f4f7fa] [&>td]:align-middle"
                       >
                         <td>
                           <button
@@ -798,7 +799,7 @@ export function PetManagementPage() {
                           {dog.ownerPhone ? formatPhone(dog.ownerPhone) : "미등록"}
                         </td>
                         <td>{dog.breed || "미등록"}</td>
-                        <td className="px-3 text-center">
+                        <td className="px-3 text-center [&>span]:px-3">
                           <StatusBadge status={dog.active ? "active" : "inactive"} />
                         </td>
                         <td className="px-3 text-center">

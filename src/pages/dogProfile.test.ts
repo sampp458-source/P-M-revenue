@@ -175,6 +175,16 @@ describe("dog profile audit and Customer Master connection", () => {
     expect(managementUi).toContain(
       "h-9 min-h-9 w-9 items-center justify-center",
     );
+    expect(managementUi).toContain(
+      "mx-auto inline-flex w-fit items-center justify-center",
+    );
+    expect(managementUi).toContain(
+      "border-primary/25 bg-primary-subtle",
+    );
+    expect(managementUi).toContain("[&>svg]:block");
+    expect(managementUi).toContain(
+      "UI freeze: preserve this layout after the final polish; bug fixes only.",
+    );
   });
 
   it("keeps the requested profile section order", () => {
