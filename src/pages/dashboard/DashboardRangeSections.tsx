@@ -16,8 +16,8 @@ const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [
 
 export function DashboardPeriodFilters({ period, range, unitName, compare, onPeriod, onCustom, onMovePeriod, onCompare }: { period: DashboardPeriod; range: DashboardDateRange; unitName: string; compare: DashboardCompare; onPeriod: (period: DashboardPeriod) => void; onCustom: (range: DashboardDateRange) => void; onMovePeriod: (direction: number) => void; onCompare: (compare: DashboardCompare) => void }) {
   return (
-    <Card className="dashboard-surface mb-4 overflow-hidden bg-white/80 p-2.5 shadow-none sm:p-3">
-      <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
+    <Card className="dashboard-period-surface mb-4 overflow-hidden p-1.5 shadow-none sm:p-2">
+      <div className="flex flex-col gap-1.5 xl:flex-row xl:items-center">
         <div className="flex min-w-0 gap-1 overflow-x-auto pb-0.5" aria-label="빠른 조회 기간">
           {periodOptions.map((option) => (
             <button
@@ -25,7 +25,7 @@ export function DashboardPeriodFilters({ period, range, unitName, compare, onPer
               type="button"
               onClick={() => onPeriod(option.value)}
               className={cn(
-                "min-h-11 shrink-0 rounded-lg border px-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-9 sm:px-3",
+                "min-h-10 shrink-0 rounded-[9px] border px-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-8 sm:px-2.5",
                 period === option.value
                   ? "border-primary bg-primary text-white"
                   : "border-transparent bg-transparent text-text-secondary hover:border-primary/15 hover:bg-primary-subtle",
@@ -36,11 +36,11 @@ export function DashboardPeriodFilters({ period, range, unitName, compare, onPer
           ))}
         </div>
 
-        <div className="flex min-w-0 items-center gap-1 sm:min-w-[310px] xl:ml-auto">
-          <Button type="button" variant="ghost" className="h-9 min-h-9 shrink-0 px-2" aria-label="이전 기간" onClick={() => onMovePeriod(-1)}>
+        <div className="flex min-w-0 items-center gap-1 sm:min-w-[300px] xl:ml-auto">
+          <Button type="button" variant="ghost" className="h-9 min-h-9 shrink-0 px-2 sm:h-8 sm:min-h-8" aria-label="이전 기간" onClick={() => onMovePeriod(-1)}>
             <ChevronLeft size={16} />
           </Button>
-          <div className="flex min-h-9 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-surface-secondary px-2.5">
+          <div className="flex min-h-9 min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-white/70 px-2.5 sm:min-h-8">
             <strong className="truncate text-xs text-text-primary tabular-nums sm:text-sm">
               {range.from === range.to ? range.from : `${range.from} ~ ${range.to}`}
             </strong>
@@ -48,22 +48,11 @@ export function DashboardPeriodFilters({ period, range, unitName, compare, onPer
               <Badge tone="blue">{unitName}</Badge>
             </span>
           </div>
-          <Button type="button" variant="ghost" className="h-9 min-h-9 shrink-0 px-2" aria-label="다음 기간" onClick={() => onMovePeriod(1)}>
+          <Button type="button" variant="ghost" className="h-9 min-h-9 shrink-0 px-2 sm:h-8 sm:min-h-8" aria-label="다음 기간" onClick={() => onMovePeriod(1)}>
             <ChevronRight size={16} />
           </Button>
         </div>
-      </div>
-
-      <div className="mt-2 flex flex-col gap-2 border-t border-border/60 pt-2 lg:flex-row lg:items-center">
-        {period === "custom" && (
-          <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[340px]">
-            <label className="sr-only" htmlFor="dashboard-period-from">시작일</label>
-            <Input id="dashboard-period-from" className="h-9 min-h-9" aria-label="직접 선택 시작일" type="date" value={range.from} onChange={(event) => onCustom({ from: event.target.value, to: range.to })} />
-            <label className="sr-only" htmlFor="dashboard-period-to">종료일</label>
-            <Input id="dashboard-period-to" className="h-9 min-h-9" aria-label="직접 선택 종료일" type="date" min={range.from} value={range.to} onChange={(event) => onCustom({ from: range.from, to: event.target.value })} />
-          </div>
-        )}
-        <div className="flex min-w-0 items-center gap-2 lg:ml-auto">
+        <div className="flex min-w-0 items-center gap-1.5 border-t border-border/50 pt-1.5 xl:ml-1.5 xl:border-l xl:border-t-0 xl:pl-2 xl:pt-0">
           <span className="shrink-0 text-[11px] font-semibold text-text-muted">비교</span>
           <div className="flex min-w-0 gap-1 overflow-x-auto" aria-label="대시보드 비교 기준">
             {period === "custom" && <CompareButton active={compare === "previous"} onClick={() => onCompare("previous")}>직전 기간</CompareButton>}
@@ -71,6 +60,14 @@ export function DashboardPeriodFilters({ period, range, unitName, compare, onPer
           </div>
         </div>
       </div>
+      {period === "custom" && (
+        <div className="mt-1.5 grid gap-1.5 border-t border-border/50 pt-1.5 sm:grid-cols-2 lg:max-w-[360px]">
+          <label className="sr-only" htmlFor="dashboard-period-from">시작일</label>
+          <Input id="dashboard-period-from" className="h-9 min-h-9 sm:h-8 sm:min-h-8" aria-label="직접 선택 시작일" type="date" value={range.from} onChange={(event) => onCustom({ from: event.target.value, to: range.to })} />
+          <label className="sr-only" htmlFor="dashboard-period-to">종료일</label>
+          <Input id="dashboard-period-to" className="h-9 min-h-9 sm:h-8 sm:min-h-8" aria-label="직접 선택 종료일" type="date" min={range.from} value={range.to} onChange={(event) => onCustom({ from: range.from, to: event.target.value })} />
+        </div>
+      )}
     </Card>
   );
 }
@@ -82,12 +79,12 @@ const compareOptions: Array<{ value: Exclude<DashboardCompare, "previous">; labe
 ];
 
 function CompareButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
-  return <button type="button" onClick={onClick} className={cn("min-h-8 shrink-0 rounded-md border px-2.5 text-[11px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", active ? "border-primary/20 bg-primary-subtle text-primary" : "border-transparent bg-transparent text-text-muted hover:bg-surface-secondary hover:text-text-secondary")}>{children}</button>;
+  return <button type="button" onClick={onClick} className={cn("min-h-8 shrink-0 rounded-md border px-2 text-[11px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-7", active ? "border-primary/15 bg-white text-primary shadow-[0_1px_2px_rgba(23,36,58,0.04)]" : "border-transparent bg-transparent text-text-muted hover:bg-white/70 hover:text-text-secondary")}>{children}</button>;
 }
 
 export function DailyRevenueTrend({ data, selectedDate, unitName, onSelect }: { data: DailyRevenue[]; selectedDate: string; unitName: string; onSelect: (date: string) => void }) {
   const max = Math.max(0, ...data.map((row) => Math.max(0, row.revenue)));
-  return <Card className="p-5 sm:p-6"><div className="mb-5"><h2 className="font-bold text-text-primary">날짜별 실수납 추이</h2><p className="mt-1 text-xs text-text-muted">{unitName} · 결제일 기준 유효 결제원장 합계입니다.</p></div>{data.length ? <div className="overflow-x-auto pb-2"><div className="flex h-64 min-w-full items-end gap-2" style={{ width: `${Math.max(100, data.length * 52)}px` }}>{data.map((row) => { const height = max > 0 ? Math.max(4, Math.sqrt(Math.max(0, row.revenue) / max) * 172) : 4; return <button key={row.date} type="button" onClick={() => onSelect(row.date)} className={cn("group relative flex h-full min-w-10 flex-1 flex-col items-center justify-end rounded-lg px-1 pt-8 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", selectedDate === row.date && "bg-primary-subtle")} aria-label={`${row.date} 실수납 ${won(row.revenue)}`}><span className="pointer-events-none absolute left-1/2 top-1 z-10 hidden w-36 -translate-x-1/2 rounded-lg bg-[#17243a] px-3 py-2 text-left text-[11px] leading-5 text-white shadow-lg group-hover:block group-focus-visible:block"><strong className="block">{Number(row.date.slice(5, 7))}월 {Number(row.date.slice(8))}일</strong><span className="block text-blue-100">실수납 {won(row.revenue)}</span><span className="block text-rose-200">환불 {won(row.refund)}</span></span><span className="mb-2 hidden text-[10px] font-semibold text-text-secondary group-hover:block sm:block">{shortWon(row.revenue)}</span><span className={cn("w-full max-w-8 rounded-t-md transition-all duration-200", selectedDate === row.date ? "bg-primary" : "bg-[#7f9dbb] group-hover:bg-primary")} style={{ height }} /><span className="mt-2 text-[10px] text-text-muted">{Number(row.date.slice(8))}일</span></button>; })}</div></div> : <p className="rounded-xl bg-surface-secondary p-5 text-center text-sm text-text-muted">선택 기간에 표시할 수납 내역이 없습니다.</p>}</Card>;
+  return <Card className="dashboard-trend-surface overflow-hidden p-5 shadow-none sm:p-7"><div className="mb-6 flex items-end justify-between gap-4"><div><p className="dashboard-eyebrow text-[10px] font-bold uppercase text-primary">Cash flow</p><h2 className="dashboard-section-title mt-1 font-bold text-text-primary">날짜별 실수납 추이</h2><p className="mt-1 text-xs text-text-muted">{unitName} · 결제일 기준 유효 결제원장 합계</p></div><span className="hidden rounded-full border border-primary/10 bg-white/70 px-3 py-1.5 text-[11px] font-semibold text-primary sm:inline">일별 흐름</span></div>{data.length ? <div className="dashboard-trend-chart overflow-x-auto rounded-2xl px-2 pb-3 pt-4 sm:px-4"><div className="flex h-64 min-w-full items-end gap-2" style={{ width: `${Math.max(100, data.length * 52)}px` }}>{data.map((row) => { const height = max > 0 ? Math.max(4, Math.sqrt(Math.max(0, row.revenue) / max) * 172) : 4; return <button key={row.date} type="button" onClick={() => onSelect(row.date)} className={cn("group relative flex h-full min-w-10 flex-1 flex-col items-center justify-end rounded-xl px-1 pt-8 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary", selectedDate === row.date && "bg-white/80 shadow-[0_8px_24px_rgba(39,76,119,0.08)]")} aria-label={`${row.date} 실수납 ${won(row.revenue)}`}><span className="pointer-events-none absolute left-1/2 top-1 z-10 hidden w-36 -translate-x-1/2 rounded-xl bg-[#172f4d] px-3 py-2 text-left text-[11px] leading-5 text-white shadow-lg group-hover:block group-focus-visible:block"><strong className="block">{Number(row.date.slice(5, 7))}월 {Number(row.date.slice(8))}일</strong><span className="block text-blue-100">실수납 {won(row.revenue)}</span><span className="block text-rose-200">환불 {won(row.refund)}</span></span><span className="mb-2 hidden text-[10px] font-semibold text-text-secondary group-hover:block sm:block">{shortWon(row.revenue)}</span><span className={cn("dashboard-trend-bar w-full max-w-8 rounded-t-lg transition-[height,filter,opacity] duration-200", selectedDate === row.date ? "brightness-95" : "opacity-75 group-hover:opacity-100")} style={{ height }} /><span className="mt-2.5 text-[10px] text-text-muted">{Number(row.date.slice(8))}일</span></button>; })}</div></div> : <p className="rounded-xl bg-surface-secondary p-5 text-center text-sm text-text-muted">선택 기간에 표시할 수납 내역이 없습니다.</p>}</Card>;
 }
 
 const monthDays = (month: string) => {
@@ -112,13 +109,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
   const filtered = unitName !== "전체 사업부";
   const max = Math.max(0, ...data.map((row) => Math.max(0, row.revenue)));
   const intensity = (amount: number) => max <= 0 ? 0 : Math.min(4, Math.max(1, Math.ceil(Math.sqrt(Math.max(0, amount) / max) * 4)));
-  const tones = [
-    "bg-white",
-    "bg-sky-50/45",
-    "bg-sky-50/80",
-    "bg-sky-100/75",
-    "bg-[#deebf6]",
-  ];
+  const tones = ["bg-white", "bg-[#f7fbfe]", "bg-[#eff7fc]", "bg-[#e6f2fa]", "bg-[#d9ebf7]"];
   const [year, monthNumber] = month.split("-").map(Number);
   const monthTitle = `${year}년 ${monthNumber}월 전체`;
   const activeRangeLabel = activeRange.from === activeRange.to
@@ -189,7 +180,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
               type="button"
               onClick={() => onSelect(date)}
               className={cn(
-                "relative min-h-16 overflow-hidden rounded-md border p-1.5 text-left transition-[transform,border-color,background-color,opacity] duration-200 ease-out hover:-translate-y-px hover:border-primary/30 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-24 sm:rounded-[10px] sm:p-2.5",
+                "dashboard-calendar-day relative min-h-16 overflow-hidden rounded-md border p-1.5 text-left transition-[transform,border-color,background-color,box-shadow,opacity] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/35 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-24 sm:rounded-xl sm:p-2.5",
                 hideAmounts
                   ? inActiveRange
                     ? "bg-surface-secondary/80 hover:bg-primary-subtle"
@@ -198,9 +189,10 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                     ? tones[intensity(amount)]
                     : "bg-slate-50/55",
                 inActiveRange ? "border-primary/15" : "border-border/70 opacity-50",
-                selectedDate === date ? "border-primary bg-primary-subtle ring-1 ring-primary/25" : "border-border/70",
+                selectedDate === date ? "dashboard-calendar-selected border-primary bg-primary-subtle ring-2 ring-primary/20" : "border-border/70",
                 selectedDate === date && "opacity-100",
-                today === date && selectedDate !== date && "border-dashed border-primary/70",
+                today === date && selectedDate !== date && "dashboard-calendar-today border-primary/80",
+                (hasSales || hasReceipt || hasRefund) && "dashboard-calendar-active",
                 !hasSales && !hasReceipt && !hasRefund && "bg-surface-secondary/45 text-text-muted",
               )}
               title={`${date} · ${unitName} 실수납 ${won(amount)} · 판매금액 ${won(row?.salesAmount ?? 0)} · 판매 ${row?.count ?? 0}건${inActiveRange ? " · KPI 선택 기간 포함" : " · KPI 선택 기간 밖"}`}

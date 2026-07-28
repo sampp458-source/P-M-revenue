@@ -1,6 +1,6 @@
 import { AlertCircle, ArrowRight, Building2, CalendarDays, ReceiptText, Target, TrendingUp } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Badge, Button, Card, EmptyState, Select, Skeleton, StatusBadge, Table, cn } from "../../components/ui";
+import { Badge, Button, Card, EmptyState, Select, Skeleton, StatusBadge, cn } from "../../components/ui";
 import { monthLabel, shortWon, won } from "../../lib/format";
 import { formatRevenueComparison, type BusinessUnitOption, type DashboardSale } from "./dashboardMetrics";
 
@@ -145,6 +145,8 @@ export function DashboardKpiHero({
         </div>
       </div>
       <Card className="dashboard-surface dashboard-hero-surface relative overflow-hidden p-0 shadow-none">
+        <span className="dashboard-hero-accent absolute inset-y-0 left-0 w-1.5" aria-hidden="true" />
+        <span className="pointer-events-none absolute right-5 top-2 text-[clamp(3rem,9vw,7rem)] font-black tracking-[-0.08em] text-primary/[0.035]" aria-hidden="true">P&amp;M</span>
         <button
           type="button"
           aria-label="결제·환불 통합 원장 열기"
@@ -257,7 +259,7 @@ export function BusinessUnitCard({
         muted && "opacity-60 hover:opacity-100",
       )}
     >
-      <span className="dashboard-unit-accent absolute inset-x-6 top-0 h-[3px] rounded-b-full opacity-80" aria-hidden="true" />
+      <span className="dashboard-unit-accent absolute inset-x-6 top-0 h-1 rounded-b-full opacity-90" aria-hidden="true" />
       <button
         type="button"
         className="relative flex min-h-[20rem] w-full flex-col p-5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:p-6"
@@ -339,7 +341,7 @@ function businessUnitCardTone(code: string) {
 }
 
 export function RecentSales({ rows, onOpen }: { rows: DashboardSale[]; onOpen: () => void }) {
-  return <Card className="overflow-hidden"><div className="flex items-center justify-between gap-4 border-b border-border px-5 py-4 sm:px-6"><div><h2 className="font-semibold text-text-primary">최근 매출</h2><p className="mt-1 text-xs text-text-muted">선택 조건의 최신 등록 5건</p></div><Button aria-label="매출 내역으로 이동" variant="ghost" onClick={onOpen}>전체 보기 <ArrowRight size={16} /></Button></div>{rows.length ? <Table className="min-w-[1000px]"><thead><tr><th>매출일</th><th>사업부</th><th>반려견</th><th>보호자</th><th>상품</th><th>결제액</th><th>실매출</th><th>상태</th><th>담당자</th></tr></thead><tbody>{rows.map((sale) => <tr key={sale.id} tabIndex={0} role="link" className="cursor-pointer focus:bg-blue-50 focus:outline-none" onClick={onOpen} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") onOpen(); }}><td>{sale.saleDate}</td><td>{sale.businessUnitName}</td><td className="font-semibold">{sale.dogName}</td><td>{sale.customerName || "미등록"}</td><td>{sale.productName}</td><td>{won(sale.paidAmount)}</td><td className="font-semibold text-primary">{won(sale.netAmount)}</td><td><StatusBadge status={sale.status as "normal" | "partial_refund" | "full_refund" | "cancelled"} tone={sale.status === "cancelled" ? "gray" : undefined} /></td><td>{sale.staffName || "-"}</td></tr>)}</tbody></Table> : <EmptyState title="등록된 매출이 없습니다." />}</Card>;
+  return <Card className="dashboard-activity-surface overflow-hidden p-0 shadow-none"><div className="flex items-center justify-between gap-4 px-5 pb-4 pt-5 sm:px-7 sm:pb-5 sm:pt-6"><div><p className="dashboard-eyebrow text-[10px] font-bold uppercase text-primary">Latest activity</p><h2 className="dashboard-section-title mt-1 font-bold text-text-primary">최근 매출</h2><p className="mt-1 text-xs text-text-muted">선택 조건의 최신 등록 5건</p></div><Button aria-label="매출 내역으로 이동" variant="ghost" onClick={onOpen}>전체 보기 <ArrowRight size={16} /></Button></div>{rows.length ? <div className="px-3 pb-3 sm:px-4 sm:pb-4">{rows.map((sale, index) => <button key={sale.id} type="button" className="group relative grid min-h-[76px] w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl px-3 py-3.5 text-left transition-[background-color,transform] duration-200 hover:translate-x-0.5 hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:gap-4 sm:px-4" onClick={onOpen}><span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] border border-primary/10 bg-white text-primary shadow-[0_4px_14px_rgba(39,76,119,0.06)]"><ReceiptText size={17} /><span className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-primary" /></span><span className="min-w-0"><span className="flex flex-wrap items-center gap-x-2 gap-y-1"><strong className="truncate text-sm text-text-primary">{sale.dogName || "(반려견 없음)"}</strong><span className="text-xs text-text-muted">{sale.customerName || "보호자 미등록"}</span><StatusBadge status={sale.status as "normal" | "partial_refund" | "full_refund" | "cancelled"} tone={sale.status === "cancelled" ? "gray" : undefined} /></span><span className="mt-1 block truncate text-xs leading-5 text-text-secondary">{sale.businessUnitName} · {sale.productName} · {sale.staffName || "담당자 미지정"}</span><span className="mt-0.5 block text-[11px] text-text-muted tabular-nums">{sale.saleDate}</span></span><span className="flex shrink-0 items-center gap-2"><strong className="whitespace-nowrap text-sm text-primary tabular-nums sm:text-base">{won(sale.netAmount)}</strong><ArrowRight size={15} className="hidden text-text-muted transition-transform group-hover:translate-x-0.5 sm:block" /></span>{index < rows.length - 1 && <span className="absolute inset-x-4 bottom-0 h-px bg-border/60" aria-hidden="true" />}</button>)}</div> : <EmptyState title="등록된 매출이 없습니다." />}</Card>;
 }
 
 export function OperationalAlerts({ alerts, onOpen }: { alerts: { outstandingCount: number; outstandingTotal: number; refundCount: number; refundTotal: number; cancelledCount: number; todayCount: number }; onOpen: () => void }) {

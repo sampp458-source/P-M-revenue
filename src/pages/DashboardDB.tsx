@@ -418,7 +418,7 @@ export function DashboardPage() {
   if (loading) return <DashboardSkeleton />;
   if (error) return <ErrorState title="대시보드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." retry={() => void load()} />;
   return <div className="dashboard-shell">
-    <PageHeader title="대시보드" description={isAdmin ? "대표가 사업부와 날짜 흐름을 빠르게 읽는 경영 현황" : "오늘과 선택 날짜의 업무 매출을 빠르게 확인합니다."} />
+    <PageHeader title="대시보드" />
     {!isAdmin && (
       <Card className="mb-6 overflow-hidden border-warning/20 bg-warning-soft/45 p-0">
         <button
