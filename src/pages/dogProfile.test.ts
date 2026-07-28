@@ -154,14 +154,26 @@ describe("dog profile audit and Customer Master connection", () => {
     expect(managementUi).toContain("<th>보호자</th>");
     expect(managementUi).toContain("<th>연락처</th>");
     expect(managementUi).toContain("<th>견종</th>");
-    expect(managementUi).toContain('className="text-center">상태</th>');
-    expect(managementUi).toContain('className="text-right">관리</th>');
+    expect(managementUi).toContain(
+      '<th className="px-5 text-center">상태</th>',
+    );
+    expect(managementUi).toContain(
+      '<th className="pl-6 pr-5 text-right">관리</th>',
+    );
     expect(managementUi).not.toContain("<th>성별</th>");
     expect(managementUi).not.toContain("<th>생년월일</th>");
     expect(managementUi).not.toContain("<th>체중</th>");
     expect(managementUi).not.toContain("<th>중성화</th>");
     expect(managementUi).not.toContain('className="min-w-[1180px]"');
     expect(managementUi).toContain('className="divide-y divide-border xl:hidden"');
+    expect(managementUi).toContain('<col className="w-[288px]" />');
+    expect(managementUi).toContain(
+      '<th className="pl-6 pr-5 text-right">관리</th>',
+    );
+    expect(managementUi).toContain('<td className="pl-6 pr-5">');
+    expect(managementUi).toContain(
+      "h-10 min-h-10 w-10 items-center justify-center",
+    );
   });
 
   it("keeps the requested profile section order", () => {

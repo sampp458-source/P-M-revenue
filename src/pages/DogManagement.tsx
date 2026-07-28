@@ -167,6 +167,7 @@ function DogRowActions({
   dog,
   owner,
   canManageDog,
+  className = "",
   onOpenProfile,
   onEditOwner,
   onEditDog,
@@ -175,6 +176,7 @@ function DogRowActions({
   dog: DogRow;
   owner: OwnerOption | null;
   canManageDog: boolean;
+  className?: string;
   onOpenProfile: () => void;
   onEditOwner: () => void;
   onEditDog: () => void;
@@ -209,13 +211,21 @@ function DogRowActions({
   }, [open]);
 
   return (
-    <div className="flex justify-end gap-2">
-      <Button variant="secondary" onClick={onOpenProfile}>
+    <div className={`flex w-full items-center justify-end gap-2 ${className}`}>
+      <Button
+        variant="secondary"
+        className="h-10 min-h-10 rounded-lg px-3 py-2 text-[13px]"
+        onClick={onOpenProfile}
+      >
         <Eye size={15} />
         프로필
       </Button>
       {owner && (
-        <Button variant="secondary" onClick={onEditOwner}>
+        <Button
+          variant="secondary"
+          className="h-10 min-h-10 rounded-lg px-3 py-2 text-[13px]"
+          onClick={onEditOwner}
+        >
           <Pencil size={15} />
           보호자 수정
         </Button>
@@ -239,7 +249,7 @@ function DogRowActions({
             }
             setOpen((value) => !value);
           }}
-          className="inline-flex min-h-11 items-center justify-center rounded-xl px-3 text-text-secondary transition hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+          className="inline-flex h-10 min-h-10 w-10 items-center justify-center rounded-lg p-0 text-text-secondary transition hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
         >
           <MoreHorizontal size={18} />
           <span className="sr-only">더보기</span>
@@ -716,17 +726,19 @@ export function PetManagementPage() {
         description="반려견을 기준으로 보호자 연결 정보와 기본 정보를 관리합니다."
         action={<Button onClick={() => { setFormError(""); setOwnerSearch(""); setDuplicateDog(null); setAllowDuplicateDog(false); setEditing(emptyForm()); }}><Plus size={17} />반려견 등록</Button>}
       />
-      <FilterToolbar className="sm:grid-cols-3">
-            <SearchBox aria-label="반려견 검색" placeholder="반려견명, 보호자명, 연락처 또는 견종 검색" value={query} onClear={() => { setQuery(""); setPage(1); }} onChange={(e) => { setQuery(e.target.value); setPage(1); }} />
-            <Select value={breed} onChange={(e) => { setBreed(e.target.value); setPage(1); }}><option value="">전체 견종</option>{breeds.map((item) => <option key={item}>{item}</option>)}</Select>
-            <Select value={activeFilter} onChange={(e) => { setActiveFilter(e.target.value); setPage(1); }}><option value="">전체 상태</option><option value="active">활성</option><option value="inactive">비활성</option></Select>
-      </FilterToolbar>
+      <div className="[&>section]:mb-4">
+        <FilterToolbar className="sm:grid-cols-3">
+              <SearchBox aria-label="반려견 검색" placeholder="반려견명, 보호자명, 연락처 또는 견종 검색" value={query} onClear={() => { setQuery(""); setPage(1); }} onChange={(e) => { setQuery(e.target.value); setPage(1); }} />
+              <Select value={breed} onChange={(e) => { setBreed(e.target.value); setPage(1); }}><option value="">전체 견종</option>{breeds.map((item) => <option key={item}>{item}</option>)}</Select>
+              <Select value={activeFilter} onChange={(e) => { setActiveFilter(e.target.value); setPage(1); }}><option value="">전체 상태</option><option value="active">활성</option><option value="inactive">비활성</option></Select>
+        </FilterToolbar>
+      </div>
       <Card className="overflow-hidden">
         {loading ? <LoadingState /> : loadError ? <ErrorState title={loadError} retry={() => void loadData()} /> : rows.length ? (
           <>
             <div className="hidden xl:block">
               <Table
-                className="table-fixed"
+                className="table-fixed [&_td]:py-4 [&_th]:h-12 [&_th]:border-b-border-strong [&_th]:bg-surface-secondary/70 [&_th]:py-3"
                 scrollResetKey={[
                   query,
                   breed,
@@ -742,8 +754,8 @@ export function PetManagementPage() {
                   <col className="w-[15%]" />
                   <col className="w-36" />
                   <col className="w-[14%]" />
-                  <col className="w-20" />
-                  <col className="w-[268px]" />
+                  <col className="w-24" />
+                  <col className="w-[288px]" />
                 </colgroup>
                 <thead>
                   <tr>
@@ -751,8 +763,8 @@ export function PetManagementPage() {
                     <th>보호자</th>
                     <th>연락처</th>
                     <th>견종</th>
-                    <th className="text-center">상태</th>
-                    <th className="text-right">관리</th>
+                    <th className="px-5 text-center">상태</th>
+                    <th className="pl-6 pr-5 text-right">관리</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -761,7 +773,7 @@ export function PetManagementPage() {
                       owners.find((item) => item.id === dog.customerId) ?? null;
                     const secondary = dogListSecondary(dog);
                     return (
-                      <tr key={dog.id}>
+                      <tr key={dog.id} className="[&>td]:align-middle">
                         <td>
                           <button
                             type="button"
@@ -785,14 +797,15 @@ export function PetManagementPage() {
                           {dog.ownerPhone ? formatPhone(dog.ownerPhone) : "미등록"}
                         </td>
                         <td>{dog.breed || "미등록"}</td>
-                        <td className="text-center">
+                        <td className="px-5 text-center">
                           <StatusBadge status={dog.active ? "active" : "inactive"} />
                         </td>
-                        <td>
+                        <td className="pl-6 pr-5">
                           <DogRowActions
                             dog={dog}
                             owner={owner}
                             canManageDog={profile?.role === "admin"}
+                            className="ml-auto"
                             onOpenProfile={() => openProfile(dog.id)}
                             onEditOwner={() => openOwnerEdit(owner)}
                             onEditDog={() => openEdit(dog)}
