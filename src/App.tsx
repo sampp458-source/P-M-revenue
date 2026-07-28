@@ -55,6 +55,7 @@ import { SignupPage } from "./pages/SignupPage";
 import { StaffManagementPage } from "./pages/StaffManagement";
 import { OperationsSettingsPage } from "./pages/OperationsSettings";
 import { OperationsCalendarFoundationPage } from "./pages/OperationsCalendarFoundation";
+import { OperationsTodayPage } from "./pages/OperationsToday";
 import { FindAccountPage, ForgotPasswordPage, ResetPasswordPage } from "./pages/AccountRecoveryPages";
 import pmLogo from "./assets/pm-logo.png";
 
@@ -142,13 +143,7 @@ export default function App() {
         <Route index element={<Navigate to="/operations/today" replace />} />
         <Route
           path="today"
-          element={
-            <OperationsStubPage
-              eyebrow="TODAY"
-              title="오늘"
-              description="오늘의 수업과 회사 일정을 한눈에 확인하는 화면을 준비하고 있습니다."
-            />
-          }
+          element={<OperationsTodayPage />}
         />
         <Route
           path="calendar"
