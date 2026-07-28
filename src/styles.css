@@ -180,7 +180,7 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
 
   @media (min-width: 1024px) and (max-width: 1279px) {
     .dashboard-hero-number {
-      font-size: clamp(2.2rem, 4.5vw, 3rem);
+      font-size: clamp(2.1rem, 3.7vw, 2.4rem);
     }
     .dashboard-section-number {
       font-size: clamp(1.45rem, 2.35vw, 1.75rem);
