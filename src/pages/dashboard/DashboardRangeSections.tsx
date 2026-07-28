@@ -16,7 +16,7 @@ const periodOptions: Array<{ value: DashboardPeriod; label: string }> = [
 
 export function DashboardPeriodFilters({ period, range, unitName, compare, onPeriod, onCustom, onMovePeriod, onCompare }: { period: DashboardPeriod; range: DashboardDateRange; unitName: string; compare: DashboardCompare; onPeriod: (period: DashboardPeriod) => void; onCustom: (range: DashboardDateRange) => void; onMovePeriod: (direction: number) => void; onCompare: (compare: DashboardCompare) => void }) {
   return (
-    <Card className="mb-4 overflow-hidden border-border/70 bg-white/80 p-2.5 shadow-none sm:p-3">
+    <Card className="dashboard-surface mb-4 overflow-hidden bg-white/80 p-2.5 shadow-none sm:p-3">
       <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
         <div className="flex min-w-0 gap-1 overflow-x-auto pb-0.5" aria-label="빠른 조회 기간">
           {periodOptions.map((option) => (
@@ -25,7 +25,7 @@ export function DashboardPeriodFilters({ period, range, unitName, compare, onPer
               type="button"
               onClick={() => onPeriod(option.value)}
               className={cn(
-                "min-h-9 shrink-0 rounded-lg border px-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:px-3",
+                "min-h-11 shrink-0 rounded-lg border px-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-9 sm:px-3",
                 period === option.value
                   ? "border-primary bg-primary text-white"
                   : "border-transparent bg-transparent text-text-secondary hover:border-primary/15 hover:bg-primary-subtle",
@@ -112,15 +112,21 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
   const filtered = unitName !== "전체 사업부";
   const max = Math.max(0, ...data.map((row) => Math.max(0, row.revenue)));
   const intensity = (amount: number) => max <= 0 ? 0 : Math.min(4, Math.max(1, Math.ceil(Math.sqrt(Math.max(0, amount) / max) * 4)));
-  const tones = ["bg-white", "bg-blue-50", "bg-blue-100", "bg-blue-200", "bg-[#b7cbe0]"];
+  const tones = [
+    "bg-white",
+    "bg-sky-50/45",
+    "bg-sky-50/80",
+    "bg-sky-100/75",
+    "bg-[#deebf6]",
+  ];
   const [year, monthNumber] = month.split("-").map(Number);
   const monthTitle = `${year}년 ${monthNumber}월 전체`;
   const activeRangeLabel = activeRange.from === activeRange.to
     ? activeRange.from
     : `${activeRange.from} ~ ${activeRange.to}`;
   return (
-    <Card className="p-3 sm:p-6">
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <Card className="dashboard-surface p-3 shadow-none sm:p-6">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="font-bold text-text-primary">{monthTitle}</h2>
@@ -163,7 +169,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
       <div className="mt-1 grid grid-cols-7 gap-0.5 sm:gap-1">
         {monthDays(month).map((date, index) => {
           if (!date) {
-            return <span key={`empty-${index}`} className="min-h-16 rounded-md bg-surface-secondary/60 sm:min-h-24 sm:rounded-lg" />;
+            return <span key={`empty-${index}`} className="min-h-16 rounded-md bg-surface-secondary/45 sm:min-h-24 sm:rounded-lg" />;
           }
           const row = byDate.get(date);
           const totalRow = totalsByDate.get(date);
@@ -183,21 +189,22 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
               type="button"
               onClick={() => onSelect(date)}
               className={cn(
-                "relative min-h-16 rounded-md border p-1 text-left transition-[transform,border-color,box-shadow,background-color,opacity] duration-200 ease-out hover:-translate-y-px hover:border-primary/35 hover:opacity-100 hover:shadow-[0_6px_16px_rgba(23,36,58,0.08)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-24 sm:rounded-lg sm:p-2",
+                "relative min-h-16 overflow-hidden rounded-md border p-1 text-left transition-[transform,border-color,background-color,opacity] duration-200 ease-out hover:-translate-y-px hover:border-primary/30 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:min-h-24 sm:rounded-lg sm:p-2",
                 hideAmounts
                   ? inActiveRange
-                    ? "bg-surface-secondary hover:bg-primary-subtle"
-                    : "bg-slate-50/70"
+                    ? "bg-surface-secondary/80 hover:bg-primary-subtle"
+                    : "bg-slate-50/55"
                   : inActiveRange
                     ? tones[intensity(amount)]
-                    : "bg-slate-50/70",
-                inActiveRange ? "border-primary/20" : "border-border opacity-55",
-                selectedDate === date ? "border-primary ring-2 ring-primary/20" : "border-border",
+                    : "bg-slate-50/55",
+                inActiveRange ? "border-primary/15" : "border-border/70 opacity-50",
+                selectedDate === date ? "border-primary bg-primary-subtle ring-1 ring-primary/25" : "border-border/70",
                 selectedDate === date && "opacity-100",
                 today === date && selectedDate !== date && "border-dashed border-primary/70",
+                !hasSales && !hasReceipt && !hasRefund && "bg-surface-secondary/45 text-text-muted",
               )}
-              title={`${date} · ${unitName} 실수납 ${won(amount)} · 판매 ${row?.count ?? 0}건${inActiveRange ? " · KPI 선택 기간 포함" : " · KPI 선택 기간 밖"}`}
-              aria-label={`${hideAmounts ? `${date} 거래 상세 열기` : `${date} ${unitName} 실수납 ${won(amount)} 판매 ${row?.count ?? 0}건${filtered ? ` 전체 실수납 ${won(totalRow?.revenue ?? 0)}` : ""}`}${indicatorLabel ? `, ${indicatorLabel}` : ""}`}
+              title={`${date} · ${unitName} 실수납 ${won(amount)} · 판매금액 ${won(row?.salesAmount ?? 0)} · 판매 ${row?.count ?? 0}건${inActiveRange ? " · KPI 선택 기간 포함" : " · KPI 선택 기간 밖"}`}
+              aria-label={`${hideAmounts ? `${date} 거래 상세 열기` : `${date} ${unitName} 실수납 ${won(amount)} 판매금액 ${won(row?.salesAmount ?? 0)} 판매 ${row?.count ?? 0}건${filtered ? ` 전체 실수납 ${won(totalRow?.revenue ?? 0)}` : ""}`}${indicatorLabel ? `, ${indicatorLabel}` : ""}`}
             >
               <span className="flex min-w-0 items-center justify-between gap-1">
                 <span className="text-xs font-bold text-text-primary sm:text-sm">
@@ -218,11 +225,14 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
                 <span className="mt-1 block text-[9px] font-semibold text-primary sm:text-[10px]">내역 보기</span>
               ) : (
                 <>
-                  <strong className="mt-1 block whitespace-nowrap text-[clamp(0.48rem,2.45vw,0.68rem)] font-semibold tracking-[-0.035em] text-text-primary tabular-nums sm:text-xs">
-                    {shortWon(amount)}
+                  <strong className={cn(
+                    "mt-1 block whitespace-nowrap text-[clamp(0.48rem,2.45vw,0.68rem)] font-bold tracking-[-0.035em] tabular-nums sm:text-xs",
+                    hasReceipt ? "text-primary" : "text-text-muted",
+                  )}>
+                    {hasReceipt ? shortWon(amount) : "0원"}
                   </strong>
-                  <span className="mt-0.5 block text-[9px] text-text-muted sm:text-[10px]">
-                    {row?.count ?? 0}건
+                  <span className="mt-0.5 block truncate text-[8px] leading-3 text-text-muted min-[430px]:text-[9px] sm:text-[10px]">
+                    판매 {shortWon(row?.salesAmount ?? 0)} · {row?.count ?? 0}건
                   </span>
                   {filtered && (
                     <span className="mt-0.5 hidden truncate text-[9px] text-text-secondary sm:block">

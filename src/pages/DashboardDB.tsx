@@ -368,6 +368,19 @@ export function DashboardPage() {
     () => ledgerPaymentsForDate(sales, payments, selectedDate, unitId),
     [payments, sales, selectedDate, unitId],
   );
+  const selectedDateRefunds = useMemo(() => {
+    const salesById = new Map(sales.map((sale) => [sale.id, sale]));
+    return buildAccountingEvents(sales, payments, refunds).flatMap((event) => {
+      if (event.kind !== "refund" || event.eventDate !== selectedDate) return [];
+      const sale = salesById.get(event.saleId);
+      if (!sale || (unitId && sale.businessUnitId !== unitId)) return [];
+      return [{
+        id: event.id,
+        amount: event.refundAmount,
+        sale,
+      }];
+    });
+  }, [payments, refunds, sales, selectedDate, unitId]);
   const selectedDatePaymentMethods = useMemo(
     () =>
       calculateLedgerPaymentMethodTotals(
@@ -404,7 +417,7 @@ export function DashboardPage() {
 
   if (loading) return <DashboardSkeleton />;
   if (error) return <ErrorState title="대시보드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." retry={() => void load()} />;
-  return <>
+  return <div className="dashboard-shell">
     <PageHeader title="대시보드" description={isAdmin ? "대표가 사업부와 날짜 흐름을 빠르게 읽는 경영 현황" : "오늘과 선택 날짜의 업무 매출을 빠르게 확인합니다."} />
     {!isAdmin && (
       <Card className="mb-6 overflow-hidden border-warning/20 bg-warning-soft/45 p-0">
@@ -454,12 +467,12 @@ export function DashboardPage() {
       <div className="grid items-stretch gap-4 lg:grid-cols-3">{coreDivisions.map((division, index) => <BusinessUnitCard key={division.id} order={index + 1} code={division.code ?? ""} name={division.name} revenue={division.revenue} receivedAmount={division.receivedAmount} refundAmount={division.refundAmount} outstandingAmount={division.outstandingAmount} restricted={!isAdmin} selected={unitId === division.id} muted={Boolean(unitId && unitId !== division.id)} onClick={() => updateQuery({ unit: unitId === division.id ? null : division.id })} />)}</div>
       {isAdmin && otherRevenue > 0 && <p className="mt-3 rounded-xl border border-warning/20 bg-warning-soft px-4 py-3 text-sm text-text-secondary">기타·비활성 사업부 매출 {won(otherRevenue)}이 총매출에 포함되어 있습니다.</p>}
     </section>
-    <div className={dateDrawerOpen ? "transition-[padding] duration-200 lg:pr-[min(460px,42vw)]" : "transition-[padding] duration-200"}>
+    <div className={dateDrawerOpen ? "transition-[padding] duration-200 lg:pr-[min(480px,44vw)]" : "transition-[padding] duration-200"}>
       <div className="mt-8"><SalesHeatmapCalendar month={calendarMonth} activeRange={range} data={calendarData} totalData={calendarTotalData} unitName={selectedUnitName} today={today} selectedDate={selectedDate} hideAmounts={!isAdmin} onMonth={setCalendarMonth} onSelect={selectCalendarDate} /></div>
       {isAdmin && <div className="mt-6"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={selectCalendarDate} /></div>}
     </div>
     {isAdmin && <div className="mt-6"><RecentSales rows={recent} onOpen={() => navigate(`/sales?period=custom&start=${range.from}&end=${range.to}${unitId ? `&unit=${unitId}` : ""}`)} /></div>}
-    <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} summary={selectedDateSummary} rows={selectedDateSales} payments={selectedDatePayments} paymentMethodTotals={selectedDatePaymentMethods} units={units} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onOpenSales={() => openSales(selectedDate, unitId)} />
+    <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} summary={selectedDateSummary} rows={selectedDateSales} payments={selectedDatePayments} refunds={selectedDateRefunds} paymentMethodTotals={selectedDatePaymentMethods} units={units} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onOpenSales={() => openSales(selectedDate, unitId)} />
     <DashboardAccountingDrawer
       open={Boolean(accountingDrawerView)}
       view={accountingDrawerView ?? "sales"}
@@ -488,5 +501,5 @@ export function DashboardPage() {
       onChanged={() => load(true)}
       onOpenSale={openAccountingSale}
     />
-  </>;
+  </div>;
 }

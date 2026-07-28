@@ -42,6 +42,7 @@ export function DashboardDateDrawer({
   summary,
   rows,
   payments,
+  refunds,
   paymentMethodTotals,
   units,
   onClose,
@@ -55,6 +56,11 @@ export function DashboardDateDrawer({
   rows: DashboardSale[];
   payments: Array<{
     payment: PaymentLedgerEntry;
+    sale: DashboardSale;
+  }>;
+  refunds: Array<{
+    id: string;
+    amount: number;
     sale: DashboardSale;
   }>;
   paymentMethodTotals: Map<string, number>;
@@ -101,6 +107,31 @@ export function DashboardDateDrawer({
     );
   }, [rows, units]);
   const selectedGroup = saleGroups.find((group) => group.id === selectedUnitId);
+  const visiblePayments = useMemo(
+    () =>
+      selectedUnitId === "all"
+        ? payments
+        : payments.filter(
+            ({ sale }) => sale.businessUnitId === selectedUnitId,
+          ),
+    [payments, selectedUnitId],
+  );
+  const visibleRefunds = useMemo(
+    () =>
+      selectedUnitId === "all"
+        ? refunds
+        : refunds.filter(({ sale }) => sale.businessUnitId === selectedUnitId),
+    [refunds, selectedUnitId],
+  );
+  const visiblePaymentMethodTotals = useMemo(() => {
+    if (selectedUnitId === "all") return paymentMethodTotals;
+    const totals = new Map<string, number>();
+    visiblePayments.forEach(({ payment }) => {
+      const method = payment.paymentMethod || "other";
+      totals.set(method, (totals.get(method) ?? 0) + payment.amount);
+    });
+    return totals;
+  }, [paymentMethodTotals, selectedUnitId, visiblePayments]);
 
   useEffect(() => {
     if (!open) return;
@@ -137,7 +168,7 @@ export function DashboardDateDrawer({
       />
       <aside
         aria-labelledby={titleId}
-        className="pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-white/10 bg-[#111e31] text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(460px,42vw)]"
+        className="dashboard-date-drawer pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-white/10 text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(480px,44vw)]"
       >
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
           <div className="flex min-w-0 items-start gap-3">
@@ -166,8 +197,8 @@ export function DashboardDateDrawer({
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain">
-          <div className="sticky top-0 z-10 border-b border-white/10 bg-[#111e31]/95 p-4 backdrop-blur sm:p-6">
-          <div className="overflow-hidden rounded-2xl bg-[#172f4d] p-5 text-white shadow-[0_14px_30px_rgba(23,47,77,0.14)] sm:p-6">
+          <div className="sticky top-0 z-10 border-b border-white/10 bg-[#142b46]/95 p-4 backdrop-blur sm:p-6">
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.045] p-5 text-white sm:p-6">
             <p className="text-xs font-semibold text-blue-200">판매금액</p>
             <strong className="mt-2 block whitespace-nowrap text-[clamp(1.75rem,8vw,2.75rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
               {won(summary.salesAmount)}
@@ -181,59 +212,6 @@ export function DashboardDateDrawer({
           </div>
 
           <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
-          <div className="mb-6">
-            <div className="mb-3 flex items-end justify-between gap-3">
-              <div>
-                <h3 className="font-semibold text-white">수납 내역</h3>
-                <p className="mt-1 text-xs text-slate-300">결제일 기준 유효 결제원장</p>
-              </div>
-              <Badge tone="blue">{payments.length.toLocaleString("ko-KR")}건</Badge>
-            </div>
-            {paymentMethodTotals.size > 0 && (
-              <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {[...paymentMethodTotals.entries()].map(([method, amount]) => (
-                  <div key={method} className="rounded-xl border border-white/10 bg-white/[0.045] p-3">
-                    <span className="block text-[11px] text-slate-300">
-                      {paymentLabels[method] || method}
-                    </span>
-                    <strong className="mt-1 block text-sm text-white tabular-nums">
-                      {won(amount)}
-                    </strong>
-                  </div>
-                ))}
-              </div>
-            )}
-            {payments.length > 0 ? (
-              <div className="space-y-2">
-                {payments.map(({ payment, sale }) => (
-                  <button
-                    key={payment.id}
-                    type="button"
-                    onClick={() => onOpenSale(sale.id)}
-                    className="flex min-h-11 w-full flex-col items-stretch gap-2 rounded-xl border border-white/10 bg-white/[0.045] px-3.5 py-3 text-left transition-colors hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between min-[430px]:gap-3"
-                  >
-                    <span className="min-w-0">
-                      <strong className="block break-keep text-sm leading-5 text-white">
-                        {sale.dogName || "(반려견 없음)"} · {sale.customerName || "보호자 미등록"}
-                      </strong>
-                      <span className="mt-1 block break-keep text-xs leading-5 text-slate-300">
-                        {sale.productName} · {sale.businessUnitName} · {paymentLabels[payment.paymentMethod || "other"] || payment.paymentMethod}
-                        {payment.source === "outstanding_collection" ? " · 미수 수납" : ""}
-                      </span>
-                    </span>
-                    <strong className="shrink-0 self-end whitespace-nowrap text-sm text-blue-100 tabular-nums">
-                      {won(payment.amount)}
-                    </strong>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="rounded-xl bg-white/[0.045] p-4 text-center text-sm text-slate-300">
-                이 날짜의 수납 내역이 없습니다.
-              </p>
-            )}
-          </div>
-
           <div>
             <div className="-mx-1 mb-4 overflow-x-auto px-1 pb-1">
               <div className="flex min-w-max gap-1 rounded-xl bg-white/[0.045] p-1" role="tablist" aria-label="날짜 상세 사업부">
@@ -269,7 +247,15 @@ export function DashboardDateDrawer({
                 )}
               </div>
             ) : selectedGroup ? (
-              <BusinessUnitTransactions group={selectedGroup} onOpenSale={onOpenSale} />
+              <div className="space-y-6">
+                <UnitLedgerSections
+                  payments={visiblePayments}
+                  refunds={visibleRefunds}
+                  paymentMethodTotals={visiblePaymentMethodTotals}
+                  onOpenSale={onOpenSale}
+                />
+                <BusinessUnitTransactions group={selectedGroup} onOpenSale={onOpenSale} />
+              </div>
             ) : (
               <div className="[&_*]:text-slate-300">
                 <EmptyState title="사업부 정보를 찾을 수 없습니다" description="전체 탭에서 다시 선택해 주세요." />
@@ -279,7 +265,7 @@ export function DashboardDateDrawer({
           </div>
         </div>
 
-        <div className="shrink-0 border-t border-white/10 bg-[#111e31] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+        <div className="shrink-0 border-t border-white/10 bg-[#142b46] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
           <Button type="button" className="w-full" onClick={onOpenSales}>
             전체 매출 내역 보기 <ExternalLink size={16} />
           </Button>
@@ -316,6 +302,117 @@ function UnitTab({
       {dot && <span className={cn("h-1.5 w-1.5 rounded-full", dot)} aria-hidden="true" />}
       {children}
     </button>
+  );
+}
+
+function UnitLedgerSections({
+  payments,
+  refunds,
+  paymentMethodTotals,
+  onOpenSale,
+}: {
+  payments: Array<{
+    payment: PaymentLedgerEntry;
+    sale: DashboardSale;
+  }>;
+  refunds: Array<{
+    id: string;
+    amount: number;
+    sale: DashboardSale;
+  }>;
+  paymentMethodTotals: Map<string, number>;
+  onOpenSale: (saleId: string) => void;
+}) {
+  return (
+    <>
+      <section aria-labelledby="dashboard-date-payments-title">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div>
+            <h3 id="dashboard-date-payments-title" className="font-semibold text-white">수납 내역</h3>
+            <p className="mt-1 text-xs text-slate-300">결제일 기준 유효 결제원장</p>
+          </div>
+          <span className="text-xs font-semibold text-blue-100">
+            {payments.length.toLocaleString("ko-KR")}건
+          </span>
+        </div>
+        {paymentMethodTotals.size > 0 && (
+          <dl className="mb-3 flex flex-wrap gap-x-4 gap-y-2 border-y border-white/10 py-3">
+            {[...paymentMethodTotals.entries()].map(([method, amount]) => (
+              <div key={method} className="min-w-0">
+                <dt className="text-[10px] text-slate-300">{paymentLabels[method] || method}</dt>
+                <dd className="mt-0.5 whitespace-nowrap text-xs font-semibold text-white tabular-nums">{won(amount)}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+        {payments.length > 0 ? (
+          <div className="space-y-2">
+            {payments.map(({ payment, sale }) => (
+              <button
+                key={payment.id}
+                type="button"
+                onClick={() => onOpenSale(sale.id)}
+                className="flex min-h-11 w-full flex-col items-stretch gap-2 rounded-xl border border-white/10 bg-white/[0.045] px-3.5 py-3 text-left transition-colors hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between min-[430px]:gap-3"
+              >
+                <span className="min-w-0">
+                  <strong className="block break-keep text-sm leading-5 text-white">
+                    {sale.dogName || "(반려견 없음)"} · {sale.customerName || "보호자 미등록"}
+                  </strong>
+                  <span className="mt-1 line-clamp-2 text-xs leading-5 text-slate-300">
+                    {sale.productName} · {paymentLabels[payment.paymentMethod || "other"] || payment.paymentMethod}
+                    {payment.source === "outstanding_collection" ? " · 미수 수납" : ""}
+                  </span>
+                </span>
+                <strong className="shrink-0 self-end whitespace-nowrap text-sm text-blue-100 tabular-nums">
+                  {won(payment.amount)}
+                </strong>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-xl bg-white/[0.04] p-4 text-center text-sm text-slate-300">
+            이 사업부의 수납 내역이 없습니다.
+          </p>
+        )}
+      </section>
+
+      <section aria-labelledby="dashboard-date-refunds-title">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h3 id="dashboard-date-refunds-title" className="font-semibold text-white">환불 내역</h3>
+          <span className="text-xs font-semibold text-rose-200">
+            {refunds.length.toLocaleString("ko-KR")}건
+          </span>
+        </div>
+        {refunds.length > 0 ? (
+          <div className="space-y-2">
+            {refunds.map(({ id, amount, sale }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onOpenSale(sale.id)}
+                className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-rose-200/15 bg-rose-100/[0.045] px-3.5 py-3 text-left transition-colors hover:border-rose-200/30 hover:bg-rose-100/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
+              >
+                <span className="min-w-0">
+                  <strong className="block truncate text-sm text-white">
+                    {sale.dogName || "(반려견 없음)"} · {sale.customerName || "보호자 미등록"}
+                  </strong>
+                  <span className="mt-1 block line-clamp-2 text-xs leading-5 text-slate-300">
+                    {sale.productName}
+                  </span>
+                </span>
+                <strong className="shrink-0 whitespace-nowrap text-sm text-rose-200 tabular-nums">
+                  -{won(amount)}
+                </strong>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-xl bg-white/[0.04] p-4 text-center text-sm text-slate-300">
+            이 사업부의 환불 내역이 없습니다.
+          </p>
+        )}
+      </section>
+    </>
   );
 }
 

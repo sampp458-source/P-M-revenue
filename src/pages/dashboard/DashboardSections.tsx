@@ -144,7 +144,7 @@ export function DashboardKpiHero({
           <span className="text-xs text-text-muted">{compareLabel} 비교</span>
         </div>
       </div>
-      <Card className="relative overflow-hidden border-primary/10 bg-[linear-gradient(135deg,#f7fbff_0%,#edf5fd_58%,#f9fbfd_100%)] p-0 shadow-none">
+      <Card className="dashboard-surface dashboard-hero-surface relative overflow-hidden p-0 shadow-none">
         <button
           type="button"
           aria-label="결제·환불 통합 원장 열기"
@@ -156,7 +156,7 @@ export function DashboardKpiHero({
             <p className="text-xs font-bold tracking-[0.02em] text-primary">
               {periodLabel} 순수납
             </p>
-            <strong className="mt-2 block whitespace-nowrap text-[clamp(2rem,10.5vw,4rem)] font-bold tracking-[-0.055em] text-[#173d65] tabular-nums sm:text-[clamp(2.6rem,6vw,4rem)]">
+            <strong className="dashboard-hero-number mt-2 block whitespace-nowrap font-bold text-primary">
               {won(paidAmount - refund)}
             </strong>
             <p className="mt-2 text-[13px] leading-5 text-text-muted">실제 입금에서 환불을 뺀 순유입</p>
@@ -177,7 +177,7 @@ export function DashboardKpiHero({
           <Card
             key={item.label}
             className={cn(
-              "relative flex min-h-40 min-w-0 flex-col border-border/70 p-4 shadow-none transition-[border-color,background-color] duration-200 hover:border-primary/20 sm:p-5",
+              "dashboard-surface relative flex min-h-40 min-w-0 flex-col p-4 shadow-none transition-[border-color,background-color] duration-200 hover:border-primary/20 sm:p-5",
               item.className,
             )}
           >
@@ -194,7 +194,7 @@ export function DashboardKpiHero({
             </p>
             <strong
               className={cn(
-                "mt-3 block whitespace-nowrap text-[clamp(1.45rem,7vw,2.1rem)] font-bold tracking-[-0.045em] tabular-nums sm:text-[clamp(1.5rem,3.4vw,2rem)] xl:text-[clamp(1.15rem,1.45vw,1.7rem)] 2xl:text-[clamp(1.35rem,1.45vw,1.85rem)]",
+                "dashboard-card-number mt-3 block whitespace-nowrap font-bold",
                 item.valueClass,
               )}
             >
@@ -251,7 +251,7 @@ export function BusinessUnitCard({
   return (
     <Card
       className={cn(
-        "group relative h-full min-h-[20rem] overflow-hidden border-border/70 p-0 shadow-none transition-[transform,border-color,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/20",
+        "dashboard-surface group relative h-full min-h-[20rem] overflow-hidden p-0 shadow-none transition-[transform,border-color,background-color] duration-200 ease-out hover:-translate-y-0.5 hover:border-primary/20",
         selected && "border-primary/30 bg-primary-subtle/60 ring-2 ring-primary/10",
         muted && "opacity-60 hover:opacity-100",
       )}
@@ -277,7 +277,7 @@ export function BusinessUnitCard({
           <span className="text-xs font-semibold text-text-secondary">
             {restricted ? "선택 날짜 순수납" : "선택 기간 순수납"}
           </span>
-          <strong className="mt-2 block whitespace-nowrap text-[clamp(1.7rem,7.5vw,2.4rem)] font-bold tracking-[-0.05em] text-[#173d65] tabular-nums sm:text-[clamp(1.85rem,3.1vw,2.4rem)] lg:text-[clamp(1.55rem,2.1vw,2.15rem)] 2xl:text-[clamp(1.8rem,1.9vw,2.4rem)]">
+          <strong className="dashboard-section-number mt-2 block whitespace-nowrap font-bold text-primary">
             {won(netAmount)}
           </strong>
           <span className="mt-2 block text-[11px] leading-5 text-text-muted">

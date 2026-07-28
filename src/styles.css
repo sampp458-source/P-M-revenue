@@ -123,6 +123,60 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   .sale-registration-form aside :where(dt) {
     color: #cbd5e1;
   }
+
+  .dashboard-shell {
+    --pm-dashboard-space-1: .25rem;
+    --pm-dashboard-space-2: .5rem;
+    --pm-dashboard-space-3: .75rem;
+    --pm-dashboard-space-4: 1rem;
+    --pm-dashboard-space-6: 1.5rem;
+    --pm-dashboard-space-8: 2rem;
+    --pm-dashboard-space-12: 3rem;
+    --pm-dashboard-radius-sm: .625rem;
+    --pm-dashboard-radius-md: .875rem;
+    --pm-dashboard-radius-lg: 1.125rem;
+    --pm-dashboard-surface-primary: #fff;
+    --pm-dashboard-surface-secondary: #fafbfc;
+    --pm-dashboard-surface-highlight: #f3f8fc;
+    --pm-dashboard-border: #e8edf2;
+    --pm-dashboard-drawer: #142b46;
+    --pm-dashboard-section-gap: clamp(2rem, 4vw, 3rem);
+    --pm-dashboard-hero-number: clamp(2rem, 10.5vw, 4rem);
+    --pm-dashboard-section-number: clamp(1.7rem, 7vw, 2.4rem);
+    --pm-dashboard-card-number: clamp(1.35rem, 5.5vw, 2rem);
+  }
+  .dashboard-surface {
+    border-color: var(--pm-dashboard-border);
+    border-radius: var(--pm-dashboard-radius-lg);
+    background: var(--pm-dashboard-surface-primary);
+    box-shadow: 0 1px 2px rgb(23 36 58 / .025);
+  }
+  .dashboard-hero-surface {
+    background:
+      radial-gradient(circle at 92% 8%, rgb(39 76 119 / .055), transparent 36%),
+      linear-gradient(135deg, #f9fcff 0%, var(--pm-dashboard-surface-highlight) 62%, #fbfcfd 100%);
+  }
+  .dashboard-hero-number {
+    font-size: var(--pm-dashboard-hero-number);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.055em;
+  }
+  .dashboard-section-number {
+    font-size: var(--pm-dashboard-section-number);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.05em;
+  }
+  .dashboard-card-number {
+    font-size: var(--pm-dashboard-card-number);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -.045em;
+  }
+  .dashboard-section-gap {
+    margin-top: var(--pm-dashboard-section-gap);
+  }
+  aside.dashboard-date-drawer {
+    background: var(--pm-dashboard-drawer) !important;
+  }
 }
 
 @keyframes pm-fade-in { from { opacity: 0; } to { opacity: 1; } }
