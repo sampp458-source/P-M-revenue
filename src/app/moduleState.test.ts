@@ -20,6 +20,7 @@ describe("P&M OS module routing", () => {
     expect(
       isSafeModulePath("/operations/calendar?day=2026-07-28", "operations"),
     ).toBe(true);
+    expect(isSafeModulePath("/operations/schedules", "operations")).toBe(true);
     expect(isSafeModulePath("/operations/unknown", "operations")).toBe(false);
     expect(isSafeModulePath("https://example.com", "finance")).toBe(false);
     expect(safePendingReturnTo("//example.com")).toBeNull();

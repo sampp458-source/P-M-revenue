@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   LayoutDashboard,
+  ListChecks,
   LoaderCircle,
   LockKeyhole,
   LogOut,
@@ -53,6 +54,7 @@ import { PetManagementPage } from "./pages/DogManagement";
 import { SignupPage } from "./pages/SignupPage";
 import { StaffManagementPage } from "./pages/StaffManagement";
 import { OperationsSettingsPage } from "./pages/OperationsSettings";
+import { OperationsCalendarFoundationPage } from "./pages/OperationsCalendarFoundation";
 import { FindAccountPage, ForgotPasswordPage, ResetPasswordPage } from "./pages/AccountRecoveryPages";
 import pmLogo from "./assets/pm-logo.png";
 
@@ -72,6 +74,7 @@ interface OperationsMenuItem { to: string; label: string; icon: typeof CalendarD
 const operationsMenus: OperationsMenuItem[] = [
   { to: "/operations/today", label: "오늘", icon: Clock3 },
   { to: "/operations/calendar", label: "캘린더", icon: CalendarDays },
+  { to: "/operations/schedules", label: "일정", icon: ListChecks },
   { to: "/operations/settings", label: "일정 설정", icon: Settings },
 ];
 const savedEmailKey = "pm-saved-login-email";
@@ -149,11 +152,15 @@ export default function App() {
         />
         <Route
           path="calendar"
+          element={<OperationsCalendarFoundationPage />}
+        />
+        <Route
+          path="schedules"
           element={
             <OperationsStubPage
-              eyebrow="CALENDAR"
-              title="캘린더"
-              description="유치원·교육센터·호텔과 공통 일정을 함께 보는 캘린더를 준비하고 있습니다."
+              eyebrow="SCHEDULES"
+              title="일정"
+              description="전체 일정을 확인하고 관리하는 화면을 준비하고 있습니다."
             />
           }
         />
@@ -765,7 +772,7 @@ function OperationsAppLayout() {
         <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 pb-2 pt-0.5">
           <div className="mb-4">
             <p className="mb-1.5 px-3 text-[9px] font-medium uppercase leading-none tracking-[0.16em] text-blue-100/55">
-              일정
+              Operations
             </p>
             <div className="space-y-0.5">
               {operationsMenus.map(({ to, label, icon: Icon, end }) => (
