@@ -14,7 +14,9 @@ const rollback = readSql("202607290002_operations_schedule_rollback.sql");
 describe("Operations production deployment package", () => {
   it("keeps preflight and postflight verification read-only", () => {
     for (const sql of [preflight, postflight]) {
-      expect(sql).not.toMatch(/\b(insert|update|delete|alter|drop|create table)\b/i);
+      expect(sql).not.toMatch(
+        /^\s*(insert|update|delete|alter|drop|create\s+table)\b/gim,
+      );
       expect(sql).toContain("operation_memberships");
       expect(sql).toContain("operation_schedules");
       expect(sql).toContain("entity_audit_events");
@@ -25,6 +27,20 @@ describe("Operations production deployment package", () => {
     expect(preflight).toContain("supports_profile_id_and_id");
     expect(postflight).toContain("supports_membership_profile_id");
     expect(postflight).toContain("supports_standard_id");
+  });
+
+  it("recognizes an applied Foundation with no schedule tables as ready", () => {
+    expect(preflight).toContain("FOUNDATION_READY");
+    expect(preflight).toContain("STOP_FOUNDATION_INCOMPLETE");
+    expect(preflight).toContain("PARTIAL_SCHEDULE_STOP_AND_REVIEW");
+  });
+
+  it("verifies direct writes stay blocked and all-day storage uses Seoul boundaries", () => {
+    expect(postflight).toContain("authenticated_can_insert_directly");
+    expect(postflight).toContain("authenticated_can_update_directly");
+    expect(postflight).toContain("authenticated_can_delete_directly");
+    expect(postflight).toContain("all_day_start_is_seoul_midnight");
+    expect(postflight).toContain("all_day_end_is_exclusive_next_day");
   });
 
   it("blocks rollback once schedule data exists", () => {

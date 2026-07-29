@@ -35,6 +35,18 @@ describe("Operations single schedule migration", () => {
     expect(migration).toContain("'businessUnitCode', business_unit.code");
   });
 
+  it("enforces the Seoul exclusive-next-day rule for all-day schedules", () => {
+    expect(migration).toContain(
+      "(p_starts_at at time zone 'Asia/Seoul')::time <> time '00:00'",
+    );
+    expect(migration).toContain(
+      "(p_ends_at at time zone 'Asia/Seoul')::time <> time '00:00'",
+    );
+    expect(migration).toContain(
+      "<> (p_starts_at at time zone 'Asia/Seoul')::date + 1",
+    );
+  });
+
   it("only exposes security-definer RPCs to active authenticated members", () => {
     expect(migration).toContain("not public.is_active_operation_member()");
     expect(migration).toContain("security definer");

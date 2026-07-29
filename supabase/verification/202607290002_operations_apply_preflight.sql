@@ -99,29 +99,45 @@ order by column_info.table_name, column_info.ordinal_position;
 with state as (
   select
     count(*) filter (
-      where to_regclass('public.' || expected.name) is not null
-    ) as existing_count,
-    count(*) as expected_count
+      where expected.layer = 'foundation'
+        and to_regclass('public.' || expected.name) is not null
+    ) as foundation_existing_count,
+    count(*) filter (
+      where expected.layer = 'foundation'
+    ) as foundation_expected_count,
+    count(*) filter (
+      where expected.layer = 'schedule'
+        and to_regclass('public.' || expected.name) is not null
+    ) as schedule_existing_count,
+    count(*) filter (
+      where expected.layer = 'schedule'
+    ) as schedule_expected_count
   from (
     values
-      ('operation_memberships'),
-      ('operation_calendars'),
-      ('operation_schedule_types'),
-      ('entity_audit_events'),
-      ('operation_schedule_series'),
-      ('operation_schedules'),
-      ('operation_schedule_assignees'),
-      ('operation_schedule_customers'),
-      ('operation_schedule_dogs')
-  ) expected(name)
+      ('operation_memberships', 'foundation'),
+      ('operation_calendars', 'foundation'),
+      ('operation_schedule_types', 'foundation'),
+      ('entity_audit_events', 'foundation'),
+      ('operation_schedule_series', 'schedule'),
+      ('operation_schedules', 'schedule'),
+      ('operation_schedule_assignees', 'schedule'),
+      ('operation_schedule_customers', 'schedule'),
+      ('operation_schedule_dogs', 'schedule')
+  ) expected(name, layer)
 )
 select
-  existing_count,
-  expected_count,
+  foundation_existing_count,
+  foundation_expected_count,
+  schedule_existing_count,
+  schedule_expected_count,
   case
-    when existing_count = 0 then 'CLEAN'
-    when existing_count = expected_count then 'ALL_TABLES_PRESENT_REVIEW_REQUIRED'
-    else 'PARTIAL_STOP_AND_REVIEW'
+    when foundation_existing_count <> foundation_expected_count
+      then 'STOP_FOUNDATION_INCOMPLETE'
+    when schedule_existing_count = 0
+      then 'FOUNDATION_READY'
+    when schedule_existing_count = schedule_expected_count
+      then 'SCHEDULE_TABLES_PRESENT_REVIEW_RPC_STATE'
+    else 'PARTIAL_SCHEDULE_STOP_AND_REVIEW'
   end as migration_state
 from state;
 

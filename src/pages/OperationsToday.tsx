@@ -214,8 +214,14 @@ export function OperationsTodayPage() {
   const save = async (event: FormEvent) => {
     event.preventDefault();
     setFormError("");
-    if (!form.calendarId || !form.scheduleTypeId || !form.title.trim()) {
-      setFormError("캘린더, 일정 유형, 제목을 확인해 주세요.");
+    if (
+      !form.calendarId ||
+      !form.scheduleTypeId ||
+      !form.date ||
+      (!form.allDay && (!form.startTime || !form.endTime)) ||
+      !form.title.trim()
+    ) {
+      setFormError("캘린더, 일정 유형, 날짜, 시간, 제목을 확인해 주세요.");
       return;
     }
     const startsAt = form.allDay
@@ -720,7 +726,7 @@ function ScheduleFormModal({
             </Select>
           </Field>
           <Field label="날짜" required>
-            <Input type="date" value={form.date} onChange={(event) => patch({ date: event.target.value })} />
+            <Input required type="date" value={form.date} onChange={(event) => patch({ date: event.target.value })} />
           </Field>
           <label className="flex min-h-11 items-center gap-2 self-end rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary">
             <input type="checkbox" checked={form.allDay} onChange={(event) => patch({ allDay: event.target.checked })} />
@@ -729,10 +735,10 @@ function ScheduleFormModal({
           {!form.allDay && (
             <>
               <Field label="시작 시간" required>
-                <Input type="time" value={form.startTime} onChange={(event) => patch({ startTime: event.target.value })} />
+                <Input required type="time" value={form.startTime} onChange={(event) => patch({ startTime: event.target.value })} />
               </Field>
               <Field label="종료 시간" required>
-                <Input type="time" value={form.endTime} onChange={(event) => patch({ endTime: event.target.value })} />
+                <Input required type="time" value={form.endTime} onChange={(event) => patch({ endTime: event.target.value })} />
               </Field>
             </>
           )}
@@ -779,7 +785,7 @@ function ScheduleFormModal({
           ))}
         </Picker>
         <Field label="제목" required>
-          <Input value={form.title} onChange={(event) => patch({ title: event.target.value })} placeholder="일정 제목" />
+          <Input required value={form.title} onChange={(event) => patch({ title: event.target.value })} placeholder="일정 제목" />
         </Field>
         <Field label="메모">
           <Textarea value={form.memo} onChange={(event) => patch({ memo: event.target.value })} placeholder="필요한 내용을 기록하세요" />

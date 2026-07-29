@@ -180,6 +180,54 @@ where namespace.nspname = 'public'
 order by procedure.proname;
 
 select
+  table_info.table_name,
+  has_table_privilege(
+    'authenticated',
+    format('public.%I', table_info.table_name),
+    'INSERT'
+  ) as authenticated_can_insert_directly,
+  has_table_privilege(
+    'authenticated',
+    format('public.%I', table_info.table_name),
+    'UPDATE'
+  ) as authenticated_can_update_directly,
+  has_table_privilege(
+    'authenticated',
+    format('public.%I', table_info.table_name),
+    'DELETE'
+  ) as authenticated_can_delete_directly
+from (
+  values
+    ('operation_schedule_series'),
+    ('operation_schedules'),
+    ('operation_schedule_assignees'),
+    ('operation_schedule_customers'),
+    ('operation_schedule_dogs')
+) table_info(table_name)
+order by table_info.table_name;
+
+select
+  procedure.proname as function_name,
+  pg_get_functiondef(procedure.oid)
+    like '%(p_starts_at at time zone ''Asia/Seoul'')::time <> time ''00:00''%'
+      as all_day_start_is_seoul_midnight,
+  pg_get_functiondef(procedure.oid)
+    like '%(p_ends_at at time zone ''Asia/Seoul'')::time <> time ''00:00''%'
+      as all_day_end_is_seoul_midnight,
+  pg_get_functiondef(procedure.oid)
+    like '%(p_starts_at at time zone ''Asia/Seoul'')::date + 1%'
+      as all_day_end_is_exclusive_next_day
+from pg_proc procedure
+join pg_namespace namespace
+  on namespace.oid = procedure.pronamespace
+where namespace.nspname = 'public'
+  and procedure.proname in (
+    'create_operation_schedule',
+    'update_operation_schedule'
+  )
+order by procedure.proname;
+
+select
   pg_get_functiondef(procedure.oid)
     like '%after_row ->> ''profile_id''%' as supports_membership_profile_id,
   pg_get_functiondef(procedure.oid)

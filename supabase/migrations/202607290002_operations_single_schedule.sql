@@ -390,6 +390,18 @@ begin
       using errcode = '22023';
   end if;
 
+  if coalesce(p_all_day, false)
+    and (
+      (p_starts_at at time zone 'Asia/Seoul')::time <> time '00:00'
+      or (p_ends_at at time zone 'Asia/Seoul')::time <> time '00:00'
+      or (p_ends_at at time zone 'Asia/Seoul')::date
+        <> (p_starts_at at time zone 'Asia/Seoul')::date + 1
+    )
+  then
+    raise exception '종일 일정은 한국 시간 기준 시작일 00:00부터 다음 날 00:00까지 저장해야 합니다.'
+      using errcode = '22023';
+  end if;
+
   perform pg_advisory_xact_lock(hashtextextended(p_request_id::text, 0));
 
   select schedule.id
@@ -487,6 +499,18 @@ begin
 
   if p_request_id is null or p_expected_version is null then
     raise exception '요청 ID와 기존 버전이 필요합니다.'
+      using errcode = '22023';
+  end if;
+
+  if coalesce(p_all_day, false)
+    and (
+      (p_starts_at at time zone 'Asia/Seoul')::time <> time '00:00'
+      or (p_ends_at at time zone 'Asia/Seoul')::time <> time '00:00'
+      or (p_ends_at at time zone 'Asia/Seoul')::date
+        <> (p_starts_at at time zone 'Asia/Seoul')::date + 1
+    )
+  then
+    raise exception '종일 일정은 한국 시간 기준 시작일 00:00부터 다음 날 00:00까지 저장해야 합니다.'
       using errcode = '22023';
   end if;
 
