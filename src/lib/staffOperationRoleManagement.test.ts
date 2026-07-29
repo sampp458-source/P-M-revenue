@@ -15,10 +15,19 @@ describe("Staff Operations role management UI", () => {
 
   it("keeps Finance and Operations roles visually separate", () => {
     expect(source).toContain("Finance 역할");
-    expect(source).toContain("Operations 권한");
+    expect(source).toContain("운영 권한");
+    expect(source).toContain('title="운영 권한 설정"');
     expect(source).toContain("최고 관리자");
     expect(source).toContain("관리자");
     expect(source).toContain("직원");
+    expect(source).not.toContain("({role})");
+  });
+
+  it("uses a compact fixed-layout directory without exposing implementation role names", () => {
+    expect(source).toContain('className="min-w-[1040px] table-fixed xl:min-w-0"');
+    expect(source).toContain("<colgroup>");
+    expect(source).toContain("DateTimeCell");
+    expect(source).toContain('aria-label="운영 권한"');
   });
 
   it("does not mislabel a failed directory request as a missing membership", () => {
