@@ -166,7 +166,8 @@ async function loadOwnerOptions() {
 function DogRowActions({
   dog,
   owner,
-  canManageDog,
+  canEditDog,
+  canDeactivateDog,
   onOpenProfile,
   onEditOwner,
   onEditDog,
@@ -174,7 +175,8 @@ function DogRowActions({
 }: {
   dog: DogRow;
   owner: OwnerOption | null;
-  canManageDog: boolean;
+  canEditDog: boolean;
+  canDeactivateDog: boolean;
   onOpenProfile: () => void;
   onEditOwner: () => void;
   onEditDog: () => void;
@@ -259,7 +261,7 @@ function DogRowActions({
             style={menuPosition}
             className="fixed z-[70] min-w-48 overflow-hidden rounded-xl border border-border bg-surface p-1.5 text-left shadow-lg"
           >
-            {canManageDog && (
+            {canEditDog && (
               <button
                 type="button"
                 role="menuitem"
@@ -272,7 +274,7 @@ function DogRowActions({
                 반려견 정보 수정
               </button>
             )}
-            {canManageDog && dog.active && (
+            {canDeactivateDog && dog.active && (
               <button
                 type="button"
                 role="menuitem"
@@ -295,6 +297,8 @@ function DogRowActions({
 // UI freeze: preserve this layout after the final polish; bug fixes only.
 export function PetManagementPage() {
   const { profile } = useAuth();
+  const canEditDog = profile?.isActive === true;
+  const canDeactivateDog = profile?.role === "admin";
   const [dogs, setDogs] = useState<DogRow[]>([]);
   const [owners, setOwners] = useState<OwnerOption[]>([]);
   const [ownerAddressSupported, setOwnerAddressSupported] = useState(true);
@@ -806,7 +810,8 @@ export function PetManagementPage() {
                           <DogRowActions
                             dog={dog}
                             owner={owner}
-                            canManageDog={profile?.role === "admin"}
+                            canEditDog={canEditDog}
+                            canDeactivateDog={canDeactivateDog}
                             onOpenProfile={() => openProfile(dog.id)}
                             onEditOwner={() => openOwnerEdit(owner)}
                             onEditDog={() => openEdit(dog)}
@@ -857,7 +862,8 @@ export function PetManagementPage() {
                       <DogRowActions
                         dog={dog}
                         owner={owner}
-                        canManageDog={profile?.role === "admin"}
+                        canEditDog={canEditDog}
+                        canDeactivateDog={canDeactivateDog}
                         onOpenProfile={() => openProfile(dog.id)}
                         onEditOwner={() => openOwnerEdit(owner)}
                         onEditDog={() => openEdit(dog)}
@@ -882,7 +888,7 @@ export function PetManagementPage() {
         activities={profileActivities}
         loading={profileLoading}
         error={profileError}
-        canEditDog={profile?.role === "admin"}
+        canEditDog={canEditDog}
         onClose={() => setProfileDogId(null)}
         onEditDog={() => {
           if (profileDog) openEdit(profileDog);
