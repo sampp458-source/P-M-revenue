@@ -18,6 +18,7 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/AuthContext";
 import {
   Badge,
   Button,
@@ -44,6 +45,7 @@ import {
   defaultOperationScheduleTypeId,
   fetchOperationScheduleOptions,
   fetchOperationSchedulesForDay,
+  mergeOperationTodaySchedule,
   nextSeoulDate,
   seoulDateKey,
   setOperationScheduleStatus,
@@ -138,10 +140,12 @@ const todayCopy = (date: Date) => ({
 
 export function OperationsTodayPage() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const localDate = seoulDateKey();
   const { fullDate, weekday } = todayCopy(new Date());
   const [schedules, setSchedules] = useState<OperationSchedule[]>([]);
   const [options, setOptions] = useState<OperationScheduleOptions | null>(null);
+  const [optionsLoading, setOptionsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<OperationScheduleRepositoryError | null>(null);
   const [detail, setDetail] = useState<OperationSchedule | null>(null);
@@ -154,16 +158,12 @@ export function OperationsTodayPage() {
   const [notice, setNotice] = useState("");
   const [noticeTone, setNoticeTone] = useState<"success" | "warning" | "error">("success");
 
-  const load = useCallback(async () => {
+  const loadSchedules = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
-      const [scheduleRows, optionRows] = await Promise.all([
-        fetchOperationSchedulesForDay(localDate),
-        fetchOperationScheduleOptions(),
-      ]);
+      const scheduleRows = await fetchOperationSchedulesForDay(localDate);
       setSchedules(scheduleRows);
-      setOptions(optionRows);
       setDetail((current) =>
         current
           ? scheduleRows.find((schedule) => schedule.id === current.id) ?? null
@@ -183,9 +183,24 @@ export function OperationsTodayPage() {
     }
   }, [localDate]);
 
+  const loadOptions = useCallback(async () => {
+    setOptionsLoading(true);
+    try {
+      const optionRows = await fetchOperationScheduleOptions();
+      setOptions(optionRows);
+      return optionRows;
+    } catch {
+      setOptions(null);
+      return null;
+    } finally {
+      setOptionsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadSchedules();
+    void loadOptions();
+  }, [loadOptions, loadSchedules]);
 
   const showNotice = (
     message: string,
@@ -195,11 +210,17 @@ export function OperationsTodayPage() {
     setNoticeTone(tone);
   };
 
-  const openNew = () => {
-    const initial = emptyForm(localDate);
-    if (options) {
-      initial.calendarId = defaultOperationCalendarId(options.calendars);
+  const openNew = async () => {
+    const availableOptions = options ?? (await loadOptions());
+    if (!availableOptions) {
+      showNotice("일정 등록 정보를 불러오지 못했습니다. 다시 시도해 주세요.", "error");
+      return;
     }
+    const initial = emptyForm(localDate);
+    initial.calendarId = defaultOperationCalendarId(
+      availableOptions.calendars,
+    );
+    initial.assigneeIds = profile?.id ? [profile.id] : [];
     setForm(initial);
     setFormError("");
     setEditing("new");
@@ -257,19 +278,27 @@ export function OperationsTodayPage() {
     setSaving(true);
     try {
       if (editing === "new") {
-        await createOperationSchedule(input, crypto.randomUUID());
+        const created = await createOperationSchedule(
+          input,
+          crypto.randomUUID(),
+        );
+        setSchedules((current) =>
+          mergeOperationTodaySchedule(current, created, localDate),
+        );
         showNotice("새 일정을 등록했습니다.");
       } else if (editing) {
-        await updateOperationSchedule(
+        const updated = await updateOperationSchedule(
           editing.id,
           editing.version,
           input,
           crypto.randomUUID(),
         );
+        setSchedules((current) =>
+          mergeOperationTodaySchedule(current, updated, localDate),
+        );
         showNotice("일정을 수정했습니다.");
       }
       setEditing(null);
-      await load();
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "일정을 저장하지 못했습니다.";
@@ -279,7 +308,7 @@ export function OperationsTodayPage() {
         error.kind === "conflict"
       ) {
         showNotice(message, "warning");
-        await load();
+        await loadSchedules();
       }
     } finally {
       setSaving(false);
@@ -289,22 +318,24 @@ export function OperationsTodayPage() {
   const completeSchedule = async (schedule: OperationSchedule) => {
     setSaving(true);
     try {
-      await setOperationScheduleStatus(
+      const updated = await setOperationScheduleStatus(
         schedule.id,
         schedule.version,
         "completed",
         "일정 완료",
         crypto.randomUUID(),
       );
+      setSchedules((current) =>
+        mergeOperationTodaySchedule(current, updated, localDate),
+      );
       setDetail(null);
       showNotice("일정을 완료 처리했습니다.");
-      await load();
     } catch (error) {
       showNotice(
         error instanceof Error ? error.message : "일정을 완료하지 못했습니다.",
         "error",
       );
-      await load();
+      await loadSchedules();
     } finally {
       setSaving(false);
     }
@@ -315,33 +346,38 @@ export function OperationsTodayPage() {
     setSaving(true);
     try {
       if (pendingAction.type === "cancel") {
-        await setOperationScheduleStatus(
+        const updated = await setOperationScheduleStatus(
           pendingAction.schedule.id,
           pendingAction.schedule.version,
           "cancelled",
           actionReason.trim(),
           crypto.randomUUID(),
         );
+        setSchedules((current) =>
+          mergeOperationTodaySchedule(current, updated, localDate),
+        );
         showNotice("일정을 취소했습니다.");
       } else {
-        await archiveOperationSchedule(
+        const updated = await archiveOperationSchedule(
           pendingAction.schedule.id,
           pendingAction.schedule.version,
           actionReason.trim(),
           crypto.randomUUID(),
+        );
+        setSchedules((current) =>
+          mergeOperationTodaySchedule(current, updated, localDate),
         );
         showNotice("일정을 보관했습니다.");
       }
       setPendingAction(null);
       setActionReason("");
       setDetail(null);
-      await load();
     } catch (error) {
       showNotice(
         error instanceof Error ? error.message : "일정을 처리하지 못했습니다.",
         "error",
       );
-      await load();
+      await loadSchedules();
     } finally {
       setSaving(false);
     }
@@ -379,7 +415,10 @@ export function OperationsTodayPage() {
             오늘 오는 반려견과 해야 할 일을 한눈에 확인하세요.
           </p>
         </div>
-        <Button onClick={openNew} disabled={loading || !options}>
+        <Button
+          onClick={() => void openNew()}
+          disabled={optionsLoading}
+        >
           <Plus aria-hidden="true" size={18} />
           새 일정
         </Button>
@@ -409,7 +448,7 @@ export function OperationsTodayPage() {
                   ? "Operations 일정 조회 권한이 없습니다."
                   : loadError.message
               }
-              retry={() => void load()}
+              retry={() => void loadSchedules()}
             />
           ) : schedules.length ? (
             <ol className="divide-y divide-border/80">
@@ -437,7 +476,10 @@ export function OperationsTodayPage() {
                 description="새 일정을 등록하면 시간순으로 표시됩니다."
               />
               <div className="-mt-4 flex justify-center">
-                <Button onClick={openNew} disabled={!options}>
+                <Button
+                  onClick={() => void openNew()}
+                  disabled={optionsLoading}
+                >
                   <Plus size={17} /> 새 일정 등록
                 </Button>
               </div>
@@ -834,7 +876,7 @@ function PickerButton({ selected, onClick, children }: { selected: boolean; onCl
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        "rounded-full border px-3 py-1.5 text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        "inline-flex min-h-11 items-center justify-center rounded-full border px-3.5 py-2 text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         selected
           ? "border-primary/30 bg-primary-soft font-semibold text-primary"
           : "border-border bg-surface text-text-secondary hover:border-primary/20",

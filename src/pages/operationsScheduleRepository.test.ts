@@ -5,6 +5,7 @@ import {
   compactNames,
   defaultOperationCalendarId,
   defaultOperationScheduleTypeId,
+  mergeOperationTodaySchedule,
   nextSeoulDate,
   seoulDateKey,
   toSeoulInstant,
@@ -128,5 +129,56 @@ describe("Operations schedule date and display helpers", () => {
       counts: { daycare: 1, training: 1, hotel: 1, common: 1 },
       countSum: 4,
     });
+  });
+
+  it("merges RPC results into Today without refetching option data", () => {
+    const base = {
+      id: "schedule",
+      calendarId: "calendar",
+      calendarName: "공통",
+      calendarColor: "#5B7FA3",
+      calendarScope: "common" as const,
+      businessUnitCode: null,
+      businessUnitName: null,
+      scheduleTypeId: "other",
+      scheduleTypeName: "기타",
+      scheduleTypeColor: "#8A96A6",
+      title: "오전 회의",
+      memo: null,
+      startsAt: "2026-07-29T00:00:00.000Z",
+      endsAt: "2026-07-29T01:00:00.000Z",
+      allDay: false,
+      status: "scheduled" as const,
+      version: 1,
+      requestId: "request",
+      createdBy: "profile",
+      createdByName: "직원",
+      createdAt: "2026-07-28T23:00:00.000Z",
+      updatedBy: "profile",
+      updatedByName: "직원",
+      updatedAt: "2026-07-28T23:00:00.000Z",
+      archivedAt: null,
+      assignees: [{ id: "profile", name: "직원" }],
+      dogs: [],
+      customers: [],
+    };
+
+    expect(mergeOperationTodaySchedule([], base, "2026-07-29")).toEqual([
+      base,
+    ]);
+    expect(
+      mergeOperationTodaySchedule(
+        [base],
+        { ...base, status: "cancelled", version: 2 },
+        "2026-07-29",
+      ),
+    ).toEqual([]);
+    expect(
+      mergeOperationTodaySchedule(
+        [base],
+        { ...base, archivedAt: "2026-07-29T02:00:00.000Z", version: 2 },
+        "2026-07-29",
+      ),
+    ).toEqual([]);
   });
 });

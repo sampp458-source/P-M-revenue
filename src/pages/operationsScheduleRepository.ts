@@ -372,3 +372,29 @@ export function calculateOperationTodaySummary(
     countSum: Object.values(counts).reduce((sum, count) => sum + count, 0),
   };
 }
+
+export function mergeOperationTodaySchedule(
+  schedules: OperationSchedule[],
+  changed: OperationSchedule,
+  localDate: string,
+) {
+  const dayStart = new Date(toSeoulInstant(localDate, "00:00")).getTime();
+  const dayEnd = new Date(
+    toSeoulInstant(nextSeoulDate(localDate), "00:00"),
+  ).getTime();
+  const rows = schedules.filter((schedule) => schedule.id !== changed.id);
+  const occursToday =
+    changed.archivedAt === null &&
+    changed.status !== "cancelled" &&
+    new Date(changed.startsAt).getTime() < dayEnd &&
+    new Date(changed.endsAt).getTime() > dayStart;
+
+  if (occursToday) rows.push(changed);
+  return rows.sort(
+    (left, right) =>
+      Number(right.allDay) - Number(left.allDay) ||
+      left.startsAt.localeCompare(right.startsAt) ||
+      left.createdAt.localeCompare(right.createdAt) ||
+      left.id.localeCompare(right.id),
+  );
+}
