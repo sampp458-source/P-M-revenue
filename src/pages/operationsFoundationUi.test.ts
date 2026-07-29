@@ -34,13 +34,16 @@ describe("Operations foundation UI", () => {
 
   it("provides a responsive Today layout without querying Finance or Supabase", () => {
     expect(appSource).toContain("OperationsTodayPage");
-    expect(todaySource).toContain("TodayScheduleSection");
+    expect(todaySource).toContain("fetchOperationSchedulesForDay");
     expect(todaySource).toContain("TodaySummary");
-    expect(todaySource).toContain("TodayChecklist");
-    expect(todaySource).toContain("TodayEmptyState");
+    expect(todaySource).toContain("TodayAlerts");
+    expect(todaySource).toContain("ScheduleFormModal");
+    expect(todaySource).toContain("ScheduleDetailModal");
     expect(todaySource).toContain("md:grid-cols-");
-    expect(todaySource).toContain("onOpenDogProfile");
+    expect(todaySource).toContain("dogId=");
+    expect(todaySource).toContain("customerId=");
     expect(todaySource).not.toContain("supabase");
+    expect(todaySource).not.toContain("previewSchedules");
     expect(todaySource).not.toContain("sale_payments");
     expect(todaySource).not.toContain("sale_refunds");
   });
