@@ -73,6 +73,28 @@ export interface OperationScheduleInput {
   dogIds: string[];
 }
 
+export function defaultOperationCalendarId(
+  calendars: OperationCalendar[],
+) {
+  return (
+    calendars.find((calendar) => calendar.scopeType === "common")?.id ??
+    calendars[0]?.id ??
+    ""
+  );
+}
+
+export function defaultOperationScheduleTypeId(
+  scheduleTypes: OperationScheduleType[],
+) {
+  return (
+    scheduleTypes.find(
+      (scheduleType) => scheduleType.name.trim().toLocaleLowerCase("ko-KR") === "기타",
+    )?.id ??
+    scheduleTypes[0]?.id ??
+    ""
+  );
+}
+
 interface ScheduleRpcRow {
   id: string;
   calendarId: string;

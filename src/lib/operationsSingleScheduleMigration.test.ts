@@ -86,6 +86,13 @@ describe("Operations single schedule migration", () => {
     );
   });
 
+  it("requires at least one active assignee for create and update", () => {
+    expect(migration).toContain(
+      "cardinality(coalesce(p_assignee_ids, '{}'::uuid[])) = 0",
+    );
+    expect(migration).toContain("담당자를 한 명 이상 선택해 주세요.");
+  });
+
   it("records status, archive reason, updated by, and audit request context", () => {
     expect(migration).toContain("add column if not exists updated_by uuid");
     expect(migration).toContain("set status = p_status");

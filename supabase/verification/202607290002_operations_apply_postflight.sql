@@ -180,6 +180,21 @@ where namespace.nspname = 'public'
 order by procedure.proname;
 
 select
+  pg_get_functiondef(procedure.oid)
+    like '%cardinality(coalesce(p_assignee_ids, ''{}''::uuid[])) = 0%'
+      as at_least_one_assignee_required,
+  pg_get_functiondef(procedure.oid)
+    like '%profile.account_status is distinct from ''active''%'
+      as inactive_assignee_rejected
+from pg_proc procedure
+join pg_namespace namespace
+  on namespace.oid = procedure.pronamespace
+where namespace.nspname = 'public'
+  and procedure.proname = 'assert_operation_schedule_input'
+order by procedure.oid desc
+limit 1;
+
+select
   table_info.table_name,
   has_table_privilege(
     'authenticated',

@@ -41,6 +41,8 @@ describe("Operations production deployment package", () => {
     expect(postflight).toContain("authenticated_can_delete_directly");
     expect(postflight).toContain("all_day_start_is_seoul_midnight");
     expect(postflight).toContain("all_day_end_is_exclusive_next_day");
+    expect(postflight).toContain("at_least_one_assignee_required");
+    expect(postflight).toContain("inactive_assignee_rejected");
   });
 
   it("blocks rollback once schedule data exists", () => {

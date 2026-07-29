@@ -47,4 +47,15 @@ describe("Operations foundation UI", () => {
     expect(todaySource).not.toContain("sale_payments");
     expect(todaySource).not.toContain("sale_refunds");
   });
+
+  it("keeps the single schedule form focused on MVP fields", () => {
+    expect(todaySource).toContain('<Field label="제목" required>');
+    expect(todaySource).toContain('<Field label="날짜" required>');
+    expect(todaySource).toContain(
+      '<Picker label="담당자" empty="배정 가능한 담당자가 없습니다." required>',
+    );
+    expect(todaySource).toContain('<Field label="일정 유형">');
+    expect(todaySource).toContain("선택 안 함 · 기타로 저장");
+    expect(todaySource).not.toContain('label="사업부 Calendar"');
+  });
 });

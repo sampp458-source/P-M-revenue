@@ -3,6 +3,8 @@ import {
   calculateOperationTodaySummary,
   compactDogNames,
   compactNames,
+  defaultOperationCalendarId,
+  defaultOperationScheduleTypeId,
   nextSeoulDate,
   seoulDateKey,
   toSeoulInstant,
@@ -23,6 +25,35 @@ describe("Operations schedule date and display helpers", () => {
     expect(toSeoulInstant(nextSeoulDate("2026-07-29"), "00:00")).toBe(
       "2026-07-29T15:00:00.000Z",
     );
+  });
+
+  it("uses the common calendar and 기타 type as the MVP defaults", () => {
+    expect(
+      defaultOperationCalendarId([
+        {
+          id: "daycare",
+          name: "유치원",
+          scopeType: "business_unit",
+          color: "#52B8D0",
+          sortOrder: 10,
+          businessUnitName: "유치원",
+        },
+        {
+          id: "common",
+          name: "공통",
+          scopeType: "common",
+          color: "#5B7FA3",
+          sortOrder: 40,
+          businessUnitName: null,
+        },
+      ]),
+    ).toBe("common");
+    expect(
+      defaultOperationScheduleTypeId([
+        { id: "class", name: "수업", color: "#4568B2", sortOrder: 10 },
+        { id: "other", name: "기타", color: "#8A96A6", sortOrder: 80 },
+      ]),
+    ).toBe("other");
   });
 
   it("formats the date key in Asia/Seoul instead of browser local time", () => {

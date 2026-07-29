@@ -40,6 +40,8 @@ import {
   compactDogNames,
   compactNames,
   createOperationSchedule,
+  defaultOperationCalendarId,
+  defaultOperationScheduleTypeId,
   fetchOperationScheduleOptions,
   fetchOperationSchedulesForDay,
   nextSeoulDate,
@@ -196,8 +198,7 @@ export function OperationsTodayPage() {
   const openNew = () => {
     const initial = emptyForm(localDate);
     if (options) {
-      initial.calendarId = options.calendars[0]?.id ?? "";
-      initial.scheduleTypeId = options.scheduleTypes[0]?.id ?? "";
+      initial.calendarId = defaultOperationCalendarId(options.calendars);
     }
     setForm(initial);
     setFormError("");
@@ -214,14 +215,21 @@ export function OperationsTodayPage() {
   const save = async (event: FormEvent) => {
     event.preventDefault();
     setFormError("");
+    const calendarId =
+      form.calendarId ||
+      defaultOperationCalendarId(options?.calendars ?? []);
+    const scheduleTypeId =
+      form.scheduleTypeId ||
+      defaultOperationScheduleTypeId(options?.scheduleTypes ?? []);
     if (
-      !form.calendarId ||
-      !form.scheduleTypeId ||
+      !calendarId ||
+      !scheduleTypeId ||
       !form.date ||
       (!form.allDay && (!form.startTime || !form.endTime)) ||
+      form.assigneeIds.length === 0 ||
       !form.title.trim()
     ) {
-      setFormError("캘린더, 일정 유형, 날짜, 시간, 제목을 확인해 주세요.");
+      setFormError("제목, 날짜, 시간, 담당자를 확인해 주세요.");
       return;
     }
     const startsAt = form.allDay
@@ -235,8 +243,8 @@ export function OperationsTodayPage() {
       return;
     }
     const input: OperationScheduleInput = {
-      calendarId: form.calendarId,
-      scheduleTypeId: form.scheduleTypeId,
+      calendarId,
+      scheduleTypeId,
       title: form.title.trim(),
       startsAt,
       endsAt,
@@ -712,19 +720,10 @@ function ScheduleFormModal({
       resetKey={editing === "new" ? "new" : editing?.id}
     >
       <form onSubmit={onSubmit} className="space-y-5">
+        <Field label="제목" required>
+          <Input required value={form.title} onChange={(event) => patch({ title: event.target.value })} placeholder="일정 제목" />
+        </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="사업부 Calendar" required>
-            <Select value={form.calendarId} onChange={(event) => patch({ calendarId: event.target.value })}>
-              <option value="">선택</option>
-              {options?.calendars.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-            </Select>
-          </Field>
-          <Field label="일정 유형" required>
-            <Select value={form.scheduleTypeId} onChange={(event) => patch({ scheduleTypeId: event.target.value })}>
-              <option value="">선택</option>
-              {options?.scheduleTypes.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-            </Select>
-          </Field>
           <Field label="날짜" required>
             <Input required type="date" value={form.date} onChange={(event) => patch({ date: event.target.value })} />
           </Field>
@@ -743,6 +742,23 @@ function ScheduleFormModal({
             </>
           )}
         </div>
+        <Picker label="담당자" empty="배정 가능한 담당자가 없습니다." required>
+          {options?.assignees.map((row) => (
+            <PickerButton
+              key={row.id}
+              selected={form.assigneeIds.includes(row.id)}
+              onClick={() =>
+                patch({
+                  assigneeIds: form.assigneeIds.includes(row.id)
+                    ? form.assigneeIds.filter((id) => id !== row.id)
+                    : [...form.assigneeIds, row.id],
+                })
+              }
+            >
+              {row.name || "이름 미등록"}
+            </PickerButton>
+          ))}
+        </Picker>
         <Picker label="반려견" empty="연결할 반려견이 없습니다.">
           {options?.dogs.map((row) => (
             <PickerButton key={row.id} selected={form.dogIds.includes(row.id)} onClick={() => toggleDog(row.id)}>
@@ -767,25 +783,11 @@ function ScheduleFormModal({
             </PickerButton>
           ))}
         </Picker>
-        <Picker label="담당자" empty="배정 가능한 담당자가 없습니다.">
-          {options?.assignees.map((row) => (
-            <PickerButton
-              key={row.id}
-              selected={form.assigneeIds.includes(row.id)}
-              onClick={() =>
-                patch({
-                  assigneeIds: form.assigneeIds.includes(row.id)
-                    ? form.assigneeIds.filter((id) => id !== row.id)
-                    : [...form.assigneeIds, row.id],
-                })
-              }
-            >
-              {row.name || "이름 미등록"}
-            </PickerButton>
-          ))}
-        </Picker>
-        <Field label="제목" required>
-          <Input required value={form.title} onChange={(event) => patch({ title: event.target.value })} placeholder="일정 제목" />
+        <Field label="일정 유형">
+          <Select value={form.scheduleTypeId} onChange={(event) => patch({ scheduleTypeId: event.target.value })}>
+            <option value="">선택 안 함 · 기타로 저장</option>
+            {options?.scheduleTypes.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+          </Select>
         </Field>
         <Field label="메모">
           <Textarea value={form.memo} onChange={(event) => patch({ memo: event.target.value })} placeholder="필요한 내용을 기록하세요" />
@@ -800,11 +802,24 @@ function ScheduleFormModal({
   );
 }
 
-function Picker({ label, empty, children }: { label: string; empty: string; children: ReactNode }) {
+function Picker({
+  label,
+  empty,
+  required = false,
+  children,
+}: {
+  label: string;
+  empty: string;
+  required?: boolean;
+  children: ReactNode;
+}) {
   const hasChildren = Array.isArray(children) ? children.length > 0 : Boolean(children);
   return (
     <fieldset>
-      <legend className="mb-2 text-sm font-medium text-text-primary">{label}</legend>
+      <legend className="mb-2 text-sm font-medium text-text-primary">
+        {label}
+        {required && <span className="ml-1 text-error">*</span>}
+      </legend>
       <div className="flex max-h-32 flex-wrap gap-2 overflow-auto rounded-xl border border-border bg-surface-secondary/50 p-3">
         {hasChildren ? children : <span className="text-sm text-text-muted">{empty}</span>}
       </div>

@@ -168,6 +168,11 @@ begin
       using errcode = '22023';
   end if;
 
+  if cardinality(coalesce(p_assignee_ids, '{}'::uuid[])) = 0 then
+    raise exception '담당자를 한 명 이상 선택해 주세요.'
+      using errcode = '22023';
+  end if;
+
   if exists (
     select 1
     from unnest(coalesce(p_assignee_ids, '{}'::uuid[])) requested(id)
