@@ -18,6 +18,15 @@ const operationRoleHelp: Record<OperationRole, string> = {
   staff: "일정 조회·등록·수정·완료·취소 가능",
 };
 const dateTime = (value: string | null) => value ? new Date(value).toLocaleString("ko-KR") : "-";
+const operationRoleErrorMessage = (message: string, code?: string) => {
+  if (code === "42501") return "Operations 최고 관리자만 권한을 변경할 수 있습니다.";
+  if (
+    message.includes("마지막 활성 Operations")
+    || message.includes("다른 사용자가 Operations 권한을 먼저 변경")
+    || message.includes("동일한 요청 ID")
+  ) return message;
+  return "Operations 권한을 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+};
 
 export function StaffManagementPage() {
   const { profile } = useAuth();
@@ -104,7 +113,7 @@ export function StaffManagementPage() {
     });
     setProcessing(false);
     if (result.error) {
-      setActionError(result.error.message || "Operations 권한을 변경하지 못했습니다.");
+      setActionError(operationRoleErrorMessage(result.error.message, result.error.code));
       return;
     }
     setNotice(`${roleEditing.name}님의 Operations 권한을 ${operationRoleLabel[selectedOperationRole]}으로 변경했습니다.`);
