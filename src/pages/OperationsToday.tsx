@@ -42,6 +42,7 @@ import {
   compactNames,
   createOperationSchedule,
   defaultOperationCalendarId,
+  defaultOperationScheduleWindow,
   defaultOperationScheduleTypeId,
   fetchOperationScheduleOptions,
   fetchOperationSchedulesForDay,
@@ -61,6 +62,7 @@ interface ScheduleForm {
   scheduleTypeId: string;
   date: string;
   startTime: string;
+  endDate: string;
   endTime: string;
   allDay: boolean;
   dogIds: string[];
@@ -75,19 +77,20 @@ interface PendingAction {
   schedule: OperationSchedule;
 }
 
-const emptyForm = (date: string): ScheduleForm => ({
-  calendarId: "",
-  scheduleTypeId: "",
-  date,
-  startTime: "09:00",
-  endTime: "10:00",
-  allDay: false,
-  dogIds: [],
-  customerIds: [],
-  assigneeIds: [],
-  title: "",
-  memo: "",
-});
+const emptyForm = (): ScheduleForm => {
+  const scheduleWindow = defaultOperationScheduleWindow();
+  return {
+    calendarId: "",
+    scheduleTypeId: "",
+    ...scheduleWindow,
+    allDay: false,
+    dogIds: [],
+    customerIds: [],
+    assigneeIds: [],
+    title: "",
+    memo: "",
+  };
+};
 
 const seoulParts = (value: string) => {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -115,6 +118,7 @@ const formFromSchedule = (schedule: OperationSchedule): ScheduleForm => {
     scheduleTypeId: schedule.scheduleTypeId,
     date: start.date,
     startTime: start.time,
+    endDate: end.date,
     endTime: end.time,
     allDay: schedule.allDay,
     dogIds: schedule.dogs.map((dog) => dog.id),
@@ -150,7 +154,7 @@ export function OperationsTodayPage() {
   const [loadError, setLoadError] = useState<OperationScheduleRepositoryError | null>(null);
   const [detail, setDetail] = useState<OperationSchedule | null>(null);
   const [editing, setEditing] = useState<OperationSchedule | "new" | null>(null);
-  const [form, setForm] = useState<ScheduleForm>(() => emptyForm(localDate));
+  const [form, setForm] = useState<ScheduleForm>(() => emptyForm());
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -216,7 +220,7 @@ export function OperationsTodayPage() {
       showNotice("일정 등록 정보를 불러오지 못했습니다. 다시 시도해 주세요.", "error");
       return;
     }
-    const initial = emptyForm(localDate);
+    const initial = emptyForm();
     initial.calendarId = defaultOperationCalendarId(
       availableOptions.calendars,
     );
@@ -246,7 +250,8 @@ export function OperationsTodayPage() {
       !calendarId ||
       !scheduleTypeId ||
       !form.date ||
-      (!form.allDay && (!form.startTime || !form.endTime)) ||
+      (!form.allDay &&
+        (!form.startTime || !form.endDate || !form.endTime)) ||
       form.assigneeIds.length === 0 ||
       !form.title.trim()
     ) {
@@ -258,7 +263,7 @@ export function OperationsTodayPage() {
       : toSeoulInstant(form.date, form.startTime);
     const endsAt = form.allDay
       ? toSeoulInstant(nextSeoulDate(form.date), "00:00")
-      : toSeoulInstant(form.date, form.endTime);
+      : toSeoulInstant(form.endDate, form.endTime);
     if (new Date(endsAt) <= new Date(startsAt)) {
       setFormError("종료 시간은 시작 시간보다 늦어야 합니다.");
       return;
@@ -767,7 +772,25 @@ function ScheduleFormModal({
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="날짜" required>
-            <Input required type="date" value={form.date} onChange={(event) => patch({ date: event.target.value })} />
+            <Input
+              required
+              type="date"
+              value={form.date}
+              onChange={(event) => {
+                const date = event.target.value;
+                if (!date) {
+                  patch({ date: "", endDate: "" });
+                  return;
+                }
+                patch({
+                  date,
+                  endDate:
+                    form.endDate === form.date
+                      ? date
+                      : nextSeoulDate(date),
+                });
+              }}
+            />
           </Field>
           <label className="flex min-h-11 items-center gap-2 self-end rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary">
             <input type="checkbox" checked={form.allDay} onChange={(event) => patch({ allDay: event.target.checked })} />
@@ -776,10 +799,42 @@ function ScheduleFormModal({
           {!form.allDay && (
             <>
               <Field label="시작 시간" required>
-                <Input required type="time" value={form.startTime} onChange={(event) => patch({ startTime: event.target.value })} />
+                <Input
+                  required
+                  type="time"
+                  value={form.startTime}
+                  onChange={(event) => {
+                    const startTime = event.target.value;
+                    patch({
+                      startTime,
+                      endDate:
+                        form.date &&
+                        form.endTime &&
+                        form.endTime <= startTime
+                          ? nextSeoulDate(form.date)
+                          : form.date,
+                    });
+                  }}
+                />
               </Field>
               <Field label="종료 시간" required>
-                <Input required type="time" value={form.endTime} onChange={(event) => patch({ endTime: event.target.value })} />
+                <Input
+                  required
+                  type="time"
+                  value={form.endTime}
+                  onChange={(event) => {
+                    const endTime = event.target.value;
+                    patch({
+                      endTime,
+                      endDate:
+                        form.date &&
+                        endTime &&
+                        endTime <= form.startTime
+                          ? nextSeoulDate(form.date)
+                          : form.date,
+                    });
+                  }}
+                />
               </Field>
             </>
           )}

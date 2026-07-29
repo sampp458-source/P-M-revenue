@@ -4,6 +4,7 @@ import {
   compactDogNames,
   compactNames,
   defaultOperationCalendarId,
+  defaultOperationScheduleWindow,
   defaultOperationScheduleTypeId,
   mergeOperationTodaySchedule,
   nextSeoulDate,
@@ -26,6 +27,57 @@ describe("Operations schedule date and display helpers", () => {
     expect(toSeoulInstant(nextSeoulDate("2026-07-29"), "00:00")).toBe(
       "2026-07-29T15:00:00.000Z",
     );
+  });
+
+  it("defaults to the next half hour and a one-hour duration in Seoul", () => {
+    expect(
+      defaultOperationScheduleWindow(
+        new Date("2026-07-30T05:10:00.000Z"),
+      ),
+    ).toEqual({
+      date: "2026-07-30",
+      startTime: "14:30",
+      endDate: "2026-07-30",
+      endTime: "15:30",
+    });
+    expect(
+      defaultOperationScheduleWindow(
+        new Date("2026-07-30T05:45:00.000Z"),
+      ),
+    ).toEqual({
+      date: "2026-07-30",
+      startTime: "15:00",
+      endDate: "2026-07-30",
+      endTime: "16:00",
+    });
+    expect(
+      defaultOperationScheduleWindow(
+        new Date("2026-07-30T05:30:00.000Z"),
+      ).startTime,
+    ).toBe("15:00");
+  });
+
+  it("rolls late-night defaults into the next Seoul date safely", () => {
+    expect(
+      defaultOperationScheduleWindow(
+        new Date("2026-07-30T13:45:00.000Z"),
+      ),
+    ).toEqual({
+      date: "2026-07-30",
+      startTime: "23:00",
+      endDate: "2026-07-31",
+      endTime: "00:00",
+    });
+    expect(
+      defaultOperationScheduleWindow(
+        new Date("2026-07-30T14:45:00.000Z"),
+      ),
+    ).toEqual({
+      date: "2026-07-31",
+      startTime: "00:00",
+      endDate: "2026-07-31",
+      endTime: "01:00",
+    });
   });
 
   it("uses the common calendar and 기타 type as the MVP defaults", () => {

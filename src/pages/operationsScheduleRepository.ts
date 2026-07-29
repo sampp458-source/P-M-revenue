@@ -320,6 +320,42 @@ export function seoulDateKey(date = new Date()) {
   }).format(date);
 }
 
+export function defaultOperationScheduleWindow(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((item) => item.type === type)?.value ?? 0);
+  const start = new Date(
+    Date.UTC(
+      part("year"),
+      part("month") - 1,
+      part("day"),
+      part("hour"),
+      Math.floor(part("minute") / 30) * 30 + 30,
+    ),
+  );
+  const end = new Date(start.getTime() + 60 * 60 * 1000);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  const localDate = (value: Date) =>
+    `${value.getUTCFullYear()}-${pad(value.getUTCMonth() + 1)}-${pad(value.getUTCDate())}`;
+  const localTime = (value: Date) =>
+    `${pad(value.getUTCHours())}:${pad(value.getUTCMinutes())}`;
+
+  return {
+    date: localDate(start),
+    startTime: localTime(start),
+    endDate: localDate(end),
+    endTime: localTime(end),
+  };
+}
+
 export function toSeoulInstant(localDate: string, time: string) {
   return new Date(`${localDate}T${time}:00+09:00`).toISOString();
 }
