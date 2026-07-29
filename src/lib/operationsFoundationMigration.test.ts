@@ -104,6 +104,10 @@ describe("Operations foundation migration", () => {
     expect(migration).toContain("before_data");
     expect(migration).toContain("after_data");
     expect(migration).toContain("auth.uid()");
+    expect(migration).toContain("after_row ->> 'profile_id'");
+    expect(migration).toContain("after_row ->> 'id'");
+    expect(migration).not.toContain("new.profile_id");
+    expect(migration).not.toContain("else new.id");
     expect(migration).toContain(
       "revoke all on table public.entity_audit_events from anon, authenticated",
     );

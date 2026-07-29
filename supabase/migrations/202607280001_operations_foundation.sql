@@ -230,31 +230,62 @@ set search_path = public, pg_temp
 as $$
 declare
   target_id uuid;
+  target_id_value text;
   target_action text;
+  before_row jsonb;
+  after_row jsonb;
   reason text;
   request_value text;
   parsed_request_id uuid;
 begin
+  after_row := to_jsonb(new);
+
   if tg_op = 'INSERT' then
-    target_id := case
-      when tg_table_name = 'operation_memberships' then new.profile_id
-      else new.id
-    end;
     target_action := 'created';
   elsif tg_op = 'UPDATE' then
-    target_id := case
-      when tg_table_name = 'operation_memberships' then new.profile_id
-      else new.id
-    end;
+    before_row := to_jsonb(old);
     target_action := case
-      when old.is_active = true and new.is_active = false then 'archived'
-      when old.is_active = false and new.is_active = true then 'restored'
+      when before_row ->> 'is_active' = 'true'
+        and after_row ->> 'is_active' = 'false'
+        then 'archived'
+      when before_row ->> 'is_active' = 'false'
+        and after_row ->> 'is_active' = 'true'
+        then 'restored'
+      when before_row ->> 'archived_at' is null
+        and after_row ->> 'archived_at' is not null
+        then 'archived'
+      when before_row ->> 'archived_at' is not null
+        and after_row ->> 'archived_at' is null
+        then 'restored'
       else 'updated'
     end;
   else
     raise exception 'Operations 원장은 물리 삭제할 수 없습니다.'
       using errcode = 'P0001';
   end if;
+
+  target_id_value := coalesce(
+    after_row ->> 'id',
+    after_row ->> 'profile_id',
+    after_row ->> 'schedule_id'
+  );
+
+  if target_id_value is null then
+    raise exception
+      'Operations 감사 대상 %에서 식별자(id, profile_id, schedule_id)를 확인할 수 없습니다.',
+      tg_table_name
+      using errcode = 'P0001';
+  end if;
+
+  begin
+    target_id := target_id_value::uuid;
+  exception
+    when invalid_text_representation then
+      raise exception
+        'Operations 감사 대상 %의 식별자가 유효한 UUID가 아닙니다.',
+        tg_table_name
+        using errcode = '22023';
+  end;
 
   reason := nullif(btrim(current_setting('app.operation_change_reason', true)), '');
   request_value := nullif(
@@ -288,8 +319,8 @@ begin
     tg_table_name,
     target_id,
     target_action,
-    case when tg_op = 'UPDATE' then to_jsonb(old) else null end,
-    to_jsonb(new),
+    before_row,
+    after_row,
     auth.uid(),
     reason,
     parsed_request_id
