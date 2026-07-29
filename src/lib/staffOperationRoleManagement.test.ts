@@ -20,4 +20,10 @@ describe("Staff Operations role management UI", () => {
     expect(source).toContain("관리자");
     expect(source).toContain("직원");
   });
+
+  it("does not mislabel a failed directory request as a missing membership", () => {
+    expect(source).toContain("권한 조회 실패");
+    expect(source).toContain("operationLoadError ?");
+    expect(source).toContain("!operationLoadError && canManageOperationRoles");
+  });
 });
