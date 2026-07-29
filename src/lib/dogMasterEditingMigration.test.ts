@@ -38,6 +38,9 @@ describe("shared Dog Master editing for active users", () => {
 
   it("records the editor, timestamp and before/after history", () => {
     expect(migration).toContain(
+      "create table if not exists public.entity_audit_events",
+    );
+    expect(migration).toContain(
       "alter table public.dogs\n  add column if not exists updated_by uuid",
     );
     expect(migration).toContain("new.updated_by := auth.uid()");
@@ -46,6 +49,9 @@ describe("shared Dog Master editing for active users", () => {
     expect(migration).toContain("'dog'");
     expect(migration).toContain("to_jsonb(old)");
     expect(migration).toContain("to_jsonb(new)");
+    expect(migration).toContain(
+      "revoke all on table public.entity_audit_events from anon, authenticated",
+    );
   });
 
   it("does not touch Finance or settings permissions", () => {

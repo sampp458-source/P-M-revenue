@@ -3,14 +3,37 @@
 
 begin;
 
-do $$
-begin
-  if to_regclass('public.entity_audit_events') is null then
-    raise exception
-      '202607280001_operations_foundation.sql을 먼저 적용해 공용 감사 원장을 준비해 주세요.';
-  end if;
-end
-$$;
+create table if not exists public.entity_audit_events (
+  id uuid primary key default gen_random_uuid(),
+  module_code text not null
+    check (nullif(btrim(module_code), '') is not null),
+  entity_type text not null
+    check (nullif(btrim(entity_type), '') is not null),
+  entity_id uuid not null,
+  action text not null
+    check (action in ('created', 'updated', 'archived', 'restored')),
+  before_data jsonb null,
+  after_data jsonb null,
+  changed_by uuid null references public.profiles(id) on delete set null,
+  change_reason text null,
+  request_id uuid null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists entity_audit_events_entity_created_idx
+  on public.entity_audit_events (
+    module_code,
+    entity_type,
+    entity_id,
+    created_at desc
+  );
+
+create index if not exists entity_audit_events_request_idx
+  on public.entity_audit_events (request_id)
+  where request_id is not null;
+
+alter table public.entity_audit_events enable row level security;
+revoke all on table public.entity_audit_events from anon, authenticated;
 
 alter table public.dogs
   add column if not exists updated_by uuid;
