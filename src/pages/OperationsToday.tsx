@@ -796,11 +796,12 @@ function ScheduleFormModal({
             <input type="checkbox" checked={form.allDay} onChange={(event) => patch({ allDay: event.target.checked })} />
             종일 일정
           </label>
-          {!form.allDay && (
-            <>
-              <Field label="시작 시간" required>
+          <>
+            <div className={cn(form.allDay && "opacity-50")}>
+              <Field label="시작 시간" required={!form.allDay}>
                 <Input
-                  required
+                  required={!form.allDay}
+                  disabled={form.allDay}
                   type="time"
                   value={form.startTime}
                   onChange={(event) => {
@@ -817,9 +818,12 @@ function ScheduleFormModal({
                   }}
                 />
               </Field>
-              <Field label="종료 시간" required>
+            </div>
+            <div className={cn(form.allDay && "opacity-50")}>
+              <Field label="종료 시간" required={!form.allDay}>
                 <Input
-                  required
+                  required={!form.allDay}
+                  disabled={form.allDay}
                   type="time"
                   value={form.endTime}
                   onChange={(event) => {
@@ -836,8 +840,8 @@ function ScheduleFormModal({
                   }}
                 />
               </Field>
-            </>
-          )}
+            </div>
+          </>
         </div>
         <Picker label="담당자" empty="배정 가능한 담당자가 없습니다." required>
           {options?.assignees.map((row) => (

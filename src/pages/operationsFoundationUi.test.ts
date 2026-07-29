@@ -58,4 +58,10 @@ describe("Operations foundation UI", () => {
     expect(todaySource).toContain("선택 안 함 · 기타로 저장");
     expect(todaySource).not.toContain('label="사업부 Calendar"');
   });
+
+  it("disables but preserves manual times while all-day is selected", () => {
+    expect(todaySource).toContain("disabled={form.allDay}");
+    expect(todaySource).toContain("required={!form.allDay}");
+    expect(todaySource).not.toContain("{!form.allDay && (");
+  });
 });
