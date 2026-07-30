@@ -14,6 +14,7 @@ export interface OperationScheduleType {
   name: string;
   color: string;
   sortOrder: number;
+  calendarIds?: string[];
 }
 
 export interface OperationSettings {
@@ -52,7 +53,7 @@ export const mapOperationCalendar = (
 });
 
 export async function fetchOperationSettings(): Promise<OperationSettings> {
-  const [calendarResult, scheduleTypeResult] = await Promise.all([
+  const [calendarResult, scheduleTypeResult, mappingResult] = await Promise.all([
     supabase
       .from("operation_calendars")
       .select(
@@ -67,9 +68,14 @@ export async function fetchOperationSettings(): Promise<OperationSettings> {
       .eq("is_active", true)
       .order("sort_order")
       .order("name"),
+    supabase
+      .from("operation_calendar_schedule_types")
+      .select("calendar_id, schedule_type_id")
+      .eq("is_active", true)
+      .is("archived_at", null),
   ]);
 
-  if (calendarResult.error || scheduleTypeResult.error) {
+  if (calendarResult.error || scheduleTypeResult.error || mappingResult.error) {
     throw new Error("Operations 설정 조회 실패");
   }
 
@@ -82,6 +88,9 @@ export async function fetchOperationSettings(): Promise<OperationSettings> {
       name: row.name,
       color: row.color,
       sortOrder: row.sort_order,
+      calendarIds: (mappingResult.data ?? [])
+        .filter((mapping) => mapping.schedule_type_id === row.id)
+        .map((mapping) => mapping.calendar_id),
     })),
   };
 }

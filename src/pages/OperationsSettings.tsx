@@ -112,9 +112,12 @@ export function OperationsSettingsPage() {
                 className="flex min-h-14 items-center gap-3 px-4 py-3"
               >
                 <ColorDot color={scheduleType.color} />
-                <p className="truncate text-sm font-semibold text-text-primary">
-                  {scheduleType.name}
-                </p>
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-text-primary">{scheduleType.name}</p>
+                  <p className="mt-0.5 truncate text-xs text-text-muted">
+                    {settings.calendars.filter((calendar) => scheduleType.calendarIds?.includes(calendar.id)).map((calendar) => calendar.name).join(" · ") || "연결된 캘린더 없음"}
+                  </p>
+                </div>
               </li>
             ))}
           </SettingsListCard>

@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateOperationTodaySummary,
+  attachOperationAssigneeColors,
   compactDogNames,
   compactNames,
   defaultOperationCalendarId,
+  defaultOperationScheduleTitle,
   defaultOperationScheduleWindow,
   defaultOperationScheduleTypeId,
   mergeOperationTodaySchedule,
   nextSeoulDate,
   seoulDateKey,
+  scheduleDisplayColor,
+  schedulePrimaryAssignee,
   toSeoulInstant,
 } from "./operationsScheduleRepository";
 
@@ -133,6 +137,58 @@ describe("Operations schedule date and display helpers", () => {
       ),
     ).toBe("이화인 외 1명");
     expect(compactNames([], "담당자 미정")).toBe("담당자 미정");
+  });
+
+  it("builds a default title only when both a dog and schedule type exist", () => {
+    expect(defaultOperationScheduleTitle("토리", "상담")).toBe("토리 상담");
+    expect(defaultOperationScheduleTitle(" 초코 ", " 교육 ")).toBe(
+      "초코 교육",
+    );
+    expect(defaultOperationScheduleTitle("", "상담")).toBe("");
+    expect(defaultOperationScheduleTitle("토리", null)).toBe("");
+  });
+
+  it("uses a deterministic assignee color without array-order dependence", () => {
+    const schedule = {
+      createdBy: "creator",
+      calendarColor: "#000000",
+      assignees: [
+        { id: "other", name: "다른 직원", scheduleColor: "#222222" },
+        { id: "creator", name: "생성자", scheduleColor: "#111111" },
+      ],
+    };
+    expect(scheduleDisplayColor(schedule)).toBe("#111111");
+    expect(scheduleDisplayColor({
+      ...schedule,
+      createdBy: "missing",
+      assignees: [...schedule.assignees].reverse(),
+    })).toBe("#111111");
+    expect(schedulePrimaryAssignee(schedule)?.id).toBe("creator");
+    expect(
+      schedulePrimaryAssignee({
+        ...schedule,
+        createdBy: "missing",
+        assignees: [...schedule.assignees].reverse(),
+      })?.id,
+    ).toBe("creator");
+    expect(
+      scheduleDisplayColor({
+        ...schedule,
+        assignees: [{ id: "creator", name: "생성자" }],
+      }),
+    ).toBe("#5B7FA3");
+  });
+
+  it("attaches current membership colors to existing schedule assignees", () => {
+    const schedule = {
+      id: "schedule",
+      assignees: [{ id: "profile", name: "직원" }],
+    } as never;
+    expect(
+      attachOperationAssigneeColors(schedule, [
+        { id: "profile", name: "직원", scheduleColor: "#4568B2" },
+      ]).assignees[0].scheduleColor,
+    ).toBe("#4568B2");
   });
 
   it("keeps total and business-calendar counts consistent", () => {

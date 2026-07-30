@@ -10,6 +10,7 @@ export type OperationScheduleStatus = "scheduled" | "completed" | "cancelled";
 export interface OperationPerson {
   id: string;
   name: string | null;
+  scheduleColor?: string | null;
 }
 
 export interface OperationCustomer extends OperationPerson {
@@ -72,6 +73,8 @@ export interface OperationScheduleInput {
   customerIds: string[];
   dogIds: string[];
 }
+
+export const DEFAULT_OPERATION_SCHEDULE_COLOR = "#5B7FA3";
 
 export function defaultOperationCalendarId(
   calendars: OperationCalendar[],
@@ -204,12 +207,7 @@ export async function fetchOperationScheduleOptions(): Promise<OperationSchedule
   const [settings, assigneesResult, customersResult, dogsResult] =
     await Promise.all([
       fetchOperationSettings(),
-      supabase
-        .from("profiles")
-        .select("id, name")
-        .eq("is_active", true)
-        .eq("account_status", "active")
-        .order("name"),
+      supabase.rpc("get_active_operation_assignees"),
       supabase
         .from("customers")
         .select("id, name, phone")
@@ -234,9 +232,14 @@ export async function fetchOperationScheduleOptions(): Promise<OperationSchedule
 
   return {
     ...settings,
-    assignees: (assigneesResult.data ?? []).map((row) => ({
-      id: row.id,
-      name: row.name,
+    assignees: (assigneesResult.data ?? []).map((row: {
+      profile_id: string;
+      profile_name: string | null;
+      schedule_color: string | null;
+    }) => ({
+      id: row.profile_id,
+      name: row.profile_name,
+      scheduleColor: row.schedule_color,
     })),
     customers: (customersResult.data ?? []).map((row) => ({
       id: row.id,
@@ -247,6 +250,44 @@ export async function fetchOperationScheduleOptions(): Promise<OperationSchedule
       id: row.id,
       name: row.name,
       customerId: row.customer_id,
+    })),
+  };
+}
+
+export function scheduleDisplayColor(
+  schedule: Pick<OperationSchedule, "assignees" | "createdBy" | "calendarColor">,
+) {
+  return (
+    schedulePrimaryAssignee(schedule)?.scheduleColor ??
+    DEFAULT_OPERATION_SCHEDULE_COLOR
+  );
+}
+
+export function schedulePrimaryAssignee(
+  schedule: Pick<OperationSchedule, "assignees" | "createdBy">,
+) {
+  if (schedule.assignees.length === 0) return null;
+  if (schedule.assignees.length === 1) return schedule.assignees[0];
+  return (
+    schedule.assignees.find((row) => row.id === schedule.createdBy) ??
+    [...schedule.assignees].sort((left, right) =>
+      left.id.localeCompare(right.id),
+    )[0]
+  );
+}
+
+export function attachOperationAssigneeColors(
+  schedule: OperationSchedule,
+  assignees: OperationPerson[],
+) {
+  const colorById = new Map(
+    assignees.map((assignee) => [assignee.id, assignee.scheduleColor]),
+  );
+  return {
+    ...schedule,
+    assignees: schedule.assignees.map((assignee) => ({
+      ...assignee,
+      scheduleColor: colorById.get(assignee.id) ?? null,
     })),
   };
 }
@@ -385,6 +426,16 @@ export function compactDogNames(rows: OperationDog[]) {
   return rows.length === 1
     ? rows[0].name
     : `${rows[0].name} 외 ${rows.length - 1}마리`;
+}
+
+export function defaultOperationScheduleTitle(
+  dogName: string | null | undefined,
+  scheduleTypeName: string | null | undefined,
+) {
+  const normalizedDogName = dogName?.trim() ?? "";
+  const normalizedScheduleTypeName = scheduleTypeName?.trim() ?? "";
+  if (!normalizedDogName || !normalizedScheduleTypeName) return "";
+  return `${normalizedDogName} ${normalizedScheduleTypeName}`;
 }
 
 export function calculateOperationTodaySummary(

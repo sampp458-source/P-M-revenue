@@ -64,4 +64,25 @@ describe("Operations foundation UI", () => {
     expect(todaySource).toContain("required={!form.allDay}");
     expect(todaySource).not.toContain("{!form.allDay && (");
   });
+
+  it("auto-generates a new schedule title without overriding manual edits", () => {
+    expect(todaySource).toContain("defaultOperationScheduleTitle");
+    expect(todaySource).toContain('editing === "new" && !titleManuallyEdited');
+    expect(todaySource).toContain("onTitleManuallyEdited(true)");
+  });
+
+  it("keeps Today cards focused on color, time, title, and assignees", () => {
+    const scheduleRow = todaySource.slice(
+      todaySource.indexOf("function ScheduleRow"),
+      todaySource.indexOf("function TodaySummary"),
+    );
+    expect(scheduleRow).toContain("schedule.calendarColor");
+    expect(scheduleRow).toContain("schedulePrimaryAssignee");
+    expect(scheduleRow).toContain("schedule.title");
+    expect(scheduleRow).toContain("schedule.assignees");
+    expect(scheduleRow).not.toContain("schedule.calendarName");
+    expect(scheduleRow).not.toContain("schedule.scheduleTypeName");
+    expect(scheduleRow).not.toContain("schedule.customers");
+    expect(scheduleRow).not.toContain("schedule.dogs");
+  });
 });

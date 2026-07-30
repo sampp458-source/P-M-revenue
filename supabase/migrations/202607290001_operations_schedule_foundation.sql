@@ -17,65 +17,8 @@ begin
 end;
 $$;
 
-comment on column public.operation_memberships.role is
-  'Operations 역할: staff=Employee, manager=Manager, owner=Owner';
-
-create table if not exists public.operation_schedule_series (
-  id uuid primary key default gen_random_uuid(),
-  calendar_id uuid not null
-    references public.operation_calendars(id) on delete restrict,
-  schedule_type_id uuid not null
-    references public.operation_schedule_types(id) on delete restrict,
-  title text not null check (nullif(btrim(title), '') is not null),
-  description text null,
-  recurrence_frequency text not null
-    check (recurrence_frequency in ('daily', 'weekly', 'monthly')),
-  recurrence_interval integer not null default 1
-    check (recurrence_interval between 1 and 365),
-  starts_at timestamptz not null,
-  ends_at timestamptz not null,
-  all_day boolean not null default false,
-  recurrence_ends_on date null,
-  timezone text not null default 'Asia/Seoul'
-    check (timezone = 'Asia/Seoul'),
-  rolling_horizon_months integer not null default 12
-    check (rolling_horizon_months = 12),
-  request_id uuid not null unique,
-  version integer not null default 1 check (version > 0),
-  created_by uuid not null references public.profiles(id) on delete restrict,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  archived_at timestamptz null,
-  archived_by uuid null references public.profiles(id) on delete restrict,
-  archive_reason text null,
-  constraint operation_schedule_series_time_order
-    check (ends_at > starts_at),
-  constraint operation_schedule_series_archive_consistency check (
-    (
-      archived_at is null
-      and archived_by is null
-      and archive_reason is null
-    )
-    or (
-      archived_at is not null
-      and archived_by is not null
-      and nullif(btrim(archive_reason), '') is not null
-    )
-  )
-);
-
-create index if not exists operation_schedule_series_calendar_time_idx
-  on public.operation_schedule_series (calendar_id, starts_at, ends_at)
-  where archived_at is null;
-
-create index if not exists operation_schedule_series_type_idx
-  on public.operation_schedule_series (schedule_type_id)
-  where archived_at is null;
-
 create table if not exists public.operation_schedules (
   id uuid primary key default gen_random_uuid(),
-  series_id uuid null
-    references public.operation_schedule_series(id) on delete restrict,
   calendar_id uuid not null
     references public.operation_calendars(id) on delete restrict,
   schedule_type_id uuid not null
@@ -89,7 +32,6 @@ create table if not exists public.operation_schedules (
     check (timezone = 'Asia/Seoul'),
   status text not null default 'scheduled'
     check (status in ('scheduled', 'completed', 'cancelled')),
-  original_occurrence_at timestamptz null,
   request_id uuid not null unique,
   version integer not null default 1 check (version > 0),
   created_by uuid not null references public.profiles(id) on delete restrict,
@@ -99,16 +41,6 @@ create table if not exists public.operation_schedules (
   archived_by uuid null references public.profiles(id) on delete restrict,
   archive_reason text null,
   constraint operation_schedules_time_order check (ends_at > starts_at),
-  constraint operation_schedules_series_occurrence_consistency check (
-    (
-      series_id is null
-      and original_occurrence_at is null
-    )
-    or (
-      series_id is not null
-      and original_occurrence_at is not null
-    )
-  ),
   constraint operation_schedules_archive_consistency check (
     (
       archived_at is null
@@ -122,10 +54,6 @@ create table if not exists public.operation_schedules (
     )
   )
 );
-
-create unique index if not exists operation_schedules_series_occurrence_uidx
-  on public.operation_schedules (series_id, original_occurrence_at)
-  where series_id is not null;
 
 create index if not exists operation_schedules_calendar_time_idx
   on public.operation_schedules (calendar_id, starts_at, ends_at)
@@ -303,14 +231,17 @@ begin
     ''
   );
 
-  if request_value is not null then
+  if tg_table_name = 'operation_schedules'
+    and request_value is not null then
     begin
       parsed_request_id := request_value::uuid;
     exception
       when invalid_text_representation then
         raise exception '유효하지 않은 Operations 요청 ID입니다.'
-          using errcode = '22023';
+      using errcode = '22023';
     end;
+  else
+    parsed_request_id := null;
   end if;
 
   insert into public.entity_audit_events (
@@ -351,13 +282,6 @@ begin
 end;
 $$;
 
-drop trigger if exists operation_schedule_series_protect_metadata
-  on public.operation_schedule_series;
-create trigger operation_schedule_series_protect_metadata
-  before update on public.operation_schedule_series
-  for each row
-  execute function public.protect_operation_schedule_metadata();
-
 drop trigger if exists operation_schedules_protect_metadata
   on public.operation_schedules;
 create trigger operation_schedules_protect_metadata
@@ -385,13 +309,6 @@ create trigger operation_schedule_customers_protect_metadata
   before update on public.operation_schedule_customers
   for each row
   execute function public.protect_operation_link_metadata();
-
-drop trigger if exists operation_schedule_series_updated_at
-  on public.operation_schedule_series;
-create trigger operation_schedule_series_updated_at
-  before update on public.operation_schedule_series
-  for each row
-  execute function public.set_updated_at();
 
 drop trigger if exists operation_schedules_updated_at
   on public.operation_schedules;
@@ -421,13 +338,6 @@ create trigger operation_schedule_customers_updated_at
   for each row
   execute function public.set_updated_at();
 
-drop trigger if exists operation_schedule_series_audit
-  on public.operation_schedule_series;
-create trigger operation_schedule_series_audit
-  after insert or update on public.operation_schedule_series
-  for each row
-  execute function public.record_operation_schedule_audit_event();
-
 drop trigger if exists operation_schedules_audit
   on public.operation_schedules;
 create trigger operation_schedules_audit
@@ -455,13 +365,6 @@ create trigger operation_schedule_customers_audit
   after insert or update on public.operation_schedule_customers
   for each row
   execute function public.record_operation_schedule_audit_event();
-
-drop trigger if exists operation_schedule_series_block_delete
-  on public.operation_schedule_series;
-create trigger operation_schedule_series_block_delete
-  before delete on public.operation_schedule_series
-  for each row
-  execute function public.block_operation_schedule_delete();
 
 drop trigger if exists operation_schedules_block_delete
   on public.operation_schedules;
@@ -491,19 +394,10 @@ create trigger operation_schedule_customers_block_delete
   for each row
   execute function public.block_operation_schedule_delete();
 
-alter table public.operation_schedule_series enable row level security;
 alter table public.operation_schedules enable row level security;
 alter table public.operation_schedule_assignees enable row level security;
 alter table public.operation_schedule_dogs enable row level security;
 alter table public.operation_schedule_customers enable row level security;
-
-drop policy if exists operation_schedule_series_select_members
-  on public.operation_schedule_series;
-create policy operation_schedule_series_select_members
-  on public.operation_schedule_series
-  for select
-  to authenticated
-  using (public.is_active_operation_member());
 
 drop policy if exists operation_schedules_select_members
   on public.operation_schedules;
@@ -537,8 +431,6 @@ create policy operation_schedule_customers_select_members
   to authenticated
   using (public.is_active_operation_member());
 
-revoke all on table public.operation_schedule_series
-  from anon, authenticated;
 revoke all on table public.operation_schedules
   from anon, authenticated;
 revoke all on table public.operation_schedule_assignees
@@ -548,7 +440,6 @@ revoke all on table public.operation_schedule_dogs
 revoke all on table public.operation_schedule_customers
   from anon, authenticated;
 
-grant select on table public.operation_schedule_series to authenticated;
 grant select on table public.operation_schedules to authenticated;
 grant select on table public.operation_schedule_assignees to authenticated;
 grant select on table public.operation_schedule_dogs to authenticated;

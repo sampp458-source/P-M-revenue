@@ -12,7 +12,6 @@ begin
       ('operation_calendars'),
       ('operation_schedule_types'),
       ('entity_audit_events'),
-      ('operation_schedule_series'),
       ('operation_schedules'),
       ('operation_schedule_assignees'),
       ('operation_schedule_customers'),
@@ -35,7 +34,6 @@ with required_columns(table_name, column_name) as (
     ('operation_calendars', 'scope_type'),
     ('operation_calendars', 'business_unit_id'),
     ('operation_schedule_types', 'id'),
-    ('operation_schedule_series', 'id'),
     ('operation_schedules', 'id'),
     ('operation_schedules', 'calendar_id'),
     ('operation_schedules', 'schedule_type_id'),
@@ -79,7 +77,6 @@ where namespace.nspname = 'public'
     'operation_calendars',
     'operation_schedule_types',
     'entity_audit_events',
-    'operation_schedule_series',
     'operation_schedules',
     'operation_schedule_assignees',
     'operation_schedule_customers',
@@ -97,7 +94,6 @@ where constraint_info.table_schema = 'public'
     'operation_memberships',
     'operation_calendars',
     'operation_schedule_types',
-    'operation_schedule_series',
     'operation_schedules',
     'operation_schedule_assignees',
     'operation_schedule_customers',
@@ -185,7 +181,13 @@ select
       as at_least_one_assignee_required,
   pg_get_functiondef(procedure.oid)
     like '%profile.account_status is distinct from ''active''%'
-      as inactive_assignee_rejected
+      as inactive_profile_rejected,
+  pg_get_functiondef(procedure.oid)
+    like '%left join public.operation_memberships membership%'
+      as membership_is_checked,
+  pg_get_functiondef(procedure.oid)
+    like '%membership.is_active is distinct from true%'
+      as inactive_membership_rejected
 from pg_proc procedure
 join pg_namespace namespace
   on namespace.oid = procedure.pronamespace
@@ -213,7 +215,6 @@ select
   ) as authenticated_can_delete_directly
 from (
   values
-    ('operation_schedule_series'),
     ('operation_schedules'),
     ('operation_schedule_assignees'),
     ('operation_schedule_customers'),
@@ -254,6 +255,106 @@ join pg_namespace namespace
   on namespace.oid = procedure.pronamespace
 where namespace.nspname = 'public'
   and procedure.proname = 'record_operation_audit_event';
+
+select
+  pg_get_functiondef(procedure.oid)
+    like '%tg_table_name = ''operation_schedules''%'
+      as request_id_is_limited_to_schedule_root,
+  pg_get_functiondef(procedure.oid)
+    like '%parsed_request_id := null%'
+      as link_audit_request_id_is_null,
+  (
+    pg_get_functiondef(procedure.oid) like '%to_jsonb(new)%'
+    and (
+      select count(*)
+      from information_schema.columns column_info
+      where column_info.table_schema = 'public'
+        and column_info.table_name in (
+          'operation_schedule_assignees',
+          'operation_schedule_customers',
+          'operation_schedule_dogs'
+        )
+        and column_info.column_name = 'schedule_id'
+    ) = 3
+  ) as link_after_data_keeps_schedule_id
+from pg_proc procedure
+join pg_namespace namespace
+  on namespace.oid = procedure.pronamespace
+where namespace.nspname = 'public'
+  and procedure.proname = 'record_operation_schedule_audit_event';
+
+with request_id_attribute as (
+  select
+    attribute.attnum,
+    not attribute.attnotnull as is_nullable
+  from pg_attribute attribute
+  where attribute.attrelid = 'public.entity_audit_events'::regclass
+    and attribute.attname = 'request_id'
+    and attribute.attisdropped = false
+)
+select
+  attribute.is_nullable as request_id_is_nullable,
+  exists (
+    select 1
+    from pg_index index_info
+    where index_info.indrelid = 'public.entity_audit_events'::regclass
+      and index_info.indisunique = true
+      and index_info.indnkeyatts = 1
+      and attribute.attnum = any(index_info.indkey)
+  ) as request_id_unique_is_preserved,
+  attribute.is_nullable
+  and exists (
+    select 1
+    from pg_index index_info
+    where index_info.indrelid = 'public.entity_audit_events'::regclass
+      and index_info.indisunique = true
+      and index_info.indnkeyatts = 1
+      and attribute.attnum = any(index_info.indkey)
+  ) as one_root_and_multiple_null_link_audits_are_supported
+from request_id_attribute attribute;
+
+select
+  procedure.proname as function_name,
+  case
+    when procedure.proname = 'create_operation_schedule' then
+      pg_get_functiondef(procedure.oid)
+        like '%schedule.request_id = p_request_id%'
+    else
+      pg_get_functiondef(procedure.oid)
+        like '%audit.entity_type = ''operation_schedules''%'
+      and pg_get_functiondef(procedure.oid)
+        like '%audit.request_id = p_request_id%'
+  end as root_request_idempotency_lookup_is_valid
+from pg_proc procedure
+join pg_namespace namespace
+  on namespace.oid = procedure.pronamespace
+where namespace.nspname = 'public'
+  and procedure.proname in (
+    'create_operation_schedule',
+    'update_operation_schedule',
+    'set_operation_schedule_status',
+    'archive_operation_schedule'
+  )
+order by procedure.proname;
+
+select
+  pg_get_functiondef(procedure.oid)
+    like '%schedule_row.status = ''scheduled''%'
+      as scheduled_transition_is_guarded,
+  pg_get_functiondef(procedure.oid)
+    like '%schedule_row.status = ''completed''%'
+      as completed_transition_is_guarded,
+  pg_get_functiondef(procedure.oid)
+    like '%schedule_row.status = ''cancelled''%'
+      as cancelled_is_terminal,
+  pg_get_functiondef(procedure.oid)
+    not like '%p_status = ''scheduled''%'
+      as no_restore_transition_is_exposed
+from pg_proc procedure
+join pg_namespace namespace
+  on namespace.oid = procedure.pronamespace
+where namespace.nspname = 'public'
+  and procedure.proname = 'set_operation_schedule_status';
 
 select
   count(*) filter (

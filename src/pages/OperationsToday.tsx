@@ -3,11 +3,8 @@ import {
   ChevronRight,
   ClipboardCheck,
   Clock3,
-  Dog,
   Pencil,
   Plus,
-  UserRound,
-  UsersRound,
 } from "lucide-react";
 import {
   useCallback,
@@ -29,19 +26,23 @@ import {
   Input,
   LoadingState,
   Modal,
+  SearchBox,
   Select,
   Textarea,
   Toast,
   cn,
 } from "../components/ui";
+import { formatPhone } from "../lib/phone";
 import {
   OperationScheduleRepositoryError,
+  attachOperationAssigneeColors,
   archiveOperationSchedule,
   calculateOperationTodaySummary,
-  compactDogNames,
   compactNames,
   createOperationSchedule,
+  DEFAULT_OPERATION_SCHEDULE_COLOR,
   defaultOperationCalendarId,
+  defaultOperationScheduleTitle,
   defaultOperationScheduleWindow,
   defaultOperationScheduleTypeId,
   fetchOperationScheduleOptions,
@@ -49,6 +50,7 @@ import {
   mergeOperationTodaySchedule,
   nextSeoulDate,
   seoulDateKey,
+  schedulePrimaryAssignee,
   setOperationScheduleStatus,
   toSeoulInstant,
   updateOperationSchedule,
@@ -155,6 +157,7 @@ export function OperationsTodayPage() {
   const [detail, setDetail] = useState<OperationSchedule | null>(null);
   const [editing, setEditing] = useState<OperationSchedule | "new" | null>(null);
   const [form, setForm] = useState<ScheduleForm>(() => emptyForm());
+  const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -206,6 +209,20 @@ export function OperationsTodayPage() {
     void loadOptions();
   }, [loadOptions, loadSchedules]);
 
+  useEffect(() => {
+    if (!options) return;
+    setSchedules((current) =>
+      current.map((schedule) =>
+        attachOperationAssigneeColors(schedule, options.assignees),
+      ),
+    );
+    setDetail((current) =>
+      current
+        ? attachOperationAssigneeColors(current, options.assignees)
+        : null,
+    );
+  }, [options]);
+
   const showNotice = (
     message: string,
     tone: "success" | "warning" | "error" = "success",
@@ -224,14 +241,21 @@ export function OperationsTodayPage() {
     initial.calendarId = defaultOperationCalendarId(
       availableOptions.calendars,
     );
+    initial.scheduleTypeId = defaultOperationScheduleTypeId(
+      availableOptions.scheduleTypes.filter((scheduleType) =>
+        scheduleType.calendarIds?.includes(initial.calendarId),
+      ),
+    );
     initial.assigneeIds = profile?.id ? [profile.id] : [];
     setForm(initial);
+    setTitleManuallyEdited(false);
     setFormError("");
     setEditing("new");
   };
 
   const openEdit = (schedule: OperationSchedule) => {
     setForm(formFromSchedule(schedule));
+    setTitleManuallyEdited(true);
     setFormError("");
     setDetail(null);
     setEditing(schedule);
@@ -283,21 +307,21 @@ export function OperationsTodayPage() {
     setSaving(true);
     try {
       if (editing === "new") {
-        const created = await createOperationSchedule(
+        const created = attachOperationAssigneeColors(await createOperationSchedule(
           input,
           crypto.randomUUID(),
-        );
+        ), options?.assignees ?? []);
         setSchedules((current) =>
           mergeOperationTodaySchedule(current, created, localDate),
         );
         showNotice("새 일정을 등록했습니다.");
       } else if (editing) {
-        const updated = await updateOperationSchedule(
+        const updated = attachOperationAssigneeColors(await updateOperationSchedule(
           editing.id,
           editing.version,
           input,
           crypto.randomUUID(),
-        );
+        ), options?.assignees ?? []);
         setSchedules((current) =>
           mergeOperationTodaySchedule(current, updated, localDate),
         );
@@ -462,14 +486,6 @@ export function OperationsTodayPage() {
                   <ScheduleRow
                     schedule={schedule}
                     onOpen={() => setDetail(schedule)}
-                    onOpenDog={(dogId) =>
-                      navigate(`/customers?dogId=${encodeURIComponent(dogId)}`)
-                    }
-                    onOpenCustomer={(customerId) =>
-                      navigate(
-                        `/customers?customerId=${encodeURIComponent(customerId)}`,
-                      )
-                    }
                   />
                 </li>
               ))}
@@ -505,6 +521,8 @@ export function OperationsTodayPage() {
         options={options}
         error={formError}
         saving={saving}
+        titleManuallyEdited={titleManuallyEdited}
+        onTitleManuallyEdited={setTitleManuallyEdited}
         onChange={setForm}
         onSubmit={save}
         onClose={() => !saving && setEditing(null)}
@@ -579,14 +597,17 @@ export function OperationsTodayPage() {
 function ScheduleRow({
   schedule,
   onOpen,
-  onOpenDog,
-  onOpenCustomer,
 }: {
   schedule: OperationSchedule;
   onOpen: () => void;
-  onOpenDog: (id: string) => void;
-  onOpenCustomer: (id: string) => void;
 }) {
+  const primaryAssignee = schedulePrimaryAssignee(schedule);
+  const secondaryAssignees = schedule.assignees.filter(
+    (assignee) => assignee.id !== primaryAssignee?.id,
+  );
+  const primaryAssigneeColor =
+    primaryAssignee?.scheduleColor ?? DEFAULT_OPERATION_SCHEDULE_COLOR;
+  const completed = schedule.status === "completed";
   const time = schedule.allDay
     ? "종일"
     : new Intl.DateTimeFormat("ko-KR", {
@@ -596,61 +617,73 @@ function ScheduleRow({
         hourCycle: "h23",
       }).format(new Date(schedule.startsAt));
   return (
-    <div className="relative grid grid-cols-[3.75rem_minmax(0,1fr)_auto] items-center gap-3 border-l-[3px] px-4 py-4 sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:px-5">
+    <button
+      type="button"
+      aria-label={`${schedule.title} 일정 상세 보기`}
+      onClick={onOpen}
+      className={cn(
+        "group relative grid w-full grid-cols-[3.75rem_minmax(0,1fr)_auto] items-center gap-3 border-l-[3px] px-4 py-4 text-left transition hover:bg-surface-secondary/65 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:px-5",
+        completed && "bg-surface-secondary/30",
+      )}
+    >
       <span
         aria-hidden="true"
         className="absolute inset-y-0 left-0 w-[3px]"
         style={{ backgroundColor: schedule.calendarColor }}
       />
-      <time className="self-start pt-0.5 text-base font-bold tabular-nums text-text-primary">
+      <time
+        className={cn(
+          "self-start pt-0.5 text-base font-bold tabular-nums",
+          completed ? "text-text-muted" : "text-text-primary",
+        )}
+      >
         {time}
       </time>
       <div className="min-w-0">
-        <button
-          type="button"
-          className="rounded-md text-left font-semibold text-text-primary hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          onClick={onOpen}
+        <p
+          className={cn(
+            "flex min-w-0 items-center gap-1.5 truncate font-semibold transition group-hover:text-primary",
+            completed ? "text-text-secondary" : "text-text-primary",
+          )}
         >
-          {schedule.title}
-        </button>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-text-secondary">
-          <Badge tone="blue">{schedule.scheduleTypeName}</Badge>
-          <span>{schedule.calendarName}</span>
-          {schedule.dogs.length > 0 && (
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 hover:text-primary"
-              onClick={() => onOpenDog(schedule.dogs[0].id)}
-            >
-              <Dog size={13} /> {compactDogNames(schedule.dogs)}
-            </button>
+          {completed && (
+            <CheckCircle2
+              aria-label="완료"
+              size={14}
+              className="shrink-0 text-text-muted"
+            />
           )}
-          {schedule.customers.length > 0 && (
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 hover:text-primary"
-              onClick={() => onOpenCustomer(schedule.customers[0].id)}
-            >
-              <UserRound size={13} />
-              {compactNames(schedule.customers, "보호자 없음")}
-            </button>
-          )}
-          <span className="inline-flex items-center gap-1">
-            <UsersRound size={13} />
-            {compactNames(schedule.assignees, "담당자 미정")}
+          <span className="truncate">{schedule.title}</span>
+        </p>
+        <div className="mt-1.5 flex min-w-0 items-center gap-2 text-xs text-text-secondary">
+          <span className="inline-flex min-w-0 items-center gap-1.5">
+            <span
+              aria-hidden="true"
+              className="h-2.5 w-2.5 shrink-0 rounded-full shadow-sm ring-2 ring-white"
+              style={{ backgroundColor: primaryAssigneeColor }}
+            />
+            <span className="truncate">
+              {primaryAssignee?.name || "담당자 미정"}
+            </span>
+            {secondaryAssignees.map((assignee) => (
+              <span
+                key={assignee.id}
+                aria-label={`${assignee.name ?? "이름 미등록"} 색상`}
+                title={assignee.name ?? "이름 미등록"}
+                className="h-2 w-2 shrink-0 rounded-full border border-white shadow-sm"
+                style={{
+                  backgroundColor:
+                    assignee.scheduleColor ?? DEFAULT_OPERATION_SCHEDULE_COLOR,
+                }}
+              />
+            ))}
           </span>
-          {schedule.status === "completed" && <Badge tone="green">완료</Badge>}
         </div>
       </div>
-      <button
-        type="button"
-        aria-label={`${schedule.title} 상세 보기`}
-        onClick={onOpen}
-        className="flex h-10 w-10 items-center justify-center rounded-xl text-text-muted transition hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      >
+      <span className="flex h-10 w-10 items-center justify-center rounded-xl text-text-muted transition group-hover:bg-primary-soft group-hover:text-primary">
         <ChevronRight size={18} />
-      </button>
-    </div>
+      </span>
+    </button>
   );
 }
 
@@ -731,6 +764,8 @@ function ScheduleFormModal({
   options,
   error,
   saving,
+  titleManuallyEdited,
+  onTitleManuallyEdited,
   onChange,
   onSubmit,
   onClose,
@@ -741,11 +776,60 @@ function ScheduleFormModal({
   options: OperationScheduleOptions | null;
   error: string;
   saving: boolean;
+  titleManuallyEdited: boolean;
+  onTitleManuallyEdited: (value: boolean) => void;
   onChange: (value: ScheduleForm) => void;
   onSubmit: (event: FormEvent) => void;
   onClose: () => void;
 }) {
+  const [dogQuery, setDogQuery] = useState("");
+  const [customerQuery, setCustomerQuery] = useState("");
   const patch = (values: Partial<ScheduleForm>) => onChange({ ...form, ...values });
+  const patchWithAutoTitle = (values: Partial<ScheduleForm>) => {
+    const nextForm = { ...form, ...values };
+    if (editing === "new" && !titleManuallyEdited) {
+      const dogName = options?.dogs.find(
+        (dog) => dog.id === nextForm.dogIds[0],
+      )?.name;
+      const scheduleTypeName = options?.scheduleTypes.find(
+        (scheduleType) => scheduleType.id === nextForm.scheduleTypeId,
+      )?.name;
+      nextForm.title = defaultOperationScheduleTitle(
+        dogName,
+        scheduleTypeName,
+      );
+    }
+    onChange(nextForm);
+  };
+  const customerById = new Map(
+    (options?.customers ?? []).map((customer) => [customer.id, customer]),
+  );
+  const dogsByCustomer = new Map<string, string[]>();
+  (options?.dogs ?? []).forEach((dog) => {
+    if (dog.customerId) {
+      dogsByCustomer.set(dog.customerId, [
+        ...(dogsByCustomer.get(dog.customerId) ?? []),
+        dog.name,
+      ]);
+    }
+  });
+  const normalizedDogQuery = dogQuery.trim().toLocaleLowerCase("ko-KR");
+  const normalizedCustomerQuery = customerQuery.trim().toLocaleLowerCase("ko-KR");
+  const dogResults = (options?.dogs ?? []).filter((dog) => {
+    if (!normalizedDogQuery) return false;
+    const customer = dog.customerId ? customerById.get(dog.customerId) : null;
+    const haystack = `${dog.name} ${customer?.name ?? ""} ${customer?.phone ?? ""}`
+      .toLocaleLowerCase("ko-KR")
+      .replaceAll("-", "");
+    return haystack.includes(normalizedDogQuery.replaceAll("-", ""));
+  }).slice(0, 8);
+  const customerResults = (options?.customers ?? []).filter((customer) => {
+    if (!normalizedCustomerQuery) return false;
+    const haystack = `${customer.name ?? ""} ${customer.phone ?? ""} ${(dogsByCustomer.get(customer.id) ?? []).join(" ")}`
+      .toLocaleLowerCase("ko-KR")
+      .replaceAll("-", "");
+    return haystack.includes(normalizedCustomerQuery.replaceAll("-", ""));
+  }).slice(0, 8);
   const toggleDog = (id: string) => {
     const selected = form.dogIds.includes(id);
     const dog = options?.dogs.find((row) => row.id === id);
@@ -756,7 +840,7 @@ function ScheduleFormModal({
       !selected && dog?.customerId && !form.customerIds.includes(dog.customerId)
         ? [...form.customerIds, dog.customerId]
         : form.customerIds;
-    patch({ dogIds, customerIds });
+    patchWithAutoTitle({ dogIds, customerIds });
   };
   return (
     <Modal
@@ -767,8 +851,30 @@ function ScheduleFormModal({
       resetKey={editing === "new" ? "new" : editing?.id}
     >
       <form onSubmit={onSubmit} className="space-y-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="캘린더" required>
+            <Select value={form.calendarId} onChange={(event) => patchWithAutoTitle({ calendarId: event.target.value, scheduleTypeId: "" })}>
+              <option value="">캘린더 선택</option>
+              {options?.calendars.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+            </Select>
+          </Field>
+          <Field label="일정 유형">
+            <Select value={form.scheduleTypeId} disabled={!form.calendarId} onChange={(event) => patchWithAutoTitle({ scheduleTypeId: event.target.value })}>
+              <option value="">선택 안 함 · 기타로 저장</option>
+              {options?.scheduleTypes.filter((row) => row.calendarIds?.includes(form.calendarId)).map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+            </Select>
+          </Field>
+        </div>
         <Field label="제목" required>
-          <Input required value={form.title} onChange={(event) => patch({ title: event.target.value })} placeholder="일정 제목" />
+          <Input
+            required
+            value={form.title}
+            onChange={(event) => {
+              onTitleManuallyEdited(true);
+              patch({ title: event.target.value });
+            }}
+            placeholder="반려견과 일정 유형을 선택하면 자동 입력됩니다"
+          />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="날짜" required>
@@ -856,40 +962,39 @@ function ScheduleFormModal({
                 })
               }
             >
+              <span
+                aria-hidden="true"
+                className="mr-2 h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: row.scheduleColor ?? "#5B7FA3" }}
+              />
               {row.name || "이름 미등록"}
             </PickerButton>
           ))}
         </Picker>
-        <Picker label="반려견" empty="연결할 반려견이 없습니다.">
-          {options?.dogs.map((row) => (
-            <PickerButton key={row.id} selected={form.dogIds.includes(row.id)} onClick={() => toggleDog(row.id)}>
-              {row.name}
-            </PickerButton>
-          ))}
-        </Picker>
-        <Picker label="보호자" empty="연결할 보호자가 없습니다.">
-          {options?.customers.map((row) => (
-            <PickerButton
-              key={row.id}
-              selected={form.customerIds.includes(row.id)}
-              onClick={() =>
-                patch({
-                  customerIds: form.customerIds.includes(row.id)
-                    ? form.customerIds.filter((id) => id !== row.id)
-                    : [...form.customerIds, row.id],
-                })
-              }
-            >
-              {row.name || "이름 미등록"}
-            </PickerButton>
-          ))}
-        </Picker>
-        <Field label="일정 유형">
-          <Select value={form.scheduleTypeId} onChange={(event) => patch({ scheduleTypeId: event.target.value })}>
-            <option value="">선택 안 함 · 기타로 저장</option>
-            {options?.scheduleTypes.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-          </Select>
-        </Field>
+        <EntitySearch
+          label="반려견"
+          query={dogQuery}
+          onQuery={setDogQuery}
+          placeholder="반려견, 보호자 또는 전화번호 검색"
+          selected={(options?.dogs ?? []).filter((row) => form.dogIds.includes(row.id)).map((row) => ({ id: row.id, primary: row.name, secondary: customerById.get(row.customerId ?? "")?.name ?? "보호자 미연결" }))}
+          results={dogResults.map((row) => {
+            const customer = customerById.get(row.customerId ?? "");
+            return { id: row.id, primary: row.name, secondary: `${customer?.name ?? "보호자 미연결"} · ${customer?.phone ? formatPhone(customer.phone) : "전화번호 미등록"}` };
+          })}
+          onToggle={(id) => { toggleDog(id); setDogQuery(""); }}
+        />
+        <EntitySearch
+          label="보호자"
+          query={customerQuery}
+          onQuery={setCustomerQuery}
+          placeholder="보호자, 전화번호 또는 반려견 검색"
+          selected={(options?.customers ?? []).filter((row) => form.customerIds.includes(row.id)).map((row) => ({ id: row.id, primary: row.name || "이름 미등록", secondary: row.phone ? formatPhone(row.phone) : "전화번호 미등록" }))}
+          results={customerResults.map((row) => ({ id: row.id, primary: row.name || "이름 미등록", secondary: `${row.phone ? formatPhone(row.phone) : "전화번호 미등록"} · ${(dogsByCustomer.get(row.id) ?? []).join(", ") || "연결된 반려견 없음"}` }))}
+          onToggle={(id) => {
+            patch({ customerIds: form.customerIds.includes(id) ? form.customerIds.filter((value) => value !== id) : [...form.customerIds, id] });
+            setCustomerQuery("");
+          }}
+        />
         <Field label="메모">
           <Textarea value={form.memo} onChange={(event) => patch({ memo: event.target.value })} placeholder="필요한 내용을 기록하세요" />
         </Field>
@@ -900,6 +1005,29 @@ function ScheduleFormModal({
         </div>
       </form>
     </Modal>
+  );
+}
+
+function EntitySearch({
+  label, query, onQuery, placeholder, selected, results, onToggle,
+}: {
+  label: string;
+  query: string;
+  onQuery: (value: string) => void;
+  placeholder: string;
+  selected: Array<{ id: string; primary: string; secondary: string }>;
+  results: Array<{ id: string; primary: string; secondary: string }>;
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium text-text-primary">{label}</legend>
+      {selected.length > 0 && <div className="flex flex-wrap gap-2">{selected.map((row) => <button key={row.id} type="button" onClick={() => onToggle(row.id)} className="rounded-full bg-primary-soft px-3 py-2 text-left text-xs font-semibold text-primary">{row.primary} <span className="ml-1 font-normal text-text-secondary">×</span></button>)}</div>}
+      <SearchBox value={query} onClear={() => onQuery("")} onChange={(event) => onQuery(event.target.value)} placeholder={placeholder} autoComplete="off" />
+      {query.trim() && <div role="listbox" className="max-h-56 overflow-auto rounded-xl border border-border bg-surface p-1 shadow-sm">
+        {results.length ? results.map((row) => <button key={row.id} type="button" role="option" aria-selected={selected.some((item) => item.id === row.id)} onClick={() => onToggle(row.id)} className="flex min-h-14 w-full flex-col justify-center rounded-lg px-3 text-left hover:bg-primary-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"><strong className="text-sm text-text-primary">{row.primary}</strong><span className="mt-0.5 text-xs text-text-muted">{row.secondary}</span></button>) : <p className="px-3 py-4 text-sm text-text-muted">검색 결과가 없습니다.</p>}
+      </div>}
+    </fieldset>
   );
 }
 

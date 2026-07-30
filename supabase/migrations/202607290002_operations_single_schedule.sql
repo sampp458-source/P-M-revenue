@@ -177,11 +177,15 @@ begin
     select 1
     from unnest(coalesce(p_assignee_ids, '{}'::uuid[])) requested(id)
     left join public.profiles profile on profile.id = requested.id
+    left join public.operation_memberships membership
+      on membership.profile_id = requested.id
     where profile.id is null
       or profile.is_active is distinct from true
       or profile.account_status is distinct from 'active'
+      or membership.profile_id is null
+      or membership.is_active is distinct from true
   ) then
-    raise exception '활성 담당자만 일정에 연결할 수 있습니다.'
+    raise exception '활성 Operations 구성원만 담당자로 연결할 수 있습니다.'
       using errcode = '22023';
   end if;
 
@@ -661,6 +665,23 @@ begin
   if schedule_row.version <> p_expected_version then
     raise exception '다른 사용자가 먼저 일정을 수정했습니다. 새로고침 후 다시 시도해 주세요.'
       using errcode = '40001';
+  end if;
+
+  if schedule_row.status = p_status then
+    return public.operation_schedule_json(p_schedule_id);
+  end if;
+
+  if schedule_row.status = 'scheduled'
+    and p_status not in ('completed', 'cancelled') then
+    raise exception '예정 일정은 완료 또는 취소로만 변경할 수 있습니다.'
+      using errcode = '22023';
+  elsif schedule_row.status = 'completed'
+    and p_status <> 'cancelled' then
+    raise exception '완료 일정은 취소로만 변경할 수 있습니다.'
+      using errcode = '22023';
+  elsif schedule_row.status = 'cancelled' then
+    raise exception '취소된 일정의 상태는 다시 변경할 수 없습니다.'
+      using errcode = '22023';
   end if;
 
   perform set_config(

@@ -7,7 +7,7 @@ import { formatPhone } from "../lib/phone";
 
 type AccountStatus = "pending" | "active" | "rejected" | "inactive";
 type OperationRole = "owner" | "manager" | "staff";
-interface StaffRow { id: string; name: string; email: string | null; phone: string | null; role: "admin" | "staff"; status: AccountStatus; createdAt: string; approvedAt: string | null; deactivatedAt: string | null; operationRole: OperationRole | null; operationActive: boolean; operationUpdatedAt: string | null }
+interface StaffRow { id: string; name: string; email: string | null; phone: string | null; role: "admin" | "staff"; status: AccountStatus; createdAt: string; approvedAt: string | null; deactivatedAt: string | null; operationRole: OperationRole | null; operationActive: boolean; operationUpdatedAt: string | null; scheduleColor: string | null }
 type ConfirmAction = "approve" | "restore";
 type ReasonAction = "reject" | "deactivate";
 
@@ -19,6 +19,7 @@ const operationRoleHelp: Record<OperationRole, string> = {
   staff: "일정 조회·등록·수정·완료·취소 가능",
 };
 const operationRoles = ["owner", "manager", "staff"] as const;
+const scheduleColors = ["#4568B2", "#52B8D0", "#C99845", "#5B7FA3", "#5C7C6F", "#B56A6A", "#7A6FB0", "#3F7F89"];
 const shortDate = new Intl.DateTimeFormat("ko-KR", { year: "2-digit", month: "numeric", day: "numeric" });
 const shortTime = new Intl.DateTimeFormat("ko-KR", { hour: "numeric", minute: "2-digit" });
 const DateTimeCell = ({ value }: { value: string | null }) => {
@@ -52,13 +53,16 @@ export function StaffManagementPage() {
   const [operationLoadError, setOperationLoadError] = useState("");
   const [roleEditing, setRoleEditing] = useState<StaffRow | null>(null);
   const [selectedOperationRole, setSelectedOperationRole] = useState<OperationRole>("staff");
+  const [colorEditing, setColorEditing] = useState<StaffRow | null>(null);
+  const [selectedScheduleColor, setSelectedScheduleColor] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true); setLoadError(false);
     setOperationLoadError("");
-    const [result, membershipResult] = await Promise.all([
+    const [result, membershipResult, colorResult] = await Promise.all([
       supabase.from("profiles").select("id, name, email, phone, role, account_status, created_at, approved_at, deactivated_at").order("created_at", { ascending: false }),
       supabase.rpc("get_operation_membership_directory"),
+      supabase.rpc("get_active_operation_assignees"),
     ]);
     if (result.error) { setRows([]); setLoadError(true); }
     else {
@@ -66,10 +70,14 @@ export function StaffManagementPage() {
         ((membershipResult.data ?? []) as { profile_id: string; operation_role: OperationRole; membership_is_active: boolean; membership_updated_at: string }[])
           .map((membership) => [membership.profile_id, membership]),
       );
+      const colorByProfile = new Map(
+        ((colorResult.data ?? []) as { profile_id: string; schedule_color: string | null }[])
+          .map((membership) => [membership.profile_id, membership.schedule_color]),
+      );
       if (membershipResult.error) setOperationLoadError("운영 권한 정보를 조회할 수 없습니다.");
       setRows((result.data ?? []).map((row) => {
         const membership = membershipByProfile.get(row.id);
-        return { id: row.id, name: row.name, email: row.email, phone: row.phone, role: row.role as StaffRow["role"], status: row.account_status as AccountStatus, createdAt: row.created_at, approvedAt: row.approved_at, deactivatedAt: row.deactivated_at, operationRole: membership?.operation_role ?? null, operationActive: membership?.membership_is_active ?? false, operationUpdatedAt: membership?.membership_updated_at ?? null };
+        return { id: row.id, name: row.name, email: row.email, phone: row.phone, role: row.role as StaffRow["role"], status: row.account_status as AccountStatus, createdAt: row.created_at, approvedAt: row.approved_at, deactivatedAt: row.deactivated_at, operationRole: membership?.operation_role ?? null, operationActive: membership?.membership_is_active ?? false, operationUpdatedAt: membership?.membership_updated_at ?? null, scheduleColor: colorByProfile.get(row.id) ?? null };
       }));
     }
     setLoading(false);
@@ -129,6 +137,23 @@ export function StaffManagementPage() {
     await load();
   };
 
+  const saveScheduleColor = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!colorEditing || processing) return;
+    setProcessing(true); setActionError("");
+    const result = await supabase.rpc("set_operation_member_schedule_color", {
+      p_target_profile_id: colorEditing.id,
+      p_schedule_color: selectedScheduleColor || null,
+      p_expected_updated_at: colorEditing.operationUpdatedAt,
+      p_request_id: crypto.randomUUID(),
+    });
+    setProcessing(false);
+    if (result.error) { setActionError(operationRoleErrorMessage(result.error.message, result.error.code)); return; }
+    setNotice(`${colorEditing.name}님의 일정 색상을 변경했습니다.`);
+    setColorEditing(null);
+    await load();
+  };
+
   return <>
     <PageHeader title="직원 관리" description="직원 계정 신청을 승인하고 재직 상태를 관리합니다." />
     <FilterToolbar className="sm:grid-cols-2"><SearchBox aria-label="직원 검색" placeholder="이름, 이메일 또는 휴대폰 검색" value={query} onClear={() => setQuery("")} onChange={(event) => setQuery(event.target.value)} /><Select aria-label="직원 상태 필터" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">전체 상태</option>{Object.entries(statusLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></FilterToolbar>
@@ -184,6 +209,7 @@ export function StaffManagementPage() {
                 <td>
                   <div className="flex items-center justify-end gap-1.5">
                     {!operationLoadError && canManageOperationRoles && row.status !== "pending" && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedOperationRole(row.operationRole ?? "staff"); setRoleEditing(row); }}>운영 권한</Button>}
+                    {!operationLoadError && canManageOperationRoles && row.operationActive && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ?? ""); setColorEditing(row); }}><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: row.scheduleColor ?? "#5B7FA3" }} />일정 색상</Button>}
                     {row.role === "staff" && row.status === "pending" && <>
                       <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setConfirming({ row, action: "approve" }); }}>승인</Button>
                       <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setReason(""); setReasoning({ row, action: "reject" }); }}>거절</Button>
@@ -237,6 +263,17 @@ export function StaffManagementPage() {
           <Button type="button" variant="secondary" disabled={processing} onClick={() => setRoleEditing(null)}>취소</Button>
           <Button disabled={processing || selectedOperationRole === roleEditing?.operationRole}>{processing ? "저장 중..." : "권한 저장"}</Button>
         </div>
+      </form>
+    </Modal>
+    <Modal open={!!colorEditing} onClose={() => !processing && setColorEditing(null)} title="담당자 일정 색상">
+      <form onSubmit={saveScheduleColor} className="space-y-5">
+        <div><p className="font-semibold text-text-primary">{colorEditing?.name}</p><p className="mt-1 text-sm text-text-secondary">Today와 향후 캘린더 일정에 동일하게 사용됩니다.</p></div>
+        <div className="grid grid-cols-4 gap-3">
+          {scheduleColors.map((color) => <button key={color} type="button" aria-label={`${color} 선택`} aria-pressed={selectedScheduleColor === color} onClick={() => setSelectedScheduleColor(color)} className={`flex h-12 items-center justify-center rounded-xl border-2 ${selectedScheduleColor === color ? "border-primary" : "border-transparent"}`}><span className="h-7 w-7 rounded-full shadow-sm" style={{ backgroundColor: color }} /></button>)}
+        </div>
+        <button type="button" className="text-sm font-semibold text-text-secondary hover:text-primary" onClick={() => setSelectedScheduleColor("")}>기본 캘린더 색상 사용</button>
+        {actionError && <p role="alert" className="text-sm text-error">{actionError}</p>}
+        <div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={processing} onClick={() => setColorEditing(null)}>취소</Button><Button disabled={processing}>{processing ? "저장 중..." : "색상 저장"}</Button></div>
       </form>
     </Modal>
     {notice && <Toast message={notice} onClose={() => setNotice("")} />}

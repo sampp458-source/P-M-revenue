@@ -18,12 +18,32 @@ begin
     end if;
   end if;
 
-  if to_regclass('public.operation_schedule_series') is not null then
-    execute 'select count(*) from public.operation_schedule_series'
+  if to_regclass('public.operation_schedule_assignees') is not null then
+    execute 'select count(*) from public.operation_schedule_assignees'
       into row_count;
     if row_count > 0 then
       raise exception
-        'operation_schedule_series에 %건이 존재하여 Rollback을 중단합니다.',
+        'operation_schedule_assignees에 %건이 존재하여 Rollback을 중단합니다.',
+        row_count;
+    end if;
+  end if;
+
+  if to_regclass('public.operation_schedule_customers') is not null then
+    execute 'select count(*) from public.operation_schedule_customers'
+      into row_count;
+    if row_count > 0 then
+      raise exception
+        'operation_schedule_customers에 %건이 존재하여 Rollback을 중단합니다.',
+        row_count;
+    end if;
+  end if;
+
+  if to_regclass('public.operation_schedule_dogs') is not null then
+    execute 'select count(*) from public.operation_schedule_dogs'
+      into row_count;
+    if row_count > 0 then
+      raise exception
+        'operation_schedule_dogs에 %건이 존재하여 Rollback을 중단합니다.',
         row_count;
     end if;
   end if;
@@ -59,13 +79,6 @@ begin
     execute 'drop trigger if exists operation_schedules_audit on public.operation_schedules';
     execute 'drop trigger if exists operation_schedules_block_delete on public.operation_schedules';
   end if;
-
-  if to_regclass('public.operation_schedule_series') is not null then
-    execute 'drop trigger if exists operation_schedule_series_protect_metadata on public.operation_schedule_series';
-    execute 'drop trigger if exists operation_schedule_series_updated_at on public.operation_schedule_series';
-    execute 'drop trigger if exists operation_schedule_series_audit on public.operation_schedule_series';
-    execute 'drop trigger if exists operation_schedule_series_block_delete on public.operation_schedule_series';
-  end if;
 end;
 $$;
 
@@ -97,7 +110,6 @@ drop table if exists public.operation_schedule_assignees;
 drop table if exists public.operation_schedule_customers;
 drop table if exists public.operation_schedule_dogs;
 drop table if exists public.operation_schedules;
-drop table if exists public.operation_schedule_series;
 
 drop function if exists public.block_operation_schedule_delete();
 drop function if exists public.record_operation_schedule_audit_event();

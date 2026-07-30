@@ -91,6 +91,26 @@ describe("Operations single schedule migration", () => {
       "cardinality(coalesce(p_assignee_ids, '{}'::uuid[])) = 0",
     );
     expect(migration).toContain("담당자를 한 명 이상 선택해 주세요.");
+    expect(migration).toContain(
+      "left join public.operation_memberships membership",
+    );
+    expect(migration).toContain("membership.is_active is distinct from true");
+    expect(migration).toContain(
+      "활성 Operations 구성원만 담당자로 연결할 수 있습니다.",
+    );
+  });
+
+  it("keeps cancelled terminal and does not restore completed schedules", () => {
+    expect(migration).toContain("schedule_row.status = 'scheduled'");
+    expect(migration).toContain(
+      "p_status not in ('completed', 'cancelled')",
+    );
+    expect(migration).toContain("schedule_row.status = 'completed'");
+    expect(migration).toContain("p_status <> 'cancelled'");
+    expect(migration).toContain("schedule_row.status = 'cancelled'");
+    expect(migration).toContain(
+      "취소된 일정의 상태는 다시 변경할 수 없습니다.",
+    );
   });
 
   it("records status, archive reason, updated by, and audit request context", () => {

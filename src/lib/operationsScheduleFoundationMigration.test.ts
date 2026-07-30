@@ -11,12 +11,11 @@ const migration = readFileSync(
 );
 
 describe("Operations schedule foundation migration", () => {
-  it("creates the five schedule foundation tables in one transaction", () => {
+  it("creates only the four single-schedule tables in one transaction", () => {
     expect(migration).toMatch(/\nbegin;\n/);
     expect(migration.trimEnd().endsWith("commit;")).toBe(true);
 
     [
-      "operation_schedule_series",
       "operation_schedules",
       "operation_schedule_assignees",
       "operation_schedule_dogs",
@@ -38,26 +37,21 @@ describe("Operations schedule foundation migration", () => {
 
     const schedulesDefinition = migration.slice(
       migration.indexOf("create table if not exists public.operation_schedules"),
-      migration.indexOf(
-        "create unique index if not exists operation_schedules_series_occurrence_uidx",
-      ),
+      migration.indexOf("create table if not exists public.operation_schedule_assignees"),
     );
     expect(schedulesDefinition).not.toContain("business_unit_id");
     expect(schedulesDefinition).not.toContain("scope_type");
   });
 
-  it("defines recurrence, time, retry, and concurrency foundations", () => {
-    expect(migration).toContain(
-      "recurrence_frequency in ('daily', 'weekly', 'monthly')",
-    );
-    expect(migration).toContain("rolling_horizon_months integer not null default 12");
+  it("defines time, retry, and concurrency foundations without recurrence", () => {
     expect(migration).toContain("request_id uuid not null unique");
     expect(migration).toContain("version integer not null default 1");
     expect(migration).toContain("ends_at > starts_at");
     expect(migration).toContain("timezone = 'Asia/Seoul'");
-    expect(migration).toContain(
-      "on public.operation_schedules (series_id, original_occurrence_at)",
-    );
+    expect(migration).not.toContain("operation_schedule_series");
+    expect(migration).not.toContain("series_id");
+    expect(migration).not.toContain("original_occurrence_at");
+    expect(migration).not.toContain("recurrence");
   });
 
   it("links multiple employees, dogs, and customers without copying masters", () => {
@@ -84,6 +78,11 @@ describe("Operations schedule foundation migration", () => {
     expect(migration).toContain(
       "Operations 일정 원장은 물리 삭제할 수 없습니다.",
     );
+    expect(migration).toContain(
+      "if tg_table_name = 'operation_schedules'",
+    );
+    expect(migration).toContain("parsed_request_id := null");
+    expect(migration).toContain("to_jsonb(new)");
   });
 
   it("allows active Operations members to read but does not open direct writes", () => {
