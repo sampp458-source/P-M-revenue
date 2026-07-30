@@ -19,7 +19,18 @@ const operationRoleHelp: Record<OperationRole, string> = {
   staff: "일정 조회·등록·수정·완료·취소 가능",
 };
 const operationRoles = ["owner", "manager", "staff"] as const;
-const scheduleColors = ["#4568B2", "#52B8D0", "#C99845", "#5B7FA3", "#5C7C6F", "#B56A6A", "#7A6FB0", "#3F7F89"];
+const scheduleColors = [
+  { name: "브랜드 블루", value: "#4568B2" },
+  { name: "스카이", value: "#52B8D0" },
+  { name: "앰버", value: "#C99845" },
+  { name: "슬레이트", value: "#5B7FA3" },
+  { name: "세이지", value: "#5C7C6F" },
+  { name: "코랄", value: "#B56A6A" },
+  { name: "인디고", value: "#7A6FB0" },
+  { name: "틸", value: "#3F7F89" },
+  { name: "로즈", value: "#B76E79" },
+  { name: "올리브", value: "#7D8450" },
+] as const;
 const shortDate = new Intl.DateTimeFormat("ko-KR", { year: "2-digit", month: "numeric", day: "numeric" });
 const shortTime = new Intl.DateTimeFormat("ko-KR", { hour: "numeric", minute: "2-digit" });
 const DateTimeCell = ({ value }: { value: string | null }) => {
@@ -200,6 +211,13 @@ export function StaffManagementPage() {
                 <td>
                   {operationLoadError ? <span className="text-sm text-error">권한 조회 실패</span> : row.operationRole ? (
                     <div className="flex items-center gap-1.5">
+                      {scheduleColorAvailable && (
+                        <span
+                          aria-label={`${row.name} 일정 색상`}
+                          className="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white"
+                          style={{ backgroundColor: row.scheduleColor ?? "#5B7FA3" }}
+                        />
+                      )}
                       <Badge tone={row.operationRole === "owner" ? "blue" : row.operationRole === "manager" ? "amber" : "gray"}>{operationRoleLabel[row.operationRole]}</Badge>
                       {!row.operationActive && <span className="text-xs text-text-muted">접근 중지</span>}
                     </div>
@@ -212,7 +230,6 @@ export function StaffManagementPage() {
                 <td>
                   <div className="flex items-center justify-end gap-1.5">
                     {!operationLoadError && canManageOperationRoles && row.status !== "pending" && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedOperationRole(row.operationRole ?? "staff"); setRoleEditing(row); }}>운영 권한</Button>}
-                    {!operationLoadError && scheduleColorAvailable && canManageOperationRoles && row.operationActive && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ?? ""); setColorEditing(row); }}><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: row.scheduleColor ?? "#5B7FA3" }} />일정 색상</Button>}
                     {row.role === "staff" && row.status === "pending" && <>
                       <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setConfirming({ row, action: "approve" }); }}>승인</Button>
                       <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setReason(""); setReasoning({ row, action: "reject" }); }}>거절</Button>
@@ -261,6 +278,30 @@ export function StaffManagementPage() {
             </div>
           ))}
         </div>
+        {scheduleColorAvailable && roleEditing?.operationActive && (
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-xl border border-border px-4 py-3 text-left transition hover:border-primary/40 hover:bg-primary-soft/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+            onClick={() => {
+              if (!roleEditing) return;
+              setSelectedScheduleColor(roleEditing.scheduleColor ?? "");
+              setColorEditing(roleEditing);
+              setRoleEditing(null);
+            }}
+          >
+            <span>
+              <b className="block text-sm font-semibold text-text-primary">일정 색상</b>
+              <span className="mt-0.5 block text-xs text-text-secondary">
+                담당자 검색과 Today 일정에 표시됩니다.
+              </span>
+            </span>
+            <span
+              aria-hidden="true"
+              className="h-7 w-7 rounded-full border-4 border-white shadow-sm ring-1 ring-border"
+              style={{ backgroundColor: roleEditing.scheduleColor ?? "#5B7FA3" }}
+            />
+          </button>
+        )}
         {actionError && <p role="alert" className="text-sm text-red-600">{actionError}</p>}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="secondary" disabled={processing} onClick={() => setRoleEditing(null)}>취소</Button>
@@ -268,13 +309,25 @@ export function StaffManagementPage() {
         </div>
       </form>
     </Modal>
-    <Modal open={!!colorEditing} onClose={() => !processing && setColorEditing(null)} title="담당자 일정 색상">
+    <Modal open={!!colorEditing} onClose={() => !processing && setColorEditing(null)} title="일정 색상 설정">
       <form onSubmit={saveScheduleColor} className="space-y-5">
-        <div><p className="font-semibold text-text-primary">{colorEditing?.name}</p><p className="mt-1 text-sm text-text-secondary">Today와 향후 캘린더 일정에 동일하게 사용됩니다.</p></div>
-        <div className="grid grid-cols-4 gap-3">
-          {scheduleColors.map((color) => <button key={color} type="button" aria-label={`${color} 선택`} aria-pressed={selectedScheduleColor === color} onClick={() => setSelectedScheduleColor(color)} className={`flex h-12 items-center justify-center rounded-xl border-2 ${selectedScheduleColor === color ? "border-primary" : "border-transparent"}`}><span className="h-7 w-7 rounded-full shadow-sm" style={{ backgroundColor: color }} /></button>)}
+        <div><p className="font-semibold text-text-primary">{colorEditing?.name}</p><p className="mt-1 text-sm text-text-secondary">담당자 표시 전용 색상입니다. 캘린더 범위 색상과는 별도로 사용됩니다.</p></div>
+        <div className="grid grid-cols-5 gap-2.5">
+          {scheduleColors.map((color) => (
+            <button
+              key={color.value}
+              type="button"
+              aria-label={`${color.name} 선택`}
+              aria-pressed={selectedScheduleColor === color.value}
+              title={color.name}
+              onClick={() => setSelectedScheduleColor(color.value)}
+              className={`flex h-12 items-center justify-center rounded-xl border-2 transition hover:bg-surface-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${selectedScheduleColor === color.value ? "border-primary bg-primary-soft/50" : "border-transparent"}`}
+            >
+              <span className="h-7 w-7 rounded-full shadow-sm ring-1 ring-black/5" style={{ backgroundColor: color.value }} />
+            </button>
+          ))}
         </div>
-        <button type="button" className="text-sm font-semibold text-text-secondary hover:text-primary" onClick={() => setSelectedScheduleColor("")}>기본 캘린더 색상 사용</button>
+        <button type="button" className="text-sm font-semibold text-text-secondary hover:text-primary" onClick={() => setSelectedScheduleColor("")}>기본 담당자 색상 사용</button>
         {actionError && <p role="alert" className="text-sm text-error">{actionError}</p>}
         <div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={processing} onClick={() => setColorEditing(null)}>취소</Button><Button disabled={processing}>{processing ? "저장 중..." : "색상 저장"}</Button></div>
       </form>
