@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Banknote } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
-import { Badge, Button, Card, ErrorState } from "../components/ui";
+import { Badge, Button, ErrorState } from "../components/ui";
 import { won } from "../lib/format";
 import { supabase } from "../lib/supabase";
 import { BusinessUnitCard, DashboardKpiHero, DashboardSkeleton, RecentSales } from "./dashboard/DashboardSections";
@@ -10,7 +9,7 @@ import { DailyRevenueTrend, DashboardPeriodFilters, SalesHeatmapCalendar } from 
 import { DashboardDateDrawer } from "./dashboard/DashboardDateDrawer";
 import { DashboardAccountingDrawer } from "./dashboard/DashboardAccountingDrawer";
 import { OutstandingPaymentsDrawer } from "./dashboard/OutstandingPaymentsDrawer";
-import { calculateDailySales, calculateSalesRangeOverview, calculateTarget, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodLabel, dashboardPeriodRange, dashboardSalesForDate, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale, type DashboardTarget } from "./dashboard/dashboardMetrics";
+import { calculateDailyRevenue, calculateDailySales, calculateSalesRangeOverview, calculateTarget, dashboardCompareLabel, dashboardComparisonRange, dashboardDefaultCompare, dashboardPeriodLabel, dashboardPeriodRange, dashboardSalesForDate, koreanToday, type BusinessUnitCode, type BusinessUnitOption, type DashboardCompare, type DashboardDateRange, type DashboardPeriod, type DashboardSale, type DashboardTarget } from "./dashboard/dashboardMetrics";
 import {
   calculateAccountingDaily,
   calculateCurrentOutstanding,
@@ -233,6 +232,15 @@ export function DashboardPage() {
     () => calculateCurrentOutstanding(sales, unitId),
     [sales, unitId],
   );
+  const selectedDateOutstanding = useMemo(
+    () =>
+      calculateDailyRevenue(
+        sales,
+        { from: selectedDate, to: selectedDate },
+        unitId,
+      )[0]?.outstanding ?? 0,
+    [sales, selectedDate, unitId],
+  );
   const accountingEvents = useMemo(() => {
     const allowedSaleIds = new Set(
       sales
@@ -278,10 +286,13 @@ export function DashboardPage() {
             visibleRange,
             division.id,
           );
-          const outstandingAmount = calculateCurrentOutstanding(
-            sales,
-            division.id,
-          );
+          const outstandingAmount = isAdmin
+            ? calculateCurrentOutstanding(sales, division.id)
+            : calculateDailyRevenue(
+                sales,
+                { from: selectedDate, to: selectedDate },
+                division.id,
+              )[0]?.outstanding ?? 0;
           return {
             ...division,
             revenue: division.salesAmount,
@@ -292,9 +303,11 @@ export function DashboardPage() {
         }),
     [
       overview.divisions,
+      isAdmin,
       payments,
       refunds,
       sales,
+      selectedDate,
       visibleRange,
     ],
   );
@@ -308,8 +321,14 @@ export function DashboardPage() {
   );
   const compareLabel = dashboardCompareLabel(compare);
   const periodLabel = dashboardPeriodLabel(period);
+  const selectedDateLabel =
+    selectedDate === today
+      ? "오늘"
+      : `${Number(selectedDate.slice(5, 7))}월 ${Number(selectedDate.slice(8, 10))}일`;
   const rangeLabel =
-    range.from === range.to ? range.from : `${range.from} ~ ${range.to}`;
+    visibleRange.from === visibleRange.to
+      ? visibleRange.from
+      : `${visibleRange.from} ~ ${visibleRange.to}`;
   const daily = useMemo(() => {
     const saleDays = calculateDailySales(sales, range, unitId);
     const accountingDays = calculateAccountingDaily(
@@ -370,9 +389,9 @@ export function DashboardPage() {
         [accountingDay],
         [accountingDay],
       )[0],
-      outstanding: currentOutstanding,
+      outstanding: isAdmin ? currentOutstanding : selectedDateOutstanding,
     };
-  }, [currentOutstanding, payments, refunds, sales, selectedDate, unitId]);
+  }, [currentOutstanding, isAdmin, payments, refunds, sales, selectedDate, selectedDateOutstanding, unitId]);
   const selectedDatePayments = useMemo(
     () => ledgerPaymentsForDate(sales, payments, selectedDate, unitId),
     [payments, sales, selectedDate, unitId],
@@ -431,50 +450,33 @@ export function DashboardPage() {
     data-dashboard-theme={selectedThemeCode}
     style={dashboardThemeStyle(selectedThemeCode)}
   >
-    {!isAdmin && (
-      <Card className="mb-6 overflow-hidden border-warning/20 bg-warning-soft/45 p-0">
-        <button
-          type="button"
-          onClick={openOutstandingDrawer}
-          className="flex min-h-24 w-full items-center gap-4 p-5 text-left transition-colors hover:bg-warning-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-warning"
-        >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface text-warning">
-            <Banknote size={20} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-xs font-semibold text-warning">현재 전체 미수</span>
-            <strong className="mt-1 block text-2xl text-text-primary tabular-nums">{won(currentOutstanding)}</strong>
-            <span className="mt-1 block text-xs text-text-muted">발생일과 관계없이 수납이 필요한 거래 보기</span>
-          </span>
-          <span className="shrink-0 text-sm font-semibold text-warning">수납하기</span>
-        </button>
-      </Card>
-    )}
     {isAdmin && <DashboardPeriodFilters period={period} range={range} unitName={selectedUnitName} compare={compare} onPeriod={selectPeriod} onCustom={selectCustomRange} onMovePeriod={moveRange} onCompare={(nextCompare) => updateQuery({ compare: nextCompare })} />}
-    {isAdmin && (
-      <section className="mb-10" aria-label={`${periodLabel} 핵심 매출 지표`}>
+    <section className="mb-10" aria-label={`${isAdmin ? periodLabel : selectedDateLabel} 핵심 매출 지표`}>
         <DashboardKpiHero
-          periodLabel={periodLabel}
+          periodLabel={isAdmin ? periodLabel : selectedDateLabel}
           compareLabel={compareLabel}
           salesAmount={selectedOverview.salesAmount}
           previousSalesAmount={selectedOverview.previousSalesAmount}
           paidAmount={selectedPayment}
           previousPaidAmount={previousPayment}
           count={selectedOverview.count}
-          monthlyTarget={monthlyTarget}
-          outstanding={currentOutstanding}
+          monthlyTarget={isAdmin ? monthlyTarget : null}
+          outstanding={isAdmin ? currentOutstanding : selectedDateOutstanding}
           refund={selectedRefund}
           onSales={() => openAccountingDrawer("sales")}
           onPayments={() => openAccountingDrawer("payments")}
           onRefunds={() => openAccountingDrawer("refunds")}
           onNet={() => openAccountingDrawer("net")}
-          onOutstanding={openOutstandingDrawer}
+          onOutstanding={isAdmin ? openOutstandingDrawer : () => openSales(selectedDate, unitId)}
+          showComparison={isAdmin}
+          outstandingLabel={isAdmin ? "현재 전체 미수" : `${selectedDateLabel} 발생 미수`}
+          outstandingDescription={isAdmin ? "현재 시점에 남아 있는 미수 잔액" : "선택한 날짜의 판매에서 발생한 미수"}
+          outstandingActionLabel={isAdmin ? "현재 미수금 목록 열기" : "선택 날짜 판매 거래 목록 열기"}
         />
       </section>
-    )}
     <section aria-labelledby="business-unit-overview-title">
-      <div className="mb-5 flex items-end justify-between gap-4 px-1"><div><div className="flex flex-wrap items-center gap-2"><h2 id="business-unit-overview-title" className="dashboard-section-title font-bold text-text-primary">사업부 비교 · 전체 기준</h2>{unitId && <Badge tone="blue">KPI는 {selectedUnitName} 기준</Badge>}</div><p className="mt-1.5 text-[13px] leading-5 text-[#778395]">{isAdmin ? "세 카드는 전체 사업부를 같은 기간으로 비교합니다. 선택한 사업부는 KPI·추이·캘린더에 적용됩니다." : `${selectedDate} 기준 · 카드를 선택하면 날짜 상세도 함께 필터링됩니다.`}</p></div>{unitId && <Button type="button" variant="ghost" onClick={() => updateQuery({ unit: null })}>전체 보기</Button>}</div>
-      <div className="grid items-stretch gap-5 lg:grid-cols-3">{coreDivisions.map((division, index) => <BusinessUnitCard key={division.id} order={index + 1} code={division.code ?? ""} name={division.name} revenue={division.revenue} receivedAmount={division.receivedAmount} refundAmount={division.refundAmount} outstandingAmount={division.outstandingAmount} restricted={!isAdmin} selected={unitId === division.id} muted={Boolean(unitId && unitId !== division.id)} onClick={() => updateQuery({ unit: unitId === division.id ? null : division.id })} />)}</div>
+      <div className="mb-5 flex items-end justify-between gap-4 px-1"><div><div className="flex flex-wrap items-center gap-2"><h2 id="business-unit-overview-title" className="dashboard-section-title font-bold text-text-primary">{isAdmin ? "사업부 비교 · 전체 기준" : "사업부 비교 · 선택 날짜 기준"}</h2>{unitId && <Badge tone="blue">KPI는 {selectedUnitName} 기준</Badge>}</div><p className="mt-1.5 text-[13px] leading-5 text-[#778395]">{isAdmin ? "세 카드는 전체 사업부를 같은 기간으로 비교합니다. 선택한 사업부는 KPI·추이·캘린더에 적용됩니다." : `${selectedDate} 기준 · 카드를 선택하면 날짜 상세도 함께 필터링됩니다.`}</p></div>{unitId && <Button type="button" variant="ghost" onClick={() => updateQuery({ unit: null })}>전체 보기</Button>}</div>
+      <div className="grid items-stretch gap-5 lg:grid-cols-3">{coreDivisions.map((division, index) => <BusinessUnitCard key={division.id} order={index + 1} code={division.code ?? ""} name={division.name} revenue={division.revenue} receivedAmount={division.receivedAmount} refundAmount={division.refundAmount} outstandingAmount={division.outstandingAmount} outstandingLabel={isAdmin ? "현재 미수" : "발생 미수"} restricted={!isAdmin} selected={unitId === division.id} muted={Boolean(unitId && unitId !== division.id)} onClick={() => updateQuery({ unit: unitId === division.id ? null : division.id })} />)}</div>
       {isAdmin && otherRevenue > 0 && <p className="mt-3 rounded-xl border border-warning/20 bg-warning-soft px-4 py-3 text-sm text-text-secondary">기타·비활성 사업부 매출 {won(otherRevenue)}이 총매출에 포함되어 있습니다.</p>}
     </section>
     <div className={dateDrawerOpen ? "transition-[padding] duration-200 lg:pr-[min(480px,44vw)]" : "transition-[padding] duration-200"}>
@@ -482,7 +484,7 @@ export function DashboardPage() {
       {isAdmin && <div className="mt-8"><RecentSales rows={recent} onOpen={() => navigate(`/sales?period=custom&start=${range.from}&end=${range.to}${unitId ? `&unit=${unitId}` : ""}`)} /></div>}
       {isAdmin && <div className="mt-8"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={selectCalendarDate} /></div>}
     </div>
-    <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} themeCode={selectedThemeCode} summary={selectedDateSummary} rows={selectedDateSales} payments={selectedDatePayments} refunds={selectedDateRefunds} paymentMethodTotals={selectedDatePaymentMethods} units={units} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onOpenSales={() => openSales(selectedDate, unitId)} />
+    <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} themeCode={selectedThemeCode} summary={selectedDateSummary} rows={selectedDateSales} payments={selectedDatePayments} refunds={selectedDateRefunds} paymentMethodTotals={selectedDatePaymentMethods} units={units} outstandingLabel={isAdmin ? "현재 미수" : "발생 미수"} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onOpenSales={() => openSales(selectedDate, unitId)} />
     <DashboardAccountingDrawer
       open={Boolean(accountingDrawerView)}
       view={accountingDrawerView ?? "sales"}
@@ -501,15 +503,17 @@ export function DashboardPage() {
         )
       }
     />
-    <OutstandingPaymentsDrawer
-      open={outstandingDrawerOpen}
-      unitId={unitId}
-      unitName={selectedUnitName}
-      units={units}
-      sales={sales}
-      onClose={() => setOutstandingDrawerOpen(false)}
-      onChanged={() => load(true)}
-      onOpenSale={openAccountingSale}
-    />
+    {isAdmin && (
+      <OutstandingPaymentsDrawer
+        open={outstandingDrawerOpen}
+        unitId={unitId}
+        unitName={selectedUnitName}
+        units={units}
+        sales={sales}
+        onClose={() => setOutstandingDrawerOpen(false)}
+        onChanged={() => load(true)}
+        onOpenSale={openAccountingSale}
+      />
+    )}
   </div>;
 }

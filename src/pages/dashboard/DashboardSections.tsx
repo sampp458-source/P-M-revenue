@@ -33,6 +33,10 @@ export function DashboardKpiHero({
   onRefunds,
   onNet,
   onOutstanding,
+  showComparison = true,
+  outstandingLabel = "현재 전체 미수",
+  outstandingDescription = "현재 시점에 남아 있는 미수 잔액",
+  outstandingActionLabel = "현재 미수금 목록 열기",
 }: {
   periodLabel: string;
   compareLabel: string;
@@ -49,6 +53,10 @@ export function DashboardKpiHero({
   onRefunds: () => void;
   onNet: () => void;
   onOutstanding?: () => void;
+  showComparison?: boolean;
+  outstandingLabel?: string;
+  outstandingDescription?: string;
+  outstandingActionLabel?: string;
 }) {
   const salesComparison = formatRevenueComparison(
     salesAmount,
@@ -63,8 +71,8 @@ export function DashboardKpiHero({
       label: `${periodLabel} 판매금액`,
       value: won(salesAmount),
       description: `${periodLabel} 발생한 전체 판매 · 미수 포함 · ${count.toLocaleString("ko-KR")}건`,
-      signalLabel: `${compareLabel} 대비`,
-      signal: salesComparison,
+      signalLabel: showComparison ? `${compareLabel} 대비` : "",
+      signal: showComparison ? salesComparison : "",
       className: "bg-white",
       labelClass: "text-primary",
       valueClass: "text-text-primary",
@@ -81,8 +89,8 @@ export function DashboardKpiHero({
       label: `${periodLabel} 실수납`,
       value: won(paidAmount),
       description: `${periodLabel} 실제 입금 · 이전 미수 회수 포함`,
-      signalLabel: `${compareLabel} 대비`,
-      signal: netComparison,
+      signalLabel: showComparison ? `${compareLabel} 대비` : "",
+      signal: showComparison ? netComparison : "",
       className: "border-primary/15 bg-primary-subtle",
       labelClass: "text-primary",
       valueClass: "text-text-primary",
@@ -92,12 +100,13 @@ export function DashboardKpiHero({
         : netComparison.startsWith("—")
           ? "text-text-secondary"
           : "text-primary",
-      targetText:
-        monthlyTarget === null
+      targetText: showComparison
+        ? monthlyTarget === null
           ? "목표 미설정"
           : monthlyTarget > 0
             ? `목표 대비 ${((paidAmount / monthlyTarget) * 100).toFixed(1)}%`
-            : "목표 미설정",
+            : "목표 미설정"
+        : "",
       actionLabel: "결제 원장 열기",
       onClick: onPayments,
     },
@@ -116,9 +125,9 @@ export function DashboardKpiHero({
       onClick: onRefunds,
     },
     {
-      label: "현재 전체 미수",
+      label: outstandingLabel,
       value: won(outstanding),
-      description: "현재 시점에 남아 있는 미수 잔액",
+      description: outstandingDescription,
       className: "border-warning/15 bg-warning-soft/70",
       labelClass: "text-warning",
       valueClass: "text-text-primary",
@@ -126,7 +135,7 @@ export function DashboardKpiHero({
       signalLabel: "",
       signal: "",
       signalClass: "",
-      actionLabel: "현재 미수금 목록 열기",
+      actionLabel: outstandingActionLabel,
       onClick: onOutstanding,
     },
   ];
@@ -221,6 +230,7 @@ export function BusinessUnitCard({
   receivedAmount,
   refundAmount,
   outstandingAmount,
+  outstandingLabel = "현재 미수",
   restricted = false,
   selected = false,
   muted = false,
@@ -233,6 +243,7 @@ export function BusinessUnitCard({
   receivedAmount: number;
   refundAmount: number;
   outstandingAmount: number;
+  outstandingLabel?: string;
   restricted?: boolean;
   selected?: boolean;
   muted?: boolean;
@@ -285,7 +296,7 @@ export function BusinessUnitCard({
           <BusinessMetric label="판매금액" value={revenue} />
           <BusinessMetric label="실수납" value={receivedAmount} />
           <BusinessMetric label="환불" value={refundAmount} danger />
-          <BusinessMetric label="현재 미수" value={outstandingAmount} warning />
+          <BusinessMetric label={outstandingLabel} value={outstandingAmount} warning />
         </span>
       </button>
       </Card>

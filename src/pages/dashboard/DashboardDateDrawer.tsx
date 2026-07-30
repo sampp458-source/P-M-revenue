@@ -52,6 +52,7 @@ export function DashboardDateDrawer({
   refunds,
   paymentMethodTotals,
   units,
+  outstandingLabel = "현재 미수",
   onClose,
   onOpenSale,
   onOpenSales,
@@ -73,6 +74,7 @@ export function DashboardDateDrawer({
   }>;
   paymentMethodTotals: Map<string, number>;
   units: BusinessUnitOption[];
+  outstandingLabel?: string;
   onClose: () => void;
   onOpenSale: (saleId: string) => void;
   onOpenSales: () => void;
@@ -215,7 +217,7 @@ export function DashboardDateDrawer({
             </strong>
             <div className="mt-1.5 grid grid-cols-1 gap-1 border-t border-white/[0.08] pt-1.5 min-[430px]:grid-cols-3 min-[430px]:gap-2">
               <Summary label="실수납" value={won(summary.revenue)} />
-              <Summary label="현재 미수" value={won(summary.outstanding)} warning={summary.outstanding > 0} />
+              <Summary label={outstandingLabel} value={won(summary.outstanding)} warning={summary.outstanding > 0} />
               <Summary label="환불" value={won(summary.refund)} warning={summary.refund > 0} />
             </div>
           </div>
