@@ -1,5 +1,6 @@
 import {
   CheckCircle2,
+  CircleX,
   ChevronRight,
   ClipboardCheck,
   Clock3,
@@ -50,6 +51,8 @@ import {
   fetchOperationSchedulesForDay,
   mergeOperationTodaySchedule,
   nextSeoulDate,
+  operationDogProfileLine,
+  operationPersonDisplayName,
   seoulDateKey,
   schedulePrimaryAssignee,
   setOperationScheduleStatus,
@@ -611,6 +614,7 @@ function ScheduleRow({
   const primaryAssigneeColor =
     primaryAssignee?.scheduleColor ?? DEFAULT_OPERATION_SCHEDULE_COLOR;
   const completed = schedule.status === "completed";
+  const cancelled = schedule.status === "cancelled";
   const time = schedule.allDay
     ? "종일"
     : new Intl.DateTimeFormat("ko-KR", {
@@ -626,7 +630,8 @@ function ScheduleRow({
       onClick={onOpen}
       className={cn(
         "group relative grid w-full grid-cols-[3.75rem_minmax(0,1fr)_auto] items-center gap-3 border-l-[3px] px-4 py-4 text-left transition hover:bg-surface-secondary/65 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:px-5",
-        completed && "bg-surface-secondary/30",
+        completed && "bg-surface-secondary/30 opacity-70",
+        cancelled && "bg-surface-secondary/20 opacity-55",
       )}
     >
       <span
@@ -637,7 +642,7 @@ function ScheduleRow({
       <time
         className={cn(
           "self-start pt-0.5 text-base font-bold tabular-nums",
-          completed ? "text-text-muted" : "text-text-primary",
+          completed || cancelled ? "text-text-muted" : "text-text-primary",
         )}
       >
         {time}
@@ -646,12 +651,22 @@ function ScheduleRow({
         <p
           className={cn(
             "flex min-w-0 items-center gap-1.5 truncate font-semibold transition group-hover:text-primary",
-            completed ? "text-text-secondary" : "text-text-primary",
+            completed || cancelled
+              ? "text-text-secondary"
+              : "text-text-primary",
+            cancelled && "line-through",
           )}
         >
           {completed && (
             <CheckCircle2
               aria-label="완료"
+              size={14}
+              className="shrink-0 text-text-muted"
+            />
+          )}
+          {cancelled && (
+            <CircleX
+              aria-label="취소"
               size={14}
               className="shrink-0 text-text-muted"
             />
@@ -666,13 +681,15 @@ function ScheduleRow({
               style={{ backgroundColor: primaryAssigneeColor }}
             />
             <span className="truncate">
-              {primaryAssignee?.name || "담당자 미정"}
+              {primaryAssignee
+                ? operationPersonDisplayName(primaryAssignee)
+                : "담당자 미정"}
             </span>
             {secondaryAssignees.map((assignee) => (
               <span
                 key={assignee.id}
-                aria-label={`${assignee.name ?? "이름 미등록"} 색상`}
-                title={assignee.name ?? "이름 미등록"}
+                aria-label={`${operationPersonDisplayName(assignee)} 색상`}
+                title={operationPersonDisplayName(assignee)}
                 className="h-2 w-2 shrink-0 rounded-full border border-white shadow-sm"
                 style={{
                   backgroundColor:
@@ -954,15 +971,17 @@ function ScheduleFormModal({
               />
               <span className="min-w-0">
                 <strong className="block truncate text-sm text-text-primary">
-                  {row.name || "이름 미등록"}
+                  {operationPersonDisplayName(row)}
                 </strong>
-                <span className="mt-0.5 block text-xs text-text-muted">
-                  {row.operationRole === "owner"
-                    ? "최고 관리자"
-                    : row.operationRole === "manager"
-                      ? "관리자"
-                      : "직원"}
-                </span>
+                {row.operationRole && (
+                  <span className="mt-0.5 block text-xs text-text-muted">
+                    {row.operationRole === "owner"
+                      ? "최고 관리자"
+                      : row.operationRole === "manager"
+                        ? "관리자"
+                        : "직원"}
+                  </span>
+                )}
               </span>
             </span>
           )}
@@ -975,7 +994,7 @@ function ScheduleFormModal({
                     row.scheduleColor ?? DEFAULT_OPERATION_SCHEDULE_COLOR,
                 }}
               />
-              {row.name || "이름 미등록"}
+              {operationPersonDisplayName(row)}
             </span>
           )}
           placeholder="담당자 이름 검색"
@@ -994,6 +1013,13 @@ function ScheduleFormModal({
           }}
           renderOption={(row) => {
             const customer = customerById.get(row.customerId ?? "");
+            const profileLine = operationDogProfileLine(row);
+            const ownerLine = [
+              customer?.name?.trim() || "",
+              customer?.phone ? phoneLast4(customer.phone) : "",
+            ]
+              .filter(Boolean)
+              .join(" · ");
             return (
               <span className="flex min-w-0 items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
@@ -1003,17 +1029,26 @@ function ScheduleFormModal({
                   <strong className="block truncate text-sm text-text-primary">
                     {row.name}
                   </strong>
-                  <span className="mt-0.5 block truncate text-xs text-text-muted">
-                    {customer?.name ?? "보호자 미연결"} ·{" "}
-                    {customer?.phone
-                      ? phoneLast4(customer.phone)
-                      : "전화번호 미등록"}
-                  </span>
+                  {profileLine && (
+                    <span className="mt-0.5 block truncate text-xs text-text-secondary">
+                      {profileLine}
+                    </span>
+                  )}
+                  {ownerLine && (
+                    <span className="mt-0.5 block truncate text-xs text-text-muted">
+                      {ownerLine}
+                    </span>
+                  )}
                 </span>
               </span>
             );
           }}
-          renderSelected={(row) => row.name}
+          renderSelected={(row) => (
+            <span className="inline-flex items-center gap-1.5">
+              <Dog aria-hidden="true" size={14} />
+              {row.name}
+            </span>
+          )}
           placeholder="반려견, 보호자 또는 전화번호 검색"
           emptyMessage="최근 선택한 반려견이 없습니다."
           recentStorageKey={`pm-os:${recentScope}:schedule-dogs`}
@@ -1091,8 +1126,12 @@ function ScheduleDetailModal({
       <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap gap-2">
-            <Badge tone={schedule.status === "completed" ? "green" : "blue"}>
-              {schedule.status === "completed" ? "완료" : "예정"}
+            <Badge tone="gray">
+              {schedule.status === "completed"
+                ? "완료"
+                : schedule.status === "cancelled"
+                  ? "취소"
+                  : "예정"}
             </Badge>
             <Badge>{schedule.calendarName}</Badge>
             <Badge>{schedule.scheduleTypeName}</Badge>
@@ -1102,7 +1141,9 @@ function ScheduleDetailModal({
             {start.date} · {schedule.allDay ? "종일" : `${start.time}–${end.time}`}
           </p>
         </div>
-        <Button variant="secondary" onClick={() => onEdit(schedule)}><Pencil size={16} />수정</Button>
+        {schedule.status !== "cancelled" && (
+          <Button variant="secondary" onClick={() => onEdit(schedule)}><Pencil size={16} />수정</Button>
+        )}
       </div>
       <dl className="mt-5 grid gap-4 sm:grid-cols-2">
         <Detail label="담당자" value={compactNames(schedule.assignees, "미지정")} />
@@ -1123,8 +1164,10 @@ function ScheduleDetailModal({
       <div className="mt-6 flex flex-wrap justify-between gap-3 border-t border-border pt-5">
         <Button variant="ghost" disabled={processing} onClick={() => onArchive(schedule)}>보관</Button>
         <div className="flex flex-wrap gap-2">
-          <Button variant="danger" disabled={processing} onClick={() => onCancel(schedule)}>취소</Button>
-          {schedule.status !== "completed" && (
+          {schedule.status !== "cancelled" && (
+            <Button variant="secondary" disabled={processing} onClick={() => onCancel(schedule)}>취소</Button>
+          )}
+          {schedule.status === "scheduled" && (
             <Button disabled={processing} onClick={() => onComplete(schedule)}>완료 처리</Button>
           )}
         </div>

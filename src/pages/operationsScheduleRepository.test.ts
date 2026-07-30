@@ -10,6 +10,8 @@ import {
   defaultOperationScheduleTypeId,
   mergeOperationTodaySchedule,
   nextSeoulDate,
+  operationDogProfileLine,
+  operationPersonDisplayName,
   seoulDateKey,
   scheduleDisplayColor,
   schedulePrimaryAssignee,
@@ -138,6 +140,24 @@ describe("Operations schedule date and display helpers", () => {
       ),
     ).toBe("이화인 외 1명");
     expect(compactNames([], "담당자 미정")).toBe("담당자 미정");
+  });
+
+  it("formats dog search details without empty separators", () => {
+    expect(
+      operationDogProfileLine({ breed: "푸들", sex: "male" }),
+    ).toBe("푸들 · 남아");
+    expect(operationDogProfileLine({ breed: null, sex: "female" })).toBe(
+      "여아",
+    );
+    expect(operationDogProfileLine({ breed: "말티즈", sex: null })).toBe(
+      "말티즈",
+    );
+    expect(operationDogProfileLine({ breed: null, sex: null })).toBe("");
+  });
+
+  it("uses the stored profile name and never exposes a profile id fallback", () => {
+    expect(operationPersonDisplayName({ name: " 이화인 " })).toBe("이화인");
+    expect(operationPersonDisplayName({ name: null })).toBe("이름 미등록");
   });
 
   it("builds a default title only when both a dog and schedule type exist", () => {
@@ -307,7 +327,7 @@ describe("Operations schedule date and display helpers", () => {
         { ...base, status: "cancelled", version: 2 },
         "2026-07-29",
       ),
-    ).toEqual([]);
+    ).toEqual([{ ...base, status: "cancelled", version: 2 }]);
     expect(
       mergeOperationTodaySchedule(
         [base],

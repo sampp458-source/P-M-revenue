@@ -21,6 +21,8 @@ export interface OperationCustomer extends OperationPerson {
 export interface OperationDog extends OperationPerson {
   name: string;
   customerId: string | null;
+  breed?: string | null;
+  sex?: "male" | "female" | null;
 }
 
 export interface OperationSchedule {
@@ -228,7 +230,7 @@ export async function fetchOperationScheduleOptions(): Promise<OperationSchedule
         .order("name"),
       supabase
         .from("dogs")
-        .select("id, name, customer_id")
+        .select("id, name, customer_id, breed, sex")
         .eq("is_active", true)
         .order("name"),
     ]);
@@ -286,6 +288,8 @@ export async function fetchOperationScheduleOptions(): Promise<OperationSchedule
       id: row.id,
       name: row.name,
       customerId: row.customer_id,
+      breed: row.breed,
+      sex: row.sex as OperationDog["sex"],
     })),
   };
 }
@@ -464,6 +468,23 @@ export function compactDogNames(rows: OperationDog[]) {
     : `${rows[0].name} 외 ${rows.length - 1}마리`;
 }
 
+export function operationPersonDisplayName(
+  person: Pick<OperationPerson, "name">,
+) {
+  return person.name?.trim() || "이름 미등록";
+}
+
+export function operationDogProfileLine(
+  dog: Pick<OperationDog, "breed" | "sex">,
+) {
+  return [
+    dog.breed?.trim() || "",
+    dog.sex === "male" ? "남아" : dog.sex === "female" ? "여아" : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 export function defaultOperationScheduleTitle(
   dogName: string | null | undefined,
   scheduleTypeName: string | null | undefined,
@@ -524,7 +545,6 @@ export function mergeOperationTodaySchedule(
   const rows = schedules.filter((schedule) => schedule.id !== changed.id);
   const occursToday =
     changed.archivedAt === null &&
-    changed.status !== "cancelled" &&
     new Date(changed.startsAt).getTime() < dayEnd &&
     new Date(changed.endsAt).getTime() > dayStart;
 
