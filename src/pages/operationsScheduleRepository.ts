@@ -11,6 +11,7 @@ export interface OperationPerson {
   id: string;
   name: string | null;
   scheduleColor?: string | null;
+  operationRole?: "owner" | "manager" | "staff" | null;
 }
 
 export interface OperationCustomer extends OperationPerson {
@@ -235,10 +236,12 @@ export async function fetchOperationScheduleOptions(): Promise<OperationSchedule
     assignees: (assigneesResult.data ?? []).map((row: {
       profile_id: string;
       profile_name: string | null;
+      operation_role: "owner" | "manager" | "staff";
       schedule_color: string | null;
     }) => ({
       id: row.profile_id,
       name: row.profile_name,
+      operationRole: row.operation_role,
       scheduleColor: row.schedule_color,
     })),
     customers: (customersResult.data ?? []).map((row) => ({
@@ -436,6 +439,22 @@ export function defaultOperationScheduleTitle(
   const normalizedScheduleTypeName = scheduleTypeName?.trim() ?? "";
   if (!normalizedDogName || !normalizedScheduleTypeName) return "";
   return `${normalizedDogName} ${normalizedScheduleTypeName}`;
+}
+
+export function suggestOperationCustomerIds(
+  currentCustomerIds: string[],
+  previousDogIds: string[],
+  nextDogIds: string[],
+  dogs: Array<Pick<OperationDog, "id" | "customerId">>,
+) {
+  const customerIds = new Set(currentCustomerIds);
+  nextDogIds
+    .filter((dogId) => !previousDogIds.includes(dogId))
+    .forEach((dogId) => {
+      const customerId = dogs.find((dog) => dog.id === dogId)?.customerId;
+      if (customerId) customerIds.add(customerId);
+    });
+  return [...customerIds];
 }
 
 export function calculateOperationTodaySummary(

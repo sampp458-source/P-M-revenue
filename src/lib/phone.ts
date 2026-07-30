@@ -7,4 +7,6 @@ export function formatPhone(value: string) {
   return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
 }
 
+export const phoneLast4 = (value: string) => phoneDigits(value).slice(-4);
+
 export const isValidPhone = (value: string) => /^010[0-9]{8}$/.test(phoneDigits(value));

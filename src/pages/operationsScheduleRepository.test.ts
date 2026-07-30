@@ -13,6 +13,7 @@ import {
   seoulDateKey,
   scheduleDisplayColor,
   schedulePrimaryAssignee,
+  suggestOperationCustomerIds,
   toSeoulInstant,
 } from "./operationsScheduleRepository";
 
@@ -146,6 +147,32 @@ describe("Operations schedule date and display helpers", () => {
     );
     expect(defaultOperationScheduleTitle("", "상담")).toBe("");
     expect(defaultOperationScheduleTitle("토리", null)).toBe("");
+  });
+
+  it("suggests the linked customer only when a dog is newly selected", () => {
+    const dogs = [
+      { id: "dog-1", customerId: "customer-1" },
+      { id: "dog-2", customerId: "customer-2" },
+    ];
+    expect(suggestOperationCustomerIds([], [], ["dog-1"], dogs)).toEqual([
+      "customer-1",
+    ]);
+    expect(
+      suggestOperationCustomerIds(
+        [],
+        ["dog-1"],
+        ["dog-1", "dog-2"],
+        dogs,
+      ),
+    ).toEqual(["customer-2"]);
+    expect(
+      suggestOperationCustomerIds(
+        ["customer-manual"],
+        ["dog-1"],
+        [],
+        dogs,
+      ),
+    ).toEqual(["customer-manual"]);
   });
 
   it("uses a deterministic assignee color without array-order dependence", () => {

@@ -3,8 +3,10 @@ import {
   ChevronRight,
   ClipboardCheck,
   Clock3,
+  Dog,
   Pencil,
   Plus,
+  UserRound,
 } from "lucide-react";
 import {
   useCallback,
@@ -12,7 +14,6 @@ import {
   useMemo,
   useState,
   type FormEvent,
-  type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -26,13 +27,13 @@ import {
   Input,
   LoadingState,
   Modal,
-  SearchBox,
   Select,
   Textarea,
   Toast,
   cn,
 } from "../components/ui";
-import { formatPhone } from "../lib/phone";
+import { SearchSelect } from "../components/SearchSelect";
+import { phoneLast4 } from "../lib/phone";
 import {
   OperationScheduleRepositoryError,
   attachOperationAssigneeColors,
@@ -52,6 +53,7 @@ import {
   seoulDateKey,
   schedulePrimaryAssignee,
   setOperationScheduleStatus,
+  suggestOperationCustomerIds,
   toSeoulInstant,
   updateOperationSchedule,
   type OperationSchedule,
@@ -521,6 +523,7 @@ export function OperationsTodayPage() {
         options={options}
         error={formError}
         saving={saving}
+        recentScope={profile?.id ?? "current-user"}
         titleManuallyEdited={titleManuallyEdited}
         onTitleManuallyEdited={setTitleManuallyEdited}
         onChange={setForm}
@@ -764,6 +767,7 @@ function ScheduleFormModal({
   options,
   error,
   saving,
+  recentScope,
   titleManuallyEdited,
   onTitleManuallyEdited,
   onChange,
@@ -776,14 +780,13 @@ function ScheduleFormModal({
   options: OperationScheduleOptions | null;
   error: string;
   saving: boolean;
+  recentScope: string;
   titleManuallyEdited: boolean;
   onTitleManuallyEdited: (value: boolean) => void;
   onChange: (value: ScheduleForm) => void;
   onSubmit: (event: FormEvent) => void;
   onClose: () => void;
 }) {
-  const [dogQuery, setDogQuery] = useState("");
-  const [customerQuery, setCustomerQuery] = useState("");
   const patch = (values: Partial<ScheduleForm>) => onChange({ ...form, ...values });
   const patchWithAutoTitle = (values: Partial<ScheduleForm>) => {
     const nextForm = { ...form, ...values };
@@ -813,33 +816,13 @@ function ScheduleFormModal({
       ]);
     }
   });
-  const normalizedDogQuery = dogQuery.trim().toLocaleLowerCase("ko-KR");
-  const normalizedCustomerQuery = customerQuery.trim().toLocaleLowerCase("ko-KR");
-  const dogResults = (options?.dogs ?? []).filter((dog) => {
-    if (!normalizedDogQuery) return false;
-    const customer = dog.customerId ? customerById.get(dog.customerId) : null;
-    const haystack = `${dog.name} ${customer?.name ?? ""} ${customer?.phone ?? ""}`
-      .toLocaleLowerCase("ko-KR")
-      .replaceAll("-", "");
-    return haystack.includes(normalizedDogQuery.replaceAll("-", ""));
-  }).slice(0, 8);
-  const customerResults = (options?.customers ?? []).filter((customer) => {
-    if (!normalizedCustomerQuery) return false;
-    const haystack = `${customer.name ?? ""} ${customer.phone ?? ""} ${(dogsByCustomer.get(customer.id) ?? []).join(" ")}`
-      .toLocaleLowerCase("ko-KR")
-      .replaceAll("-", "");
-    return haystack.includes(normalizedCustomerQuery.replaceAll("-", ""));
-  }).slice(0, 8);
-  const toggleDog = (id: string) => {
-    const selected = form.dogIds.includes(id);
-    const dog = options?.dogs.find((row) => row.id === id);
-    const dogIds = selected
-      ? form.dogIds.filter((value) => value !== id)
-      : [...form.dogIds, id];
-    const customerIds =
-      !selected && dog?.customerId && !form.customerIds.includes(dog.customerId)
-        ? [...form.customerIds, dog.customerId]
-        : form.customerIds;
+  const changeDogs = (dogIds: string[]) => {
+    const customerIds = suggestOperationCustomerIds(
+      form.customerIds,
+      form.dogIds,
+      dogIds,
+      options?.dogs ?? [],
+    );
     patchWithAutoTitle({ dogIds, customerIds });
   };
   return (
@@ -949,51 +932,122 @@ function ScheduleFormModal({
             </div>
           </>
         </div>
-        <Picker label="담당자" empty="배정 가능한 담당자가 없습니다." required>
-          {options?.assignees.map((row) => (
-            <PickerButton
-              key={row.id}
-              selected={form.assigneeIds.includes(row.id)}
-              onClick={() =>
-                patch({
-                  assigneeIds: form.assigneeIds.includes(row.id)
-                    ? form.assigneeIds.filter((id) => id !== row.id)
-                    : [...form.assigneeIds, row.id],
-                })
-              }
-            >
+        <SearchSelect
+          label="담당자"
+          required
+          items={options?.assignees ?? []}
+          selectedIds={form.assigneeIds}
+          onChange={(assigneeIds) => patch({ assigneeIds })}
+          getItemId={(row) => row.id}
+          getSearchText={(row) =>
+            `${row.name ?? ""} ${row.operationRole ?? ""}`
+          }
+          renderOption={(row) => (
+            <span className="flex min-w-0 items-center gap-3">
               <span
                 aria-hidden="true"
-                className="mr-2 h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: row.scheduleColor ?? "#5B7FA3" }}
+                className="h-3 w-3 shrink-0 rounded-full"
+                style={{
+                  backgroundColor:
+                    row.scheduleColor ?? DEFAULT_OPERATION_SCHEDULE_COLOR,
+                }}
+              />
+              <span className="min-w-0">
+                <strong className="block truncate text-sm text-text-primary">
+                  {row.name || "이름 미등록"}
+                </strong>
+                <span className="mt-0.5 block text-xs text-text-muted">
+                  {row.operationRole === "owner"
+                    ? "최고 관리자"
+                    : row.operationRole === "manager"
+                      ? "관리자"
+                      : "직원"}
+                </span>
+              </span>
+            </span>
+          )}
+          renderSelected={(row) => (
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{
+                  backgroundColor:
+                    row.scheduleColor ?? DEFAULT_OPERATION_SCHEDULE_COLOR,
+                }}
               />
               {row.name || "이름 미등록"}
-            </PickerButton>
-          ))}
-        </Picker>
-        <EntitySearch
-          label="반려견"
-          query={dogQuery}
-          onQuery={setDogQuery}
-          placeholder="반려견, 보호자 또는 전화번호 검색"
-          selected={(options?.dogs ?? []).filter((row) => form.dogIds.includes(row.id)).map((row) => ({ id: row.id, primary: row.name, secondary: customerById.get(row.customerId ?? "")?.name ?? "보호자 미연결" }))}
-          results={dogResults.map((row) => {
-            const customer = customerById.get(row.customerId ?? "");
-            return { id: row.id, primary: row.name, secondary: `${customer?.name ?? "보호자 미연결"} · ${customer?.phone ? formatPhone(customer.phone) : "전화번호 미등록"}` };
-          })}
-          onToggle={(id) => { toggleDog(id); setDogQuery(""); }}
+            </span>
+          )}
+          placeholder="담당자 이름 검색"
+          emptyMessage="최근 선택한 담당자가 없습니다."
+          recentStorageKey={`pm-os:${recentScope}:schedule-staff`}
         />
-        <EntitySearch
-          label="보호자"
-          query={customerQuery}
-          onQuery={setCustomerQuery}
-          placeholder="보호자, 전화번호 또는 반려견 검색"
-          selected={(options?.customers ?? []).filter((row) => form.customerIds.includes(row.id)).map((row) => ({ id: row.id, primary: row.name || "이름 미등록", secondary: row.phone ? formatPhone(row.phone) : "전화번호 미등록" }))}
-          results={customerResults.map((row) => ({ id: row.id, primary: row.name || "이름 미등록", secondary: `${row.phone ? formatPhone(row.phone) : "전화번호 미등록"} · ${(dogsByCustomer.get(row.id) ?? []).join(", ") || "연결된 반려견 없음"}` }))}
-          onToggle={(id) => {
-            patch({ customerIds: form.customerIds.includes(id) ? form.customerIds.filter((value) => value !== id) : [...form.customerIds, id] });
-            setCustomerQuery("");
+        <SearchSelect
+          label="반려견"
+          items={options?.dogs ?? []}
+          selectedIds={form.dogIds}
+          onChange={changeDogs}
+          getItemId={(row) => row.id}
+          getSearchText={(row) => {
+            const customer = customerById.get(row.customerId ?? "");
+            return `${row.name} ${customer?.name ?? ""} ${customer?.phone ?? ""}`;
           }}
+          renderOption={(row) => {
+            const customer = customerById.get(row.customerId ?? "");
+            return (
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                  <Dog size={18} />
+                </span>
+                <span className="min-w-0">
+                  <strong className="block truncate text-sm text-text-primary">
+                    {row.name}
+                  </strong>
+                  <span className="mt-0.5 block truncate text-xs text-text-muted">
+                    {customer?.name ?? "보호자 미연결"} ·{" "}
+                    {customer?.phone
+                      ? phoneLast4(customer.phone)
+                      : "전화번호 미등록"}
+                  </span>
+                </span>
+              </span>
+            );
+          }}
+          renderSelected={(row) => row.name}
+          placeholder="반려견, 보호자 또는 전화번호 검색"
+          emptyMessage="최근 선택한 반려견이 없습니다."
+          recentStorageKey={`pm-os:${recentScope}:schedule-dogs`}
+        />
+        <SearchSelect
+          label="보호자"
+          items={options?.customers ?? []}
+          selectedIds={form.customerIds}
+          onChange={(customerIds) => patch({ customerIds })}
+          getItemId={(row) => row.id}
+          getSearchText={(row) =>
+            `${row.name ?? ""} ${row.phone ?? ""} ${(dogsByCustomer.get(row.id) ?? []).join(" ")}`
+          }
+          renderOption={(row) => (
+            <span className="flex min-w-0 items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                <UserRound size={18} />
+              </span>
+              <span className="min-w-0">
+                <strong className="block truncate text-sm text-text-primary">
+                  {row.name || "이름 미등록"}
+                </strong>
+                <span className="mt-0.5 block truncate text-xs text-text-muted">
+                  {(dogsByCustomer.get(row.id) ?? []).join(", ") ||
+                    "연결된 반려견 없음"}{" "}
+                  · {row.phone ? phoneLast4(row.phone) : "전화번호 미등록"}
+                </span>
+              </span>
+            </span>
+          )}
+          renderSelected={(row) => row.name || "이름 미등록"}
+          placeholder="보호자, 전화번호 또는 반려견 검색"
+          emptyMessage="최근 선택한 보호자가 없습니다."
+          recentStorageKey={`pm-os:${recentScope}:schedule-customers`}
         />
         <Field label="메모">
           <Textarea value={form.memo} onChange={(event) => patch({ memo: event.target.value })} placeholder="필요한 내용을 기록하세요" />
@@ -1005,72 +1059,6 @@ function ScheduleFormModal({
         </div>
       </form>
     </Modal>
-  );
-}
-
-function EntitySearch({
-  label, query, onQuery, placeholder, selected, results, onToggle,
-}: {
-  label: string;
-  query: string;
-  onQuery: (value: string) => void;
-  placeholder: string;
-  selected: Array<{ id: string; primary: string; secondary: string }>;
-  results: Array<{ id: string; primary: string; secondary: string }>;
-  onToggle: (id: string) => void;
-}) {
-  return (
-    <fieldset className="space-y-2">
-      <legend className="text-sm font-medium text-text-primary">{label}</legend>
-      {selected.length > 0 && <div className="flex flex-wrap gap-2">{selected.map((row) => <button key={row.id} type="button" onClick={() => onToggle(row.id)} className="rounded-full bg-primary-soft px-3 py-2 text-left text-xs font-semibold text-primary">{row.primary} <span className="ml-1 font-normal text-text-secondary">×</span></button>)}</div>}
-      <SearchBox value={query} onClear={() => onQuery("")} onChange={(event) => onQuery(event.target.value)} placeholder={placeholder} autoComplete="off" />
-      {query.trim() && <div role="listbox" className="max-h-56 overflow-auto rounded-xl border border-border bg-surface p-1 shadow-sm">
-        {results.length ? results.map((row) => <button key={row.id} type="button" role="option" aria-selected={selected.some((item) => item.id === row.id)} onClick={() => onToggle(row.id)} className="flex min-h-14 w-full flex-col justify-center rounded-lg px-3 text-left hover:bg-primary-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"><strong className="text-sm text-text-primary">{row.primary}</strong><span className="mt-0.5 text-xs text-text-muted">{row.secondary}</span></button>) : <p className="px-3 py-4 text-sm text-text-muted">검색 결과가 없습니다.</p>}
-      </div>}
-    </fieldset>
-  );
-}
-
-function Picker({
-  label,
-  empty,
-  required = false,
-  children,
-}: {
-  label: string;
-  empty: string;
-  required?: boolean;
-  children: ReactNode;
-}) {
-  const hasChildren = Array.isArray(children) ? children.length > 0 : Boolean(children);
-  return (
-    <fieldset>
-      <legend className="mb-2 text-sm font-medium text-text-primary">
-        {label}
-        {required && <span className="ml-1 text-error">*</span>}
-      </legend>
-      <div className="flex max-h-32 flex-wrap gap-2 overflow-auto rounded-xl border border-border bg-surface-secondary/50 p-3">
-        {hasChildren ? children : <span className="text-sm text-text-muted">{empty}</span>}
-      </div>
-    </fieldset>
-  );
-}
-
-function PickerButton({ selected, onClick, children }: { selected: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      onClick={onClick}
-      className={cn(
-        "inline-flex min-h-11 items-center justify-center rounded-full border px-3.5 py-2 text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        selected
-          ? "border-primary/30 bg-primary-soft font-semibold text-primary"
-          : "border-border bg-surface text-text-secondary hover:border-primary/20",
-      )}
-    >
-      {children}
-    </button>
   );
 }
 
