@@ -67,7 +67,7 @@ const menus: MenuItem[] = [
   { to: "/customers", label: "반려견 관리", icon: Dog, group: "관리" },
   { to: "/categories", label: "상품 분류 관리", icon: Boxes, adminOnly: true, group: "관리" },
   { to: "/products", label: "상품 관리", icon: Package, group: "관리" },
-  { to: "/reports", label: "월별 보고서", icon: BarChart3, group: "분석" },
+  { to: "/reports", label: "월별 보고서", icon: BarChart3, adminOnly: true, group: "분석" },
   { to: "/settings", label: "설정", icon: Settings, group: "분석" },
   { to: "/staff", label: "직원 관리", icon: UserCog, adminOnly: true, group: "관리" },
 ];
@@ -132,7 +132,7 @@ export default function App() {
         <Route path="customers" element={<PetManagementPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="products" element={<ProductsPage />} />
-        <Route path="reports" element={<ReportsPage />} />
+        <Route path="reports" element={<AdminOnly><ReportsPage /></AdminOnly>} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="staff" element={<AdminOnly><StaffManagementPage /></AdminOnly>} />
       </Route>

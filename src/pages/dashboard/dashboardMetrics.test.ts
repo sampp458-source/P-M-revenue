@@ -12,6 +12,7 @@ import {
   dashboardPeriodLabel,
   dashboardPeriodRange,
   dashboardSalesForDate,
+  dashboardSelectedDate,
   finalSaleAmount,
   formatRevenueComparison,
   koreanToday,
@@ -53,6 +54,23 @@ const units: BusinessUnitOption[] = [
 ];
 
 describe("dashboard presentation metrics", () => {
+  it("URL 날짜가 없거나 잘못되면 KST 오늘을 최초 선택일로 사용한다", () => {
+    const beforeMidnight = new Date("2026-07-30T14:59:59.000Z");
+    const afterMidnight = new Date("2026-07-30T15:00:00.000Z");
+
+    expect(dashboardSelectedDate(null, koreanToday(beforeMidnight))).toBe(
+      "2026-07-30",
+    );
+    expect(dashboardSelectedDate("", koreanToday(afterMidnight))).toBe(
+      "2026-07-31",
+    );
+    expect(dashboardSelectedDate("invalid", "2026-07-30")).toBe(
+      "2026-07-30",
+    );
+    expect(dashboardSelectedDate("2026-07-19", "2026-07-30")).toBe(
+      "2026-07-19",
+    );
+  });
   it("선택 월의 취소되지 않은 사업부별 매출 건수를 계산한다", () => {
     const counts = countDashboardSalesByUnit([
       sale({ id: "daycare-1" }),

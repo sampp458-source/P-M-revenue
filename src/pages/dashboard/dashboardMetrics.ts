@@ -66,6 +66,11 @@ const moveDate = (value: string, days: number) => dateKey(new Date(dateFromKey(v
 export const koreanToday = (now = new Date()) =>
   now.toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 
+export const dashboardSelectedDate = (
+  queryDay: string | null,
+  today = koreanToday(),
+) => (/^\d{4}-\d{2}-\d{2}$/.test(queryDay ?? "") ? queryDay! : today);
+
 export function dashboardPeriodRange(period: DashboardPeriod, today = koreanToday(), customFrom = "", customTo = ""): DashboardDateRange {
   const base = dateFromKey(today);
   if (period === "today") return { from: today, to: today };

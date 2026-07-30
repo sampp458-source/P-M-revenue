@@ -111,6 +111,7 @@ import {
   hasCustomerIdentity,
   normalizeCustomerPhone,
 } from "./customerIdentity";
+import { fetchStaffFinanceDay } from "./staffFinanceDayRepository";
 
 interface SaleRow extends SalesHistoryRecord {
   businessUnitName: string;
@@ -213,6 +214,29 @@ interface PaymentLedgerRow {
   voidedAt: string | null;
   voidedBy: string | null;
   voidReason: string | null;
+}
+
+interface PaymentLedgerQueryRow {
+  id: string;
+  sale_id: string;
+  payment_method: SalePaymentRow["method"];
+  amount: number;
+  payment_date: string;
+  source: PaymentLedgerRow["source"];
+  note: string | null;
+  created_by: string;
+  created_at: string;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
+}
+
+interface RefundLedgerQueryRow {
+  id: string;
+  sale_id: string;
+  refund_date: string;
+  amount: number;
+  voided_at: string | null;
 }
 
 interface PartyCustomer {
@@ -361,6 +385,8 @@ export function SalesHistoryPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const isFinanceAdmin = profile?.role === "admin";
+  const today = koreanDate(new Date());
   const [sales, setSales] = useState<SaleRow[]>([]);
   const [refundLedger, setRefundLedger] = useState<RefundLedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -368,10 +394,17 @@ export function SalesHistoryPage() {
   const ledgerView = searchParams.get("view") !== "sales";
   const query = searchParams.get("q") ?? "";
   const periodParam = searchParams.get("period") as PeriodFilter | null;
-  const period =
+  const requestedPeriod =
     periodParam && validPeriods.has(periodParam) ? periodParam : "month";
-  const startDate = searchParams.get("start") ?? "";
-  const endDate = searchParams.get("end") ?? "";
+  const requestedStartDate = searchParams.get("start") ?? "";
+  const staffSelectedDate = /^\d{4}-\d{2}-\d{2}$/.test(requestedStartDate)
+    ? requestedStartDate
+    : today;
+  const period = isFinanceAdmin ? requestedPeriod : "custom";
+  const startDate = isFinanceAdmin ? requestedStartDate : staffSelectedDate;
+  const endDate = isFinanceAdmin
+    ? (searchParams.get("end") ?? "")
+    : staffSelectedDate;
   const unitId = searchParams.get("unit") ?? "";
   const statusParam = searchParams.get("status") as StatusFilter | null;
   const status =
@@ -464,12 +497,54 @@ export function SalesHistoryPage() {
   }, [query]);
 
   useEffect(() => {
+    if (isFinanceAdmin) return;
+    const next = new URLSearchParams(searchParams);
+    let changed = false;
+    if (next.get("period") !== "custom") {
+      next.set("period", "custom");
+      changed = true;
+    }
+    if (next.get("start") !== staffSelectedDate) {
+      next.set("start", staffSelectedDate);
+      changed = true;
+    }
+    if (next.get("end") !== staffSelectedDate) {
+      next.set("end", staffSelectedDate);
+      changed = true;
+    }
+    if (next.has("unit")) {
+      next.delete("unit");
+      changed = true;
+    }
+    if (changed) setSearchParams(next, { replace: true });
+  }, [
+    isFinanceAdmin,
+    searchParams,
+    setSearchParams,
+    staffSelectedDate,
+  ]);
+
+  useEffect(() => {
     if (hasAdvancedFilters) setAdvancedOpen(true);
   }, [hasAdvancedFilters]);
 
   const loadSales = useCallback(async () => {
     setLoading(true);
     setLoadError(false);
+    let staffDay:
+      | Awaited<ReturnType<typeof fetchStaffFinanceDay>>
+      | null = null;
+    if (!isFinanceAdmin) {
+      try {
+        staffDay = await fetchStaffFinanceDay(staffSelectedDate);
+      } catch {
+        setSales([]);
+        setRefundLedger([]);
+        setLoadError(true);
+        setLoading(false);
+        return;
+      }
+    }
     const [
       result,
       profilesResult,
@@ -479,13 +554,28 @@ export function SalesHistoryPage() {
       dogsResult,
       refundsResult,
     ] = await Promise.all([
-      loadSaleRows(),
+      isFinanceAdmin
+        ? loadSaleRows()
+        : Promise.resolve({
+            data: (staffDay?.sales ?? []) as unknown as SaleQueryRow[],
+            error: null,
+          }),
       supabase.rpc("get_staff_history_directory"),
       supabase.from("customers").select("id, name, phone, is_active").order("name"),
-      supabase.from("sale_payments").select("id, sale_id, payment_method, amount, payment_date, source, note, created_by, created_at, voided_at, voided_by, void_reason").order("payment_date").order("created_at"),
+      isFinanceAdmin
+        ? supabase.from("sale_payments").select("id, sale_id, payment_method, amount, payment_date, source, note, created_by, created_at, voided_at, voided_by, void_reason").order("payment_date").order("created_at")
+        : Promise.resolve({
+            data: (staffDay?.payments ?? []) as unknown as PaymentLedgerQueryRow[],
+            error: null,
+          }),
       supabase.from("products").select("id, unit_label"),
       supabase.from("dogs").select("id, customer_id, name, breed").eq("is_active", true).order("name"),
-      supabase.from("sale_refunds").select("id, sale_id, refund_date, amount, voided_at"),
+      isFinanceAdmin
+        ? supabase.from("sale_refunds").select("id, sale_id, refund_date, amount, voided_at")
+        : Promise.resolve({
+            data: (staffDay?.refunds ?? []) as unknown as RefundLedgerQueryRow[],
+            error: null,
+          }),
     ]);
     if (
       result.error ||
@@ -630,7 +720,7 @@ export function SalesHistoryPage() {
         ),
       );
     setLoading(false);
-  }, []);
+  }, [isFinanceAdmin, staffSelectedDate]);
 
   useEffect(() => {
     void loadSales();
@@ -650,7 +740,6 @@ export function SalesHistoryPage() {
       ),
     [sales],
   );
-  const today = koreanDate(new Date());
   const filters: SalesHistoryFilters = useMemo(
     () => ({
       query: debouncedQuery,
@@ -776,9 +865,28 @@ export function SalesHistoryPage() {
       paidAmount,
       refundAmount,
       netAmount: paidAmount - refundAmount,
-      outstandingAmount: calculateCurrentOutstanding(sales, unitId),
+      outstandingAmount: isFinanceAdmin
+        ? calculateCurrentOutstanding(sales, unitId)
+        : sales
+            .filter(
+              (sale) =>
+                sale.status !== "cancelled" &&
+                sale.saleDate === staffSelectedDate,
+            )
+            .reduce(
+              (total, sale) => total + Math.max(0, sale.outstandingAmount),
+              0,
+            ),
     };
-  }, [accountingRange, paymentEntries, refundLedger, sales, unitId]);
+  }, [
+    accountingRange,
+    isFinanceAdmin,
+    paymentEntries,
+    refundLedger,
+    sales,
+    staffSelectedDate,
+    unitId,
+  ]);
   const resultCount = ledgerView ? ledgerEvents.length : filtered.length;
   const totalPages = Math.max(1, Math.ceil(resultCount / pageSize));
   const page = Math.min(requestedPage, totalPages);
@@ -1690,6 +1798,7 @@ export function SalesHistoryPage() {
           range={activeRange}
           unitName={selectedUnitName}
           summary={accountingSummary}
+          staffView={!isFinanceAdmin}
         />
       ) : (
         <SalesHistoryContext
@@ -1731,8 +1840,8 @@ export function SalesHistoryPage() {
             현재 결과 {resultCount.toLocaleString("ko-KR")}건
           </span>
         </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[150px_150px_150px_minmax(260px,1fr)_auto]">
-          <label className="block">
+        <div className={cn("grid gap-3 md:grid-cols-2", isFinanceAdmin ? "xl:grid-cols-[150px_150px_150px_minmax(260px,1fr)_auto]" : "xl:grid-cols-[180px_150px_minmax(260px,1fr)]")}>
+          {isFinanceAdmin ? <label className="block">
             <span className="mb-1.5 block text-xs font-semibold text-text-secondary">
               기간
             </span>
@@ -1754,8 +1863,22 @@ export function SalesHistoryPage() {
                 </option>
               ))}
             </Select>
-          </label>
-          <label className="block">
+          </label> : <Field label="조회 날짜">
+            <Input
+              type="date"
+              value={staffSelectedDate}
+              onChange={(event) => {
+                const date = event.target.value || today;
+                updateParams({
+                  period: "custom",
+                  start: date,
+                  end: date,
+                  unit: null,
+                });
+              }}
+            />
+          </Field>}
+          {isFinanceAdmin && <label className="block">
             <span className="mb-1.5 block text-xs font-semibold text-text-secondary">
               사업부
             </span>
@@ -1773,7 +1896,7 @@ export function SalesHistoryPage() {
                 </option>
               ))}
             </Select>
-          </label>
+          </label>}
           <label className="block">
             <span className="mb-1.5 block text-xs font-semibold text-text-secondary">
               상태
@@ -1813,7 +1936,7 @@ export function SalesHistoryPage() {
               </p>
             )}
           </label>
-          <Button
+          {isFinanceAdmin && <Button
             type="button"
             variant="secondary"
             className="md:self-end"
@@ -1822,9 +1945,9 @@ export function SalesHistoryPage() {
           >
             <SlidersHorizontal size={16} />
             고급 필터
-          </Button>
+          </Button>}
         </div>
-        {period === "custom" && (
+        {isFinanceAdmin && period === "custom" && (
           <div className="grid gap-3 rounded-xl border border-border bg-surface-secondary p-3 sm:grid-cols-2">
             <Field label="시작일">
               <Input
@@ -3381,6 +3504,7 @@ function AccountingLedgerSummary({
   range,
   unitName,
   summary,
+  staffView = false,
 }: {
   range: { start: string; end: string };
   unitName: string;
@@ -3391,6 +3515,7 @@ function AccountingLedgerSummary({
     netAmount: number;
     outstandingAmount: number;
   };
+  staffView?: boolean;
 }) {
   const rangeLabel =
     range.start && range.end
@@ -3398,11 +3523,13 @@ function AccountingLedgerSummary({
         ? koDate(range.start)
         : `${koDate(range.start)} ~ ${koDate(range.end)}`
       : "전체 기간";
+  const staffMetricPrefix =
+    range.start === koreanDate(new Date()) ? "오늘" : "선택일";
   const metrics = [
-    ["판매금액", summary.salesAmount, "매출일 기준"],
-    ["실수납액", summary.paidAmount, "결제일 기준"],
-    ["환불액", summary.refundAmount, "환불일 기준"],
-    ["순수납액", summary.netAmount, "실수납 - 환불"],
+    [staffView ? `${staffMetricPrefix} 판매` : "판매금액", summary.salesAmount, "매출일 기준"],
+    [staffView ? `${staffMetricPrefix} 수납` : "실수납액", summary.paidAmount, "결제일 기준"],
+    [staffView ? `${staffMetricPrefix} 환불` : "환불액", summary.refundAmount, "환불일 기준"],
+    [staffView ? `${staffMetricPrefix} 순수납` : "순수납액", summary.netAmount, "실수납 - 환불"],
   ] as const;
 
   return (
@@ -3410,13 +3537,15 @@ function AccountingLedgerSummary({
       <div className="flex flex-col gap-2 border-b border-border bg-primary-subtle px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-5">
         <div>
           <p className="text-xs font-semibold text-text-secondary">
-            Dashboard와 동일한 회계 기준
+            {staffView ? "선택한 날짜 기준" : "Dashboard와 동일한 회계 기준"}
           </p>
           <h2 className="mt-1 text-lg font-bold text-text-primary tabular-nums">
             {rangeLabel}
           </h2>
         </div>
-        <Badge tone="blue">{unitName}</Badge>
+        <Badge tone="blue">
+          {staffView ? `${rangeLabel} 기준` : unitName}
+        </Badge>
       </div>
       <div className="grid sm:grid-cols-2 xl:grid-cols-5">
         {metrics.map(([label, value, description]) => (
@@ -3437,13 +3566,15 @@ function AccountingLedgerSummary({
         ))}
         <div className="bg-warning-soft/45 px-4 py-4 sm:px-5">
           <span className="text-[11px] font-semibold text-warning">
-            현재 전체 미수금
+            {staffView ? `${staffMetricPrefix} 미수 발생` : "현재 전체 미수금"}
           </span>
           <strong className="mt-1 block text-xl font-bold text-text-primary tabular-nums">
             {won(summary.outstandingAmount)}
           </strong>
           <span className="mt-1 block text-xs leading-5 text-text-muted">
-            기간 합계가 아닌 현재 잔액 Snapshot
+            {staffView
+              ? "선택한 날짜의 판매에서 발생한 미수"
+              : "기간 합계가 아닌 현재 잔액 Snapshot"}
           </span>
         </div>
       </div>

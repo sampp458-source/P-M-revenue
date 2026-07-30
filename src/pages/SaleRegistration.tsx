@@ -415,6 +415,7 @@ export function SaleFormPage() {
   const [draftReady, setDraftReady] = useState(false);
   const [draftSuppressed, setDraftSuppressed] = useState(false);
   const [dirtyBaseline, setDirtyBaseline] = useState<string | null>(null);
+  const isFinanceAdmin = profile?.role === "admin";
   const [form, setForm] = useState<SaleRegistrationFormState>({
     saleDate: today(),
     businessUnitId: loadRepeatSettings().keepBusinessUnit
@@ -439,7 +440,7 @@ export function SaleFormPage() {
     splitPaymentEnabled: false,
     paymentRows: defaultSplitPaymentRows(),
     customerType: "new",
-    staffId: loadRepeatSettings().keepStaff
+    staffId: profile?.role === "admin" && loadRepeatSettings().keepStaff
       ? stored(lastStaffKey) || profile?.id || ""
       : profile?.id || "",
     memo: "",
@@ -476,7 +477,12 @@ export function SaleFormPage() {
         .eq("is_active", true)
         .order("sort_order")
         .order("name"),
-      supabase.rpc("get_active_staff_directory"),
+      isFinanceAdmin
+        ? supabase.rpc("get_active_staff_directory")
+        : Promise.resolve({
+            data: profile ? [{ id: profile.id, name: profile.name }] : [],
+            error: null,
+          }),
       supabase
         .from("sales")
         .select(recentSaleFields)
@@ -575,9 +581,11 @@ export function SaleFormPage() {
         customerId:
           savedDog?.customer_id ?? savedCustomer?.id ?? "",
         dogId: savedDog?.id ?? "",
-        staffId: savedStaff
-          ? savedDraft.form.staffId
-          : (profile?.id ?? staffRows[0]?.id ?? ""),
+        staffId: !isFinanceAdmin
+          ? (profile?.id ?? "")
+          : savedStaff
+            ? savedDraft.form.staffId
+            : (profile?.id ?? staffRows[0]?.id ?? ""),
       });
       setSaleReference(savedDraft.saleReference);
       setCustomerSectionOpen(savedDraft.ui.customerSectionOpen);
@@ -606,9 +614,10 @@ export function SaleFormPage() {
         originalAmount: savedProduct?.defaultPrice ?? current.originalAmount,
         paidAmount: savedProduct?.defaultPrice ?? current.paidAmount,
         outstandingAmount: savedProduct ? 0 : current.outstandingAmount,
-        staffId:
-          repeatSettingsRef.current.keepStaff &&
-          staffRows.some((item) => item.id === current.staffId)
+        staffId: !isFinanceAdmin
+          ? (profile?.id ?? "")
+          : repeatSettingsRef.current.keepStaff &&
+              staffRows.some((item) => item.id === current.staffId)
             ? current.staffId
             : (profile?.id ?? staffRows[0]?.id ?? ""),
       };
@@ -624,7 +633,7 @@ export function SaleFormPage() {
           saleInputFingerprint(latest.form, latest.saleReference),
         );
     });
-  }, [businessUnits, profile?.id]);
+  }, [businessUnits, isFinanceAdmin, profile]);
 
   useEffect(() => {
     void loadOptions();
@@ -660,10 +669,11 @@ export function SaleFormPage() {
       localStorage.removeItem(lastBusinessUnitKey);
   }, [form.businessUnitId, repeatSettings.keepBusinessUnit]);
   useEffect(() => {
-    if (repeatSettings.keepStaff && form.staffId)
+    if (isFinanceAdmin && repeatSettings.keepStaff && form.staffId)
       localStorage.setItem(lastStaffKey, form.staffId);
-    else if (!repeatSettings.keepStaff) localStorage.removeItem(lastStaffKey);
-  }, [form.staffId, repeatSettings.keepStaff]);
+    else if (!isFinanceAdmin || !repeatSettings.keepStaff)
+      localStorage.removeItem(lastStaffKey);
+  }, [form.staffId, isFinanceAdmin, repeatSettings.keepStaff]);
   useEffect(() => {
     if (repeatSettings.keepPaymentMethod)
       localStorage.setItem(lastPaymentMethodKey, form.paymentMethod);
@@ -1573,7 +1583,7 @@ export function SaleFormPage() {
         net_amount: Math.trunc(netAmount),
         payment_method: normalizedPaymentRows[0]?.method ?? form.paymentMethod,
         customer_type: form.customerType,
-        staff_id: form.staffId,
+        staff_id: isFinanceAdmin ? form.staffId : (profile?.id ?? ""),
         memo: form.memo.trim() || null,
         status: "normal",
         business_unit_name: "",
@@ -3411,23 +3421,29 @@ export function SaleFormPage() {
                   />
                 </Field>
                 <Field label="담당자" required>
-                  <Select
-                    name="staffId"
-                    value={form.staffId}
-                    disabled={saving}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        staffId: event.target.value,
-                      }))
-                    }
-                  >
-                    {staff.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </Select>
+                  {isFinanceAdmin ? (
+                    <Select
+                      name="staffId"
+                      value={form.staffId}
+                      disabled={saving}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          staffId: event.target.value,
+                        }))
+                      }
+                    >
+                      {staff.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </Select>
+                  ) : (
+                    <div className="flex min-h-11 items-center rounded-xl border border-border bg-surface-secondary px-3.5 text-sm font-semibold text-text-primary">
+                      {profile?.name || "이름 미등록"}
+                    </div>
+                  )}
                 </Field>
               </div>
               </section>

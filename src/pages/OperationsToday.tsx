@@ -1085,7 +1085,18 @@ function ScheduleFormModal({
           recentStorageKey={`pm-os:${recentScope}:schedule-customers`}
         />
         <Field label="메모">
-          <Textarea value={form.memo} onChange={(event) => patch({ memo: event.target.value })} placeholder="필요한 내용을 기록하세요" />
+          <Textarea
+            rows={2}
+            value={form.memo}
+            className="min-h-[4.5rem] resize-none overflow-hidden"
+            onInput={(event) => {
+              const element = event.currentTarget;
+              element.style.height = "auto";
+              element.style.height = `${element.scrollHeight}px`;
+            }}
+            onChange={(event) => patch({ memo: event.target.value })}
+            placeholder="필요한 내용을 기록하세요"
+          />
         </Field>
         {error && <p role="alert" className="rounded-xl bg-error-soft px-3 py-2 text-sm text-error">{error}</p>}
         <div className="flex justify-end gap-2">
