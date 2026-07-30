@@ -55,10 +55,12 @@ export function StaffManagementPage() {
   const [selectedOperationRole, setSelectedOperationRole] = useState<OperationRole>("staff");
   const [colorEditing, setColorEditing] = useState<StaffRow | null>(null);
   const [selectedScheduleColor, setSelectedScheduleColor] = useState("");
+  const [scheduleColorAvailable, setScheduleColorAvailable] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true); setLoadError(false);
     setOperationLoadError("");
+    setScheduleColorAvailable(true);
     const [result, membershipResult, colorResult] = await Promise.all([
       supabase.from("profiles").select("id, name, email, phone, role, account_status, created_at, approved_at, deactivated_at").order("created_at", { ascending: false }),
       supabase.rpc("get_operation_membership_directory"),
@@ -74,6 +76,7 @@ export function StaffManagementPage() {
         ((colorResult.data ?? []) as { profile_id: string; schedule_color: string | null }[])
           .map((membership) => [membership.profile_id, membership.schedule_color]),
       );
+      if (colorResult.error) setScheduleColorAvailable(false);
       if (membershipResult.error) setOperationLoadError("운영 권한 정보를 조회할 수 없습니다.");
       setRows((result.data ?? []).map((row) => {
         const membership = membershipByProfile.get(row.id);
@@ -209,7 +212,7 @@ export function StaffManagementPage() {
                 <td>
                   <div className="flex items-center justify-end gap-1.5">
                     {!operationLoadError && canManageOperationRoles && row.status !== "pending" && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedOperationRole(row.operationRole ?? "staff"); setRoleEditing(row); }}>운영 권한</Button>}
-                    {!operationLoadError && canManageOperationRoles && row.operationActive && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ?? ""); setColorEditing(row); }}><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: row.scheduleColor ?? "#5B7FA3" }} />일정 색상</Button>}
+                    {!operationLoadError && scheduleColorAvailable && canManageOperationRoles && row.operationActive && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ?? ""); setColorEditing(row); }}><span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: row.scheduleColor ?? "#5B7FA3" }} />일정 색상</Button>}
                     {row.role === "staff" && row.status === "pending" && <>
                       <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setConfirming({ row, action: "approve" }); }}>승인</Button>
                       <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setReason(""); setReasoning({ row, action: "reject" }); }}>거절</Button>

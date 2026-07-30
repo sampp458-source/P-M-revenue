@@ -52,8 +52,20 @@ export const mapOperationCalendar = (
   businessUnitName: relatedBusinessUnitName(row.business_units),
 });
 
+const isOptionalScheduleUsabilityObjectMissing = (error: {
+  code?: string;
+  message?: string;
+} | null) =>
+  Boolean(
+    error &&
+      (error.code === "42P01" ||
+        error.code === "PGRST205" ||
+        error.message?.includes("schema cache") ||
+        error.message?.includes("operation_calendar_schedule_types")),
+  );
+
 export async function fetchOperationSettings(): Promise<OperationSettings> {
-  const [calendarResult, scheduleTypeResult, mappingResult] = await Promise.all([
+  const [calendarResult, scheduleTypeResult] = await Promise.all([
     supabase
       .from("operation_calendars")
       .select(
@@ -68,29 +80,43 @@ export async function fetchOperationSettings(): Promise<OperationSettings> {
       .eq("is_active", true)
       .order("sort_order")
       .order("name"),
-    supabase
-      .from("operation_calendar_schedule_types")
-      .select("calendar_id, schedule_type_id")
-      .eq("is_active", true)
-      .is("archived_at", null),
   ]);
 
-  if (calendarResult.error || scheduleTypeResult.error || mappingResult.error) {
+  if (calendarResult.error || scheduleTypeResult.error) {
     throw new Error("Operations 설정 조회 실패");
   }
 
+  const calendars = ((calendarResult.data ?? []) as CalendarRow[]).map(
+    mapOperationCalendar,
+  );
+  const mappingResult = await supabase
+    .from("operation_calendar_schedule_types")
+    .select("calendar_id, schedule_type_id")
+    .eq("is_active", true)
+    .is("archived_at", null);
+
+  if (
+    mappingResult.error &&
+    !isOptionalScheduleUsabilityObjectMissing(mappingResult.error)
+  ) {
+    throw new Error("Operations 설정 조회 실패");
+  }
+
+  const fallbackCalendarIds = calendars.map((calendar) => calendar.id);
+  const mappings = mappingResult.error ? [] : (mappingResult.data ?? []);
+
   return {
-    calendars: ((calendarResult.data ?? []) as CalendarRow[]).map(
-      mapOperationCalendar,
-    ),
+    calendars,
     scheduleTypes: (scheduleTypeResult.data ?? []).map((row) => ({
       id: row.id,
       name: row.name,
       color: row.color,
       sortOrder: row.sort_order,
-      calendarIds: (mappingResult.data ?? [])
-        .filter((mapping) => mapping.schedule_type_id === row.id)
-        .map((mapping) => mapping.calendar_id),
+      calendarIds: mappingResult.error
+        ? fallbackCalendarIds
+        : mappings
+            .filter((mapping) => mapping.schedule_type_id === row.id)
+            .map((mapping) => mapping.calendar_id),
     })),
   };
 }

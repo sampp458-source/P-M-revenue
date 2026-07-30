@@ -196,6 +196,18 @@ const throwScheduleError = (error: {
   );
 };
 
+const isOptionalAssigneeRpcMissing = (error: {
+  code?: string;
+  message?: string;
+} | null) =>
+  Boolean(
+    error &&
+      (error.code === "42883" ||
+        error.code === "PGRST202" ||
+        error.message?.includes("schema cache") ||
+        error.message?.includes("get_active_operation_assignees")),
+  );
+
 export async function fetchOperationSchedulesForDay(localDate: string) {
   const result = await supabase.rpc("get_operation_schedules_for_day", {
     p_local_date: localDate,
@@ -221,19 +233,26 @@ export async function fetchOperationScheduleOptions(): Promise<OperationSchedule
         .order("name"),
     ]);
 
-  if (
-    assigneesResult.error ||
-    customersResult.error ||
-    dogsResult.error
-  ) {
-    throwScheduleError(
-      assigneesResult.error ?? customersResult.error ?? dogsResult.error,
-    );
-  }
-
-  return {
-    ...settings,
-    assignees: (assigneesResult.data ?? []).map((row: {
+  let assignees: OperationPerson[];
+  if (assigneesResult.error) {
+    if (!isOptionalAssigneeRpcMissing(assigneesResult.error)) {
+      throwScheduleError(assigneesResult.error);
+    }
+    const fallbackResult = await supabase
+      .from("profiles")
+      .select("id, name")
+      .eq("is_active", true)
+      .eq("account_status", "active")
+      .order("name");
+    if (fallbackResult.error) throwScheduleError(fallbackResult.error);
+    assignees = (fallbackResult.data ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      operationRole: null,
+      scheduleColor: null,
+    }));
+  } else {
+    assignees = (assigneesResult.data ?? []).map((row: {
       profile_id: string;
       profile_name: string | null;
       operation_role: "owner" | "manager" | "staff";
@@ -243,7 +262,21 @@ export async function fetchOperationScheduleOptions(): Promise<OperationSchedule
       name: row.profile_name,
       operationRole: row.operation_role,
       scheduleColor: row.schedule_color,
-    })),
+    }));
+  }
+
+  if (
+    customersResult.error ||
+    dogsResult.error
+  ) {
+    throwScheduleError(
+      customersResult.error ?? dogsResult.error,
+    );
+  }
+
+  return {
+    ...settings,
+    assignees,
     customers: (customersResult.data ?? []).map((row) => ({
       id: row.id,
       name: row.name,
