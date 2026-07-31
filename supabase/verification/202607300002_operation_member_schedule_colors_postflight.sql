@@ -57,14 +57,14 @@ order by profile.name nulls last, membership.profile_id;
 
 select
   pg_get_functiondef(procedure.oid)
-    like '%has_operation_role(array[''manager'', ''owner''])%'
-      as manager_owner_change_is_enforced,
+    like '%caller.role = ''admin''%'
+      as admin_only_change_is_enforced,
+  pg_get_functiondef(procedure.oid)
+    like '%caller.id = auth.uid()%'
+      as caller_identity_is_enforced,
   pg_get_functiondef(procedure.oid)
     like '%set schedule_color = normalized_color%'
-      as color_update_is_scoped_to_membership,
-  pg_get_functiondef(procedure.oid)
-    not like '%profiles.role%'
-      as finance_role_is_not_referenced
+      as color_update_is_scoped_to_membership
 from pg_proc procedure
 join pg_namespace namespace
   on namespace.oid = procedure.pronamespace

@@ -8,7 +8,6 @@ begin
   if to_regclass('public.operation_memberships') is null
     or to_regclass('public.profiles') is null
     or to_regclass('public.entity_audit_events') is null
-    or to_regprocedure('public.has_operation_role(text[])') is null
     or to_regprocedure('public.is_active_operation_member()') is null
     or to_regprocedure('public.record_operation_audit_event()') is null then
     raise exception 'Operations Foundation과 운영 권한 관리를 먼저 적용해 주세요.';
@@ -101,8 +100,15 @@ begin
       using errcode = '22023';
   end if;
 
-  if not public.has_operation_role(array['manager', 'owner']) then
-    raise exception 'Operations 관리자만 일정 색상을 변경할 수 있습니다.'
+  if not exists (
+    select 1
+    from public.profiles caller
+    where caller.id = auth.uid()
+      and caller.role = 'admin'
+      and caller.is_active = true
+      and caller.account_status = 'active'
+  ) then
+    raise exception '대표 관리자만 캘린더 색상을 변경할 수 있습니다.'
       using errcode = '42501';
   end if;
 

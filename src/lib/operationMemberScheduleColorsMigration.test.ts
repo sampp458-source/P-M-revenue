@@ -17,19 +17,17 @@ describe("Operations member schedule colors migration", () => {
     );
     expect(migration).toContain("add column if not exists schedule_color");
     expect(migration).toContain("^#[0-9A-Fa-f]{6}$");
-    expect(migration).not.toContain("profiles.role");
     expect(migration).not.toMatch(
       /\b(update|alter table)\s+public\.(sales|sale_payments|sale_refunds)\b/i,
     );
   });
 
-  it("keeps reads open to active members and writes manager-only", () => {
+  it("keeps reads open to active members and writes admin-only", () => {
     expect(migration).toContain("get_active_operation_assignees");
     expect(migration).toContain("membership.is_active = true");
     expect(migration).toContain("profile.account_status = 'active'");
-    expect(migration).toContain(
-      "has_operation_role(array['manager', 'owner'])",
-    );
+    expect(migration).toContain("caller.id = auth.uid()");
+    expect(migration).toContain("caller.role = 'admin'");
   });
 
   it("keeps color updates idempotent, audited, and concurrency-safe", () => {

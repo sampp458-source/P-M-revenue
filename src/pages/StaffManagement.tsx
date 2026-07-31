@@ -165,7 +165,7 @@ export function StaffManagementPage() {
     });
     setProcessing(false);
     if (result.error) { setActionError(operationRoleErrorMessage(result.error.message, result.error.code)); return; }
-    setNotice(`${colorEditing.name}님의 일정 색상을 변경했습니다.`);
+    setNotice(`${colorEditing.name}님의 캘린더 색상을 변경했습니다.`);
     setColorEditing(null);
     await load();
   };
@@ -215,7 +215,7 @@ export function StaffManagementPage() {
                     <div className="flex items-center gap-1.5">
                       {scheduleColorAvailable && (
                         <span
-                          aria-label={`${row.name} 일정 색상`}
+                          aria-label={`${row.name} 캘린더 색상`}
                           className="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white"
                           style={{ backgroundColor: operationPersonColor(row) }}
                         />
@@ -232,7 +232,7 @@ export function StaffManagementPage() {
                 <td>
                   <div className="flex items-center justify-end gap-1.5">
                     {!operationLoadError && canManageOperationRoles && row.status !== "pending" && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedOperationRole(row.operationRole ?? "staff"); setRoleEditing(row); }}>운영 권한</Button>}
-                    {!operationLoadError && scheduleColorAvailable && canManageOperationScheduleColors && row.operationActive && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ?? ""); setColorEditing(row); }}>일정 색상</Button>}
+                    {!operationLoadError && scheduleColorAvailable && canManageOperationScheduleColors && row.operationActive && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ?? ""); setColorEditing(row); }}>캘린더 색상</Button>}
                     {row.role === "staff" && row.status === "pending" && <>
                       <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setConfirming({ row, action: "approve" }); }}>승인</Button>
                       <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setReason(""); setReasoning({ row, action: "reject" }); }}>거절</Button>
@@ -293,7 +293,7 @@ export function StaffManagementPage() {
             }}
           >
             <span>
-              <b className="block text-sm font-semibold text-text-primary">일정 색상</b>
+              <b className="block text-sm font-semibold text-text-primary">캘린더 색상</b>
               <span className="mt-0.5 block text-xs text-text-secondary">
                 담당자 검색과 Today 일정에 표시됩니다.
               </span>
@@ -312,7 +312,7 @@ export function StaffManagementPage() {
         </div>
       </form>
     </Modal>
-    <Modal open={!!colorEditing} onClose={() => !processing && setColorEditing(null)} title="일정 색상 설정">
+    <Modal open={!!colorEditing} onClose={() => !processing && setColorEditing(null)} title="캘린더 색상 설정">
       <form onSubmit={saveScheduleColor} className="space-y-5">
         <div><p className="font-semibold text-text-primary">{colorEditing?.name}</p><p className="mt-1 text-sm text-text-secondary">담당자 표시 전용 색상입니다. 캘린더 범위 색상과는 별도로 사용됩니다.</p></div>
         <div className="grid grid-cols-5 gap-2.5">
