@@ -1,4 +1,4 @@
--- 직원 Finance 단일 날짜 조회와 회사 전체 원장 직접 조회 제한
+-- 직원 Finance 단일 날짜 조회 RPC
 -- 운영 Supabase에는 자동 적용하지 않는다.
 
 begin;
@@ -99,69 +99,5 @@ revoke all on function public.get_staff_finance_day(date)
   from public, anon;
 grant execute on function public.get_staff_finance_day(date)
   to authenticated;
-
-drop policy if exists sales_select on public.sales;
-create policy sales_select
-  on public.sales
-  for select
-  to authenticated
-  using (
-    public.is_admin()
-    or staff_id = auth.uid()
-    or created_by = auth.uid()
-  );
-
-drop policy if exists sale_payments_select on public.sale_payments;
-create policy sale_payments_select
-  on public.sale_payments
-  for select
-  to authenticated
-  using (
-    public.is_admin()
-    or created_by = auth.uid()
-    or exists (
-      select 1
-      from public.sales sale
-      where sale.id = sale_payments.sale_id
-        and (sale.staff_id = auth.uid() or sale.created_by = auth.uid())
-    )
-  );
-
-drop policy if exists sale_refunds_select_active on public.sale_refunds;
-create policy sale_refunds_select_active
-  on public.sale_refunds
-  for select
-  to authenticated
-  using (
-    public.is_admin()
-    or exists (
-      select 1
-      from public.sales sale
-      where sale.id = sale_refunds.sale_id
-        and (sale.staff_id = auth.uid() or sale.created_by = auth.uid())
-    )
-  );
-
-drop policy if exists sale_history_select on public.sale_history;
-create policy sale_history_select
-  on public.sale_history
-  for select
-  to authenticated
-  using (
-    public.is_admin()
-    or exists (
-      select 1
-      from public.sales sale
-      where sale.id = sale_history.sale_id
-        and (sale.staff_id = auth.uid() or sale.created_by = auth.uid())
-    )
-  );
-
-drop policy if exists targets_select on public.monthly_targets;
-create policy targets_select
-  on public.monthly_targets
-  for select
-  to authenticated
-  using (public.is_admin());
 
 commit;

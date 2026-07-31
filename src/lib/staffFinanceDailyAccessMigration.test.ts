@@ -8,6 +8,10 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const repository = readFileSync(
+  new URL("../pages/staffFinanceDayRepository.ts", import.meta.url),
+  "utf8",
+);
 
 describe("직원 Finance 단일 날짜 접근 Migration", () => {
   it("직원용 날짜 RPC는 날짜 입력과 활성 사용자 권한을 강제한다", () => {
@@ -18,14 +22,19 @@ describe("직원 Finance 단일 날짜 접근 Migration", () => {
     expect(migration).toContain("refund.refund_date = p_date");
   });
 
-  it("회사 전체 직접 조회는 관리자에게만 허용하고 직원 본인 거래는 보존한다", () => {
-    expect(migration).toContain("public.is_admin()");
-    expect(migration).toContain("staff_id = auth.uid()");
-    expect(migration).toContain("created_by = auth.uid()");
-    expect(migration).toContain(
-      "create policy targets_select",
+  it("기존 Finance Policy를 삭제하거나 교체하지 않는다", () => {
+    expect(migration).not.toMatch(/drop\s+policy/i);
+    expect(migration).not.toMatch(
+      /create\s+policy\s+(sales_select|sale_payments_select|sale_refunds_select_active|sale_history_select|targets_select)/i,
     );
-    expect(migration).toContain("using (public.is_admin())");
+  });
+
+  it("직원 조회는 RPC 실패 시 직접 Finance 테이블로 우회하지 않는다", () => {
+    expect(repository).toContain('supabase.rpc("get_staff_finance_day"');
+    expect(repository).toContain("if (rpcResult.error) throw rpcResult.error");
+    expect(repository).not.toMatch(
+      /\.from\("(sales|sale_payments|sale_refunds|sale_history|monthly_targets)"\)/,
+    );
   });
 
   it("회계 원장 구조를 변경하지 않는다", () => {

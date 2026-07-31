@@ -12,21 +12,19 @@ select
   policy_info.policyname,
   policy_info.cmd,
   policy_info.roles,
-  policy_info.qual,
-  (
-    policy_info.qual ilike '%is_admin%'
-    and policy_info.qual not ilike '%is_active_user()%'
-  ) as company_wide_staff_access_removed
+  policy_info.permissive,
+  policy_info.qual
 from pg_policies policy_info
 where policy_info.schemaname = 'public'
-  and (
-    (policy_info.tablename = 'sales' and policy_info.policyname = 'sales_select')
-    or (policy_info.tablename = 'sale_payments' and policy_info.policyname = 'sale_payments_select')
-    or (policy_info.tablename = 'sale_refunds' and policy_info.policyname = 'sale_refunds_select_active')
-    or (policy_info.tablename = 'sale_history' and policy_info.policyname = 'sale_history_select')
-    or (policy_info.tablename = 'monthly_targets' and policy_info.policyname = 'targets_select')
+  and policy_info.tablename in (
+    'sales',
+    'sale_payments',
+    'sale_refunds',
+    'sale_history',
+    'monthly_targets'
   )
-order by policy_info.tablename;
+  and policy_info.cmd = 'SELECT'
+order by policy_info.tablename, policy_info.policyname;
 
 select
   trigger_info.tgname,
