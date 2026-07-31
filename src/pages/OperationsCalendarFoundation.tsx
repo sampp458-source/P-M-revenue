@@ -39,6 +39,7 @@ import {
   OperationScheduleRepositoryError,
   archiveOperationSchedule,
   attachOperationAssigneeColors,
+  canManageOperationSchedule,
   compactDogNames,
   compactNames,
   createOperationSchedule,
@@ -240,11 +241,13 @@ export function OperationsCalendarFoundationPage() {
     );
   }, [gridDates, schedules]);
   const selectedSchedules = schedulesByDate.get(selectedDate) ?? [];
-  const canArchiveSchedule = useCallback(
+  const canManageSchedule = useCallback(
     (schedule: OperationSchedule) =>
-      currentOperationRole === "owner" ||
-      currentOperationRole === "manager" ||
-      schedule.createdBy === profile?.id,
+      canManageOperationSchedule(
+        schedule,
+        profile?.id,
+        currentOperationRole,
+      ),
     [currentOperationRole, profile?.id],
   );
 
@@ -580,7 +583,7 @@ export function OperationsCalendarFoundationPage() {
           )
         }
         archiveLabel="삭제"
-        canArchive={detail ? canArchiveSchedule(detail) : false}
+        canManage={detail ? canManageSchedule(detail) : false}
       />
       <Modal
         open={pendingAction !== null}

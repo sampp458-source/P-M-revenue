@@ -39,6 +39,7 @@ import {
   OperationScheduleRepositoryError,
   attachOperationAssigneeColors,
   archiveOperationSchedule,
+  canManageOperationSchedule,
   calculateOperationTodaySummary,
   compactNames,
   createOperationSchedule,
@@ -455,11 +456,13 @@ export function OperationsTodayPage() {
     () => sortOperationSchedulesForViewer(schedules, profile?.id),
     [profile?.id, schedules],
   );
-  const canArchiveSchedule = useCallback(
+  const canManageSchedule = useCallback(
     (schedule: OperationSchedule) =>
-      currentOperationRole === "owner" ||
-      currentOperationRole === "manager" ||
-      schedule.createdBy === profile?.id,
+      canManageOperationSchedule(
+        schedule,
+        profile?.id,
+        currentOperationRole,
+      ),
     [currentOperationRole, profile?.id],
   );
 
@@ -602,7 +605,7 @@ export function OperationsTodayPage() {
             `/operations/customers?customerId=${encodeURIComponent(customerId)}`,
           )
         }
-        canArchive={detail ? canArchiveSchedule(detail) : false}
+        canManage={detail ? canManageSchedule(detail) : false}
       />
 
       <Modal
@@ -1193,7 +1196,7 @@ export function ScheduleDetailModal({
   onOpenDog,
   onOpenCustomer,
   archiveLabel = "보관",
-  canArchive = true,
+  canManage = true,
 }: {
   schedule: OperationSchedule | null;
   processing: boolean;
@@ -1205,7 +1208,7 @@ export function ScheduleDetailModal({
   onOpenDog: (id: string) => void;
   onOpenCustomer: (id: string) => void;
   archiveLabel?: string;
-  canArchive?: boolean;
+  canManage?: boolean;
 }) {
   if (!schedule) return null;
   const start = seoulParts(schedule.startsAt);
@@ -1230,7 +1233,7 @@ export function ScheduleDetailModal({
             {start.date} · {schedule.allDay ? "종일" : `${start.time}–${end.time}`}
           </p>
         </div>
-        {schedule.status !== "cancelled" && (
+        {canManage && schedule.status !== "cancelled" && (
           <Button variant="secondary" onClick={() => onEdit(schedule)}><Pencil size={16} />수정</Button>
         )}
       </div>
@@ -1255,12 +1258,9 @@ export function ScheduleDetailModal({
           <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-primary">{schedule.memo}</p>
         </div>
       )}
-      <div className="mt-6 flex flex-wrap justify-between gap-3 border-t border-border pt-5">
-        <div>
-          {canArchive && (
-            <Button variant="ghost" disabled={processing} onClick={() => onArchive(schedule)}>{archiveLabel}</Button>
-          )}
-        </div>
+      {canManage && (
+        <div className="mt-6 flex flex-wrap justify-between gap-3 border-t border-border pt-5">
+          <Button variant="ghost" disabled={processing} onClick={() => onArchive(schedule)}>{archiveLabel}</Button>
         <div className="flex flex-wrap gap-2">
           {schedule.status !== "cancelled" && (
             <Button variant="secondary" disabled={processing} onClick={() => onCancel(schedule)}>취소</Button>
@@ -1269,7 +1269,8 @@ export function ScheduleDetailModal({
             <Button disabled={processing} onClick={() => onComplete(schedule)}>완료 처리</Button>
           )}
         </div>
-      </div>
+        </div>
+      )}
     </Modal>
   );
 }

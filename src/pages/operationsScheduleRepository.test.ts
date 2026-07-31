@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateOperationTodaySummary,
   attachOperationAssigneeColors,
+  canManageOperationSchedule,
   compactDogNames,
   compactNames,
   defaultOperationCalendarId,
@@ -272,6 +273,28 @@ describe("Operations schedule date and display helpers", () => {
         (schedule) => schedule.id,
       ),
     ).toEqual(["mine", "common", "other"]);
+  });
+
+  it("allows schedule changes only for creator, assignee, manager, or owner", () => {
+    const schedule = {
+      createdBy: "creator",
+      assignees: [{ id: "assignee", name: "담당자" }],
+    };
+    expect(canManageOperationSchedule(schedule, "creator", "staff")).toBe(
+      true,
+    );
+    expect(canManageOperationSchedule(schedule, "assignee", "staff")).toBe(
+      true,
+    );
+    expect(canManageOperationSchedule(schedule, "other", "manager")).toBe(
+      true,
+    );
+    expect(canManageOperationSchedule(schedule, "other", "owner")).toBe(
+      true,
+    );
+    expect(canManageOperationSchedule(schedule, "other", "staff")).toBe(
+      false,
+    );
   });
 
   it("attaches current membership colors to existing schedule assignees", () => {

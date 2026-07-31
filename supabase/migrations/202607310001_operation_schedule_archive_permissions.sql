@@ -6,6 +6,7 @@ begin;
 do $$
 begin
   if to_regclass('public.operation_schedules') is null
+    or to_regclass('public.operation_schedule_assignees') is null
     or to_regclass('public.operation_memberships') is null
     or to_regprocedure(
       'public.archive_operation_schedule(uuid,integer,text,uuid)'
@@ -16,6 +17,59 @@ begin
   end if;
 end;
 $$;
+
+create or replace function public.can_manage_operation_schedule(
+  p_schedule_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select
+    auth.uid() is not null
+    and public.is_active_operation_member()
+    and (
+      public.has_operation_role(array['manager', 'owner'])
+      or exists (
+        select 1
+        from public.operation_schedules schedule
+        where schedule.id = p_schedule_id
+          and schedule.created_by = auth.uid()
+      )
+      or exists (
+        select 1
+        from public.operation_schedule_assignees assignee
+        where assignee.schedule_id = p_schedule_id
+          and assignee.profile_id = auth.uid()
+          and assignee.archived_at is null
+      )
+    );
+$$;
+
+create or replace function public.enforce_operation_schedule_write_permission()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if auth.uid() is not null
+    and not public.can_manage_operation_schedule(old.id) then
+    raise exception '일정 생성자 또는 담당자만 일정을 변경할 수 있습니다.'
+      using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists operation_schedules_write_permission
+  on public.operation_schedules;
+create trigger operation_schedules_write_permission
+  before update on public.operation_schedules
+  for each row
+  execute function public.enforce_operation_schedule_write_permission();
 
 create or replace function public.archive_operation_schedule(
   p_schedule_id uuid,
@@ -75,9 +129,8 @@ begin
       using errcode = 'P0002';
   end if;
 
-  if not public.has_operation_role(array['manager', 'owner'])
-    and schedule_row.created_by is distinct from actor_id then
-    raise exception '직원은 자신이 등록한 일정만 삭제할 수 있습니다.'
+  if not public.can_manage_operation_schedule(p_schedule_id) then
+    raise exception '일정 생성자 또는 담당자만 일정을 삭제할 수 있습니다.'
       using errcode = '42501';
   end if;
 
@@ -110,5 +163,12 @@ revoke all on function public.archive_operation_schedule(
 grant execute on function public.archive_operation_schedule(
   uuid, integer, text, uuid
 ) to authenticated;
+
+revoke all on function public.can_manage_operation_schedule(uuid)
+  from public, anon;
+grant execute on function public.can_manage_operation_schedule(uuid)
+  to authenticated;
+revoke all on function public.enforce_operation_schedule_write_permission()
+  from public;
 
 commit;

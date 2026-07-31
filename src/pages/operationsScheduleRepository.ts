@@ -114,6 +114,20 @@ export function isOperationScheduleAssignedTo(
   );
 }
 
+export function canManageOperationSchedule(
+  schedule: Pick<OperationSchedule, "assignees" | "createdBy">,
+  profileId: string | null | undefined,
+  operationRole: OperationRole | null | undefined,
+) {
+  if (!profileId) return false;
+  return (
+    operationRole === "owner" ||
+    operationRole === "manager" ||
+    schedule.createdBy === profileId ||
+    isOperationScheduleAssignedTo(schedule, profileId)
+  );
+}
+
 export function sortOperationSchedulesForViewer(
   schedules: OperationSchedule[],
   profileId: string | null | undefined,

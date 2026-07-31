@@ -11,13 +11,14 @@ const migration = readFileSync(
 );
 
 describe("Operations schedule archive permissions migration", () => {
-  it("allows managers globally and staff only for their own created schedule", () => {
+  it("allows managers globally and staff for created or assigned schedules", () => {
     expect(migration).toContain(
       "has_operation_role(array['manager', 'owner'])",
     );
-    expect(migration).toContain(
-      "schedule_row.created_by is distinct from actor_id",
-    );
+    expect(migration).toContain("schedule.created_by = auth.uid()");
+    expect(migration).toContain("assignee.profile_id = auth.uid()");
+    expect(migration).toContain("assignee.archived_at is null");
+    expect(migration).toContain("operation_schedules_write_permission");
     expect(migration).toContain("using errcode = '42501'");
   });
 
