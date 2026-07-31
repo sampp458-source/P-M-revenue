@@ -441,7 +441,7 @@ export function OperationsCalendarFoundationPage() {
               type="button"
               aria-label="이전 달"
               onClick={() => moveMonth(-1)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-text-secondary transition-[color,background-color,border-color,transform] duration-200 ease-out hover:border-primary/30 hover:bg-primary-soft hover:text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-text-secondary transition-[color,background-color,border-color,transform] duration-[180ms] ease-out hover:border-primary/30 hover:bg-primary-soft hover:text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <ChevronLeft size={18} />
             </button>
@@ -452,7 +452,7 @@ export function OperationsCalendarFoundationPage() {
               type="button"
               aria-label="다음 달"
               onClick={() => moveMonth(1)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-text-secondary transition-[color,background-color,border-color,transform] duration-200 ease-out hover:border-primary/30 hover:bg-primary-soft hover:text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-text-secondary transition-[color,background-color,border-color,transform] duration-[180ms] ease-out hover:border-primary/30 hover:bg-primary-soft hover:text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <ChevronRight size={18} />
             </button>
@@ -637,7 +637,7 @@ function CalendarCell({
       aria-label={`${fullDateLabel(date)}, 일정 ${schedules.length}건`}
       aria-pressed={selected}
       className={cn(
-        "group relative min-h-[76px] border-b border-r border-border p-1.5 text-left transition-[background-color,box-shadow] duration-200 ease-out sm:min-h-[126px] sm:p-1.5 lg:min-h-[146px] lg:p-2",
+        "group relative min-h-[76px] border-b border-r border-border p-1.5 text-left transition-[background-color,box-shadow] duration-[180ms] ease-out sm:min-h-[126px] sm:p-1.5 lg:min-h-[146px] lg:p-2",
         "focus:z-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
         outside ? "bg-surface-secondary/35" : "bg-surface",
         selected && "z-[1] bg-primary-soft/55 ring-2 ring-inset ring-primary",
@@ -703,7 +703,7 @@ function MonthScheduleCard({ schedule }: { schedule: OperationSchedule }) {
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-md border border-border/75 bg-surface px-1.5 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition-[border-color,background-color,opacity] duration-200 ease-out lg:rounded-lg lg:px-2",
+        "relative overflow-hidden rounded-md border border-border/75 bg-surface px-1.5 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition-[border-color,background-color,opacity] duration-[180ms] ease-out lg:rounded-lg lg:px-2",
         schedule.status !== "scheduled" && "opacity-55",
       )}
     >
@@ -783,7 +783,7 @@ function DayDrawer({
   return (
     <div
       className={cn(
-        "fixed inset-0 z-40 transition duration-200 ease-out",
+        "fixed inset-0 z-40 transition duration-[180ms] ease-out",
         open ? "pointer-events-auto" : "pointer-events-none",
       )}
       aria-hidden={!open}
@@ -794,7 +794,7 @@ function DayDrawer({
         tabIndex={open ? 0 : -1}
         onClick={onClose}
         className={cn(
-          "absolute inset-0 bg-slate-950/20 backdrop-blur-[1px] transition-opacity duration-200",
+          "absolute inset-0 bg-slate-950/20 backdrop-blur-[1px] transition-opacity duration-[180ms] ease-out",
           open ? "opacity-100" : "opacity-0",
         )}
       />
@@ -803,7 +803,7 @@ function DayDrawer({
         aria-modal="true"
         aria-label={`${fullDateLabel(date)} 일정`}
         className={cn(
-          "absolute inset-y-0 right-0 flex w-full max-w-[560px] flex-col border-l border-border bg-surface shadow-2xl transition-transform duration-200 ease-out",
+          "absolute inset-y-0 right-0 flex w-full max-w-[560px] flex-col border-l border-border bg-surface shadow-2xl transition-transform duration-[180ms] ease-out",
           open ? "translate-x-0" : "translate-x-full",
         )}
       >
@@ -815,14 +815,15 @@ function DayDrawer({
                 {fullDateLabel(date)}
               </h2>
               <p className="mt-1 text-sm font-medium text-text-secondary">
-                총 {schedules.length}건
+                {date === seoulDateKey() ? "오늘 일정" : "총 일정"}{" "}
+                {schedules.length}건
               </p>
             </div>
             <button
               type="button"
               onClick={onClose}
               aria-label="닫기"
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-text-secondary transition-[color,background-color,transform] duration-200 ease-out hover:bg-surface-secondary hover:text-text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="flex h-11 w-11 items-center justify-center rounded-xl text-text-secondary transition-[color,background-color,transform] duration-[180ms] ease-out hover:bg-surface-secondary hover:text-text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <X size={20} />
             </button>
@@ -832,7 +833,7 @@ function DayDrawer({
               <button
                 type="button"
                 onClick={onPrevious}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-[color,background-color,transform] duration-200 ease-out hover:bg-surface hover:text-text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-[color,background-color,transform] duration-[180ms] ease-out hover:bg-surface hover:text-text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="이전 날짜"
               >
                 <ChevronLeft size={17} />
@@ -840,7 +841,7 @@ function DayDrawer({
               <button
                 type="button"
                 onClick={onNext}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-[color,background-color,transform] duration-200 ease-out hover:bg-surface hover:text-text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-[color,background-color,transform] duration-[180ms] ease-out hover:bg-surface hover:text-text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="다음 날짜"
               >
                 <ChevronRight size={17} />
