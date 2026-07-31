@@ -21,7 +21,6 @@ import { useAuth } from "../auth/AuthContext";
 import {
   Badge,
   Button,
-  EmptyState,
   ErrorState,
   Input,
   LoadingState,
@@ -783,7 +782,7 @@ function DayDrawer({
           open ? "opacity-100" : "opacity-0",
         )}
       />
-      <aside
+      <div
         role="dialog"
         aria-modal="true"
         aria-label={`${fullDateLabel(date)} 일정`}
@@ -839,15 +838,16 @@ function DayDrawer({
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           {schedules.length === 0 ? (
-            <div className="py-8 text-center">
+            <div className="px-4 py-12 text-center">
               <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-soft text-primary">
                 <CalendarDays size={22} />
               </span>
-              <EmptyState
-                compact
-                title="등록된 일정이 없습니다"
-                description="이 날짜의 첫 일정을 추가해 보세요."
-              />
+              <h3 className="mt-4 font-bold text-text-primary">
+                등록된 일정이 없습니다
+              </h3>
+              <p className="mt-2 text-sm text-text-secondary">
+                이 날짜의 첫 일정을 추가해 보세요.
+              </p>
               <Button className="mt-4" onClick={onAdd}>
                 <Plus size={17} />
                 일정 추가
@@ -865,7 +865,7 @@ function DayDrawer({
             </div>
           )}
         </div>
-      </aside>
+      </div>
     </div>
   );
 }
