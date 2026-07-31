@@ -188,7 +188,7 @@ export function OutstandingPaymentsDrawer({
         className={cn(
           "pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l shadow-[var(--pm-shadow-modal)] sm:w-[min(680px,58vw)]",
           collectionMode
-            ? "border-border bg-[#f5f7fb] text-text-primary"
+            ? "border-border !bg-[#f5f7fb] text-text-primary"
             : "border-white/10 bg-[#111e31] text-white",
         )}
       >
