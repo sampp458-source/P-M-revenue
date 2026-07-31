@@ -6,12 +6,13 @@ import {
 } from "./operationsSettingsRepository";
 
 export type OperationScheduleStatus = "scheduled" | "completed" | "cancelled";
+export type OperationRole = "owner" | "manager" | "staff";
 
 export interface OperationPerson {
   id: string;
   name: string | null;
   scheduleColor?: string | null;
-  operationRole?: "owner" | "manager" | "staff" | null;
+  operationRole?: OperationRole | null;
 }
 
 export interface OperationCustomer extends OperationPerson {
@@ -78,6 +79,60 @@ export interface OperationScheduleInput {
 }
 
 export const DEFAULT_OPERATION_SCHEDULE_COLOR = "#5B7FA3";
+const OPERATION_ASSIGNEE_COLOR_PALETTE = [
+  "#4568B2",
+  "#2E8B72",
+  "#C1763D",
+  "#6C63B5",
+  "#2C879E",
+  "#B85C78",
+  "#75853B",
+  "#8B6A4C",
+] as const;
+
+export function operationPersonColor(
+  person: Pick<OperationPerson, "id" | "scheduleColor">,
+) {
+  if (person.scheduleColor?.match(/^#[0-9A-Fa-f]{6}$/)) {
+    return person.scheduleColor.toUpperCase();
+  }
+  let hash = 0;
+  for (const character of person.id) {
+    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  }
+  return OPERATION_ASSIGNEE_COLOR_PALETTE[
+    hash % OPERATION_ASSIGNEE_COLOR_PALETTE.length
+  ];
+}
+
+export function isOperationScheduleAssignedTo(
+  schedule: Pick<OperationSchedule, "assignees">,
+  profileId: string | null | undefined,
+) {
+  return Boolean(
+    profileId && schedule.assignees.some((person) => person.id === profileId),
+  );
+}
+
+export function sortOperationSchedulesForViewer(
+  schedules: OperationSchedule[],
+  profileId: string | null | undefined,
+) {
+  const rank = (schedule: OperationSchedule) => {
+    if (isOperationScheduleAssignedTo(schedule, profileId)) return 0;
+    if (schedule.assignees.length === 0 || schedule.calendarScope === "common") {
+      return 1;
+    }
+    return 2;
+  };
+  return [...schedules].sort((left, right) => {
+    const rankDifference = rank(left) - rank(right);
+    if (rankDifference !== 0) return rankDifference;
+    const timeDifference =
+      new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime();
+    return timeDifference || left.id.localeCompare(right.id);
+  });
+}
 
 export function defaultOperationCalendarId(
   calendars: OperationCalendar[],
@@ -438,10 +493,10 @@ export async function fetchOperationScheduleOptions(): Promise<OperationSchedule
 export function scheduleDisplayColor(
   schedule: Pick<OperationSchedule, "assignees" | "createdBy" | "calendarColor">,
 ) {
-  return (
-    schedulePrimaryAssignee(schedule)?.scheduleColor ??
-    DEFAULT_OPERATION_SCHEDULE_COLOR
-  );
+  const primaryAssignee = schedulePrimaryAssignee(schedule);
+  return primaryAssignee
+    ? operationPersonColor(primaryAssignee)
+    : DEFAULT_OPERATION_SCHEDULE_COLOR;
 }
 
 export function schedulePrimaryAssignee(
@@ -471,6 +526,17 @@ export function attachOperationAssigneeColors(
       scheduleColor: colorById.get(assignee.id) ?? null,
     })),
   };
+}
+
+export async function fetchCurrentOperationRole(profileId: string) {
+  const result = await supabase
+    .from("operation_memberships")
+    .select("role")
+    .eq("profile_id", profileId)
+    .eq("is_active", true)
+    .maybeSingle();
+  throwScheduleError(result.error);
+  return (result.data?.role as OperationRole | undefined) ?? null;
 }
 
 export async function createOperationSchedule(
@@ -716,6 +782,20 @@ export function mergeOperationTodaySchedule(
   return rows.sort(
     (left, right) =>
       Number(right.allDay) - Number(left.allDay) ||
+      left.startsAt.localeCompare(right.startsAt) ||
+      left.createdAt.localeCompare(right.createdAt) ||
+      left.id.localeCompare(right.id),
+  );
+}
+
+export function mergeOperationScheduleCollection(
+  schedules: OperationSchedule[],
+  changed: OperationSchedule,
+) {
+  const rows = schedules.filter((schedule) => schedule.id !== changed.id);
+  if (changed.archivedAt === null) rows.push(changed);
+  return rows.sort(
+    (left, right) =>
       left.startsAt.localeCompare(right.startsAt) ||
       left.createdAt.localeCompare(right.createdAt) ||
       left.id.localeCompare(right.id),

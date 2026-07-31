@@ -47,22 +47,27 @@ import {
   defaultOperationScheduleTitle,
   defaultOperationScheduleWindow,
   defaultOperationScheduleTypeId,
+  fetchCurrentOperationRole,
   fetchOperationScheduleOptions,
   fetchOperationSchedulesForDay,
+  isOperationScheduleAssignedTo,
   mergeOperationTodaySchedule,
   nextSeoulDate,
   oneHourScheduleEnd,
   operationDogProfileLine,
+  operationPersonColor,
   operationPersonDisplayName,
   seoulDateKey,
   schedulePrimaryAssignee,
   setOperationScheduleStatus,
+  sortOperationSchedulesForViewer,
   suggestOperationCustomerIds,
   toSeoulInstant,
   updateOperationSchedule,
   type OperationSchedule,
   type OperationScheduleInput,
   type OperationScheduleOptions,
+  type OperationRole,
 } from "./operationsScheduleRepository";
 
 export interface ScheduleForm {
@@ -137,6 +142,58 @@ export const formFromSchedule = (schedule: OperationSchedule): ScheduleForm => {
   };
 };
 
+export function scheduleInputFromForm(
+  form: ScheduleForm,
+  options: OperationScheduleOptions | null,
+): { input: OperationScheduleInput | null; error: string } {
+  const calendarId =
+    form.calendarId || defaultOperationCalendarId(options?.calendars ?? []);
+  const scheduleTypeId =
+    form.scheduleTypeId ||
+    defaultOperationScheduleTypeId(options?.scheduleTypes ?? []);
+  if (
+    !calendarId ||
+    !scheduleTypeId ||
+    !form.date ||
+    (!form.allDay &&
+      (!form.startTime || !form.endDate || !form.endTime)) ||
+    form.assigneeIds.length === 0 ||
+    !form.title.trim()
+  ) {
+    return {
+      input: null,
+      error: "제목, 날짜, 시간, 담당자를 확인해 주세요.",
+    };
+  }
+  const startsAt = form.allDay
+    ? toSeoulInstant(form.date, "00:00")
+    : toSeoulInstant(form.date, form.startTime);
+  const endsAt = form.allDay
+    ? toSeoulInstant(nextSeoulDate(form.date), "00:00")
+    : toSeoulInstant(form.endDate, form.endTime);
+  if (new Date(endsAt) <= new Date(startsAt)) {
+    return {
+      input: null,
+      error: "종료 시간은 시작 시간보다 늦어야 합니다.",
+    };
+  }
+  return {
+    error: "",
+    input: {
+      calendarId,
+      scheduleTypeId,
+      title: form.title.trim(),
+      startsAt,
+      endsAt,
+      allDay: form.allDay,
+      memo: form.memo.trim(),
+      assigneeIds: form.assigneeIds,
+      customerIds: form.customerIds,
+      dogIds: form.dogIds,
+    },
+  };
+}
+
 const todayCopy = (date: Date) => ({
   fullDate: new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
@@ -158,6 +215,8 @@ export function OperationsTodayPage() {
   const [schedules, setSchedules] = useState<OperationSchedule[]>([]);
   const [options, setOptions] = useState<OperationScheduleOptions | null>(null);
   const [optionsLoading, setOptionsLoading] = useState(true);
+  const [currentOperationRole, setCurrentOperationRole] =
+    useState<OperationRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<OperationScheduleRepositoryError | null>(null);
   const [detail, setDetail] = useState<OperationSchedule | null>(null);
@@ -201,6 +260,11 @@ export function OperationsTodayPage() {
     try {
       const optionRows = await fetchOperationScheduleOptions();
       setOptions(optionRows);
+      if (profile?.id) {
+        setCurrentOperationRole(
+          await fetchCurrentOperationRole(profile.id).catch(() => null),
+        );
+      }
       return optionRows;
     } catch {
       setOptions(null);
@@ -208,7 +272,7 @@ export function OperationsTodayPage() {
     } finally {
       setOptionsLoading(false);
     }
-  }, []);
+  }, [profile?.id]);
 
   useEffect(() => {
     void loadSchedules();
@@ -270,46 +334,12 @@ export function OperationsTodayPage() {
   const save = async (event: FormEvent) => {
     event.preventDefault();
     setFormError("");
-    const calendarId =
-      form.calendarId ||
-      defaultOperationCalendarId(options?.calendars ?? []);
-    const scheduleTypeId =
-      form.scheduleTypeId ||
-      defaultOperationScheduleTypeId(options?.scheduleTypes ?? []);
-    if (
-      !calendarId ||
-      !scheduleTypeId ||
-      !form.date ||
-      (!form.allDay &&
-        (!form.startTime || !form.endDate || !form.endTime)) ||
-      form.assigneeIds.length === 0 ||
-      !form.title.trim()
-    ) {
-      setFormError("제목, 날짜, 시간, 담당자를 확인해 주세요.");
+    const prepared = scheduleInputFromForm(form, options);
+    if (!prepared.input) {
+      setFormError(prepared.error);
       return;
     }
-    const startsAt = form.allDay
-      ? toSeoulInstant(form.date, "00:00")
-      : toSeoulInstant(form.date, form.startTime);
-    const endsAt = form.allDay
-      ? toSeoulInstant(nextSeoulDate(form.date), "00:00")
-      : toSeoulInstant(form.endDate, form.endTime);
-    if (new Date(endsAt) <= new Date(startsAt)) {
-      setFormError("종료 시간은 시작 시간보다 늦어야 합니다.");
-      return;
-    }
-    const input: OperationScheduleInput = {
-      calendarId,
-      scheduleTypeId,
-      title: form.title.trim(),
-      startsAt,
-      endsAt,
-      allDay: form.allDay,
-      memo: form.memo.trim(),
-      assigneeIds: form.assigneeIds,
-      customerIds: form.customerIds,
-      dogIds: form.dogIds,
-    };
+    const input = prepared.input;
     setSaving(true);
     try {
       if (editing === "new") {
@@ -421,6 +451,17 @@ export function OperationsTodayPage() {
   const summary = useMemo(() => {
     return calculateOperationTodaySummary(schedules);
   }, [schedules]);
+  const orderedSchedules = useMemo(
+    () => sortOperationSchedulesForViewer(schedules, profile?.id),
+    [profile?.id, schedules],
+  );
+  const canArchiveSchedule = useCallback(
+    (schedule: OperationSchedule) =>
+      currentOperationRole === "owner" ||
+      currentOperationRole === "manager" ||
+      schedule.createdBy === profile?.id,
+    [currentOperationRole, profile?.id],
+  );
 
   const alerts = useMemo(() => {
     const rows: string[] = [];
@@ -487,10 +528,11 @@ export function OperationsTodayPage() {
             />
           ) : schedules.length ? (
             <ol className="divide-y divide-border/80">
-              {schedules.map((schedule) => (
+              {orderedSchedules.map((schedule) => (
                 <li key={schedule.id}>
                   <ScheduleRow
                     schedule={schedule}
+                    currentUserId={profile?.id}
                     onOpen={() => setDetail(schedule)}
                   />
                 </li>
@@ -560,6 +602,7 @@ export function OperationsTodayPage() {
             `/operations/customers?customerId=${encodeURIComponent(customerId)}`,
           )
         }
+        canArchive={detail ? canArchiveSchedule(detail) : false}
       />
 
       <Modal
@@ -608,17 +651,21 @@ export function OperationsTodayPage() {
 
 function ScheduleRow({
   schedule,
+  currentUserId,
   onOpen,
 }: {
   schedule: OperationSchedule;
+  currentUserId?: string | null;
   onOpen: () => void;
 }) {
   const primaryAssignee = schedulePrimaryAssignee(schedule);
   const secondaryAssignees = schedule.assignees.filter(
     (assignee) => assignee.id !== primaryAssignee?.id,
   );
-  const primaryAssigneeColor =
-    primaryAssignee?.scheduleColor ?? DEFAULT_OPERATION_SCHEDULE_COLOR;
+  const primaryAssigneeColor = primaryAssignee
+    ? operationPersonColor(primaryAssignee)
+    : DEFAULT_OPERATION_SCHEDULE_COLOR;
+  const isMine = isOperationScheduleAssignedTo(schedule, currentUserId);
   const completed = schedule.status === "completed";
   const cancelled = schedule.status === "cancelled";
   const time = schedule.allDay
@@ -636,6 +683,7 @@ function ScheduleRow({
       onClick={onOpen}
       className={cn(
         "group relative grid w-full grid-cols-[3.75rem_minmax(0,1fr)_auto] items-center gap-3 border-l-[3px] px-4 py-4 text-left transition hover:bg-surface-secondary/65 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:px-5",
+        isMine && "bg-primary-soft/35",
         completed && "bg-surface-secondary/30 opacity-70",
         cancelled && "bg-surface-secondary/20 opacity-55",
       )}
@@ -677,7 +725,14 @@ function ScheduleRow({
               className="shrink-0 text-text-muted"
             />
           )}
-          <span className="truncate">{schedule.title}</span>
+          <span className={cn("truncate", isMine && "font-bold")}>
+            {schedule.title}
+          </span>
+          {isMine && (
+            <Badge tone="blue">
+              내 일정
+            </Badge>
+          )}
         </p>
         <div className="mt-1.5 flex min-w-0 items-center gap-2 text-xs text-text-secondary">
           <span className="inline-flex min-w-0 items-center gap-1.5">
@@ -699,7 +754,7 @@ function ScheduleRow({
                 className="h-2 w-2 shrink-0 rounded-full border border-white shadow-sm"
                 style={{
                   backgroundColor:
-                    assignee.scheduleColor ?? DEFAULT_OPERATION_SCHEDULE_COLOR,
+                    operationPersonColor(assignee),
                 }}
               />
             ))}
@@ -797,7 +852,6 @@ export function ScheduleFormModal({
   onSubmit,
   onClose,
   currentUserName,
-  minimalCalendarMode = false,
 }: {
   open: boolean;
   editing: OperationSchedule | "new" | null;
@@ -812,7 +866,6 @@ export function ScheduleFormModal({
   onSubmit: (event: FormEvent) => void;
   onClose: () => void;
   currentUserName?: string | null;
-  minimalCalendarMode?: boolean;
 }) {
   const patch = (values: Partial<ScheduleForm>) => onChange({ ...form, ...values });
   const patchWithAutoTitle = (values: Partial<ScheduleForm>) => {
@@ -821,17 +874,13 @@ export function ScheduleFormModal({
       const dogName = options?.dogs.find(
         (dog) => dog.id === nextForm.dogIds[0],
       )?.name;
-      if (minimalCalendarMode) {
-        nextForm.title = dogName?.trim() ?? "";
-      } else {
-        const scheduleTypeName = options?.scheduleTypes.find(
-          (scheduleType) => scheduleType.id === nextForm.scheduleTypeId,
-        )?.name;
-        nextForm.title = defaultOperationScheduleTitle(
-          dogName,
-          scheduleTypeName,
-        );
-      }
+      const scheduleTypeName = options?.scheduleTypes.find(
+        (scheduleType) => scheduleType.id === nextForm.scheduleTypeId,
+      )?.name;
+      nextForm.title = defaultOperationScheduleTitle(
+        dogName,
+        scheduleTypeName,
+      );
     }
     onChange(nextForm);
   };
@@ -871,9 +920,8 @@ export function ScheduleFormModal({
       resetKey={editing === "new" ? "new" : editing?.id}
     >
       <form onSubmit={onSubmit} className="space-y-5">
-        {!minimalCalendarMode && (
-          <>
-            <div className="grid gap-4 sm:grid-cols-2">
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
               <Field label="캘린더" required>
                 <Select value={form.calendarId} onChange={(event) => patchWithAutoTitle({ calendarId: event.target.value, scheduleTypeId: "" })}>
                   <option value="">캘린더 선택</option>
@@ -886,8 +934,8 @@ export function ScheduleFormModal({
                   {options?.scheduleTypes.filter((row) => row.calendarIds?.includes(form.calendarId)).map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
                 </Select>
               </Field>
-            </div>
-            <Field label="제목" required>
+          </div>
+          <Field label="제목" required>
               <Input
                 required
                 value={form.title}
@@ -897,15 +945,9 @@ export function ScheduleFormModal({
                 }}
                 placeholder="반려견과 일정 유형을 선택하면 자동 입력됩니다"
               />
-            </Field>
-          </>
-        )}
-        <div
-          className={cn(
-            "grid gap-4",
-            minimalCalendarMode ? "sm:grid-cols-3" : "sm:grid-cols-2",
-          )}
-        >
+          </Field>
+        </>
+        <div className="grid gap-4 sm:grid-cols-2">
           <Field label="날짜" required>
             <Input
               required
@@ -927,12 +969,10 @@ export function ScheduleFormModal({
               }}
             />
           </Field>
-          {!minimalCalendarMode && (
-            <label className="flex min-h-11 items-center gap-2 self-end rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary">
-              <input type="checkbox" checked={form.allDay} onChange={(event) => patch({ allDay: event.target.checked })} />
-              종일 일정
-            </label>
-          )}
+          <label className="flex min-h-11 items-center gap-2 self-end rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary">
+            <input type="checkbox" checked={form.allDay} onChange={(event) => patch({ allDay: event.target.checked })} />
+            종일 일정
+          </label>
           <>
             <div className={cn(form.allDay && "opacity-50")}>
               <Field label="시작 시간" required={!form.allDay}>
@@ -992,7 +1032,7 @@ export function ScheduleFormModal({
           items={options?.assignees ?? []}
           selectedIds={form.assigneeIds}
           onChange={(assigneeIds) => patch({ assigneeIds })}
-          multiple={!minimalCalendarMode}
+          multiple
           showAllOnEmpty
           getItemId={(row) => row.id}
           getSearchText={(row) =>
@@ -1003,10 +1043,7 @@ export function ScheduleFormModal({
               <span
                 aria-hidden="true"
                 className="h-3 w-3 shrink-0 rounded-full"
-                style={{
-                  backgroundColor:
-                    row.scheduleColor ?? DEFAULT_OPERATION_SCHEDULE_COLOR,
-                }}
+                style={{ backgroundColor: operationPersonColor(row) }}
               />
               <span className="min-w-0">
                 <strong className="block truncate text-sm text-text-primary">
@@ -1028,10 +1065,7 @@ export function ScheduleFormModal({
             <span className="inline-flex items-center gap-1.5">
               <span
                 className="h-2.5 w-2.5 rounded-full"
-                style={{
-                  backgroundColor:
-                    row.scheduleColor ?? DEFAULT_OPERATION_SCHEDULE_COLOR,
-                }}
+                style={{ backgroundColor: operationPersonColor(row) }}
               />
               {operationPersonDisplayName(row)}
             </span>
@@ -1042,11 +1076,10 @@ export function ScheduleFormModal({
         />
         <SearchSelect
           label="반려견"
-          required={minimalCalendarMode}
           items={options?.dogs ?? []}
           selectedIds={form.dogIds}
           onChange={changeDogs}
-          multiple={!minimalCalendarMode}
+          multiple
           getItemId={(row) => row.id}
           getSearchText={(row) => {
             const customer = customerById.get(row.customerId ?? "");
@@ -1094,8 +1127,7 @@ export function ScheduleFormModal({
           emptyMessage="최근 선택한 반려견이 없습니다."
           recentStorageKey={`pm-os:${recentScope}:schedule-dogs`}
         />
-        {!minimalCalendarMode && (
-          <SearchSelect
+        <SearchSelect
             label="보호자"
             items={options?.customers ?? []}
             selectedIds={form.customerIds}
@@ -1125,8 +1157,7 @@ export function ScheduleFormModal({
             placeholder="보호자, 전화번호 또는 반려견 검색"
             emptyMessage="최근 선택한 보호자가 없습니다."
             recentStorageKey={`pm-os:${recentScope}:schedule-customers`}
-          />
-        )}
+        />
         <Field label="메모">
           <Textarea
             rows={2}
@@ -1142,13 +1173,7 @@ export function ScheduleFormModal({
           />
         </Field>
         {error && <p role="alert" className="rounded-xl bg-error-soft px-3 py-2 text-sm text-error">{error}</p>}
-        <div
-          className={cn(
-            "flex justify-end gap-2",
-            minimalCalendarMode &&
-              "sticky -bottom-5 z-20 -mx-5 -mb-5 border-t border-border bg-surface px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:p-0 sm:shadow-none",
-          )}
-        >
+        <div className="sticky -bottom-5 z-20 -mx-5 -mb-5 flex justify-end gap-2 border-t border-border bg-surface px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:p-0 sm:shadow-none">
           <Button type="button" variant="secondary" disabled={saving} onClick={onClose}>닫기</Button>
           <Button type="submit" disabled={saving}>{saving ? "저장 중..." : "저장"}</Button>
         </div>
@@ -1168,6 +1193,7 @@ export function ScheduleDetailModal({
   onOpenDog,
   onOpenCustomer,
   archiveLabel = "보관",
+  canArchive = true,
 }: {
   schedule: OperationSchedule | null;
   processing: boolean;
@@ -1179,6 +1205,7 @@ export function ScheduleDetailModal({
   onOpenDog: (id: string) => void;
   onOpenCustomer: (id: string) => void;
   archiveLabel?: string;
+  canArchive?: boolean;
 }) {
   if (!schedule) return null;
   const start = seoulParts(schedule.startsAt);
@@ -1229,7 +1256,11 @@ export function ScheduleDetailModal({
         </div>
       )}
       <div className="mt-6 flex flex-wrap justify-between gap-3 border-t border-border pt-5">
-        <Button variant="ghost" disabled={processing} onClick={() => onArchive(schedule)}>{archiveLabel}</Button>
+        <div>
+          {canArchive && (
+            <Button variant="ghost" disabled={processing} onClick={() => onArchive(schedule)}>{archiveLabel}</Button>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           {schedule.status !== "cancelled" && (
             <Button variant="secondary" disabled={processing} onClick={() => onCancel(schedule)}>취소</Button>

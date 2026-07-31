@@ -57,8 +57,8 @@ order by profile.name nulls last, membership.profile_id;
 
 select
   pg_get_functiondef(procedure.oid)
-    like '%has_operation_role(array[''owner''])%'
-      as owner_only_change_is_enforced,
+    like '%has_operation_role(array[''manager'', ''owner''])%'
+      as manager_owner_change_is_enforced,
   pg_get_functiondef(procedure.oid)
     like '%set schedule_color = normalized_color%'
       as color_update_is_scoped_to_membership,

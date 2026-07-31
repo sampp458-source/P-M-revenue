@@ -12,10 +12,13 @@ import {
   nextSeoulDate,
   oneHourScheduleEnd,
   operationDogProfileLine,
+  operationPersonColor,
   operationPersonDisplayName,
   seoulDateKey,
   scheduleDisplayColor,
   schedulePrimaryAssignee,
+  isOperationScheduleAssignedTo,
+  sortOperationSchedulesForViewer,
   suggestOperationCustomerIds,
   toSeoulInstant,
 } from "./operationsScheduleRepository";
@@ -235,7 +238,40 @@ describe("Operations schedule date and display helpers", () => {
         ...schedule,
         assignees: [{ id: "creator", name: "생성자" }],
       }),
-    ).toBe("#5B7FA3");
+    ).toBe(operationPersonColor({ id: "creator" }));
+  });
+
+  it("prioritizes my assigned schedules without using the creator", () => {
+    const base = {
+      calendarScope: "business_unit" as const,
+      startsAt: "2026-07-31T01:00:00.000Z",
+    };
+    const mine = {
+      ...base,
+      id: "mine",
+      createdBy: "other",
+      assignees: [{ id: "me", name: "나" }],
+    } as never;
+    const common = {
+      ...base,
+      id: "common",
+      calendarScope: "common" as const,
+      createdBy: "other",
+      assignees: [{ id: "other", name: "다른 직원" }],
+    } as never;
+    const other = {
+      ...base,
+      id: "other",
+      createdBy: "me",
+      assignees: [{ id: "other", name: "다른 직원" }],
+    } as never;
+    expect(isOperationScheduleAssignedTo(mine, "me")).toBe(true);
+    expect(isOperationScheduleAssignedTo(other, "me")).toBe(false);
+    expect(
+      sortOperationSchedulesForViewer([other, common, mine], "me").map(
+        (schedule) => schedule.id,
+      ),
+    ).toEqual(["mine", "common", "other"]);
   });
 
   it("attaches current membership colors to existing schedule assignees", () => {

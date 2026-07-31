@@ -32,6 +32,7 @@ import {
   ScheduleFormModal,
   emptyForm,
   formFromSchedule,
+  scheduleInputFromForm,
   type ScheduleForm,
 } from "./OperationsToday";
 import {
@@ -43,17 +44,21 @@ import {
   createOperationSchedule,
   defaultOperationCalendarId,
   defaultOperationScheduleTypeId,
+  fetchCurrentOperationRole,
   fetchOperationScheduleOptions,
   fetchOperationSchedulesForRange,
+  isOperationScheduleAssignedTo,
+  mergeOperationScheduleCollection,
   nextSeoulDate,
+  operationPersonColor,
   schedulePrimaryAssignee,
   seoulDateKey,
   setOperationScheduleStatus,
   toSeoulInstant,
   updateOperationSchedule,
   type OperationSchedule,
-  type OperationScheduleInput,
   type OperationScheduleOptions,
+  type OperationRole,
 } from "./operationsScheduleRepository";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -156,6 +161,8 @@ export function OperationsCalendarFoundationPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [schedules, setSchedules] = useState<OperationSchedule[]>([]);
   const [options, setOptions] = useState<OperationScheduleOptions | null>(null);
+  const [currentOperationRole, setCurrentOperationRole] =
+    useState<OperationRole | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [detail, setDetail] = useState<OperationSchedule | null>(null);
@@ -212,6 +219,13 @@ export function OperationsCalendarFoundationPage() {
   }, [loadMonth]);
 
   useEffect(() => {
+    if (!profile?.id) return;
+    void fetchCurrentOperationRole(profile.id)
+      .then(setCurrentOperationRole)
+      .catch(() => setCurrentOperationRole(null));
+  }, [profile?.id]);
+
+  useEffect(() => {
     if (!notice || noticeTone !== "success") return;
     const timeoutId = window.setTimeout(() => setNotice(""), 1800);
     return () => window.clearTimeout(timeoutId);
@@ -226,6 +240,13 @@ export function OperationsCalendarFoundationPage() {
     );
   }, [gridDates, schedules]);
   const selectedSchedules = schedulesByDate.get(selectedDate) ?? [];
+  const canArchiveSchedule = useCallback(
+    (schedule: OperationSchedule) =>
+      currentOperationRole === "owner" ||
+      currentOperationRole === "manager" ||
+      schedule.createdBy === profile?.id,
+    [currentOperationRole, profile?.id],
+  );
 
   const showNotice = (
     message: string,
@@ -272,64 +293,40 @@ export function OperationsCalendarFoundationPage() {
   const save = async (event: FormEvent) => {
     event.preventDefault();
     setFormError("");
-    const calendarId =
-      form.calendarId ||
-      defaultOperationCalendarId(options?.calendars ?? []);
-    const scheduleTypeId =
-      form.scheduleTypeId ||
-      defaultOperationScheduleTypeId(options?.scheduleTypes ?? []);
-    if (
-      !calendarId ||
-      !scheduleTypeId ||
-      !form.date ||
-      (!form.allDay &&
-        (!form.startTime || !form.endDate || !form.endTime)) ||
-      (editing === "new" && form.dogIds.length === 0) ||
-      form.assigneeIds.length === 0 ||
-      !form.title.trim()
-    ) {
-      setFormError("반려견, 날짜, 시간, 담당자를 확인해 주세요.");
+    const prepared = scheduleInputFromForm(form, options);
+    if (!prepared.input) {
+      setFormError(prepared.error);
       return;
     }
-    const startsAt = form.allDay
-      ? toSeoulInstant(form.date, "00:00")
-      : toSeoulInstant(form.date, form.startTime);
-    const endsAt = form.allDay
-      ? toSeoulInstant(nextSeoulDate(form.date), "00:00")
-      : toSeoulInstant(form.endDate, form.endTime);
-    if (new Date(endsAt) <= new Date(startsAt)) {
-      setFormError("종료 시간은 시작 시간보다 늦어야 합니다.");
-      return;
-    }
-    const input: OperationScheduleInput = {
-      calendarId,
-      scheduleTypeId,
-      title: form.title.trim(),
-      startsAt,
-      endsAt,
-      allDay: form.allDay,
-      memo: form.memo.trim(),
-      assigneeIds: form.assigneeIds,
-      customerIds: form.customerIds,
-      dogIds: form.dogIds,
-    };
+    const input = prepared.input;
     setSaving(true);
     try {
       if (editing === "new") {
-        await createOperationSchedule(input, crypto.randomUUID());
+        const created = attachOperationAssigneeColors(
+          await createOperationSchedule(input, crypto.randomUUID()),
+          options?.assignees ?? [],
+        );
+        setSchedules((current) =>
+          mergeOperationScheduleCollection(current, created),
+        );
         showNotice("새 일정을 등록했습니다.");
       } else if (editing) {
-        await updateOperationSchedule(
-          editing.id,
-          editing.version,
-          input,
-          crypto.randomUUID(),
+        const updated = attachOperationAssigneeColors(
+          await updateOperationSchedule(
+            editing.id,
+            editing.version,
+            input,
+            crypto.randomUUID(),
+          ),
+          options?.assignees ?? [],
+        );
+        setSchedules((current) =>
+          mergeOperationScheduleCollection(current, updated),
         );
         showNotice("일정을 수정했습니다.");
       }
       setEditing(null);
       setSelectedDate(form.date);
-      await loadMonth();
     } catch (error) {
       setFormError(
         error instanceof Error ? error.message : "일정을 저장하지 못했습니다.",
@@ -348,16 +345,18 @@ export function OperationsCalendarFoundationPage() {
   const completeSchedule = async (schedule: OperationSchedule) => {
     setSaving(true);
     try {
-      await setOperationScheduleStatus(
+      const updated = attachOperationAssigneeColors(await setOperationScheduleStatus(
         schedule.id,
         schedule.version,
         "completed",
         "일정 완료",
         crypto.randomUUID(),
+      ), options?.assignees ?? []);
+      setSchedules((current) =>
+        mergeOperationScheduleCollection(current, updated),
       );
       setDetail(null);
       showNotice("일정을 완료 처리했습니다.");
-      await loadMonth();
     } catch (error) {
       showNotice(
         error instanceof Error ? error.message : "일정을 처리하지 못했습니다.",
@@ -373,27 +372,32 @@ export function OperationsCalendarFoundationPage() {
     setSaving(true);
     try {
       if (pendingAction.type === "cancel") {
-        await setOperationScheduleStatus(
+        const updated = attachOperationAssigneeColors(await setOperationScheduleStatus(
           pendingAction.schedule.id,
           pendingAction.schedule.version,
           "cancelled",
           actionReason.trim(),
           crypto.randomUUID(),
+        ), options?.assignees ?? []);
+        setSchedules((current) =>
+          mergeOperationScheduleCollection(current, updated),
         );
         showNotice("일정을 취소했습니다.");
       } else {
-        await archiveOperationSchedule(
+        const updated = await archiveOperationSchedule(
           pendingAction.schedule.id,
           pendingAction.schedule.version,
           actionReason.trim(),
           crypto.randomUUID(),
+        );
+        setSchedules((current) =>
+          mergeOperationScheduleCollection(current, updated),
         );
         showNotice("일정을 보관했습니다.");
       }
       setPendingAction(null);
       setActionReason("");
       setDetail(null);
-      await loadMonth();
     } catch (error) {
       showNotice(
         error instanceof Error ? error.message : "일정을 처리하지 못했습니다.",
@@ -501,6 +505,7 @@ export function OperationsCalendarFoundationPage() {
                     currentMonth={visibleMonth}
                     today={today}
                     selected={date === selectedDate}
+                    currentUserId={profile?.id}
                     onClick={() => openDate(date)}
                   />
                 );
@@ -530,6 +535,7 @@ export function OperationsCalendarFoundationPage() {
         }}
         onAdd={openNew}
         onOpen={setDetail}
+        currentUserId={profile?.id}
       />
 
       <ScheduleFormModal
@@ -546,7 +552,6 @@ export function OperationsCalendarFoundationPage() {
         onSubmit={save}
         onClose={() => setEditing(null)}
         currentUserName={profile?.name}
-        minimalCalendarMode
       />
       <ScheduleDetailModal
         schedule={
@@ -575,6 +580,7 @@ export function OperationsCalendarFoundationPage() {
           )
         }
         archiveLabel="삭제"
+        canArchive={detail ? canArchiveSchedule(detail) : false}
       />
       <Modal
         open={pendingAction !== null}
@@ -625,6 +631,7 @@ function CalendarCell({
   currentMonth,
   today,
   selected,
+  currentUserId,
   onClick,
 }: {
   date: string;
@@ -632,6 +639,7 @@ function CalendarCell({
   currentMonth: string;
   today: string;
   selected: boolean;
+  currentUserId?: string | null;
   onClick: () => void;
 }) {
   const outside = monthKey(date) !== currentMonth;
@@ -684,15 +692,20 @@ function CalendarCell({
             className="h-1.5 w-1.5 rounded-full"
             style={{
               backgroundColor:
-                schedulePrimaryAssignee(schedule)?.scheduleColor ??
-                schedule.calendarColor,
+                schedulePrimaryAssignee(schedule)
+                  ? operationPersonColor(schedulePrimaryAssignee(schedule)!)
+                  : schedule.calendarColor,
             }}
           />
         ))}
       </div>
       <div className="mt-1 hidden space-y-0.5 sm:block">
         {schedules.slice(0, 2).map((schedule) => (
-          <MonthScheduleCard key={schedule.id} schedule={schedule} />
+          <MonthScheduleCard
+            key={schedule.id}
+            schedule={schedule}
+            currentUserId={currentUserId}
+          />
         ))}
         {schedules.length > 2 && (
           <p className="px-1 pt-0.5 text-[10px] font-semibold leading-none text-text-muted lg:text-[11px]">
@@ -704,13 +717,21 @@ function CalendarCell({
   );
 }
 
-function MonthScheduleCard({ schedule }: { schedule: OperationSchedule }) {
+function MonthScheduleCard({
+  schedule,
+  currentUserId,
+}: {
+  schedule: OperationSchedule;
+  currentUserId?: string | null;
+}) {
   const assignee = schedulePrimaryAssignee(schedule);
   const dogName = schedule.dogs[0]?.name ?? schedule.title;
+  const isMine = isOperationScheduleAssignedTo(schedule, currentUserId);
   return (
     <div
       className={cn(
         "relative overflow-hidden rounded-md border border-border/75 bg-surface px-1.5 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition-[border-color,background-color,opacity] duration-[180ms] ease-out lg:rounded-lg lg:px-2",
+        isMine && "border-primary/25 bg-primary-soft/45",
         schedule.status !== "scheduled" && "opacity-55",
       )}
     >
@@ -722,6 +743,7 @@ function MonthScheduleCard({ schedule }: { schedule: OperationSchedule }) {
         <span
           className={cn(
             "block truncate text-[10px] font-bold leading-[0.875rem] tracking-[-0.01em] text-text-primary lg:text-[11px]",
+            isMine && "font-extrabold",
             schedule.status === "cancelled" && "line-through",
           )}
         >
@@ -733,14 +755,18 @@ function MonthScheduleCard({ schedule }: { schedule: OperationSchedule }) {
           </span>
           <span
             className="h-1.5 w-1.5 shrink-0 rounded-full"
-            style={{ backgroundColor: assignee?.scheduleColor ?? "#5B7FA3" }}
+            style={{
+              backgroundColor: assignee
+                ? operationPersonColor(assignee)
+                : "#5B7FA3",
+            }}
             aria-label={assignee?.name ?? "담당자"}
           />
           {schedule.assignees.slice(1, 3).map((person) => (
             <span
               key={person.id}
               className="h-1.5 w-1.5 shrink-0 rounded-full"
-              style={{ backgroundColor: person.scheduleColor ?? "#5B7FA3" }}
+            style={{ backgroundColor: operationPersonColor(person) }}
               aria-label={person.name ?? "담당자"}
             />
           ))}
@@ -765,6 +791,7 @@ function DayDrawer({
   onNext,
   onAdd,
   onOpen,
+  currentUserId,
 }: {
   open: boolean;
   date: string;
@@ -777,6 +804,7 @@ function DayDrawer({
   onNext: () => void;
   onAdd: () => void;
   onOpen: (schedule: OperationSchedule) => void;
+  currentUserId?: string | null;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -890,6 +918,7 @@ function DayDrawer({
                 <DayScheduleCard
                   key={schedule.id}
                   schedule={schedule}
+                  currentUserId={currentUserId}
                   onClick={() => onOpen(schedule)}
                 />
               ))}
@@ -903,13 +932,16 @@ function DayDrawer({
 
 function DayScheduleCard({
   schedule,
+  currentUserId,
   onClick,
 }: {
   schedule: OperationSchedule;
+  currentUserId?: string | null;
   onClick: () => void;
 }) {
   const assignee = schedulePrimaryAssignee(schedule);
   const dogName = compactDogNames(schedule.dogs);
+  const isMine = isOperationScheduleAssignedTo(schedule, currentUserId);
   return (
     <button
       type="button"
@@ -917,6 +949,7 @@ function DayScheduleCard({
       className={cn(
         "group relative w-full overflow-hidden rounded-2xl border border-border bg-surface px-4 py-3 text-left transition duration-150",
         "hover:-translate-y-px hover:border-primary/25 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        isMine && "border-primary/25 bg-primary-soft/35",
         schedule.status !== "scheduled" && "opacity-60",
       )}
     >
@@ -942,6 +975,7 @@ function DayScheduleCard({
                   ? "취소"
                   : "예정"}
             </Badge>
+            {isMine && <Badge tone="blue">내 일정</Badge>}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
             <span className="flex items-center gap-1 font-bold tabular-nums text-text-primary">
@@ -952,7 +986,9 @@ function DayScheduleCard({
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{
-                  backgroundColor: assignee?.scheduleColor ?? "#5B7FA3",
+                  backgroundColor: assignee
+                    ? operationPersonColor(assignee)
+                    : "#5B7FA3",
                 }}
               />
               <span className="truncate">
@@ -962,7 +998,7 @@ function DayScheduleCard({
                 <span
                   key={person.id}
                   className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ backgroundColor: person.scheduleColor ?? "#5B7FA3" }}
+                  style={{ backgroundColor: operationPersonColor(person) }}
                   aria-label={person.name ?? "담당자"}
                 />
               ))}

@@ -101,8 +101,8 @@ begin
       using errcode = '22023';
   end if;
 
-  if not public.has_operation_role(array['owner']) then
-    raise exception 'Operations 최고 관리자만 일정 색상을 변경할 수 있습니다.'
+  if not public.has_operation_role(array['manager', 'owner']) then
+    raise exception 'Operations 관리자만 일정 색상을 변경할 수 있습니다.'
       using errcode = '42501';
   end if;
 

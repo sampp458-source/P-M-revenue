@@ -23,12 +23,12 @@ describe("Operations member schedule colors migration", () => {
     );
   });
 
-  it("keeps reads open to active members and writes owner-only", () => {
+  it("keeps reads open to active members and writes manager-only", () => {
     expect(migration).toContain("get_active_operation_assignees");
     expect(migration).toContain("membership.is_active = true");
     expect(migration).toContain("profile.account_status = 'active'");
     expect(migration).toContain(
-      "has_operation_role(array['owner'])",
+      "has_operation_role(array['manager', 'owner'])",
     );
   });
 

@@ -4,6 +4,7 @@ import { useAuth } from "../auth/AuthContext";
 import { Badge, Button, Card, ConfirmModal, EmptyState, ErrorState, Field, FilterToolbar, LoadingState, Modal, PageHeader, SearchBox, Select, Table, Textarea, Toast } from "../components/ui";
 import { supabase } from "../lib/supabase";
 import { formatPhone } from "../lib/phone";
+import { operationPersonColor } from "./operationsScheduleRepository";
 
 type AccountStatus = "pending" | "active" | "rejected" | "inactive";
 type OperationRole = "owner" | "manager" | "staff";
@@ -102,6 +103,8 @@ export function StaffManagementPage() {
   const errorMessage = (message: string, code?: string) => code === "42501" ? "직원 계정을 변경할 권한이 없습니다." : message.includes("마지막 관리자") || message.includes("마지막 활성 Operations") || message.includes("자신의 계정") ? message : "직원 계정 상태를 변경하지 못했습니다.";
   const currentOperationRole = rows.find((row) => row.id === profile?.id)?.operationRole;
   const canManageOperationRoles = currentOperationRole === "owner";
+  const canManageOperationScheduleColors =
+    currentOperationRole === "owner" || currentOperationRole === "manager";
 
   const applyConfirm = async () => {
     if (!confirming || processing || !profile) return;
@@ -215,7 +218,7 @@ export function StaffManagementPage() {
                         <span
                           aria-label={`${row.name} 일정 색상`}
                           className="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white"
-                          style={{ backgroundColor: row.scheduleColor ?? "#5B7FA3" }}
+                          style={{ backgroundColor: operationPersonColor(row) }}
                         />
                       )}
                       <Badge tone={row.operationRole === "owner" ? "blue" : row.operationRole === "manager" ? "amber" : "gray"}>{operationRoleLabel[row.operationRole]}</Badge>
@@ -230,6 +233,7 @@ export function StaffManagementPage() {
                 <td>
                   <div className="flex items-center justify-end gap-1.5">
                     {!operationLoadError && canManageOperationRoles && row.status !== "pending" && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedOperationRole(row.operationRole ?? "staff"); setRoleEditing(row); }}>운영 권한</Button>}
+                    {!operationLoadError && scheduleColorAvailable && canManageOperationScheduleColors && row.operationActive && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ?? ""); setColorEditing(row); }}>일정 색상</Button>}
                     {row.role === "staff" && row.status === "pending" && <>
                       <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setConfirming({ row, action: "approve" }); }}>승인</Button>
                       <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setReason(""); setReasoning({ row, action: "reject" }); }}>거절</Button>
@@ -298,7 +302,7 @@ export function StaffManagementPage() {
             <span
               aria-hidden="true"
               className="h-7 w-7 rounded-full border-4 border-white shadow-sm ring-1 ring-border"
-              style={{ backgroundColor: roleEditing.scheduleColor ?? "#5B7FA3" }}
+              style={{ backgroundColor: operationPersonColor(roleEditing) }}
             />
           </button>
         )}

@@ -34,14 +34,15 @@ describe("Operations foundation UI", () => {
     expect(calendarSource).toContain('aria-label="다음 달"');
     expect(calendarSource).toContain("ScheduleFormModal");
     expect(calendarSource).toContain("ScheduleDetailModal");
-    expect(calendarSource).toContain("minimalCalendarMode");
+    expect(calendarSource).toContain("scheduleInputFromForm");
     expect(calendarSource).toContain('archiveLabel="삭제"');
     expect(calendarSource).toContain("schedulePrimaryAssignee");
     expect(calendarSource).toContain("schedules.slice(0, 2)");
     expect(calendarSource).toContain("schedule.memo");
     expect(todaySource).toContain("oneHourScheduleEnd");
     expect(todaySource).toContain("sticky -bottom-5");
-    expect(todaySource).toContain("multiple={!minimalCalendarMode}");
+    expect(todaySource).toContain("multiple");
+    expect(todaySource).not.toContain("minimalCalendarMode");
     expect(calendarSource).toContain("archiveOperationSchedule");
     expect(calendarSource).not.toContain("supabase");
     expect(calendarSource).not.toContain("useQuery");
