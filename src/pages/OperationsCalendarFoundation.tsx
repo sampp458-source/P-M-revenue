@@ -508,6 +508,9 @@ export function OperationsCalendarFoundationPage() {
         open={drawerOpen}
         date={selectedDate}
         schedules={selectedSchedules}
+        loading={loading}
+        error={loadError}
+        onRetry={() => void loadMonth()}
         onClose={() => setDrawerOpen(false)}
         onPrevious={() => {
           const next = addDays(selectedDate, -1);
@@ -628,7 +631,7 @@ function CalendarCell({
       aria-label={`${fullDateLabel(date)}, 일정 ${schedules.length}건`}
       aria-pressed={selected}
       className={cn(
-        "group relative min-h-[78px] border-b border-r border-border p-1.5 text-left transition sm:min-h-[132px] sm:p-2 lg:min-h-[154px]",
+        "group relative min-h-[76px] border-b border-r border-border p-1.5 text-left transition sm:min-h-[126px] sm:p-1.5 lg:min-h-[146px] lg:p-2",
         "focus:z-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
         outside ? "bg-surface-secondary/35" : "bg-surface",
         selected && "z-[1] bg-primary-soft/55 ring-2 ring-inset ring-primary",
@@ -674,13 +677,13 @@ function CalendarCell({
           />
         ))}
       </div>
-      <div className="mt-1.5 hidden space-y-1 sm:block">
+      <div className="mt-1 hidden space-y-0.5 sm:block">
         {schedules.slice(0, 2).map((schedule) => (
           <MonthScheduleCard key={schedule.id} schedule={schedule} />
         ))}
         {schedules.length > 2 && (
-          <p className="px-1 text-[11px] font-semibold text-text-muted">
-            +{schedules.length - 2}건 더 보기
+          <p className="px-1 pt-0.5 text-[10px] font-semibold leading-none text-text-muted lg:text-[11px]">
+            +{schedules.length - 2}건
           </p>
         )}
       </div>
@@ -694,7 +697,7 @@ function MonthScheduleCard({ schedule }: { schedule: OperationSchedule }) {
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-lg border border-border/80 bg-surface px-2 py-1.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]",
+        "relative overflow-hidden rounded-md border border-border/75 bg-surface px-1.5 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.035)] lg:rounded-lg lg:px-2",
         schedule.status !== "scheduled" && "opacity-55",
       )}
     >
@@ -702,20 +705,20 @@ function MonthScheduleCard({ schedule }: { schedule: OperationSchedule }) {
         className="absolute inset-y-0 left-0 w-[3px]"
         style={{ backgroundColor: schedule.calendarColor }}
       />
-      <div className="flex min-w-0 items-center gap-1.5 pl-0.5">
+      <div className="flex min-w-0 items-center gap-1 pl-0.5">
         <span
           className="h-2 w-2 shrink-0 rounded-full"
           style={{ backgroundColor: assignee?.scheduleColor ?? "#5B7FA3" }}
         />
         <span
           className={cn(
-            "min-w-0 flex-1 truncate text-[11px] font-bold text-text-primary",
+            "min-w-0 flex-1 truncate text-[10px] font-bold leading-4 text-text-primary lg:text-[11px]",
             schedule.status === "cancelled" && "line-through",
           )}
         >
           {dogName}
         </span>
-        <span className="shrink-0 text-[10px] font-semibold tabular-nums text-text-muted">
+        <span className="shrink-0 text-[9px] font-semibold leading-4 tabular-nums text-text-muted lg:text-[10px]">
           {timeLabel(schedule)}
         </span>
         {schedule.status === "completed" && (
@@ -730,6 +733,9 @@ function DayDrawer({
   open,
   date,
   schedules,
+  loading,
+  error,
+  onRetry,
   onClose,
   onPrevious,
   onNext,
@@ -739,6 +745,9 @@ function DayDrawer({
   open: boolean;
   date: string;
   schedules: OperationSchedule[];
+  loading: boolean;
+  error: string;
+  onRetry: () => void;
   onClose: () => void;
   onPrevious: () => void;
   onNext: () => void;
@@ -781,11 +790,11 @@ function DayDrawer({
           open ? "translate-x-0" : "translate-x-full",
         )}
       >
-        <header className="border-b border-border px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6">
+        <header className="border-b border-border px-4 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:px-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold text-primary">DAY SCHEDULE</p>
-              <h2 className="mt-1 text-xl font-bold tracking-[-0.03em] text-text-primary">
+              <p className="text-[11px] font-semibold tracking-[0.06em] text-primary">DAY SCHEDULE</p>
+              <h2 className="mt-0.5 text-xl font-bold tracking-[-0.03em] text-text-primary">
                 {fullDateLabel(date)}
               </h2>
               <p className="mt-1 text-sm text-text-secondary">
@@ -801,7 +810,7 @@ function DayDrawer({
               <X size={20} />
             </button>
           </div>
-          <div className="mt-4 flex items-center justify-between gap-2">
+          <div className="mt-3.5 flex items-center justify-between gap-2">
             <div className="inline-flex rounded-xl border border-border bg-surface-secondary p-1">
               <button
                 type="button"
@@ -826,8 +835,15 @@ function DayDrawer({
             </Button>
           </div>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
-          {schedules.length === 0 ? (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3.5 sm:px-6">
+          {loading ? (
+            <LoadingState />
+          ) : error ? (
+            <ErrorState
+              title={error || "날짜 일정을 불러오지 못했습니다"}
+              retry={onRetry}
+            />
+          ) : schedules.length === 0 ? (
             <div className="px-4 py-12 text-center">
               <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-primary-soft text-primary">
                 <CalendarDays size={22} />
@@ -844,7 +860,7 @@ function DayDrawer({
               </Button>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {schedules.map((schedule) => (
                 <DayScheduleCard
                   key={schedule.id}
@@ -874,7 +890,7 @@ function DayScheduleCard({
       type="button"
       onClick={onClick}
       className={cn(
-        "group relative w-full overflow-hidden rounded-2xl border border-border bg-surface px-4 py-3.5 text-left transition duration-150",
+        "group relative w-full overflow-hidden rounded-2xl border border-border bg-surface px-4 py-3 text-left transition duration-150",
         "hover:-translate-y-px hover:border-primary/25 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
         schedule.status !== "scheduled" && "opacity-60",
       )}
@@ -883,18 +899,12 @@ function DayScheduleCard({
         className="absolute inset-y-0 left-0 w-1"
         style={{ backgroundColor: schedule.calendarColor }}
       />
-      <div className="flex items-start gap-3">
-        <div className="flex w-12 shrink-0 flex-col items-center rounded-xl bg-surface-secondary px-1 py-2 text-center">
-          <Clock3 size={14} className="text-text-muted" />
-          <span className="mt-1 text-xs font-bold tabular-nums text-text-primary">
-            {timeLabel(schedule)}
-          </span>
-        </div>
+      <div className="flex min-w-0 items-start gap-3 pl-1">
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <h3
               className={cn(
-                "truncate font-bold text-text-primary",
+                "truncate text-[15px] font-bold leading-5 tracking-[-0.015em] text-text-primary",
                 schedule.status === "cancelled" && "line-through",
               )}
             >
@@ -908,36 +918,44 @@ function DayScheduleCard({
                   : "예정"}
             </Badge>
           </div>
-          {schedule.title !== dogName && (
-            <p className="mt-1 truncate text-xs font-medium text-text-secondary">
-              {schedule.title}
-            </p>
-          )}
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
-            <span className="flex items-center gap-1">
-              <UserRound size={13} />
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+            <span className="flex items-center gap-1 font-bold tabular-nums text-text-primary">
+              <Clock3 size={13} className="text-text-muted" />
+              {timeLabel(schedule)}
+            </span>
+            <span className="flex min-w-0 items-center gap-1.5 font-semibold text-text-secondary">
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{
+                  backgroundColor: assignee?.scheduleColor ?? "#5B7FA3",
+                }}
+              />
+              <span className="truncate">
+                {compactNames(schedule.assignees, "담당자 미지정")}
+              </span>
+              {schedule.assignees.slice(1).map((person) => (
+                <span
+                  key={person.id}
+                  className="h-2 w-2 shrink-0 rounded-full"
+                  style={{ backgroundColor: person.scheduleColor ?? "#5B7FA3" }}
+                  aria-label={person.name ?? "담당자"}
+                />
+              ))}
+            </span>
+          </div>
+          <div className="mt-1.5 flex min-w-0 items-center gap-1 text-xs text-text-secondary">
+            <UserRound size={13} className="shrink-0 text-text-muted" />
+            <span className="truncate">
               {schedule.customers[0]?.name ?? "보호자 미연결"}
             </span>
           </div>
-          <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-text-secondary">
-            <span
-              className="h-2.5 w-2.5 rounded-full"
-              style={{
-                backgroundColor: assignee?.scheduleColor ?? "#5B7FA3",
-              }}
-            />
-            {compactNames(schedule.assignees, "담당자 미지정")}
-            {schedule.assignees.slice(1).map((person) => (
-              <span
-                key={person.id}
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: person.scheduleColor ?? "#5B7FA3" }}
-                aria-label={person.name ?? "담당자"}
-              />
-            ))}
-          </div>
+          {schedule.title !== dogName && (
+            <p className="mt-1.5 truncate text-xs font-medium text-text-secondary">
+              {schedule.title}
+            </p>
+          )}
           {schedule.memo && (
-            <p className="mt-2 line-clamp-2 text-xs leading-5 text-text-muted">
+            <p className="mt-1.5 line-clamp-2 border-t border-border/70 pt-1.5 text-xs leading-5 text-text-muted">
               {schedule.memo}
             </p>
           )}
