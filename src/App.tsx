@@ -655,7 +655,7 @@ function AppLayout() {
   const current =
     menus.find((x) =>
       x.end ? location.pathname === x.to : location.pathname.startsWith(x.to),
-    )?.label || "P&M 매출관리";
+    )?.label || "P&M OS";
   const visibleMenus = menus.filter((item) => !item.adminOnly || profile?.role === "admin");
   return (
     <div className="min-h-screen bg-app-background">

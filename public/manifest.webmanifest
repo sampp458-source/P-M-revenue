@@ -1,0 +1,19 @@
+{
+  "name": "P&M OS",
+  "short_name": "P&M OS",
+  "description": "P&M 통합 운영 관리 시스템",
+  "lang": "ko-KR",
+  "start_url": "/select-module",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7f9fc",
+  "theme_color": "#0f2744",
+  "icons": [
+    {
+      "src": "/pm-logo.png",
+      "sizes": "4500x4500",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
