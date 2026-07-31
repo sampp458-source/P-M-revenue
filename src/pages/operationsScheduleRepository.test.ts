@@ -10,6 +10,7 @@ import {
   defaultOperationScheduleTypeId,
   mergeOperationTodaySchedule,
   nextSeoulDate,
+  oneHourScheduleEnd,
   operationDogProfileLine,
   operationPersonDisplayName,
   seoulDateKey,
@@ -34,6 +35,17 @@ describe("Operations schedule date and display helpers", () => {
     expect(toSeoulInstant(nextSeoulDate("2026-07-29"), "00:00")).toBe(
       "2026-07-29T15:00:00.000Z",
     );
+  });
+
+  it("keeps a one-hour end time when the start time changes", () => {
+    expect(oneHourScheduleEnd("2026-07-31", "14:30")).toEqual({
+      endDate: "2026-07-31",
+      endTime: "15:30",
+    });
+    expect(oneHourScheduleEnd("2026-07-31", "23:30")).toEqual({
+      endDate: "2026-08-01",
+      endTime: "00:30",
+    });
   });
 
   it("defaults to the next half hour and a one-hour duration in Seoul", () => {

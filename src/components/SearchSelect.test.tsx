@@ -25,10 +25,12 @@ const renderSearchSelect = ({
   selectedIds = [],
   onChange = vi.fn(),
   loadOptions,
+  multiple = true,
 }: {
   selectedIds?: string[];
   onChange?: (ids: string[]) => void;
   loadOptions?: (query: string) => Promise<readonly Item[]>;
+  multiple?: boolean;
 } = {}) =>
   render(
     <SearchSelect
@@ -48,6 +50,7 @@ const renderSearchSelect = ({
       loadOptions={loadOptions}
       recentStorageKey="test-search-select-recent"
       debounceMs={0}
+      multiple={multiple}
     />,
   );
 
@@ -106,6 +109,17 @@ describe("SearchSelect", () => {
     await waitFor(() =>
       expect(screen.getByRole("option", { name: /토리/ })).toBeTruthy(),
     );
+  });
+
+  it("closes results after a single selection", async () => {
+    renderSearchSelect({ multiple: false });
+    const input = screen.getByRole("combobox", { name: "반려견" });
+    fireEvent.change(input, { target: { value: "토리" } });
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /토리/ })).toBeTruthy(),
+    );
+    fireEvent.click(screen.getByRole("option", { name: /토리/ }));
+    expect(input.getAttribute("aria-expanded")).toBe("false");
   });
 
   it("distinguishes the empty prompt from a no-result search", async () => {

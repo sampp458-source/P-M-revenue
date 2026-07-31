@@ -35,6 +35,9 @@ describe("Operations foundation UI", () => {
     expect(calendarSource).toContain("schedulePrimaryAssignee");
     expect(calendarSource).toContain("schedules.slice(0, 2)");
     expect(calendarSource).toContain("schedule.memo");
+    expect(todaySource).toContain("oneHourScheduleEnd");
+    expect(todaySource).toContain("sticky -bottom-5");
+    expect(todaySource).toContain("multiple={!minimalCalendarMode}");
     expect(calendarSource).toContain("archiveOperationSchedule");
     expect(calendarSource).not.toContain("supabase");
     expect(calendarSource).not.toContain("useQuery");

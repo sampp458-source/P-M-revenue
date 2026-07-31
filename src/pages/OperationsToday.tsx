@@ -51,6 +51,7 @@ import {
   fetchOperationSchedulesForDay,
   mergeOperationTodaySchedule,
   nextSeoulDate,
+  oneHourScheduleEnd,
   operationDogProfileLine,
   operationPersonDisplayName,
   seoulDateKey,
@@ -886,7 +887,12 @@ export function ScheduleFormModal({
             </Field>
           </>
         )}
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div
+          className={cn(
+            "grid gap-4",
+            minimalCalendarMode ? "sm:grid-cols-3" : "sm:grid-cols-2",
+          )}
+        >
           <Field label="날짜" required>
             <Input
               required
@@ -924,14 +930,11 @@ export function ScheduleFormModal({
                   value={form.startTime}
                   onChange={(event) => {
                     const startTime = event.target.value;
+                    const nextEnd = oneHourScheduleEnd(form.date, startTime);
                     patch({
                       startTime,
-                      endDate:
-                        form.date &&
-                        form.endTime &&
-                        form.endTime <= startTime
-                          ? nextSeoulDate(form.date)
-                          : form.date,
+                      endDate: nextEnd.endDate,
+                      endTime: nextEnd.endTime,
                     });
                   }}
                 />
@@ -967,6 +970,7 @@ export function ScheduleFormModal({
           items={options?.assignees ?? []}
           selectedIds={form.assigneeIds}
           onChange={(assigneeIds) => patch({ assigneeIds })}
+          multiple={!minimalCalendarMode}
           getItemId={(row) => row.id}
           getSearchText={(row) =>
             `${row.name ?? ""} ${row.operationRole ?? ""}`
@@ -1019,6 +1023,7 @@ export function ScheduleFormModal({
           items={options?.dogs ?? []}
           selectedIds={form.dogIds}
           onChange={changeDogs}
+          multiple={!minimalCalendarMode}
           getItemId={(row) => row.id}
           getSearchText={(row) => {
             const customer = customerById.get(row.customerId ?? "");
@@ -1114,7 +1119,13 @@ export function ScheduleFormModal({
           />
         </Field>
         {error && <p role="alert" className="rounded-xl bg-error-soft px-3 py-2 text-sm text-error">{error}</p>}
-        <div className="flex justify-end gap-2">
+        <div
+          className={cn(
+            "flex justify-end gap-2",
+            minimalCalendarMode &&
+              "sticky -bottom-5 z-20 -mx-5 -mb-5 border-t border-border bg-surface px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:p-0 sm:shadow-none",
+          )}
+        >
           <Button type="button" variant="secondary" disabled={saving} onClick={onClose}>닫기</Button>
           <Button type="submit" disabled={saving}>{saving ? "저장 중..." : "저장"}</Button>
         </div>

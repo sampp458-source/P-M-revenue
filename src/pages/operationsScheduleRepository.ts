@@ -592,6 +592,29 @@ export function nextSeoulDate(localDate: string) {
   }).format(date);
 }
 
+export function oneHourScheduleEnd(localDate: string, startTime: string) {
+  const [hour, minute] = startTime.split(":").map(Number);
+  if (
+    !localDate ||
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return { endDate: localDate, endTime: "" };
+  }
+  const totalMinutes = hour * 60 + minute + 60;
+  const endHour = Math.floor((totalMinutes % (24 * 60)) / 60);
+  const endMinute = totalMinutes % 60;
+  return {
+    endDate:
+      totalMinutes >= 24 * 60 ? nextSeoulDate(localDate) : localDate,
+    endTime: `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`,
+  };
+}
+
 export function compactNames(
   rows: Array<{ name: string | null }>,
   emptyLabel: string,
