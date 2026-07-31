@@ -533,6 +533,7 @@ export function OperationsTodayPage() {
         onChange={setForm}
         onSubmit={save}
         onClose={() => !saving && setEditing(null)}
+        currentUserName={profile?.name}
       />
 
       <ScheduleDetailModal
@@ -795,6 +796,7 @@ export function ScheduleFormModal({
   onChange,
   onSubmit,
   onClose,
+  currentUserName,
   minimalCalendarMode = false,
 }: {
   open: boolean;
@@ -809,6 +811,7 @@ export function ScheduleFormModal({
   onChange: (value: ScheduleForm) => void;
   onSubmit: (event: FormEvent) => void;
   onClose: () => void;
+  currentUserName?: string | null;
   minimalCalendarMode?: boolean;
 }) {
   const patch = (values: Partial<ScheduleForm>) => onChange({ ...form, ...values });
@@ -853,6 +856,12 @@ export function ScheduleFormModal({
     );
     patchWithAutoTitle({ dogIds, customerIds });
   };
+  const creatorName =
+    editing === "new"
+      ? currentUserName
+      : editing
+        ? editing.createdByName
+        : null;
   return (
     <Modal
       open={open}
@@ -968,6 +977,15 @@ export function ScheduleFormModal({
             </div>
           </>
         </div>
+        <div className="rounded-xl border border-border bg-surface-secondary px-3.5 py-3">
+          <p className="text-xs font-semibold text-text-muted">등록자</p>
+          <p className="mt-1 text-sm font-semibold text-text-primary">
+            {creatorName?.trim() || "현재 로그인 사용자"}
+            <span className="ml-1.5 font-normal text-text-muted">
+              · 자동 기록
+            </span>
+          </p>
+        </div>
         <SearchSelect
           label="담당자"
           required
@@ -975,6 +993,7 @@ export function ScheduleFormModal({
           selectedIds={form.assigneeIds}
           onChange={(assigneeIds) => patch({ assigneeIds })}
           multiple={!minimalCalendarMode}
+          showAllOnEmpty
           getItemId={(row) => row.id}
           getSearchText={(row) =>
             `${row.name ?? ""} ${row.operationRole ?? ""}`
@@ -1018,7 +1037,7 @@ export function ScheduleFormModal({
             </span>
           )}
           placeholder="담당자 이름 검색"
-          emptyMessage="최근 선택한 담당자가 없습니다."
+          emptyMessage="활성 담당자가 없습니다."
           recentStorageKey={`pm-os:${recentScope}:schedule-staff`}
         />
         <SearchSelect
@@ -1188,10 +1207,15 @@ export function ScheduleDetailModal({
           <Button variant="secondary" onClick={() => onEdit(schedule)}><Pencil size={16} />수정</Button>
         )}
       </div>
+      <p className="mt-4 text-sm font-medium text-text-secondary">
+        담당 {compactNames(schedule.assignees, "미지정")}
+        <span className="mx-1.5 text-text-muted">·</span>
+        등록 {schedule.createdByName || "이름 미등록"}
+      </p>
       <dl className="mt-5 grid gap-4 sm:grid-cols-2">
         <Detail label="담당자" value={compactNames(schedule.assignees, "미지정")} />
-        <Detail label="사업부" value={schedule.calendarName} />
         <Detail label="생성자" value={schedule.createdByName || "이름 미등록"} />
+        <Detail label="사업부" value={schedule.calendarName} />
         <Detail label="마지막 수정" value={new Date(schedule.updatedAt).toLocaleString("ko-KR")} />
       </dl>
       <div className="mt-5 grid gap-4 sm:grid-cols-2">

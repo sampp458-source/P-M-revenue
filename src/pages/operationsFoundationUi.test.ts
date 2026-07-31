@@ -78,6 +78,10 @@ describe("Operations foundation UI", () => {
     expect(todaySource).toContain('<Field label="날짜" required>');
     expect(todaySource).toContain('<SearchSelect');
     expect(todaySource).toContain('label="담당자"');
+    expect(todaySource).toContain("showAllOnEmpty");
+    expect(todaySource).toContain("· 자동 기록");
+    expect(todaySource).toContain('Detail label="담당자"');
+    expect(todaySource).toContain('Detail label="생성자"');
     expect(todaySource).toContain('label="반려견"');
     expect(todaySource).toContain('label="보호자"');
     expect(todaySource).toContain("formatPhoneForDisplay(customer?.phone)");

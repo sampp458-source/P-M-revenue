@@ -26,11 +26,13 @@ const renderSearchSelect = ({
   onChange = vi.fn(),
   loadOptions,
   multiple = true,
+  showAllOnEmpty = false,
 }: {
   selectedIds?: string[];
   onChange?: (ids: string[]) => void;
   loadOptions?: (query: string) => Promise<readonly Item[]>;
   multiple?: boolean;
+  showAllOnEmpty?: boolean;
 } = {}) =>
   render(
     <SearchSelect
@@ -51,6 +53,7 @@ const renderSearchSelect = ({
       recentStorageKey="test-search-select-recent"
       debounceMs={0}
       multiple={multiple}
+      showAllOnEmpty={showAllOnEmpty}
     />,
   );
 
@@ -120,6 +123,16 @@ describe("SearchSelect", () => {
     );
     fireEvent.click(screen.getByRole("option", { name: /토리/ }));
     expect(input.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("can expose every available option before typing", async () => {
+    renderSearchSelect({ showAllOnEmpty: true });
+    fireEvent.focus(screen.getByRole("combobox", { name: "반려견" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("option", { name: /토리/ })).toBeTruthy(),
+    );
+    expect(screen.getByRole("option", { name: /초코/ })).toBeTruthy();
   });
 
   it("distinguishes the empty prompt from a no-result search", async () => {

@@ -62,6 +62,7 @@ export interface SearchSelectProps<T> {
   disabled?: boolean;
   required?: boolean;
   multiple?: boolean;
+  showAllOnEmpty?: boolean;
   debounceMs?: number;
   maxResults?: number;
 }
@@ -86,6 +87,7 @@ export function SearchSelect<T>({
   disabled = false,
   required = false,
   multiple = true,
+  showAllOnEmpty = false,
   debounceMs = 220,
   maxResults = 8,
 }: SearchSelectProps<T>) {
@@ -162,7 +164,7 @@ export function SearchSelect<T>({
                 .map((recentId) => itemById.get(recentId))
                 .filter((item): item is T => Boolean(item));
         } else {
-          nextResults = [];
+          nextResults = showAllOnEmpty ? availableItems : [];
         }
         if (!cancelled && requestSequence.current === sequence) {
           setResults(nextResults.slice(0, maxResults));
@@ -190,6 +192,7 @@ export function SearchSelect<T>({
     itemById,
     maxResults,
     recentIds,
+    showAllOnEmpty,
   ]);
 
   useEffect(() => {

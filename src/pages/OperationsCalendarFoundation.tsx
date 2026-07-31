@@ -545,6 +545,7 @@ export function OperationsCalendarFoundationPage() {
         onChange={setForm}
         onSubmit={save}
         onClose={() => setEditing(null)}
+        currentUserName={profile?.name}
         minimalCalendarMode
       />
       <ScheduleDetailModal
