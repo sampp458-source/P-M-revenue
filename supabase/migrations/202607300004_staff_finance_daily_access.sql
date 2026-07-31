@@ -87,6 +87,28 @@ begin
         select jsonb_agg(to_jsonb(refund) order by refund.refund_date, refund.created_at, refund.id)
         from public.sale_refunds refund
         join relevant_sales relevant on relevant.id = refund.sale_id
+      ), '[]'::jsonb),
+    'outstanding_sales',
+      coalesce((
+        select jsonb_agg(
+          jsonb_build_object(
+            'sale_id', sale.id,
+            'customer_id', sale.customer_id,
+            'customer_name', sale.customer_name,
+            'customer_phone', sale.customer_phone,
+            'dog_id', sale.dog_id,
+            'dog_name', sale.dog_name,
+            'outstanding_amount', sale.outstanding_amount,
+            'outstanding_date', sale.sale_date,
+            'business_unit_id', sale.business_unit_id,
+            'business_unit_name', sale.business_unit_name
+          )
+          order by sale.sale_date, sale.created_at, sale.id
+        )
+        from public.sales sale
+        where sale.status <> 'cancelled'
+          and sale.cancellation_type is distinct from 'entry_error'
+          and sale.outstanding_amount > 0
       ), '[]'::jsonb)
   )
   into result;

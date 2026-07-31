@@ -21,7 +21,10 @@ import {
   type PaymentLedgerEntry,
   type RefundLedgerEntry,
 } from "./paymentLedgerMetrics";
-import { fetchStaffFinanceDay } from "./staffFinanceDayRepository";
+import {
+  fetchStaffFinanceDay,
+  type StaffOutstandingSale,
+} from "./staffFinanceDayRepository";
 import {
   buildAccountingEvents,
   filterAccountingEvents,
@@ -45,6 +48,91 @@ const monthRange = (month: string): DashboardDateRange => {
   return { from: `${month}-01`, to: `${month}-${String(new Date(year, monthNumber, 0).getDate()).padStart(2, "0")}` };
 };
 
+type DashboardSaleRow = {
+  id: string;
+  sale_date: string;
+  business_unit_id: string;
+  business_unit_name: string;
+  product_id: string;
+  product_name: string;
+  dog_id: string | null;
+  dog_name: string | null;
+  customer_id: string | null;
+  customer_name: string | null;
+  customer_phone?: string | null;
+  memo?: string | null;
+  created_by: string;
+  staff_name: string | null;
+  payment_method: string;
+  original_amount: number | null;
+  additional_amount: number | null;
+  discount_amount: number | null;
+  paid_amount: number | null;
+  refund_amount: number | null;
+  outstanding_amount: number | null;
+  net_amount: number | null;
+  status: string;
+  cancellation_type?: string | null;
+  created_at: string;
+};
+
+const dashboardSaleFromRow = (row: DashboardSaleRow): DashboardSale => ({
+  id: row.id,
+  saleDate: row.sale_date,
+  businessUnitId: row.business_unit_id,
+  businessUnitName: row.business_unit_name,
+  productId: row.product_id,
+  productName: row.product_name,
+  dogId: row.dog_id,
+  dogName: row.dog_name || "(반려견 없음)",
+  customerId: row.customer_id,
+  customerName: row.customer_name,
+  customerPhone: row.customer_phone,
+  memo: row.memo,
+  createdBy: row.created_by,
+  staffName: row.staff_name,
+  paymentMethod: row.payment_method,
+  originalAmount: row.original_amount ?? 0,
+  additionalAmount: row.additional_amount ?? 0,
+  discountAmount: row.discount_amount ?? 0,
+  paidAmount: row.paid_amount ?? 0,
+  refundAmount: row.refund_amount ?? 0,
+  outstandingAmount: row.outstanding_amount ?? 0,
+  netAmount: row.net_amount ?? 0,
+  status: row.status,
+  cancellationType: row.cancellation_type,
+  createdAt: row.created_at,
+});
+
+const dashboardOutstandingSaleFromRow = (
+  row: StaffOutstandingSale,
+): DashboardSale => ({
+  id: row.sale_id,
+  saleDate: row.outstanding_date,
+  businessUnitId: row.business_unit_id,
+  businessUnitName: row.business_unit_name,
+  productId: "",
+  productName: "",
+  dogId: row.dog_id,
+  dogName: row.dog_name || "(반려견 없음)",
+  customerId: row.customer_id,
+  customerName: row.customer_name,
+  customerPhone: row.customer_phone,
+  createdBy: "",
+  staffName: null,
+  paymentMethod: "",
+  originalAmount: 0,
+  additionalAmount: 0,
+  discountAmount: 0,
+  paidAmount: 0,
+  refundAmount: 0,
+  outstandingAmount: row.outstanding_amount,
+  netAmount: 0,
+  status: "normal",
+  cancellationType: null,
+  createdAt: row.outstanding_date,
+});
+
 export function DashboardPage() {
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -54,6 +142,7 @@ export function DashboardPage() {
   const [targets, setTargets] = useState<DashboardTarget[]>([]);
   const [payments, setPayments] = useState<PaymentLedgerEntry[]>([]);
   const [refunds, setRefunds] = useState<RefundLedgerEntry[]>([]);
+  const [staffOutstandingSales, setStaffOutstandingSales] = useState<DashboardSale[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [dateDrawerOpen, setDateDrawerOpen] = useState(false);
@@ -82,6 +171,7 @@ export function DashboardPage() {
         staffDay = await fetchStaffFinanceDay(selectedDate);
       } catch {
         setSales([]);
+        setStaffOutstandingSales([]);
         setUnits([]);
         setError(true);
         setLoading(false);
@@ -110,33 +200,18 @@ export function DashboardPage() {
       setLoading(false);
       return;
     }
-    setSales((saleResult.data ?? []).map((row) => ({
-      id: row.id,
-      saleDate: row.sale_date,
-      businessUnitId: row.business_unit_id,
-      businessUnitName: row.business_unit_name,
-      productId: row.product_id,
-      productName: row.product_name,
-      dogId: row.dog_id,
-      dogName: row.dog_name || "(반려견 없음)",
-      customerId: row.customer_id,
-      customerName: row.customer_name,
-      customerPhone: row.customer_phone,
-      memo: row.memo,
-      createdBy: row.created_by,
-      staffName: row.staff_name,
-      paymentMethod: row.payment_method,
-      originalAmount: row.original_amount ?? 0,
-      additionalAmount: row.additional_amount ?? 0,
-      discountAmount: row.discount_amount ?? 0,
-      paidAmount: row.paid_amount ?? 0,
-      refundAmount: row.refund_amount ?? 0,
-      outstandingAmount: row.outstanding_amount ?? 0,
-      netAmount: row.net_amount ?? 0,
-      status: row.status,
-      cancellationType: row.cancellation_type,
-      createdAt: row.created_at,
-    })));
+    setSales(
+      (saleResult.data ?? []).map((row) =>
+        dashboardSaleFromRow(row as DashboardSaleRow),
+      ),
+    );
+    setStaffOutstandingSales(
+      isAdmin
+        ? []
+        : (staffDay?.outstandingSales ?? []).map(
+            dashboardOutstandingSaleFromRow,
+          ),
+    );
     setUnits((unitResult.data ?? []).map((row) => ({ id: row.id, code: row.code, name: row.name })));
     setTargets((targetResult.data ?? []).map((row) => ({
       year: row.year,
@@ -250,8 +325,12 @@ export function DashboardPage() {
     [payments, sales, unitId, visibleComparisonRange],
   );
   const currentOutstanding = useMemo(
-    () => calculateCurrentOutstanding(sales, unitId),
-    [sales, unitId],
+    () =>
+      calculateCurrentOutstanding(
+        isAdmin ? sales : staffOutstandingSales,
+        isAdmin ? unitId : "",
+      ),
+    [isAdmin, sales, staffOutstandingSales, unitId],
   );
   const selectedDateOutstanding = useMemo(
     () =>
@@ -453,6 +532,19 @@ export function DashboardPage() {
     navigate(
       `/sales?period=custom&start=${visibleRange.from}&end=${visibleRange.to}${unitId ? `&unit=${unitId}` : ""}&detail=${saleId}`,
     );
+  const openStaffOutstandingSale = (saleId: string) => {
+    const sale = staffOutstandingSales.find((row) => row.id === saleId);
+    const saleDate = sale?.saleDate ?? selectedDate;
+    navigate(
+      `/sales?period=custom&start=${saleDate}&end=${saleDate}&detail=${saleId}`,
+    );
+  };
+  const openStaffOutstandingCustomer = (sale: DashboardSale) => {
+    const params = new URLSearchParams();
+    if (sale.customerId) params.set("customerId", sale.customerId);
+    if (sale.dogId) params.set("dogId", sale.dogId);
+    navigate(`/customers${params.size ? `?${params.toString()}` : ""}`);
+  };
   const openAccountingDrawer = (view: AccountingEventView) => {
     setDateDrawerOpen(false);
     setOutstandingDrawerOpen(false);
@@ -482,17 +574,18 @@ export function DashboardPage() {
           previousPaidAmount={previousPayment}
           count={selectedOverview.count}
           monthlyTarget={isAdmin ? monthlyTarget : null}
-          outstanding={isAdmin ? currentOutstanding : selectedDateOutstanding}
+          outstanding={currentOutstanding}
+          outstandingCount={isAdmin ? undefined : staffOutstandingSales.length}
           refund={selectedRefund}
           onSales={() => openAccountingDrawer("sales")}
           onPayments={() => openAccountingDrawer("payments")}
           onRefunds={() => openAccountingDrawer("refunds")}
           onNet={() => openAccountingDrawer("net")}
-          onOutstanding={isAdmin ? openOutstandingDrawer : () => openSales(selectedDate, unitId)}
+          onOutstanding={openOutstandingDrawer}
           showComparison={isAdmin}
-          outstandingLabel={isAdmin ? "현재 전체 미수" : `${selectedDateLabel} 발생 미수`}
-          outstandingDescription={isAdmin ? "현재 시점에 남아 있는 미수 잔액" : "선택한 날짜의 판매에서 발생한 미수"}
-          outstandingActionLabel={isAdmin ? "현재 미수금 목록 열기" : "선택 날짜 판매 거래 목록 열기"}
+          outstandingLabel={isAdmin ? "현재 전체 미수" : "수금 대기"}
+          outstandingDescription={isAdmin ? "현재 시점에 남아 있는 미수 잔액" : "아직 결제가 필요한 고객 · 수금 업무"}
+          outstandingActionLabel={isAdmin ? "현재 미수금 목록 열기" : "수금 대기 목록 열기"}
         />
       </section>
     {isAdmin && <section aria-labelledby="business-unit-overview-title">
@@ -524,17 +617,19 @@ export function DashboardPage() {
         )
       }
     />
-    {isAdmin && (
-      <OutstandingPaymentsDrawer
-        open={outstandingDrawerOpen}
-        unitId={unitId}
-        unitName={selectedUnitName}
-        units={units}
-        sales={sales}
-        onClose={() => setOutstandingDrawerOpen(false)}
-        onChanged={() => load(true)}
-        onOpenSale={openAccountingSale}
-      />
-    )}
+    <OutstandingPaymentsDrawer
+      open={outstandingDrawerOpen}
+      unitId={isAdmin ? unitId : ""}
+      unitName={isAdmin ? selectedUnitName : "전체 사업부"}
+      units={units}
+      sales={isAdmin ? sales : staffOutstandingSales}
+      title={isAdmin ? "현재 미수금" : "수금 대기"}
+      description={isAdmin ? `${selectedUnitName} · 발생일과 관계없이 남은 미수 전체` : "오래된 발생일 순 · 결제가 필요한 고객 목록"}
+      collectionMode={!isAdmin}
+      onClose={() => setOutstandingDrawerOpen(false)}
+      onChanged={() => load(true)}
+      onOpenSale={isAdmin ? openAccountingSale : openStaffOutstandingSale}
+      onOpenCustomer={isAdmin ? undefined : openStaffOutstandingCustomer}
+    />
   </div>;
 }

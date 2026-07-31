@@ -45,7 +45,12 @@ import {
   cn,
 } from "../components/ui";
 import { won } from "../lib/format";
-import { formatPhone, isValidPhone, phoneDigits } from "../lib/phone";
+import {
+  formatPhone,
+  formatPhoneForDisplay,
+  isValidPhone,
+  phoneDigits,
+} from "../lib/phone";
 import { supabase } from "../lib/supabase";
 import {
   buildQuickPartyRpcPayload,
@@ -218,12 +223,8 @@ const today = () =>
 const digitsOnly = (value: string) => value.replace(/[^0-9]/g, "");
 const moneyText = (value: number) =>
   Math.max(0, Math.trunc(value || 0)).toLocaleString("ko-KR");
-const maskedPhone = (phone: string | null) => {
-  const digits = phoneDigits(phone ?? "");
-  return digits.length === 11
-    ? `${digits.slice(0, 3)}-****-${digits.slice(-4)}`
-    : phone || "연락처 미등록";
-};
+const displayPhone = (phone: string | null) =>
+  formatPhoneForDisplay(phone) || "연락처 미등록";
 const dogAge = (birthDate: string | null) => {
   if (!birthDate) return "나이 미등록";
   const birth = new Date(`${birthDate}T00:00:00`);
@@ -2231,7 +2232,7 @@ export function SaleFormPage() {
                                     </span>
                                     <span className="mt-1 block truncate text-xs text-text-muted">
                                       <HighlightedText
-                                        text={maskedPhone(result.customerPhone)}
+                                        text={displayPhone(result.customerPhone)}
                                         query={debouncedSearch}
                                       />{" "}
                                       · 반려견 {result.dogNames.length || 0}마리
@@ -2431,7 +2432,7 @@ export function SaleFormPage() {
                             selectedDog?.customerName ??
                             "미등록"}{" "}
                           ·{" "}
-                          {maskedPhone(
+                          {displayPhone(
                             selectedCustomer?.phone ??
                               selectedDog?.customerPhone ??
                               null,
@@ -3534,7 +3535,7 @@ export function SaleFormPage() {
                     saleReference.customerName ||
                     "보호자 미등록"}
                   {(selectedCustomer?.phone || saleReference.phone) &&
-                    ` · ${formatPhone(selectedCustomer?.phone || saleReference.phone)}`}
+                    ` · ${formatPhoneForDisplay(selectedCustomer?.phone || saleReference.phone)}`}
                 </p>
               </div>
               <div className="mt-3 flex items-start justify-between gap-3">

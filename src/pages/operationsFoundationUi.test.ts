@@ -55,8 +55,8 @@ describe("Operations foundation UI", () => {
     expect(todaySource).toContain('label="담당자"');
     expect(todaySource).toContain('label="반려견"');
     expect(todaySource).toContain('label="보호자"');
-    expect(todaySource).toContain("phoneLast4");
-    expect(todaySource).not.toContain("formatPhone(customer.phone)");
+    expect(todaySource).toContain("formatPhoneForDisplay(customer?.phone)");
+    expect(todaySource).not.toContain("phoneLast4");
     expect(todaySource).toContain('<Field label="일정 유형">');
     expect(todaySource).toContain("선택 안 함 · 기타로 저장");
     expect(todaySource).not.toContain('label="사업부 Calendar"');

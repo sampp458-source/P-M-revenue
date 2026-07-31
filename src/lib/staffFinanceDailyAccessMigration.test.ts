@@ -45,4 +45,29 @@ describe("직원 Finance 단일 날짜 접근 Migration", () => {
       /delete\s+from\s+public\.(sales|sale_payments|sale_refunds|sale_history)/i,
     );
   });
+
+  it("직원용 응답은 수금 업무에 필요한 현재 미수만 별도 제공한다", () => {
+    expect(migration).toContain("'outstanding_sales'");
+    expect(migration).toContain("sale.status <> 'cancelled'");
+    expect(migration).toContain(
+      "sale.cancellation_type is distinct from 'entry_error'",
+    );
+    expect(migration).toContain("sale.outstanding_amount > 0");
+    expect(migration).toContain("'sale_id', sale.id");
+    expect(migration).toContain("'customer_id', sale.customer_id");
+    expect(migration).toContain("'dog_id', sale.dog_id");
+    expect(migration).toContain("'outstanding_date', sale.sale_date");
+    expect(repository).toContain("outstanding_sales");
+  });
+
+  it("현재 미수 추가는 Finance 테이블, Policy, 데이터를 변경하지 않는다", () => {
+    expect(migration).not.toMatch(/drop\s+policy/i);
+    expect(migration).not.toMatch(/create\s+policy/i);
+    expect(migration).not.toMatch(
+      /alter\s+table\s+public\.(sales|sale_payments|sale_refunds|sale_history)/i,
+    );
+    expect(migration).not.toMatch(
+      /(insert\s+into|update|delete\s+from)\s+public\.(sales|sale_payments|sale_refunds|sale_history)/i,
+    );
+  });
 });

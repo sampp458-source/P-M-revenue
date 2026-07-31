@@ -49,6 +49,7 @@ import {
   Toast,
 } from "../components/ui";
 import { koDate, won } from "../lib/format";
+import { formatPhoneForDisplay } from "../lib/phone";
 import { supabase } from "../lib/supabase";
 import {
   logSupabaseError,
@@ -64,7 +65,6 @@ import {
   hasOutstanding,
   isRefundDateAllowed,
   koreanDate,
-  normalizePhone,
   periodRange,
   refundRemainingAmount,
   shiftDateKey,
@@ -350,12 +350,8 @@ const numberFilter = (value: string | null) => {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 };
 
-const maskPhone = (phone: string | null) => {
-  const digits = normalizePhone(phone);
-  if (digits.length === 11)
-    return `${digits.slice(0, 3)}-****-${digits.slice(-4)}`;
-  return phone || "-";
-};
+const displayPhone = (phone: string | null) =>
+  formatPhoneForDisplay(phone) || "-";
 
 const dateTime = (value: string) =>
   new Date(value).toLocaleString("ko-KR", {
@@ -2264,8 +2260,8 @@ export function SalesHistoryPage() {
                 <Field label="보호자">
                   <Select value={editing.customerId ?? ""} disabled={partySaving || editing.status !== "normal"} onChange={(event) => { const customerId = event.target.value || null; const currentDog = partyDogs.find((dog) => dog.id === editing.dogId); setEditing({ ...editing, customerId, dogId: currentDog?.customerId === customerId ? editing.dogId : null }); setPartyError(""); }}>
                     <option value="">보호자 미등록</option>
-                    {editing.customerId && !partyCustomers.some((customer) => customer.id === editing.customerId) && <option value={editing.customerId}>{editing.customerName || "기존 보호자"} · {editing.customerPhone || "연락처 없음"}</option>}
-                    {visiblePartyCustomers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name || "이름 미등록"} · {customer.phone || "연락처 미등록"}</option>)}
+                    {editing.customerId && !partyCustomers.some((customer) => customer.id === editing.customerId) && <option value={editing.customerId}>{editing.customerName || "기존 보호자"} · {displayPhone(editing.customerPhone)}</option>}
+                    {visiblePartyCustomers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name || "이름 미등록"} · {displayPhone(customer.phone)}</option>)}
                   </Select>
                 </Field>
                 <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving || editing.status !== "normal"} onClick={() => { setNewCustomer({ name: partySearch, phone: "" }); setPartyError(""); setPartyModal("customer"); }}><Plus size={16} />새 보호자 등록</Button></div>
@@ -2893,7 +2889,7 @@ function SaleDetailContent({
             </h3>
             <p className="mt-2 break-words text-sm leading-6 text-slate-300">
               {sale.customerName?.trim() || "보호자 이름 없음"}
-              {sale.customerPhone?.trim() ? ` · ${sale.customerPhone}` : ""}
+              {sale.customerPhone?.trim() ? ` · ${displayPhone(sale.customerPhone)}` : ""}
             </p>
             <dl className="mt-7 grid gap-x-6 gap-y-4 border-t border-white/15 pt-5 text-sm sm:grid-cols-3">
               <DetailHeroText label="사업부" value={sale.businessUnitName} />
@@ -3114,7 +3110,7 @@ function SaleDetailContent({
           </div>
           <div className="grid gap-x-6 gap-y-5 pt-5 sm:grid-cols-2">
             <DetailText label="보호자" value={sale.customerName?.trim() || "보호자 이름 없음"} important />
-            <DetailText label="연락처" value={sale.customerPhone?.trim() || "연락처 없음"} />
+            <DetailText label="연락처" value={displayPhone(sale.customerPhone) || "연락처 없음"} />
             <DetailText label="사업부" value={sale.businessUnitName} />
             <DetailText label="담당자" value={sale.staffName || "담당자 미지정"} />
             <DetailText label="고객 구분" value={customerType} />
@@ -4180,7 +4176,7 @@ function SalesTable({
                     {sale.customerName || "보호자 미등록"}
                   </span>
                   <span className="mt-0.5 block text-[11px] text-text-muted tabular-nums">
-                    {maskPhone(sale.customerPhone)}
+                    {displayPhone(sale.customerPhone)}
                   </span>
                 </div>
                 <DuplicateBadge warning={duplicateWarnings.get(sale.id)} />
@@ -4338,7 +4334,7 @@ function SaleMobileCard({
           </div>
           <p className="mt-1 truncate text-sm font-medium text-text-secondary">
             {sale.customerName || "보호자 미등록"} ·{" "}
-            {maskPhone(sale.customerPhone)}
+            {displayPhone(sale.customerPhone)}
           </p>
         </div>
         <SaleStatusBadges sale={sale} compact />

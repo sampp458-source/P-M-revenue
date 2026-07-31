@@ -226,7 +226,7 @@ describe("dog profile audit and Customer Master connection", () => {
   it("uses customer-friendly labels and formatted display phones", () => {
     expect(profileUi).toContain("보호자 프로필 보기");
     expect(profileUi).not.toContain("보호자 Master 보기");
-    expect(profileUi).toContain("formatPhone(owner.phone)");
+    expect(profileUi).toContain("formatPhoneForDisplay(owner.phone)");
   });
 
   it("loads units through the product relation instead of a missing sales column", () => {

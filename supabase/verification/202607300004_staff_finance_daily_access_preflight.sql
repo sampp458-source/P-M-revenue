@@ -7,7 +7,16 @@ select
   to_regprocedure('public.is_active_user()') is not null as is_active_user_exists,
   to_regprocedure('public.is_admin()') is not null as is_admin_exists,
   to_regprocedure('public.get_staff_finance_day(date)') is not null
-    as daily_rpc_already_exists;
+    as daily_rpc_already_exists,
+  has_function_privilege(
+    'authenticated',
+    'public.get_staff_finance_day(date)',
+    'EXECUTE'
+  ) as authenticated_can_execute_daily_rpc;
+
+select
+  pg_get_functiondef('public.get_staff_finance_day(date)'::regprocedure)
+    as current_daily_rpc_definition;
 
 select
   policy_info.tablename,
@@ -40,3 +49,11 @@ select
   (select count(*) from public.sale_payments) as sale_payments_count,
   (select count(*) from public.sale_refunds) as sale_refunds_count,
   (select count(*) from public.sale_history) as sale_history_count;
+
+select
+  count(*) as expected_outstanding_count,
+  coalesce(sum(sale.outstanding_amount), 0) as expected_outstanding_amount
+from public.sales sale
+where sale.status <> 'cancelled'
+  and sale.cancellation_type is distinct from 'entry_error'
+  and sale.outstanding_amount > 0;

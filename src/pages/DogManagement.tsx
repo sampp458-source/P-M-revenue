@@ -7,6 +7,7 @@ import {
   type FormEvent,
 } from "react";
 import { Eye, MoreHorizontal, Pencil, Plus } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   Button,
@@ -29,7 +30,7 @@ import {
   Toast,
 } from "../components/ui";
 import { isMissingCustomerAddressColumn } from "../lib/customerAddressCapability";
-import { formatPhone } from "../lib/phone";
+import { formatPhoneForDisplay } from "../lib/phone";
 import { supabase } from "../lib/supabase";
 import {
   logSupabaseError,
@@ -297,6 +298,7 @@ function DogRowActions({
 // UI freeze: preserve this layout after the final polish; bug fixes only.
 export function PetManagementPage() {
   const { profile } = useAuth();
+  const [searchParams] = useSearchParams();
   const canEditDog = profile?.isActive === true;
   const canDeactivateDog = profile?.role === "admin";
   const [dogs, setDogs] = useState<DogRow[]>([]);
@@ -327,6 +329,7 @@ export function PetManagementPage() {
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState("");
   const loadRequestIdRef = useRef(0);
+  const handledProfileLinkRef = useRef("");
   const pageSize = 20;
 
   const loadData = useCallback(async () => {
@@ -468,6 +471,24 @@ export function PetManagementPage() {
     setProfileLoading(true);
     setProfileDogId(dogId);
   };
+
+  useEffect(() => {
+    if (loading) return;
+    const requestedDogId = searchParams.get("dogId") ?? "";
+    const requestedCustomerId = searchParams.get("customerId") ?? "";
+    if (!requestedDogId && !requestedCustomerId) return;
+    const target =
+      dogs.find((dog) => dog.id === requestedDogId) ??
+      dogs.find((dog) => dog.customerId === requestedCustomerId);
+    if (!target) return;
+    const linkKey = `${requestedDogId}|${requestedCustomerId}|${target.id}`;
+    if (handledProfileLinkRef.current === linkKey) return;
+    handledProfileLinkRef.current = linkKey;
+    setProfileActivities([]);
+    setProfileError("");
+    setProfileLoading(true);
+    setProfileDogId(target.id);
+  }, [dogs, loading, searchParams]);
 
   const openEdit = (dog: DogRow) => {
     setFormError("");
@@ -800,7 +821,7 @@ export function PetManagementPage() {
                           {dog.ownerName || "미등록"}
                         </td>
                         <td className="tabular-nums">
-                          {dog.ownerPhone ? formatPhone(dog.ownerPhone) : "미등록"}
+                          {formatPhoneForDisplay(dog.ownerPhone) || "미등록"}
                         </td>
                         <td>{dog.breed || "미등록"}</td>
                         <td className="px-3 text-center [&>span]:px-3">
@@ -855,7 +876,7 @@ export function PetManagementPage() {
                       </dd>
                       <dt className="text-text-muted">연락처</dt>
                       <dd className="whitespace-nowrap tabular-nums text-text-secondary">
-                        {dog.ownerPhone ? formatPhone(dog.ownerPhone) : "미등록"}
+                        {formatPhoneForDisplay(dog.ownerPhone) || "미등록"}
                       </dd>
                     </dl>
                     <div className="mt-4 border-t border-border pt-3">
@@ -907,7 +928,7 @@ export function PetManagementPage() {
             <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
               <Select className="min-w-0" name="customerId" aria-describedby={formError ? "dog-form-error" : undefined} value={editing.customerId} disabled={saving} onChange={(e) => { setDuplicateDog(null); setAllowDuplicateDog(false); setEditing({ ...editing, customerId: e.target.value }); }}>
                 <option value="">보호자 미등록</option>
-                {visibleOwners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name || "이름 미등록"} · {owner.phone || "연락처 미등록"}</option>)}
+                {visibleOwners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name || "이름 미등록"} · {formatPhoneForDisplay(owner.phone) || "연락처 미등록"}</option>)}
               </Select>
               <Button type="button" variant="secondary" disabled={saving} onClick={openOwnerCreate}><Plus size={16} />새 보호자</Button>
             </div>
@@ -919,7 +940,7 @@ export function PetManagementPage() {
                       {selectedOwner.name || "이름 미등록"}
                     </strong>
                     <p className="mt-1 text-sm text-text-secondary">
-                      {selectedOwner.phone || "연락처 미등록"}
+                      {formatPhoneForDisplay(selectedOwner.phone) || "연락처 미등록"}
                     </p>
                   </div>
                   <Button type="button" variant="secondary" className="min-h-9 px-3 py-1.5 text-sm" disabled={saving} onClick={() => openOwnerEdit()}>

@@ -23,7 +23,7 @@ import {
   StatusBadge,
 } from "../components/ui";
 import { koDate } from "../lib/format";
-import { formatPhone } from "../lib/phone";
+import { formatPhoneForDisplay } from "../lib/phone";
 import {
   dashboardThemeCode,
   dashboardThemeStyle,
@@ -176,7 +176,7 @@ export function DogProfileModal({
                 <ProfileField
                   icon={<Phone size={15} />}
                   label="전화번호"
-                  value={owner.phone ? formatPhone(owner.phone) : "미등록"}
+                  value={formatPhoneForDisplay(owner.phone) || "미등록"}
                 />
                 <ProfileField
                   icon={<MapPin size={15} />}

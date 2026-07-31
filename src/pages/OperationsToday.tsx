@@ -34,7 +34,7 @@ import {
   cn,
 } from "../components/ui";
 import { SearchSelect } from "../components/SearchSelect";
-import { phoneLast4 } from "../lib/phone";
+import { formatPhoneForDisplay } from "../lib/phone";
 import {
   OperationScheduleRepositoryError,
   attachOperationAssigneeColors,
@@ -1016,7 +1016,7 @@ function ScheduleFormModal({
             const profileLine = operationDogProfileLine(row);
             const ownerLine = [
               customer?.name?.trim() || "",
-              customer?.phone ? phoneLast4(customer.phone) : "",
+              formatPhoneForDisplay(customer?.phone),
             ]
               .filter(Boolean)
               .join(" · ");
@@ -1074,7 +1074,7 @@ function ScheduleFormModal({
                 <span className="mt-0.5 block truncate text-xs text-text-muted">
                   {(dogsByCustomer.get(row.id) ?? []).join(", ") ||
                     "연결된 반려견 없음"}{" "}
-                  · {row.phone ? phoneLast4(row.phone) : "전화번호 미등록"}
+                  · {formatPhoneForDisplay(row.phone) || "전화번호 미등록"}
                 </span>
               </span>
             </span>

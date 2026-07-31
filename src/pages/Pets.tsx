@@ -21,6 +21,7 @@ import {
   Toast,
 } from "../components/ui";
 import { koDate, net, won } from "../lib/format";
+import { formatPhoneForDisplay } from "../lib/phone";
 import { supabase } from "../lib/supabase";
 import {
   logSupabaseError,
@@ -184,7 +185,7 @@ export function PetManagementPage() {
                       {pet.name}
                     </td>
                     <td>{owner?.name || "-"}</td>
-                    <td>{owner?.phone || "-"}</td>
+                    <td>{formatPhoneForDisplay(owner?.phone) || "-"}</td>
                     <td>{pet.breed || "-"}</td>
                     <td>{pet.sex || "-"}</td>
                     <td className="font-semibold">{won(total)}</td>
@@ -507,7 +508,7 @@ export function CustomerList({
                   <td className="font-semibold text-slate-900">
                     {customer.name || "이름 미등록"}
                   </td>
-                  <td>{customer.phone || "연락처 미등록"}</td>
+                  <td>{formatPhoneForDisplay(customer.phone) || "연락처 미등록"}</td>
                   <td className="max-w-xs truncate">{customer.address || "-"}</td>
                   <td className="max-w-xs truncate">{customer.memo || "-"}</td>
                   <td>
@@ -653,7 +654,7 @@ function PetFormModal({
                   <option value="">보호자 선택</option>
                   {d.customers.map((owner) => (
                     <option key={owner.id} value={owner.id}>
-                      {owner.name} · {owner.phone}
+                      {owner.name} · {formatPhoneForDisplay(owner.phone)}
                     </option>
                   ))}
                 </Select>
@@ -820,7 +821,7 @@ function PetDetail({
           <div>
             <h3 className="text-xl font-bold text-slate-900">{pet.name}</h3>
             <p className="mt-1 text-sm text-slate-600">
-              보호자 {owner?.name || "-"} · {owner?.phone || "-"}
+              보호자 {owner?.name || "-"} · {formatPhoneForDisplay(owner?.phone) || "-"}
             </p>
           </div>
           <div className="flex gap-2">

@@ -27,6 +27,7 @@ export function DashboardKpiHero({
   count,
   monthlyTarget,
   outstanding,
+  outstandingCount,
   refund,
   onSales,
   onPayments,
@@ -47,6 +48,7 @@ export function DashboardKpiHero({
   count: number;
   monthlyTarget: number | null;
   outstanding: number;
+  outstandingCount?: number;
   refund: number;
   onSales: () => void;
   onPayments: () => void;
@@ -126,7 +128,12 @@ export function DashboardKpiHero({
     },
     {
       label: outstandingLabel,
-      value: won(outstanding),
+      value:
+        outstandingCount === undefined
+          ? won(outstanding)
+          : `${outstandingCount.toLocaleString("ko-KR")}건`,
+      secondaryValue:
+        outstandingCount === undefined ? "" : won(outstanding),
       description: outstandingDescription,
       className: "border-warning/15 bg-warning-soft/70",
       labelClass: "text-warning",
@@ -199,6 +206,11 @@ export function DashboardKpiHero({
             >
               {item.value}
             </strong>
+            {item.secondaryValue && (
+              <span className="mt-2 block whitespace-nowrap text-base font-bold text-warning tabular-nums">
+                {item.secondaryValue}
+              </span>
+            )}
             <div className="mt-2 min-h-10">
               {item.signal && (
                 <p className="flex flex-wrap items-center gap-x-1.5 text-[11px] font-semibold leading-4">
