@@ -1,4 +1,4 @@
-import { Banknote, Phone, X } from "lucide-react";
+import { ArrowUpRight, Banknote, Phone, X } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from "react";
 import { Badge, Button, EmptyState, Field, Input, Modal, Select, Textarea, Toast, cn } from "../../components/ui";
 import { won } from "../../lib/format";
@@ -185,18 +185,46 @@ export function OutstandingPaymentsDrawer({
       />
       <aside
         aria-labelledby={titleId}
-        className="pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-white/10 bg-[#111e31] text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(680px,58vw)]"
+        className={cn(
+          "pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l shadow-[var(--pm-shadow-modal)] sm:w-[min(680px,58vw)]",
+          collectionMode
+            ? "border-border bg-[#f5f7fb] text-text-primary"
+            : "border-white/10 bg-[#111e31] text-white",
+        )}
       >
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 px-5 py-4 sm:px-6">
+        <div
+          className={cn(
+            "flex shrink-0 items-start justify-between gap-4 border-b px-5 py-3.5 sm:px-6 sm:py-4",
+            collectionMode ? "border-border bg-surface" : "border-white/10",
+          )}
+        >
           <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-200/15 text-amber-200">
+            <span
+              className={cn(
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                collectionMode
+                  ? "bg-amber-50 text-amber-700"
+                  : "bg-amber-200/15 text-amber-200",
+              )}
+            >
               <Banknote size={19} />
             </span>
             <div className="min-w-0">
-              <h2 id={titleId} className="text-xl font-bold tracking-[-0.025em] text-white">
+              <h2
+                id={titleId}
+                className={cn(
+                  "text-xl font-bold tracking-[-0.025em]",
+                  collectionMode ? "text-text-primary" : "text-white",
+                )}
+              >
                 {title}
               </h2>
-              <p className="mt-1 break-keep text-sm leading-5 text-slate-300">
+              <p
+                className={cn(
+                  "mt-1 break-keep text-sm leading-5",
+                  collectionMode ? "text-text-secondary" : "text-slate-300",
+                )}
+              >
                 {description ?? `${unitName} · 발생일과 관계없이 남은 미수 전체`}
               </p>
             </div>
@@ -206,80 +234,127 @@ export function OutstandingPaymentsDrawer({
             type="button"
             aria-label={`${title} 닫기`}
             onClick={onClose}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+            className={cn(
+              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors focus:outline-none focus-visible:ring-2",
+              collectionMode
+                ? "text-text-secondary hover:bg-surface-secondary hover:text-text-primary focus-visible:ring-primary"
+                : "text-slate-300 hover:bg-white/10 hover:text-white focus-visible:ring-blue-300",
+            )}
           >
             <X size={20} />
           </button>
         </div>
-        <div className="sticky top-0 z-10 grid grid-cols-2 gap-2 border-b border-white/10 bg-[#111e31]/95 p-4 backdrop-blur sm:gap-3 sm:px-6">
-          <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.055] p-3.5 text-white sm:p-4">
-            <span className="text-xs text-blue-200">
+        <div
+          className={cn(
+            "sticky top-0 z-10 grid grid-cols-2 gap-2 border-b p-3.5 backdrop-blur sm:gap-3 sm:px-6 sm:py-4",
+            collectionMode
+              ? "border-border bg-[#f5f7fb]/95"
+              : "border-white/10 bg-[#111e31]/95",
+          )}
+        >
+          <div
+            className={cn(
+              "min-w-0 rounded-2xl border p-3 sm:p-4",
+              collectionMode
+                ? "border-border bg-surface text-text-primary shadow-[var(--pm-shadow-surface)]"
+                : "border-white/10 bg-white/[0.055] text-white",
+            )}
+          >
+            <span className={cn("text-xs", collectionMode ? "text-text-secondary" : "text-blue-200")}>
               {collectionMode ? "받아야 할 결제" : "남은 미수금"}
             </span>
-            <strong className="mt-1 block whitespace-nowrap text-[clamp(1rem,5vw,1.25rem)] tracking-[-0.035em] text-white tabular-nums">{won(outstandingTotal)}</strong>
+            <strong className={cn("mt-1 block whitespace-nowrap text-[clamp(1rem,5vw,1.25rem)] tracking-[-0.035em] tabular-nums", collectionMode ? "text-text-primary" : "text-white")}>{won(outstandingTotal)}</strong>
           </div>
-          <div className="min-w-0 rounded-2xl border border-amber-200/15 bg-amber-200/[0.07] p-3.5 sm:p-4">
-            <span className="text-xs text-amber-200">
+          <div
+            className={cn(
+              "min-w-0 rounded-2xl border p-3 sm:p-4",
+              collectionMode
+                ? "border-amber-200/80 bg-amber-50/70 shadow-[var(--pm-shadow-surface)]"
+                : "border-amber-200/15 bg-amber-200/[0.07]",
+            )}
+          >
+            <span className={cn("text-xs", collectionMode ? "text-amber-800" : "text-amber-200")}>
               {collectionMode ? "수금 대기 고객" : "미수 거래"}
             </span>
-            <strong className="mt-1 block whitespace-nowrap text-[clamp(1rem,5vw,1.25rem)] text-white tabular-nums">{rows.length}건</strong>
+            <strong className={cn("mt-1 block whitespace-nowrap text-[clamp(1rem,5vw,1.25rem)] tabular-nums", collectionMode ? "text-text-primary" : "text-white")}>{rows.length}건</strong>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto overscroll-contain p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6">
+        <div className="flex-1 overflow-y-auto overscroll-contain p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6">
           {rows.length ? (
-            <div className="space-y-3">
+            <div className={cn(collectionMode ? "space-y-2.5 sm:space-y-3" : "space-y-3")}>
               {rows.map((sale) => (
                 <article
                   key={sale.id}
-                  className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 transition-[border-color,box-shadow] duration-150 md:hover:border-white/20 md:hover:shadow-[0_10px_26px_rgba(0,0,0,0.16)] sm:p-5"
+                  className={cn(
+                    "rounded-2xl border transition-[border-color,box-shadow,background-color] duration-150",
+                    collectionMode
+                      ? "border-border bg-surface p-3.5 shadow-[var(--pm-shadow-surface)] md:hover:border-primary/25 md:hover:shadow-[0_10px_28px_rgba(23,54,93,0.09)] sm:p-5"
+                      : "border-white/10 bg-white/[0.045] p-4 md:hover:border-white/20 md:hover:shadow-[0_10px_26px_rgba(0,0,0,0.16)] sm:p-5",
+                  )}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2.5 sm:gap-3">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone="blue">{sale.businessUnitName}</Badge>
-                        <span className="text-xs text-slate-300 tabular-nums">
+                        <span className={cn("text-xs tabular-nums", collectionMode ? "text-text-secondary" : "text-slate-300")}>
                           발생일 {sale.saleDate}
                         </span>
                         {collectionMode && (
-                          <OutstandingAgeBadge saleDate={sale.saleDate} />
+                          <OutstandingAgeBadge saleDate={sale.saleDate} light />
                         )}
                       </div>
                       {collectionMode && onOpenCustomer ? (
                         <button
                           type="button"
-                          className="mt-2 rounded-md text-left text-lg font-bold leading-6 text-white underline decoration-white/25 underline-offset-4 transition-colors hover:text-blue-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                          className="group mt-2 inline-flex items-center gap-1 rounded-md text-left text-base font-bold leading-6 text-text-primary underline decoration-primary/25 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:text-lg"
                           onClick={() => onOpenCustomer(sale)}
                         >
                           {sale.customerName || "보호자 미등록"}
+                          <ArrowUpRight
+                            size={14}
+                            aria-hidden="true"
+                            className="text-primary/60 transition-transform duration-150 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+                          />
+                          <span className="sr-only">보호자 프로필 보기</span>
                         </button>
                       ) : (
-                        <h3 className="mt-2 break-keep text-lg font-bold leading-6 text-white">
+                        <h3 className={cn("mt-2 break-keep text-lg font-bold leading-6", collectionMode ? "text-text-primary" : "text-white")}>
                           {collectionMode
                             ? sale.customerName || "보호자 미등록"
                             : sale.dogName || "(반려견 없음)"}
                         </h3>
                       )}
-                      <p className="mt-1 break-keep text-sm leading-5 text-slate-200">
+                      <p className={cn("mt-0.5 break-keep text-sm leading-5 sm:mt-1", collectionMode ? "text-text-secondary" : "text-slate-200")}>
                         {collectionMode
                           ? `반려견 ${sale.dogName || "미등록"}`
                           : sale.customerName || "보호자 미등록"}
                       </p>
-                      {sale.customerPhone &&
-                        maskedCollectionPhone(sale.customerPhone) && (
+                      {sale.customerPhone && maskedCollectionPhone(sale.customerPhone) ? (
                         <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <span className="text-xs leading-5 text-slate-300 tabular-nums">
+                          <span className={cn("text-xs leading-5 tabular-nums", collectionMode ? "text-text-secondary" : "text-slate-300")}>
                             {maskedCollectionPhone(sale.customerPhone)}
                           </span>
                           <a
                             href={`tel:${sale.customerPhone.replace(/[^\d+]/g, "")}`}
                             aria-label={`${sale.customerName || "보호자"}에게 전화`}
-                            className="inline-flex min-h-8 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.06] px-2.5 text-xs font-semibold text-slate-100 transition-colors hover:border-white/20 hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                            className={cn(
+                              "inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2",
+                              collectionMode
+                                ? "border-border bg-surface-secondary text-text-primary hover:border-primary/25 hover:bg-primary-soft focus-visible:ring-primary"
+                                : "border-white/10 bg-white/[0.06] text-slate-100 hover:border-white/20 hover:bg-white/10 focus-visible:ring-blue-300",
+                            )}
                           >
                             <Phone size={13} aria-hidden="true" />
                             전화
                           </a>
                         </div>
-                        )}
+                      ) : (
+                        collectionMode && (
+                          <p className="mt-1 text-xs leading-5 text-text-muted">
+                            연락처 미등록
+                          </p>
+                        )
+                      )}
                       {!collectionMode && (
                         <p className="mt-1 break-keep text-xs leading-5 text-slate-300">
                           {sale.productName}
@@ -287,10 +362,10 @@ export function OutstandingPaymentsDrawer({
                       )}
                     </div>
                     <div className="shrink-0 text-right">
-                      <span className="text-xs font-semibold text-amber-200">
+                      <span className={cn("text-xs font-semibold", collectionMode ? "text-amber-700" : "text-amber-200")}>
                         {collectionMode ? "미수금" : "현재 미수"}
                       </span>
-                      <strong className="mt-1 block whitespace-nowrap text-[clamp(1.05rem,5vw,1.25rem)] text-white tabular-nums">
+                      <strong className={cn("mt-1 block whitespace-nowrap text-[clamp(1.05rem,5vw,1.25rem)] tabular-nums", collectionMode ? "text-text-primary" : "text-white")}>
                         {won(sale.outstandingAmount)}
                       </strong>
                     </div>
@@ -302,28 +377,28 @@ export function OutstandingPaymentsDrawer({
                       <LedgerValue label="메모" value={sale.memo || "없음"} />
                     </dl>
                   )}
-                  <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <div className={cn("grid grid-cols-2 gap-2", collectionMode ? "mt-3 sm:mt-4 sm:flex sm:flex-row" : "mt-4 sm:flex sm:flex-row")}>
                     <Button
                       type="button"
-                      variant="secondary"
-                      className="w-full sm:w-auto"
-                      onClick={() => onOpenSale(sale.id)}
-                    >
-                      거래 확인
-                    </Button>
-                    <Button
-                      type="button"
-                      className="w-full sm:w-auto"
+                      className={cn("w-full sm:w-auto", collectionMode && "min-h-10 px-3 py-2 text-[13px] sm:min-h-11 sm:px-4 sm:py-2.5 sm:text-sm")}
                       onClick={() => startCollection(sale)}
                     >
                       {collectionMode ? "결제받기" : "수납하기"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className={cn("w-full sm:w-auto", collectionMode && "min-h-10 px-3 py-2 text-[13px] sm:min-h-11 sm:px-4 sm:py-2.5 sm:text-sm")}
+                      onClick={() => onOpenSale(sale.id)}
+                    >
+                      거래 확인
                     </Button>
                   </div>
                 </article>
               ))}
             </div>
           ) : (
-            <div className="[&_*]:text-slate-300">
+            <div className={cn(!collectionMode && "[&_*]:text-slate-300")}>
               <EmptyState
                 title={collectionMode ? "현재 수금 대기 고객이 없습니다." : "남아 있는 미수금이 없습니다"}
                 description={
@@ -410,17 +485,31 @@ function LedgerValue({ label, value }: { label: string; value: string }) {
   );
 }
 
-function OutstandingAgeBadge({ saleDate }: { saleDate: string }) {
+function OutstandingAgeBadge({
+  saleDate,
+  light = false,
+}: {
+  saleDate: string;
+  light?: boolean;
+}) {
   const days = outstandingElapsedDays(saleDate);
   return (
     <span
       className={cn(
         "rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums",
-        days <= 3 && "border-white/10 bg-white/[0.06] text-slate-200",
+        days <= 3 &&
+          (light
+            ? "border-border bg-surface-secondary text-text-secondary"
+            : "border-white/10 bg-white/[0.06] text-slate-200"),
         days >= 4 &&
           days <= 7 &&
-          "border-amber-200/25 bg-amber-200/10 text-amber-100",
-        days >= 8 && "border-rose-200/25 bg-rose-200/10 text-rose-100",
+          (light
+            ? "border-amber-300 bg-amber-50 text-amber-800"
+            : "border-amber-200/25 bg-amber-200/10 text-amber-100"),
+        days >= 8 &&
+          (light
+            ? "border-rose-300 bg-rose-50 px-2.5 font-bold text-rose-700 shadow-[0_0_0_1px_rgba(225,29,72,0.04)]"
+            : "border-rose-200/25 bg-rose-200/10 text-rose-100"),
       )}
     >
       {outstandingAgeLabel(days)}
