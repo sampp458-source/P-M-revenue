@@ -380,14 +380,15 @@ export async function fetchOperationScheduleOptions(): Promise<OperationSchedule
     if (!isOptionalAssigneeRpcMissing(assigneesResult.error)) {
       throwScheduleError(assigneesResult.error);
     }
-    const fallbackResult = await supabase
-      .from("profiles")
-      .select("id, name")
-      .eq("is_active", true)
-      .eq("account_status", "active")
-      .order("name");
+    // The production database can temporarily lag the optional Operations
+    // assignee RPC. Use the existing active-staff directory RPC as the safe
+    // fallback so profile RLS does not reduce an employee's result to self.
+    const fallbackResult = await supabase.rpc("get_active_staff_directory");
     if (fallbackResult.error) throwScheduleError(fallbackResult.error);
-    assignees = (fallbackResult.data ?? []).map((row) => ({
+    assignees = (fallbackResult.data ?? []).map((row: {
+      id: string;
+      name: string | null;
+    }) => ({
       id: row.id,
       name: row.name,
       operationRole: null,

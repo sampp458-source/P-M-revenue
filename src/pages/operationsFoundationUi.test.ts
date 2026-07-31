@@ -11,6 +11,10 @@ const todaySource = readFileSync(
   resolve(import.meta.dirname, "./OperationsToday.tsx"),
   "utf8",
 );
+const scheduleRepositorySource = readFileSync(
+  resolve(import.meta.dirname, "./operationsScheduleRepository.ts"),
+  "utf8",
+);
 
 describe("Operations foundation UI", () => {
   it("exposes Today, Calendar, Schedules, and Settings without changing Finance routes", () => {
@@ -89,6 +93,23 @@ describe("Operations foundation UI", () => {
     expect(todaySource).toContain('<Field label="일정 유형">');
     expect(todaySource).toContain("선택 안 함 · 기타로 저장");
     expect(todaySource).not.toContain('label="사업부 Calendar"');
+  });
+
+  it("uses the shared active-staff directory when the optional assignee RPC is unavailable", () => {
+    expect(scheduleRepositorySource).toContain(
+      'supabase.rpc("get_active_operation_assignees")',
+    );
+    expect(scheduleRepositorySource).toContain(
+      'supabase.rpc("get_active_staff_directory")',
+    );
+    const fallbackSection = scheduleRepositorySource.slice(
+      scheduleRepositorySource.indexOf("if (assigneesResult.error)"),
+      scheduleRepositorySource.indexOf(
+        "} else {",
+        scheduleRepositorySource.indexOf("if (assigneesResult.error)"),
+      ),
+    );
+    expect(fallbackSection).not.toContain('.from("profiles")');
   });
 
   it("disables but preserves manual times while all-day is selected", () => {
