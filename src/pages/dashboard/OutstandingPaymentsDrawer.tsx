@@ -188,7 +188,7 @@ export function OutstandingPaymentsDrawer({
         className={cn(
           "pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l shadow-[var(--pm-shadow-modal)] sm:w-[min(680px,58vw)]",
           collectionMode
-            ? "border-border !bg-[#f5f7fb] text-text-primary"
+            ? "pm-collection-drawer border-border !bg-[#f5f7fb] text-text-primary"
             : "border-white/10 bg-[#111e31] text-white",
         )}
       >
@@ -288,25 +288,24 @@ export function OutstandingPaymentsDrawer({
                   className={cn(
                     "rounded-2xl border transition-[border-color,box-shadow,background-color] duration-150",
                     collectionMode
-                      ? "border-border bg-surface p-3.5 shadow-[var(--pm-shadow-surface)] md:hover:border-primary/25 md:hover:shadow-[0_10px_28px_rgba(23,54,93,0.09)] sm:p-5"
+                      ? "border-border bg-surface p-3.5 shadow-[var(--pm-shadow-surface)] md:hover:-translate-y-0.5 md:hover:border-primary/25 md:hover:shadow-[0_10px_28px_rgba(23,54,93,0.09)] sm:p-5"
                       : "border-white/10 bg-white/[0.045] p-4 md:hover:border-white/20 md:hover:shadow-[0_10px_26px_rgba(0,0,0,0.16)] sm:p-5",
                   )}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2.5 sm:gap-3">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge tone="blue">{sale.businessUnitName}</Badge>
-                        <span className={cn("text-xs tabular-nums", collectionMode ? "text-text-secondary" : "text-slate-300")}>
-                          발생일 {sale.saleDate}
+                  {collectionMode ? (
+                    <>
+                      <div>
+                        <span className="text-[11px] font-semibold text-amber-700">
+                          미수금
                         </span>
-                        {collectionMode && (
-                          <OutstandingAgeBadge saleDate={sale.saleDate} light />
-                        )}
+                        <strong className="mt-0.5 block whitespace-nowrap text-[clamp(1.3rem,6vw,1.65rem)] font-bold tracking-[-0.035em] text-text-primary tabular-nums">
+                          {won(sale.outstandingAmount)}
+                        </strong>
                       </div>
-                      {collectionMode && onOpenCustomer ? (
+                      {onOpenCustomer ? (
                         <button
                           type="button"
-                          className="group mt-2 inline-flex items-center gap-1 rounded-md text-left text-base font-bold leading-6 text-text-primary underline decoration-primary/25 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:text-lg"
+                          className="group mt-2.5 inline-flex items-center gap-1 rounded-md text-left text-base font-bold leading-6 text-text-primary underline decoration-primary/25 underline-offset-4 transition-colors hover:text-primary hover:decoration-primary/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:text-lg"
                           onClick={() => onOpenCustomer(sale)}
                         >
                           {sale.customerName || "보호자 미등록"}
@@ -318,20 +317,16 @@ export function OutstandingPaymentsDrawer({
                           <span className="sr-only">보호자 프로필 보기</span>
                         </button>
                       ) : (
-                        <h3 className={cn("mt-2 break-keep text-lg font-bold leading-6", collectionMode ? "text-text-primary" : "text-white")}>
-                          {collectionMode
-                            ? sale.customerName || "보호자 미등록"
-                            : sale.dogName || "(반려견 없음)"}
+                        <h3 className="mt-2.5 break-keep text-base font-bold leading-6 text-text-primary sm:text-lg">
+                          {sale.customerName || "보호자 미등록"}
                         </h3>
                       )}
-                      <p className={cn("mt-0.5 break-keep text-sm leading-5 sm:mt-1", collectionMode ? "text-text-secondary" : "text-slate-200")}>
-                        {collectionMode
-                          ? `반려견 ${sale.dogName || "미등록"}`
-                          : sale.customerName || "보호자 미등록"}
+                      <p className="mt-0.5 break-keep text-sm font-medium leading-5 text-text-secondary">
+                        반려견 {sale.dogName || "미등록"}
                       </p>
                       {sale.customerPhone && maskedCollectionPhone(sale.customerPhone) ? (
                         <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <span className={cn("text-xs leading-5 tabular-nums", collectionMode ? "text-text-secondary" : "text-slate-300")}>
+                          <span className="text-xs leading-5 text-text-secondary tabular-nums">
                             {maskedCollectionPhone(sale.customerPhone)}
                           </span>
                           <a
@@ -339,9 +334,7 @@ export function OutstandingPaymentsDrawer({
                             aria-label={`${sale.customerName || "보호자"}에게 전화`}
                             className={cn(
                               "inline-flex min-h-8 items-center gap-1 rounded-lg border px-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2",
-                              collectionMode
-                                ? "border-border bg-surface-secondary text-text-primary hover:border-primary/25 hover:bg-primary-soft focus-visible:ring-primary"
-                                : "border-white/10 bg-white/[0.06] text-slate-100 hover:border-white/20 hover:bg-white/10 focus-visible:ring-blue-300",
+                              "border-border bg-surface-secondary text-text-primary hover:border-primary/25 hover:bg-primary-soft focus-visible:ring-primary",
                             )}
                           >
                             <Phone size={13} aria-hidden="true" />
@@ -349,27 +342,47 @@ export function OutstandingPaymentsDrawer({
                           </a>
                         </div>
                       ) : (
-                        collectionMode && (
-                          <p className="mt-1 text-xs leading-5 text-text-muted">
-                            연락처 미등록
-                          </p>
-                        )
+                        <p className="mt-1 text-xs leading-5 text-text-muted">
+                          연락처 미등록
+                        </p>
                       )}
-                      {!collectionMode && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border/80 pt-3">
+                        <Badge tone="blue">{sale.businessUnitName}</Badge>
+                        <OutstandingAgeBadge saleDate={sale.saleDate} light />
+                        <span className="text-[11px] text-text-muted tabular-nums">
+                          발생일 {sale.saleDate}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-wrap items-start justify-between gap-2.5 sm:gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge tone="blue">{sale.businessUnitName}</Badge>
+                          <span className="text-xs text-slate-300 tabular-nums">
+                            발생일 {sale.saleDate}
+                          </span>
+                        </div>
+                        <h3 className="mt-2 break-keep text-lg font-bold leading-6 text-white">
+                          {sale.dogName || "(반려견 없음)"}
+                        </h3>
+                        <p className="mt-1 break-keep text-sm leading-5 text-slate-200">
+                          {sale.customerName || "보호자 미등록"}
+                        </p>
                         <p className="mt-1 break-keep text-xs leading-5 text-slate-300">
                           {sale.productName}
                         </p>
-                      )}
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <span className="text-xs font-semibold text-amber-200">
+                          현재 미수
+                        </span>
+                        <strong className="mt-1 block whitespace-nowrap text-[clamp(1.05rem,5vw,1.25rem)] text-white tabular-nums">
+                          {won(sale.outstandingAmount)}
+                        </strong>
+                      </div>
                     </div>
-                    <div className="shrink-0 text-right">
-                      <span className={cn("text-xs font-semibold", collectionMode ? "text-amber-700" : "text-amber-200")}>
-                        {collectionMode ? "미수금" : "현재 미수"}
-                      </span>
-                      <strong className={cn("mt-1 block whitespace-nowrap text-[clamp(1.05rem,5vw,1.25rem)] tabular-nums", collectionMode ? "text-text-primary" : "text-white")}>
-                        {won(sale.outstandingAmount)}
-                      </strong>
-                    </div>
-                  </div>
+                  )}
                   {!collectionMode && (
                     <dl className="mt-4 grid grid-cols-2 gap-3 border-t border-white/10 pt-4 text-sm sm:grid-cols-3">
                       <LedgerValue label="최종 판매금액" value={won(finalSaleAmount(sale))} />

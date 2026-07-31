@@ -315,6 +315,7 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
 
   .pm-modal-overlay { animation: pm-fade-in 180ms ease-out; }
   .pm-modal-panel { animation: pm-modal-in 200ms ease-out; box-shadow: var(--pm-shadow-modal); }
+  .pm-collection-drawer { animation: pm-modal-in 240ms cubic-bezier(.22, 1, .36, 1); }
   .pm-toast { animation: pm-toast-in 180ms ease-out; }
   .pm-skeleton { animation: pm-skeleton-pulse 1.8s ease-in-out infinite; }
   .pm-drawer-overlay { animation: pm-fade-in 180ms ease-out; }
