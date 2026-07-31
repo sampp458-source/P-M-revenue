@@ -22,14 +22,19 @@ describe("Operations foundation UI", () => {
     expect(appSource).toContain("OperationsCalendarFoundationPage");
   });
 
-  it("provides accessible month, week, and day placeholder tabs only", () => {
-    expect(calendarSource).toContain('id: "month"');
-    expect(calendarSource).toContain('id: "week"');
-    expect(calendarSource).toContain('id: "day"');
-    expect(calendarSource).toContain('role="tablist"');
-    expect(calendarSource).toContain('aria-selected={view === id}');
+  it("provides the Operations month calendar and day drawer", () => {
+    expect(calendarSource).toContain("fetchOperationSchedulesForRange");
+    expect(calendarSource).toContain("<CalendarCell");
+    expect(calendarSource).toContain("<DayDrawer");
+    expect(calendarSource).toContain('aria-label="이전 달"');
+    expect(calendarSource).toContain('aria-label="다음 달"');
+    expect(calendarSource).toContain("ScheduleFormModal");
+    expect(calendarSource).toContain("ScheduleDetailModal");
+    expect(calendarSource).toContain("archiveOperationSchedule");
     expect(calendarSource).not.toContain("supabase");
     expect(calendarSource).not.toContain("useQuery");
+    expect(calendarSource).not.toContain("sale_payments");
+    expect(calendarSource).not.toContain("sale_refunds");
   });
 
   it("provides a responsive Today layout without querying Finance or Supabase", () => {

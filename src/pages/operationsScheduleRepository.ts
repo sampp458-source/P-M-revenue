@@ -218,6 +218,146 @@ export async function fetchOperationSchedulesForDay(localDate: string) {
   return (((result.data ?? []) as ScheduleRpcRow[]) || []).map(mapSchedule);
 }
 
+interface ScheduleTableRow {
+  id: string;
+  calendar_id: string;
+  schedule_type_id: string;
+  title: string;
+  description: string | null;
+  starts_at: string;
+  ends_at: string;
+  all_day: boolean;
+  status: OperationScheduleStatus;
+  version: number;
+  request_id: string;
+  created_by: string;
+  created_at: string;
+  updated_by: string | null;
+  updated_at: string;
+  archived_at: string | null;
+}
+
+/**
+ * 월간 캘린더용 읽기 전용 범위 조회.
+ * 쓰기는 기존 Operations RPC만 사용하며, 이 조회는 기존 RLS를 그대로 따른다.
+ */
+export async function fetchOperationSchedulesForRange(
+  startLocalDate: string,
+  endLocalDateExclusive: string,
+  options: OperationScheduleOptions,
+) {
+  const result = await supabase
+    .from("operation_schedules")
+    .select(
+      "id, calendar_id, schedule_type_id, title, description, starts_at, ends_at, all_day, status, version, request_id, created_by, created_at, updated_by, updated_at, archived_at",
+    )
+    .is("archived_at", null)
+    .lt("starts_at", toSeoulInstant(endLocalDateExclusive, "00:00"))
+    .gt("ends_at", toSeoulInstant(startLocalDate, "00:00"))
+    .order("starts_at")
+    .order("created_at");
+  throwScheduleError(result.error);
+
+  const rows = (result.data ?? []) as ScheduleTableRow[];
+  if (rows.length === 0) return [];
+
+  const scheduleIds = rows.map((row) => row.id);
+  const [assigneeResult, dogResult, customerResult] = await Promise.all([
+    supabase
+      .from("operation_schedule_assignees")
+      .select("schedule_id, profile_id")
+      .in("schedule_id", scheduleIds)
+      .is("archived_at", null),
+    supabase
+      .from("operation_schedule_dogs")
+      .select("schedule_id, dog_id")
+      .in("schedule_id", scheduleIds)
+      .is("archived_at", null),
+    supabase
+      .from("operation_schedule_customers")
+      .select("schedule_id, customer_id")
+      .in("schedule_id", scheduleIds)
+      .is("archived_at", null),
+  ]);
+  throwScheduleError(
+    assigneeResult.error ?? dogResult.error ?? customerResult.error,
+  );
+
+  const calendars = new Map(options.calendars.map((row) => [row.id, row]));
+  const scheduleTypes = new Map(
+    options.scheduleTypes.map((row) => [row.id, row]),
+  );
+  const people = new Map(options.assignees.map((row) => [row.id, row]));
+  const dogs = new Map(options.dogs.map((row) => [row.id, row]));
+  const customers = new Map(options.customers.map((row) => [row.id, row]));
+  const groupBySchedule = <T extends { schedule_id: string }>(items: T[]) => {
+    const grouped = new Map<string, T[]>();
+    items.forEach((item) => {
+      grouped.set(item.schedule_id, [
+        ...(grouped.get(item.schedule_id) ?? []),
+        item,
+      ]);
+    });
+    return grouped;
+  };
+  const assigneesBySchedule = groupBySchedule(assigneeResult.data ?? []);
+  const dogsBySchedule = groupBySchedule(dogResult.data ?? []);
+  const customersBySchedule = groupBySchedule(customerResult.data ?? []);
+
+  return rows.map((row): OperationSchedule => {
+    const calendar = calendars.get(row.calendar_id);
+    const scheduleType = scheduleTypes.get(row.schedule_type_id);
+    return {
+      id: row.id,
+      calendarId: row.calendar_id,
+      calendarName: calendar?.name ?? "캘린더",
+      calendarColor: calendar?.color ?? DEFAULT_OPERATION_SCHEDULE_COLOR,
+      calendarScope: calendar?.scopeType ?? "common",
+      businessUnitCode:
+        calendar?.businessUnitName === "유치원"
+          ? "daycare"
+          : calendar?.businessUnitName === "교육센터"
+            ? "training"
+            : calendar?.businessUnitName === "호텔"
+              ? "hotel"
+              : null,
+      businessUnitName: calendar?.businessUnitName ?? null,
+      scheduleTypeId: row.schedule_type_id,
+      scheduleTypeName: scheduleType?.name ?? "기타",
+      scheduleTypeColor:
+        scheduleType?.color ?? DEFAULT_OPERATION_SCHEDULE_COLOR,
+      title: row.title,
+      memo: row.description,
+      startsAt: row.starts_at,
+      endsAt: row.ends_at,
+      allDay: row.all_day,
+      status: row.status,
+      version: row.version,
+      requestId: row.request_id,
+      createdBy: row.created_by,
+      createdByName: people.get(row.created_by)?.name ?? null,
+      createdAt: row.created_at,
+      updatedBy: row.updated_by,
+      updatedByName: row.updated_by
+        ? (people.get(row.updated_by)?.name ?? null)
+        : null,
+      updatedAt: row.updated_at,
+      archivedAt: row.archived_at,
+      assignees: (assigneesBySchedule.get(row.id) ?? [])
+        .map((item) => people.get(item.profile_id))
+        .filter((person): person is OperationPerson => Boolean(person)),
+      dogs: (dogsBySchedule.get(row.id) ?? [])
+        .map((item) => dogs.get(item.dog_id))
+        .filter((dog): dog is OperationDog => Boolean(dog)),
+      customers: (customersBySchedule.get(row.id) ?? [])
+        .map((item) => customers.get(item.customer_id))
+        .filter(
+          (customer): customer is OperationCustomer => Boolean(customer),
+        ),
+    };
+  });
+}
+
 export async function fetchOperationScheduleOptions(): Promise<OperationScheduleOptions> {
   const [settings, assigneesResult, customersResult, dogsResult] =
     await Promise.all([

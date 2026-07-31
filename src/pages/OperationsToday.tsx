@@ -64,7 +64,7 @@ import {
   type OperationScheduleOptions,
 } from "./operationsScheduleRepository";
 
-interface ScheduleForm {
+export interface ScheduleForm {
   calendarId: string;
   scheduleTypeId: string;
   date: string;
@@ -84,7 +84,7 @@ interface PendingAction {
   schedule: OperationSchedule;
 }
 
-const emptyForm = (): ScheduleForm => {
+export const emptyForm = (): ScheduleForm => {
   const scheduleWindow = defaultOperationScheduleWindow();
   return {
     calendarId: "",
@@ -117,7 +117,7 @@ const seoulParts = (value: string) => {
   };
 };
 
-const formFromSchedule = (schedule: OperationSchedule): ScheduleForm => {
+export const formFromSchedule = (schedule: OperationSchedule): ScheduleForm => {
   const start = seoulParts(schedule.startsAt);
   const end = seoulParts(schedule.endsAt);
   return {
@@ -777,7 +777,7 @@ function TodayAlerts({ alerts }: { alerts: string[] }) {
   );
 }
 
-function ScheduleFormModal({
+export function ScheduleFormModal({
   open,
   editing,
   form,
@@ -1108,7 +1108,7 @@ function ScheduleFormModal({
   );
 }
 
-function ScheduleDetailModal({
+export function ScheduleDetailModal({
   schedule,
   processing,
   onClose,
