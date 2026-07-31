@@ -211,6 +211,12 @@ export function OperationsCalendarFoundationPage() {
     void loadMonth();
   }, [loadMonth]);
 
+  useEffect(() => {
+    if (!notice || noticeTone !== "success") return;
+    const timeoutId = window.setTimeout(() => setNotice(""), 1800);
+    return () => window.clearTimeout(timeoutId);
+  }, [notice, noticeTone]);
+
   const schedulesByDate = useMemo(() => {
     return new Map(
       gridDates.map((date) => [
@@ -435,7 +441,7 @@ export function OperationsCalendarFoundationPage() {
               type="button"
               aria-label="이전 달"
               onClick={() => moveMonth(-1)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-text-secondary transition hover:border-primary/30 hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-text-secondary transition-[color,background-color,border-color,transform] duration-200 ease-out hover:border-primary/30 hover:bg-primary-soft hover:text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <ChevronLeft size={18} />
             </button>
@@ -446,7 +452,7 @@ export function OperationsCalendarFoundationPage() {
               type="button"
               aria-label="다음 달"
               onClick={() => moveMonth(1)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-text-secondary transition hover:border-primary/30 hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border text-text-secondary transition-[color,background-color,border-color,transform] duration-200 ease-out hover:border-primary/30 hover:bg-primary-soft hover:text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <ChevronRight size={18} />
             </button>
@@ -631,7 +637,7 @@ function CalendarCell({
       aria-label={`${fullDateLabel(date)}, 일정 ${schedules.length}건`}
       aria-pressed={selected}
       className={cn(
-        "group relative min-h-[76px] border-b border-r border-border p-1.5 text-left transition sm:min-h-[126px] sm:p-1.5 lg:min-h-[146px] lg:p-2",
+        "group relative min-h-[76px] border-b border-r border-border p-1.5 text-left transition-[background-color,box-shadow] duration-200 ease-out sm:min-h-[126px] sm:p-1.5 lg:min-h-[146px] lg:p-2",
         "focus:z-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
         outside ? "bg-surface-secondary/35" : "bg-surface",
         selected && "z-[1] bg-primary-soft/55 ring-2 ring-inset ring-primary",
@@ -697,7 +703,7 @@ function MonthScheduleCard({ schedule }: { schedule: OperationSchedule }) {
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-md border border-border/75 bg-surface px-1.5 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.035)] lg:rounded-lg lg:px-2",
+        "relative overflow-hidden rounded-md border border-border/75 bg-surface px-1.5 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition-[border-color,background-color,opacity] duration-200 ease-out lg:rounded-lg lg:px-2",
         schedule.status !== "scheduled" && "opacity-55",
       )}
     >
@@ -705,25 +711,36 @@ function MonthScheduleCard({ schedule }: { schedule: OperationSchedule }) {
         className="absolute inset-y-0 left-0 w-[3px]"
         style={{ backgroundColor: schedule.calendarColor }}
       />
-      <div className="flex min-w-0 items-center gap-1 pl-0.5">
-        <span
-          className="h-2 w-2 shrink-0 rounded-full"
-          style={{ backgroundColor: assignee?.scheduleColor ?? "#5B7FA3" }}
-        />
+      <div className="min-w-0 pl-0.5">
         <span
           className={cn(
-            "min-w-0 flex-1 truncate text-[10px] font-bold leading-4 text-text-primary lg:text-[11px]",
+            "block truncate text-[10px] font-bold leading-[0.875rem] tracking-[-0.01em] text-text-primary lg:text-[11px]",
             schedule.status === "cancelled" && "line-through",
           )}
         >
           {dogName}
         </span>
-        <span className="shrink-0 text-[9px] font-semibold leading-4 tabular-nums text-text-muted lg:text-[10px]">
-          {timeLabel(schedule)}
-        </span>
-        {schedule.status === "completed" && (
-          <Check size={11} className="shrink-0 text-success" />
-        )}
+        <div className="mt-px flex min-w-0 items-center gap-1">
+          <span className="shrink-0 text-[9px] font-semibold leading-3 tabular-nums text-text-secondary lg:text-[10px]">
+            {timeLabel(schedule)}
+          </span>
+          <span
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ backgroundColor: assignee?.scheduleColor ?? "#5B7FA3" }}
+            aria-label={assignee?.name ?? "담당자"}
+          />
+          {schedule.assignees.slice(1, 3).map((person) => (
+            <span
+              key={person.id}
+              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              style={{ backgroundColor: person.scheduleColor ?? "#5B7FA3" }}
+              aria-label={person.name ?? "담당자"}
+            />
+          ))}
+          {schedule.status === "completed" && (
+            <Check size={10} className="ml-auto shrink-0 text-success" />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -766,7 +783,7 @@ function DayDrawer({
   return (
     <div
       className={cn(
-        "fixed inset-0 z-40 transition",
+        "fixed inset-0 z-40 transition duration-200 ease-out",
         open ? "pointer-events-auto" : "pointer-events-none",
       )}
       aria-hidden={!open}
@@ -797,15 +814,15 @@ function DayDrawer({
               <h2 className="mt-0.5 text-xl font-bold tracking-[-0.03em] text-text-primary">
                 {fullDateLabel(date)}
               </h2>
-              <p className="mt-1 text-sm text-text-secondary">
-                일정 {schedules.length}건
+              <p className="mt-1 text-sm font-medium text-text-secondary">
+                총 {schedules.length}건
               </p>
             </div>
             <button
               type="button"
               onClick={onClose}
               aria-label="닫기"
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-text-secondary transition hover:bg-surface-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              className="flex h-11 w-11 items-center justify-center rounded-xl text-text-secondary transition-[color,background-color,transform] duration-200 ease-out hover:bg-surface-secondary hover:text-text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <X size={20} />
             </button>
@@ -815,7 +832,7 @@ function DayDrawer({
               <button
                 type="button"
                 onClick={onPrevious}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary hover:bg-surface hover:text-text-primary"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-[color,background-color,transform] duration-200 ease-out hover:bg-surface hover:text-text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="이전 날짜"
               >
                 <ChevronLeft size={17} />
@@ -823,7 +840,7 @@ function DayDrawer({
               <button
                 type="button"
                 onClick={onNext}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary hover:bg-surface hover:text-text-primary"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-text-secondary transition-[color,background-color,transform] duration-200 ease-out hover:bg-surface hover:text-text-primary active:translate-y-px focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-label="다음 날짜"
               >
                 <ChevronRight size={17} />
