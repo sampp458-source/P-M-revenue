@@ -157,15 +157,26 @@ export function SearchSelect<T>({
                   normalizedQuery,
                 ),
               );
+        } else if (showAllOnEmpty) {
+          const recentItems = recentIds
+            .map((recentId) => itemById.get(recentId))
+            .filter((item): item is T => Boolean(item));
+          const recentItemIds = new Set(
+            recentItems.map((item) => getItemIdRef.current(item)),
+          );
+          nextResults = [
+            ...recentItems,
+            ...availableItems.filter(
+              (item) => !recentItemIds.has(getItemIdRef.current(item)),
+            ),
+          ];
         } else if (recentIds.length > 0) {
           nextResults = resolveRecentOptionsRef.current
             ? await resolveRecentOptionsRef.current(recentIds)
             : recentIds
                 .map((recentId) => itemById.get(recentId))
                 .filter((item): item is T => Boolean(item));
-        } else {
-          nextResults = showAllOnEmpty ? availableItems : [];
-        }
+        } else nextResults = [];
         if (!cancelled && requestSequence.current === sequence) {
           setResults(nextResults.slice(0, maxResults));
           setActiveIndex(0);

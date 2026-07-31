@@ -126,6 +126,10 @@ describe("SearchSelect", () => {
   });
 
   it("can expose every available option before typing", async () => {
+    localStorage.setItem(
+      "test-search-select-recent",
+      JSON.stringify(["dog-1"]),
+    );
     renderSearchSelect({ showAllOnEmpty: true });
     fireEvent.focus(screen.getByRole("combobox", { name: "반려견" }));
 
