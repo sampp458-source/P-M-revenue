@@ -4,7 +4,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
-  Dog,
   Plus,
   UserRound,
   X,
@@ -279,10 +278,11 @@ export function OperationsCalendarFoundationPage() {
       !form.date ||
       (!form.allDay &&
         (!form.startTime || !form.endDate || !form.endTime)) ||
+      (editing === "new" && form.dogIds.length === 0) ||
       form.assigneeIds.length === 0 ||
       !form.title.trim()
     ) {
-      setFormError("제목, 날짜, 시간, 담당자를 확인해 주세요.");
+      setFormError("반려견, 날짜, 시간, 담당자를 확인해 주세요.");
       return;
     }
     const startsAt = form.allDay
@@ -536,6 +536,7 @@ export function OperationsCalendarFoundationPage() {
         onChange={setForm}
         onSubmit={save}
         onClose={() => setEditing(null)}
+        minimalCalendarMode
       />
       <ScheduleDetailModal
         schedule={
@@ -557,16 +558,17 @@ export function OperationsCalendarFoundationPage() {
         }}
         onOpenDog={(id) => navigate(`/customers?dog=${id}`)}
         onOpenCustomer={(id) => navigate(`/customers?customer=${id}`)}
+        archiveLabel="삭제"
       />
       <Modal
         open={pendingAction !== null}
-        title={pendingAction?.type === "cancel" ? "일정 취소" : "일정 보관"}
+        title={pendingAction?.type === "cancel" ? "일정 취소" : "일정 삭제"}
         onClose={() => setPendingAction(null)}
       >
         <p className="text-sm leading-6 text-text-secondary">
           {pendingAction?.type === "cancel"
             ? "취소 일정은 감사 기록을 유지한 채 캘린더에 취소 상태로 남습니다."
-            : "보관한 일정은 기본 캘린더와 날짜 목록에서 제외됩니다."}
+            : "삭제한 일정은 감사 기록을 유지한 채 보관되며 캘린더에서 제외됩니다."}
         </p>
         <label className="mt-4 block text-sm font-semibold text-text-primary">
           사유
@@ -688,7 +690,7 @@ function CalendarCell({
 
 function MonthScheduleCard({ schedule }: { schedule: OperationSchedule }) {
   const assignee = schedulePrimaryAssignee(schedule);
-  const customer = schedule.customers[0]?.name;
+  const dogName = schedule.dogs[0]?.name ?? schedule.title;
   return (
     <div
       className={cn(
@@ -700,37 +702,25 @@ function MonthScheduleCard({ schedule }: { schedule: OperationSchedule }) {
         className="absolute inset-y-0 left-0 w-[3px]"
         style={{ backgroundColor: schedule.calendarColor }}
       />
-      <div className="flex min-w-0 items-center gap-1.5">
-        <span className="shrink-0 text-[10px] font-semibold tabular-nums text-text-muted">
-          {timeLabel(schedule)}
-        </span>
+      <div className="flex min-w-0 items-center gap-1.5 pl-0.5">
+        <span
+          className="h-2 w-2 shrink-0 rounded-full"
+          style={{ backgroundColor: assignee?.scheduleColor ?? "#5B7FA3" }}
+        />
         <span
           className={cn(
-            "truncate text-[11px] font-bold text-text-primary",
+            "min-w-0 flex-1 truncate text-[11px] font-bold text-text-primary",
             schedule.status === "cancelled" && "line-through",
           )}
         >
-          {schedule.title}
+          {dogName}
+        </span>
+        <span className="shrink-0 text-[10px] font-semibold tabular-nums text-text-muted">
+          {timeLabel(schedule)}
         </span>
         {schedule.status === "completed" && (
           <Check size={11} className="shrink-0 text-success" />
         )}
-      </div>
-      <div className="mt-1 flex min-w-0 items-center gap-1 text-[10px] text-text-muted">
-        {schedule.dogs.length > 0 && (
-          <>
-            <Dog size={10} className="shrink-0" />
-            <span className="truncate">{compactDogNames(schedule.dogs)}</span>
-          </>
-        )}
-        {customer && <span className="truncate">· {customer}</span>}
-        <span className="ml-auto flex shrink-0 items-center gap-1">
-          <span
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ backgroundColor: assignee?.scheduleColor ?? "#5B7FA3" }}
-          />
-          {assignee?.name ?? "미지정"}
-        </span>
       </div>
     </div>
   );
@@ -878,6 +868,7 @@ function DayScheduleCard({
   onClick: () => void;
 }) {
   const assignee = schedulePrimaryAssignee(schedule);
+  const dogName = compactDogNames(schedule.dogs);
   return (
     <button
       type="button"
@@ -907,7 +898,7 @@ function DayScheduleCard({
                 schedule.status === "cancelled" && "line-through",
               )}
             >
-              {schedule.title}
+              {dogName}
             </h3>
             <Badge tone="gray">
               {schedule.status === "completed"
@@ -917,11 +908,12 @@ function DayScheduleCard({
                   : "예정"}
             </Badge>
           </div>
+          {schedule.title !== dogName && (
+            <p className="mt-1 truncate text-xs font-medium text-text-secondary">
+              {schedule.title}
+            </p>
+          )}
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary">
-            <span className="flex items-center gap-1">
-              <Dog size={13} />
-              {compactDogNames(schedule.dogs)}
-            </span>
             <span className="flex items-center gap-1">
               <UserRound size={13} />
               {schedule.customers[0]?.name ?? "보호자 미연결"}
@@ -944,6 +936,11 @@ function DayScheduleCard({
               />
             ))}
           </div>
+          {schedule.memo && (
+            <p className="mt-2 line-clamp-2 text-xs leading-5 text-text-muted">
+              {schedule.memo}
+            </p>
+          )}
         </div>
         <ChevronRight
           size={17}

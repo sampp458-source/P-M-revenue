@@ -790,6 +790,7 @@ export function ScheduleFormModal({
   onChange,
   onSubmit,
   onClose,
+  minimalCalendarMode = false,
 }: {
   open: boolean;
   editing: OperationSchedule | "new" | null;
@@ -803,6 +804,7 @@ export function ScheduleFormModal({
   onChange: (value: ScheduleForm) => void;
   onSubmit: (event: FormEvent) => void;
   onClose: () => void;
+  minimalCalendarMode?: boolean;
 }) {
   const patch = (values: Partial<ScheduleForm>) => onChange({ ...form, ...values });
   const patchWithAutoTitle = (values: Partial<ScheduleForm>) => {
@@ -811,13 +813,17 @@ export function ScheduleFormModal({
       const dogName = options?.dogs.find(
         (dog) => dog.id === nextForm.dogIds[0],
       )?.name;
-      const scheduleTypeName = options?.scheduleTypes.find(
-        (scheduleType) => scheduleType.id === nextForm.scheduleTypeId,
-      )?.name;
-      nextForm.title = defaultOperationScheduleTitle(
-        dogName,
-        scheduleTypeName,
-      );
+      if (minimalCalendarMode) {
+        nextForm.title = dogName?.trim() ?? "";
+      } else {
+        const scheduleTypeName = options?.scheduleTypes.find(
+          (scheduleType) => scheduleType.id === nextForm.scheduleTypeId,
+        )?.name;
+        nextForm.title = defaultOperationScheduleTitle(
+          dogName,
+          scheduleTypeName,
+        );
+      }
     }
     onChange(nextForm);
   };
@@ -851,31 +857,35 @@ export function ScheduleFormModal({
       resetKey={editing === "new" ? "new" : editing?.id}
     >
       <form onSubmit={onSubmit} className="space-y-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="캘린더" required>
-            <Select value={form.calendarId} onChange={(event) => patchWithAutoTitle({ calendarId: event.target.value, scheduleTypeId: "" })}>
-              <option value="">캘린더 선택</option>
-              {options?.calendars.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-            </Select>
-          </Field>
-          <Field label="일정 유형">
-            <Select value={form.scheduleTypeId} disabled={!form.calendarId} onChange={(event) => patchWithAutoTitle({ scheduleTypeId: event.target.value })}>
-              <option value="">선택 안 함 · 기타로 저장</option>
-              {options?.scheduleTypes.filter((row) => row.calendarIds?.includes(form.calendarId)).map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
-            </Select>
-          </Field>
-        </div>
-        <Field label="제목" required>
-          <Input
-            required
-            value={form.title}
-            onChange={(event) => {
-              onTitleManuallyEdited(true);
-              patch({ title: event.target.value });
-            }}
-            placeholder="반려견과 일정 유형을 선택하면 자동 입력됩니다"
-          />
-        </Field>
+        {!minimalCalendarMode && (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="캘린더" required>
+                <Select value={form.calendarId} onChange={(event) => patchWithAutoTitle({ calendarId: event.target.value, scheduleTypeId: "" })}>
+                  <option value="">캘린더 선택</option>
+                  {options?.calendars.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+                </Select>
+              </Field>
+              <Field label="일정 유형">
+                <Select value={form.scheduleTypeId} disabled={!form.calendarId} onChange={(event) => patchWithAutoTitle({ scheduleTypeId: event.target.value })}>
+                  <option value="">선택 안 함 · 기타로 저장</option>
+                  {options?.scheduleTypes.filter((row) => row.calendarIds?.includes(form.calendarId)).map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+                </Select>
+              </Field>
+            </div>
+            <Field label="제목" required>
+              <Input
+                required
+                value={form.title}
+                onChange={(event) => {
+                  onTitleManuallyEdited(true);
+                  patch({ title: event.target.value });
+                }}
+                placeholder="반려견과 일정 유형을 선택하면 자동 입력됩니다"
+              />
+            </Field>
+          </>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="날짜" required>
             <Input
@@ -898,10 +908,12 @@ export function ScheduleFormModal({
               }}
             />
           </Field>
-          <label className="flex min-h-11 items-center gap-2 self-end rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary">
-            <input type="checkbox" checked={form.allDay} onChange={(event) => patch({ allDay: event.target.checked })} />
-            종일 일정
-          </label>
+          {!minimalCalendarMode && (
+            <label className="flex min-h-11 items-center gap-2 self-end rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary">
+              <input type="checkbox" checked={form.allDay} onChange={(event) => patch({ allDay: event.target.checked })} />
+              종일 일정
+            </label>
+          )}
           <>
             <div className={cn(form.allDay && "opacity-50")}>
               <Field label="시작 시간" required={!form.allDay}>
@@ -1003,6 +1015,7 @@ export function ScheduleFormModal({
         />
         <SearchSelect
           label="반려견"
+          required={minimalCalendarMode}
           items={options?.dogs ?? []}
           selectedIds={form.dogIds}
           onChange={changeDogs}
@@ -1053,37 +1066,39 @@ export function ScheduleFormModal({
           emptyMessage="최근 선택한 반려견이 없습니다."
           recentStorageKey={`pm-os:${recentScope}:schedule-dogs`}
         />
-        <SearchSelect
-          label="보호자"
-          items={options?.customers ?? []}
-          selectedIds={form.customerIds}
-          onChange={(customerIds) => patch({ customerIds })}
-          getItemId={(row) => row.id}
-          getSearchText={(row) =>
-            `${row.name ?? ""} ${row.phone ?? ""} ${(dogsByCustomer.get(row.id) ?? []).join(" ")}`
-          }
-          renderOption={(row) => (
-            <span className="flex min-w-0 items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                <UserRound size={18} />
-              </span>
-              <span className="min-w-0">
-                <strong className="block truncate text-sm text-text-primary">
-                  {row.name || "이름 미등록"}
-                </strong>
-                <span className="mt-0.5 block truncate text-xs text-text-muted">
-                  {(dogsByCustomer.get(row.id) ?? []).join(", ") ||
-                    "연결된 반려견 없음"}{" "}
-                  · {formatPhoneForDisplay(row.phone) || "전화번호 미등록"}
+        {!minimalCalendarMode && (
+          <SearchSelect
+            label="보호자"
+            items={options?.customers ?? []}
+            selectedIds={form.customerIds}
+            onChange={(customerIds) => patch({ customerIds })}
+            getItemId={(row) => row.id}
+            getSearchText={(row) =>
+              `${row.name ?? ""} ${row.phone ?? ""} ${(dogsByCustomer.get(row.id) ?? []).join(" ")}`
+            }
+            renderOption={(row) => (
+              <span className="flex min-w-0 items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+                  <UserRound size={18} />
+                </span>
+                <span className="min-w-0">
+                  <strong className="block truncate text-sm text-text-primary">
+                    {row.name || "이름 미등록"}
+                  </strong>
+                  <span className="mt-0.5 block truncate text-xs text-text-muted">
+                    {(dogsByCustomer.get(row.id) ?? []).join(", ") ||
+                      "연결된 반려견 없음"}{" "}
+                    · {formatPhoneForDisplay(row.phone) || "전화번호 미등록"}
+                  </span>
                 </span>
               </span>
-            </span>
-          )}
-          renderSelected={(row) => row.name || "이름 미등록"}
-          placeholder="보호자, 전화번호 또는 반려견 검색"
-          emptyMessage="최근 선택한 보호자가 없습니다."
-          recentStorageKey={`pm-os:${recentScope}:schedule-customers`}
-        />
+            )}
+            renderSelected={(row) => row.name || "이름 미등록"}
+            placeholder="보호자, 전화번호 또는 반려견 검색"
+            emptyMessage="최근 선택한 보호자가 없습니다."
+            recentStorageKey={`pm-os:${recentScope}:schedule-customers`}
+          />
+        )}
         <Field label="메모">
           <Textarea
             rows={2}
@@ -1118,6 +1133,7 @@ export function ScheduleDetailModal({
   onArchive,
   onOpenDog,
   onOpenCustomer,
+  archiveLabel = "보관",
 }: {
   schedule: OperationSchedule | null;
   processing: boolean;
@@ -1128,6 +1144,7 @@ export function ScheduleDetailModal({
   onArchive: (schedule: OperationSchedule) => void;
   onOpenDog: (id: string) => void;
   onOpenCustomer: (id: string) => void;
+  archiveLabel?: string;
 }) {
   if (!schedule) return null;
   const start = seoulParts(schedule.startsAt);
@@ -1173,7 +1190,7 @@ export function ScheduleDetailModal({
         </div>
       )}
       <div className="mt-6 flex flex-wrap justify-between gap-3 border-t border-border pt-5">
-        <Button variant="ghost" disabled={processing} onClick={() => onArchive(schedule)}>보관</Button>
+        <Button variant="ghost" disabled={processing} onClick={() => onArchive(schedule)}>{archiveLabel}</Button>
         <div className="flex flex-wrap gap-2">
           {schedule.status !== "cancelled" && (
             <Button variant="secondary" disabled={processing} onClick={() => onCancel(schedule)}>취소</Button>
