@@ -76,6 +76,7 @@ const operationsMenus: OperationsMenuItem[] = [
   { to: "/operations/today", label: "오늘", icon: Clock3 },
   { to: "/operations/calendar", label: "캘린더", icon: CalendarDays },
   { to: "/operations/schedules", label: "일정", icon: ListChecks },
+  { to: "/operations/customers", label: "반려견 관리", icon: Dog },
   { to: "/operations/settings", label: "일정 설정", icon: Settings },
 ];
 const savedEmailKey = "pm-saved-login-email";
@@ -159,6 +160,7 @@ export default function App() {
             />
           }
         />
+        <Route path="customers" element={<PetManagementPage />} />
         <Route
           path="settings"
           element={<OperationsSettingsPage />}

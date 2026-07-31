@@ -43,6 +43,61 @@ interface AuthValue {
   signOut: () => Promise<void>;
 }
 
+interface SignupErrorLike {
+  code?: string;
+  message?: string;
+  status?: number;
+  name?: string;
+}
+
+export function signupFailureMessage(error: SignupErrorLike) {
+  const code = error.code?.toLowerCase() ?? "";
+  const message = error.message?.toLowerCase() ?? "";
+  if (
+    error.status === 429 ||
+    code.includes("rate_limit") ||
+    message.includes("rate limit") ||
+    message.includes("too many requests")
+  ) {
+    return "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
+  }
+  if (
+    code.includes("email_address_invalid") ||
+    message.includes("invalid email")
+  ) {
+    return "올바른 이메일 주소를 입력해 주세요.";
+  }
+  if (code.includes("weak_password") || message.includes("password")) {
+    return "비밀번호는 8자 이상이어야 합니다.";
+  }
+  if (
+    code.includes("user_already_exists") ||
+    message.includes("already registered") ||
+    message.includes("already exists")
+  ) {
+    return "이미 가입되었거나 신청 중인 이메일입니다.";
+  }
+  if (
+    message.includes("휴대폰") ||
+    (message.includes("phone") &&
+      (message.includes("duplicate") || message.includes("unique")))
+  ) {
+    return "이미 사용 중인 휴대전화 번호입니다.";
+  }
+  if (
+    code.includes("unexpected_failure") ||
+    message.includes("database error saving new user")
+  ) {
+    return "계정 정보 저장에 실패했습니다. 관리자에게 문의해 주세요.";
+  }
+  if (message.includes("fetch") || message.includes("network")) {
+    return "네트워크 연결을 확인한 후 다시 시도해 주세요.";
+  }
+  return `계정 신청을 처리하지 못했습니다. 관리자에게 문의해 주세요.${
+    error.code ? ` (오류 코드: ${error.code})` : ""
+  }`;
+}
+
 const AuthContext = createContext<AuthValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -208,12 +263,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAuthError("");
         const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { name: name.trim(), phone } } });
         if (error) {
-          if (/already registered|already exists/i.test(error.message)) throw new Error("이미 신청된 이메일입니다.");
-          if (/phone|휴대폰|duplicate|unique|database error saving new user/i.test(error.message)) throw new Error("이미 사용 중인 휴대폰 번호입니다.");
-          throw new Error("계정 신청을 완료하지 못했습니다. 잠시 후 다시 시도하세요.");
+          console.error("[Auth] 계정 신청 실패", {
+            status: error.status,
+            code: error.code,
+            name: error.name,
+            message: error.message,
+          });
+          throw new Error(signupFailureMessage(error));
+        }
+        if (data.user?.identities?.length === 0) {
+          console.warn("[Auth] 기존 이메일로 계정 신청이 중복 요청되었습니다.", {
+            userId: data.user.id,
+          });
+          throw new Error("이미 가입되었거나 신청 중인 이메일입니다.");
         }
         const emailConfirmationRequired = !data.session;
-        if (data.session) await supabase.auth.signOut();
+        if (data.session && data.user) {
+          const profileResult = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("id", data.user.id)
+            .maybeSingle();
+          if (profileResult.error || !profileResult.data) {
+            console.error("[Auth] Auth 생성 후 Profile 확인 실패", {
+              userId: data.user.id,
+              status: profileResult.status,
+              code: profileResult.error?.code,
+              message: profileResult.error?.message,
+              details: profileResult.error?.details,
+            });
+            await supabase.auth.signOut();
+            throw new Error(
+              "인증 계정은 생성됐지만 계정 정보 저장을 확인하지 못했습니다. 관리자에게 문의해 주세요.",
+            );
+          }
+          await supabase.auth.signOut();
+        }
         return { emailConfirmationRequired };
       },
       signOut: async () => {

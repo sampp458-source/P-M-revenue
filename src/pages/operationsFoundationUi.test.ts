@@ -45,6 +45,18 @@ describe("Operations foundation UI", () => {
     expect(calendarSource).not.toContain("sale_refunds");
   });
 
+  it("renders the production Calendar for every Operations member", () => {
+    expect(appSource).toContain(
+      'path="calendar"\n          element={<OperationsCalendarFoundationPage />}',
+    );
+    expect(calendarSource).not.toContain("월 보기 기반 준비 완료");
+    expect(calendarSource).not.toContain(
+      "실제 일정 조회와 캘린더 인터랙션은 다음 Sprint에서 연결됩니다.",
+    );
+    expect(calendarSource).not.toContain("profile?.role");
+    expect(calendarSource).not.toContain("featureFlag");
+  });
+
   it("provides a responsive Today layout without querying Finance or Supabase", () => {
     expect(appSource).toContain("OperationsTodayPage");
     expect(todaySource).toContain("fetchOperationSchedulesForDay");

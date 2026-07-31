@@ -565,8 +565,14 @@ export function OperationsCalendarFoundationPage() {
           setActionReason("");
           setPendingAction({ type: "archive", schedule });
         }}
-        onOpenDog={(id) => navigate(`/customers?dog=${id}`)}
-        onOpenCustomer={(id) => navigate(`/customers?customer=${id}`)}
+        onOpenDog={(id) =>
+          navigate(`/operations/customers?dogId=${encodeURIComponent(id)}`)
+        }
+        onOpenCustomer={(id) =>
+          navigate(
+            `/operations/customers?customerId=${encodeURIComponent(id)}`,
+          )
+        }
         archiveLabel="삭제"
       />
       <Modal

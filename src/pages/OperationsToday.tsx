@@ -550,10 +550,14 @@ export function OperationsTodayPage() {
           setPendingAction({ type: "archive", schedule });
         }}
         onOpenDog={(dogId) =>
-          navigate(`/customers?dogId=${encodeURIComponent(dogId)}`)
+          navigate(
+            `/operations/customers?dogId=${encodeURIComponent(dogId)}`,
+          )
         }
         onOpenCustomer={(customerId) =>
-          navigate(`/customers?customerId=${encodeURIComponent(customerId)}`)
+          navigate(
+            `/operations/customers?customerId=${encodeURIComponent(customerId)}`,
+          )
         }
       />
 
