@@ -25,6 +25,7 @@ const operationsPaths = new Set([
   "/operations/calendar",
   "/operations/schedules",
   "/operations/customers",
+  "/operations/staff",
   "/operations/settings",
 ]);
 

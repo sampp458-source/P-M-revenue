@@ -488,7 +488,7 @@ export function OperationsTodayPage() {
         <div>
           <p className="text-sm font-semibold text-primary">{fullDate}</p>
           <h1 className="mt-1 text-[clamp(1.75rem,4vw,2.5rem)] font-bold tracking-[-0.045em] text-text-primary">
-            {weekday}, 오늘의 Operations
+            {weekday}, 오늘의 일정
           </h1>
           <p className="mt-2 text-sm leading-6 text-text-secondary">
             오늘 오는 반려견과 해야 할 일을 한눈에 확인하세요.

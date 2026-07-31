@@ -77,6 +77,7 @@ const operationsMenus: OperationsMenuItem[] = [
   { to: "/operations/calendar", label: "캘린더", icon: CalendarDays },
   { to: "/operations/schedules", label: "일정", icon: ListChecks },
   { to: "/operations/customers", label: "반려견 관리", icon: Dog },
+  { to: "/operations/staff", label: "직원 관리", icon: UserCog },
   { to: "/operations/settings", label: "일정 설정", icon: Settings },
 ];
 const savedEmailKey = "pm-saved-login-email";
@@ -161,6 +162,14 @@ export default function App() {
           }
         />
         <Route path="customers" element={<PetManagementPage />} />
+        <Route
+          path="staff"
+          element={
+            <OperationsAdminOnly>
+              <StaffManagementPage />
+            </OperationsAdminOnly>
+          }
+        />
         <Route
           path="settings"
           element={<OperationsSettingsPage />}
@@ -739,8 +748,11 @@ function OperationsAppLayout() {
   const { signOut, user, profile } = useAuth();
   const [open, setOpen] = useState(false);
   const location = useLocation();
+  const visibleOperationsMenus = operationsMenus.filter(
+    (item) => item.to !== "/operations/staff" || profile?.role === "admin",
+  );
   const current =
-    operationsMenus.find((item) =>
+    visibleOperationsMenus.find((item) =>
       item.end
         ? location.pathname === item.to
         : location.pathname.startsWith(item.to),
@@ -772,7 +784,7 @@ function OperationsAppLayout() {
               Operations
             </p>
             <div className="space-y-0.5">
-              {operationsMenus.map(({ to, label, icon: Icon, end }) => (
+              {visibleOperationsMenus.map(({ to, label, icon: Icon, end }) => (
                 <NavLink
                   end={end}
                   key={to}
@@ -908,6 +920,13 @@ function OperationsStubPage({
 function AdminOnly({ children }: { children: ReactNode }) {
   const { profile } = useAuth();
   return profile?.role === "admin" ? children : <Navigate to="/dashboard" replace />;
+}
+
+function OperationsAdminOnly({ children }: { children: ReactNode }) {
+  const { profile } = useAuth();
+  return profile?.role === "admin"
+    ? children
+    : <Navigate to="/operations/today" replace />;
 }
 function NotFound({ loggedIn }: { loggedIn: boolean }) {
   const nav = useNavigate();

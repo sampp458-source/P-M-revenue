@@ -103,8 +103,7 @@ export function StaffManagementPage() {
   const errorMessage = (message: string, code?: string) => code === "42501" ? "직원 계정을 변경할 권한이 없습니다." : message.includes("마지막 관리자") || message.includes("마지막 활성 Operations") || message.includes("자신의 계정") ? message : "직원 계정 상태를 변경하지 못했습니다.";
   const currentOperationRole = rows.find((row) => row.id === profile?.id)?.operationRole;
   const canManageOperationRoles = currentOperationRole === "owner";
-  const canManageOperationScheduleColors =
-    currentOperationRole === "owner" || currentOperationRole === "manager";
+  const canManageOperationScheduleColors = profile?.role === "admin";
 
   const applyConfirm = async () => {
     if (!confirming || processing || !profile) return;
