@@ -15,15 +15,36 @@ const scheduleRepositorySource = readFileSync(
   resolve(import.meta.dirname, "./operationsScheduleRepository.ts"),
   "utf8",
 );
+const featureSource = readFileSync(
+  resolve(import.meta.dirname, "../app/operationsFeatures.ts"),
+  "utf8",
+);
+const settingsSource = readFileSync(
+  resolve(import.meta.dirname, "./OperationsSettings.tsx"),
+  "utf8",
+);
 
 describe("Operations foundation UI", () => {
-  it("exposes Today, Calendar, Schedules, and Settings without changing Finance routes", () => {
+  it("exposes production Operations pages while keeping the unfinished schedule directory closed", () => {
     expect(appSource).toContain('to: "/operations/today"');
     expect(appSource).toContain('to: "/operations/calendar"');
-    expect(appSource).toContain('to: "/operations/schedules"');
     expect(appSource).toContain('to: "/operations/settings"');
     expect(appSource).toContain('path="schedules"');
+    expect(appSource).toContain("operationsFeatures.scheduleDirectory");
+    expect(appSource).toContain('<Navigate to="/operations/today" replace />');
+    expect(featureSource).toContain("scheduleDirectory: false");
     expect(appSource).toContain("OperationsCalendarFoundationPage");
+  });
+
+  it("keeps current settings data inside an expandable Operations settings structure", () => {
+    expect(settingsSource).toContain("캘린더·일정 유형");
+    expect(settingsSource).toContain("담당자 색상");
+    expect(settingsSource).toContain("운영시간");
+    expect(settingsSource).toContain("반복 일정");
+    expect(settingsSource).toContain("휴일");
+    expect(settingsSource).toContain("알림");
+    expect(settingsSource).toContain("settings?.calendars.map");
+    expect(settingsSource).toContain("settings?.scheduleTypes.map");
   });
 
   it("provides the Operations month calendar and day drawer", () => {

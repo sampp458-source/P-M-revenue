@@ -41,6 +41,7 @@ import { useAuth } from "./auth/AuthContext";
 import { safeReturnTo } from "./auth/authStateLogic";
 import { useModule } from "./app/ModuleContext";
 import { AppSwitcher as AppSwitcherMenu } from "./app/AppSwitcher";
+import { operationsFeatures } from "./app/operationsFeatures";
 import type { AppModule } from "./app/moduleState";
 import { ReportsPage } from "./pages/ReportsDB";
 import { DashboardPage } from "./pages/DashboardDB";
@@ -75,7 +76,9 @@ interface OperationsMenuItem { to: string; label: string; icon: typeof CalendarD
 const operationsMenus: OperationsMenuItem[] = [
   { to: "/operations/today", label: "오늘", icon: Clock3 },
   { to: "/operations/calendar", label: "캘린더", icon: CalendarDays },
-  { to: "/operations/schedules", label: "일정", icon: ListChecks },
+  ...(operationsFeatures.scheduleDirectory
+    ? [{ to: "/operations/schedules", label: "일정", icon: ListChecks }]
+    : []),
   { to: "/operations/customers", label: "반려견 관리", icon: Dog },
   { to: "/operations/staff", label: "직원 관리", icon: UserCog },
   { to: "/operations/settings", label: "일정 설정", icon: Settings },
@@ -154,11 +157,15 @@ export default function App() {
         <Route
           path="schedules"
           element={
-            <OperationsStubPage
-              eyebrow="SCHEDULES"
-              title="일정"
-              description="전체 일정을 확인하고 관리하는 화면을 준비하고 있습니다."
-            />
+            operationsFeatures.scheduleDirectory ? (
+              <OperationsStubPage
+                eyebrow="SCHEDULES"
+                title="일정"
+                description="전체 일정을 확인하고 관리하는 화면을 준비하고 있습니다."
+              />
+            ) : (
+              <Navigate to="/operations/today" replace />
+            )
           }
         />
         <Route path="customers" element={<PetManagementPage />} />
