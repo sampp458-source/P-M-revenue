@@ -655,11 +655,11 @@ function CalendarCell({
       aria-label={`${fullDateLabel(date)}, 일정 ${schedules.length}건`}
       aria-pressed={selected}
       className={cn(
-        "group relative min-h-[78px] border-b border-r border-border p-1.5 text-left transition-[background-color,border-radius,box-shadow,transform] duration-150 ease-out sm:min-h-[130px] sm:p-2 lg:min-h-[150px] lg:p-2.5",
+        "group relative min-h-[78px] border-b border-r border-border p-1.5 text-left transition-[background-color,border-color,border-radius,box-shadow,transform] duration-[160ms] ease-out sm:min-h-[134px] sm:p-2.5 lg:min-h-[154px] lg:p-3",
         "focus:z-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
         outside ? "bg-surface-secondary/35" : "bg-surface",
-        selected && "z-[2] rounded-lg bg-[linear-gradient(145deg,#ffffff_0%,#edf3f8_100%)] shadow-[0_8px_24px_rgb(39_76_119_/_0.16)] ring-2 ring-inset ring-primary",
-        !selected && "hover:z-[1] hover:-translate-y-0.5 hover:rounded-lg hover:bg-primary-soft/35 hover:shadow-[0_8px_22px_rgb(23_36_58_/_0.1)]",
+        selected && "z-[2] -translate-y-px rounded-lg bg-[linear-gradient(145deg,#ffffff_0%,#eaf1f7_100%)] shadow-[0_10px_28px_rgb(39_76_119_/_0.2)] ring-2 ring-inset ring-primary",
+        !selected && "hover:z-[1] hover:-translate-y-px hover:rounded-lg hover:bg-primary-soft/40 hover:shadow-[0_7px_20px_rgb(23_36_58_/_0.1),inset_0_0_0_1px_rgb(39_76_119_/_0.12)]",
       )}
     >
       <div className="flex items-center justify-between gap-1">
@@ -711,9 +711,9 @@ function CalendarCell({
           />
         ))}
         {schedules.length > 2 && (
-          <p className="px-1 pt-0.5 text-[10px] font-semibold leading-none text-text-muted lg:text-[11px]">
-            +{schedules.length - 2}건
-          </p>
+          <span className="mt-1 inline-flex rounded-full border border-primary/15 bg-primary-soft px-2 py-1 text-[10px] font-bold leading-none text-primary shadow-[0_1px_3px_rgb(39_76_119_/_0.08)] transition-colors duration-[160ms] group-hover:bg-primary/10 lg:text-[11px]">
+            +{schedules.length - 2}개 일정
+          </span>
         )}
       </div>
     </button>
@@ -728,18 +728,18 @@ function MonthScheduleCard({
   currentUserId?: string | null;
 }) {
   const assignee = schedulePrimaryAssignee(schedule);
-  const dogName = schedule.dogs[0]?.name ?? schedule.title;
+  const displayTitle = schedule.title || schedule.dogs[0]?.name || "제목 없음";
   const isMine = isOperationScheduleAssignedTo(schedule, currentUserId);
   return (
     <div
       className={cn(
-        "relative min-h-[34px] overflow-hidden rounded-lg border border-border/80 bg-surface px-2 py-1.5 shadow-[0_2px_6px_rgb(15_23_42_/_0.06)] transition-[border-color,background-color,box-shadow,opacity,transform] duration-150 ease-out group-hover:border-primary/15 group-hover:shadow-[0_4px_10px_rgb(15_23_42_/_0.08)] lg:min-h-[38px] lg:px-2.5",
+        "relative min-h-[38px] overflow-hidden rounded-lg border border-border/80 bg-surface px-2.5 py-2 shadow-[0_2px_6px_rgb(15_23_42_/_0.06)] transition-[border-color,background-color,box-shadow,opacity,transform] duration-[160ms] ease-out group-hover:border-primary/20 group-hover:shadow-[0_5px_12px_rgb(15_23_42_/_0.09)] lg:min-h-[42px] lg:px-3",
         isMine && "border-primary/30 bg-primary-soft/65 shadow-[0_3px_8px_rgb(39_76_119_/_0.1)]",
         schedule.status !== "scheduled" && "opacity-55",
       )}
     >
       <span
-        className="absolute inset-y-0 left-0 w-1"
+        className="absolute inset-y-0 left-0 w-1.5"
         style={{ backgroundColor: schedule.calendarColor }}
       />
       <div className="min-w-0 pl-0.5">
@@ -750,14 +750,14 @@ function MonthScheduleCard({
             schedule.status === "cancelled" && "line-through",
           )}
         >
-          {dogName}
+          {displayTitle}
         </span>
         <div className="mt-px flex min-w-0 items-center gap-1">
           <span className="shrink-0 text-[9px] font-semibold leading-3 tabular-nums text-text-secondary lg:text-[10px]">
             {timeLabel(schedule)}
           </span>
           <span
-            className="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_1px_3px_rgb(15_23_42_/_0.2)] ring-1 ring-white"
+            className="h-3 w-3 shrink-0 rounded-full shadow-[0_1px_4px_rgb(15_23_42_/_0.24)] ring-2 ring-white"
             style={{
               backgroundColor: assignee
                 ? operationPersonColor(assignee)

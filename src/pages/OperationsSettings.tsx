@@ -10,7 +10,6 @@ import {
   CalendarOff,
   Clock3,
   LockKeyhole,
-  Palette,
   Repeat2,
   Settings2,
   Tags,
@@ -43,16 +42,10 @@ const settingCategories = [
     available: true,
   },
   {
-    id: "assignee-color",
-    title: "담당자 색상",
-    description: "직원별 일정 식별 색상",
-    icon: Palette,
-    available: false,
-  },
-  {
     id: "business-hours",
     title: "운영시간",
     description: "업무일과 운영 시간대",
+    futureNote: "영업일과 시간대별 운영 기준을 설정할 수 있게 됩니다.",
     icon: Clock3,
     available: false,
   },
@@ -60,6 +53,7 @@ const settingCategories = [
     id: "recurrence",
     title: "반복 일정",
     description: "반복 생성과 변경 기준",
+    futureNote: "반복 주기와 수정 범위를 설정할 수 있게 됩니다.",
     icon: Repeat2,
     available: false,
   },
@@ -67,6 +61,7 @@ const settingCategories = [
     id: "holidays",
     title: "휴일",
     description: "공휴일과 휴무일 관리",
+    futureNote: "공휴일과 회사 휴무일을 캘린더에 반영할 수 있게 됩니다.",
     icon: CalendarOff,
     available: false,
   },
@@ -74,6 +69,7 @@ const settingCategories = [
     id: "notifications",
     title: "알림",
     description: "일정 알림과 전달 기준",
+    futureNote: "일정 전후 알림과 전달 대상을 설정할 수 있게 됩니다.",
     icon: Bell,
     available: false,
   },
@@ -109,7 +105,7 @@ export function OperationsSettingsPage() {
       />
 
       <div className="grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <Card className="overflow-hidden lg:sticky lg:top-16">
+        <Card className="relative overflow-visible lg:sticky lg:top-16">
           <div className="flex items-center gap-3 border-b border-border px-4 py-4">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
               <Settings2 aria-hidden="true" size={18} />
@@ -120,19 +116,20 @@ export function OperationsSettingsPage() {
             </div>
           </div>
           <nav aria-label="일정 설정 범주" className="space-y-1 p-2">
-            {settingCategories.map(({ id, title, description, icon: Icon, available }) => (
-              <button
+            {settingCategories.map(({ id, title, description, icon: Icon, available, ...category }) => (
+              <div
                 key={id}
-                type="button"
-                disabled={!available}
                 aria-current={available ? "page" : undefined}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                tabIndex={available ? undefined : 0}
+                className={`group relative flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-[background-color,border-color,box-shadow] duration-[160ms] ease-out ${
                   available
-                    ? "bg-primary-soft text-primary"
-                    : "cursor-default text-text-muted opacity-75"
+                    ? "border-primary/15 bg-primary-soft text-primary shadow-[inset_0_1px_0_rgb(255_255_255_/_0.65)]"
+                    : "cursor-help border-transparent bg-surface text-text-secondary hover:border-border hover:bg-surface-secondary/75 focus:border-primary/25 focus:bg-surface-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 }`}
               >
-                <Icon aria-hidden="true" className="shrink-0" size={17} />
+                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${available ? "bg-white/75 text-primary" : "bg-surface-secondary text-text-secondary"}`}>
+                  <Icon aria-hidden="true" size={16} />
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className={`block truncate text-sm ${available ? "font-bold" : "font-semibold"}`}>
                     {title}
@@ -142,11 +139,19 @@ export function OperationsSettingsPage() {
                   </span>
                 </span>
                 {!available && (
-                  <span className="shrink-0 rounded-full bg-surface-secondary px-2 py-1 text-[9px] font-semibold text-text-muted">
-                    준비 중
+                  <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-white px-2 py-1 text-[9px] font-bold text-text-secondary shadow-sm">
+                    <LockKeyhole aria-hidden="true" size={10} /> 준비 중
                   </span>
                 )}
-              </button>
+                {!available && "futureNote" in category && (
+                  <span
+                    role="tooltip"
+                    className="pointer-events-none invisible absolute left-2 right-2 top-[calc(100%+0.35rem)] z-30 rounded-xl border border-border bg-slate-900 px-3 py-2 text-[11px] font-medium leading-5 text-white opacity-0 shadow-xl transition-opacity duration-[160ms] ease-out group-hover:visible group-hover:opacity-100 group-focus:visible group-focus:opacity-100 lg:left-[calc(100%+0.5rem)] lg:right-auto lg:top-1/2 lg:w-64 lg:-translate-y-1/2"
+                  >
+                    {category.futureNote}
+                  </span>
+                )}
+              </div>
             ))}
           </nav>
         </Card>
@@ -161,14 +166,17 @@ export function OperationsSettingsPage() {
             </p>
           </div>
 
-          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-border bg-surface-secondary px-4 py-3 text-sm leading-6 text-text-secondary">
+          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-primary/15 bg-primary-soft/55 px-4 py-3.5 text-sm leading-6 text-text-secondary">
             <LockKeyhole
               aria-hidden="true"
               className="mt-0.5 shrink-0 text-primary"
               size={17}
             />
-            현재 캘린더와 일정 유형은 조회만 할 수 있습니다. 설정 변경 기능은
-            권한 기준과 함께 순차적으로 제공됩니다.
+            <div>
+              <span className="mb-0.5 block font-bold text-primary">조회 전용</span>
+              현재 값은 일정 등록과 캘린더에 사용됩니다. 이 화면에서는 변경할
+              수 없으며, 담당자 색상은 기존 직원 관리에서 설정합니다.
+            </div>
           </div>
 
           {loading ? (

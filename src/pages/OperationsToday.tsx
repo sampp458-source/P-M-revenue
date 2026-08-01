@@ -1,6 +1,5 @@
 import {
   CheckCircle2,
-  CircleX,
   ChevronRight,
   ClipboardCheck,
   Clock3,
@@ -530,7 +529,7 @@ export function OperationsTodayPage() {
               retry={() => void loadSchedules()}
             />
           ) : schedules.length ? (
-            <ol className="grid gap-3 bg-surface-secondary/55 p-3 sm:p-4">
+            <ol className="grid gap-2.5 bg-surface-secondary/55 p-3 sm:p-4">
               {orderedSchedules.map((schedule) => (
                 <li key={schedule.id}>
                   <ScheduleRow
@@ -685,41 +684,27 @@ function ScheduleRow({
       aria-label={`${schedule.title} 일정 상세 보기`}
       onClick={onOpen}
       className={cn(
-        "group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl border border-border/90 bg-surface px-4 py-4 text-left shadow-[0_2px_7px_rgb(23_36_58_/_0.045),0_8px_22px_rgb(23_36_58_/_0.055)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary-subtle/40 hover:shadow-[var(--pm-shadow-surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:px-5",
-        isMine && "border-primary/25 bg-[linear-gradient(135deg,#ffffff_0%,#edf3f8_100%)] shadow-[0_3px_10px_rgb(39_76_119_/_0.08),0_12px_28px_rgb(39_76_119_/_0.09)]",
-        completed && "bg-surface-secondary/30 opacity-70",
-        cancelled && "bg-surface-secondary/20 opacity-55",
+        "group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl border border-border/90 bg-surface px-4 py-3.5 text-left shadow-[0_2px_7px_rgb(23_36_58_/_0.045),0_8px_22px_rgb(23_36_58_/_0.055)] transition-[background-color,border-color,box-shadow,opacity,transform,filter] duration-[160ms] ease-out hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[var(--pm-shadow-surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:px-5",
+        isMine && "border-primary/25 bg-primary/[0.07] shadow-[0_3px_10px_rgb(39_76_119_/_0.08),0_12px_28px_rgb(39_76_119_/_0.09)]",
+        completed && "bg-surface-secondary/45 opacity-70 saturate-50",
+        cancelled && "bg-surface-secondary/35 opacity-60 saturate-50",
       )}
     >
       <span
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-1"
-        style={{ backgroundColor: schedule.calendarColor }}
+        className="absolute inset-y-0 left-0 w-[3px]"
+        style={{ backgroundColor: primaryAssigneeColor }}
       />
       <div className="min-w-0">
         <p
           className={cn(
-            "flex min-w-0 items-center gap-1.5 truncate font-semibold transition group-hover:text-primary",
+            "flex min-w-0 items-center gap-2 truncate text-[15px] font-bold tracking-[-0.015em] transition-colors duration-[160ms] group-hover:text-primary sm:text-base",
             completed || cancelled
               ? "text-text-secondary"
               : "text-text-primary",
             cancelled && "line-through",
           )}
         >
-          {completed && (
-            <CheckCircle2
-              aria-label="완료"
-              size={14}
-              className="shrink-0 text-text-muted"
-            />
-          )}
-          {cancelled && (
-            <CircleX
-              aria-label="취소"
-              size={14}
-              className="shrink-0 text-text-muted"
-            />
-          )}
           <span className={cn("truncate", isMine && "font-bold")}>
             {schedule.title}
           </span>
@@ -729,27 +714,24 @@ function ScheduleRow({
             </Badge>
           )}
         </p>
-        <time
-          className={cn(
-            "mt-1.5 block text-sm font-bold tabular-nums",
-            completed || cancelled ? "text-text-muted" : "text-text-primary",
-          )}
-        >
-          {time}
-        </time>
-        <p className="mt-1 truncate text-sm font-semibold text-text-secondary">
-          {schedule.dogs.length
-            ? schedule.dogs.map((dog) => dog.name).join(", ")
-            : "반려견 미연결"}
-        </p>
-        <div className="mt-1.5 flex min-w-0 items-center gap-2 text-xs text-text-secondary">
+        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-text-secondary sm:text-[13px]">
+          <time className="shrink-0 font-bold tabular-nums text-text-primary">
+            {time}
+          </time>
+          <span aria-hidden="true" className="text-border-strong">·</span>
+          <span className="max-w-[13rem] truncate">
+            {schedule.dogs.length
+              ? schedule.dogs.map((dog) => dog.name).join(", ")
+              : "반려견 미연결"}
+          </span>
+          <span aria-hidden="true" className="text-border-strong">·</span>
           <span className="inline-flex min-w-0 items-center gap-1.5">
             <span
               aria-hidden="true"
               className="h-3 w-3 shrink-0 rounded-full shadow-[0_1px_4px_rgb(15_23_42_/_0.18)] ring-2 ring-white"
               style={{ backgroundColor: primaryAssigneeColor }}
             />
-            <span className="truncate">
+            <span className="max-w-[9rem] truncate">
               {primaryAssignee
                 ? operationPersonDisplayName(primaryAssignee)
                 : "담당자 미정"}
@@ -768,12 +750,14 @@ function ScheduleRow({
             ))}
           </span>
         </div>
-        <p className="mt-1.5 text-xs font-medium text-text-muted">
-          {completed ? "완료" : cancelled ? "취소" : "예정"}
-        </p>
       </div>
-      <span className="flex h-10 w-10 items-center justify-center rounded-xl text-text-muted transition group-hover:bg-primary-soft group-hover:text-primary">
-        <ChevronRight size={18} />
+      <span className="flex flex-col items-end gap-2">
+        <Badge tone={completed ? "gray" : cancelled ? "red" : "blue"}>
+          {completed ? "완료" : cancelled ? "취소" : "예정"}
+        </Badge>
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-[color,background-color,transform] duration-[160ms] ease-out group-hover:translate-x-0.5 group-hover:bg-primary-soft group-hover:text-primary">
+          <ChevronRight size={17} />
+        </span>
       </span>
     </button>
   );

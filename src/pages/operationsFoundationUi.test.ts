@@ -43,6 +43,9 @@ describe("Operations foundation UI", () => {
     expect(settingsSource).toContain("반복 일정");
     expect(settingsSource).toContain("휴일");
     expect(settingsSource).toContain("알림");
+    expect(settingsSource).not.toContain('id: "assignee-color"');
+    expect(settingsSource).toContain('role="tooltip"');
+    expect(settingsSource).toContain("조회 전용");
     expect(settingsSource).toContain("settings?.calendars.map");
     expect(settingsSource).toContain("settings?.scheduleTypes.map");
   });
@@ -59,6 +62,8 @@ describe("Operations foundation UI", () => {
     expect(calendarSource).toContain('archiveLabel="삭제"');
     expect(calendarSource).toContain("schedulePrimaryAssignee");
     expect(calendarSource).toContain("schedules.slice(0, 2)");
+    expect(calendarSource).toContain("개 일정");
+    expect(calendarSource).toContain("duration-[160ms]");
     expect(calendarSource).toContain("schedule.memo");
     expect(todaySource).toContain("oneHourScheduleEnd");
     expect(todaySource).toContain("sticky -bottom-5");
@@ -151,7 +156,11 @@ describe("Operations foundation UI", () => {
       todaySource.indexOf("function ScheduleRow"),
       todaySource.indexOf("function TodaySummary"),
     );
-    expect(scheduleRow).toContain("schedule.calendarColor");
+    expect(scheduleRow).toContain("primaryAssigneeColor");
+    expect(scheduleRow).toContain('className="absolute inset-y-0 left-0 w-[3px]"');
+    expect(scheduleRow).toContain('completed ? "완료" : cancelled ? "취소" : "예정"');
+    expect(scheduleRow).toContain("bg-primary/[0.07]");
+    expect(scheduleRow).toContain("saturate-50");
     expect(scheduleRow).toContain("schedulePrimaryAssignee");
     expect(scheduleRow).toContain("schedule.title");
     expect(scheduleRow).toContain("schedule.assignees");
