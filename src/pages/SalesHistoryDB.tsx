@@ -2263,6 +2263,7 @@ export function SalesHistoryPage() {
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <SearchSelect
+                  key={`sale-customer-${editing.customerId ?? "none"}`}
                   label="보호자"
                   items={partyCustomerOptions}
                   selectedIds={editing.customerId ? [editing.customerId] : []}
@@ -2319,6 +2320,7 @@ export function SalesHistoryPage() {
                   }}
                 />
                 <SearchSelect
+                  key={`sale-dog-${editing.dogId ?? "none"}`}
                   label="반려견"
                   items={partyDogOptions}
                   selectedIds={editing.dogId ? [editing.dogId] : []}
