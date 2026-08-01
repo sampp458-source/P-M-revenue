@@ -176,6 +176,15 @@ describe("Operations schedule date and display helpers", () => {
     expect(operationPersonDisplayName({ name: null })).toBe("이름 미등록");
   });
 
+  it("uses a high-contrast fallback color for assignees without a saved color", () => {
+    expect(operationPersonColor({ id: "", scheduleColor: null })).toBe(
+      "#2563EB",
+    );
+    expect(
+      operationPersonColor({ id: "staff", scheduleColor: "#16a34a" }),
+    ).toBe("#16A34A");
+  });
+
   it("builds a default title only when both a dog and schedule type exist", () => {
     expect(defaultOperationScheduleTitle("토리", "상담")).toBe("토리 상담");
     expect(defaultOperationScheduleTitle(" 초코 ", " 교육 ")).toBe(

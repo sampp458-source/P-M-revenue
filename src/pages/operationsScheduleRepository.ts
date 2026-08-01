@@ -78,16 +78,16 @@ export interface OperationScheduleInput {
   dogIds: string[];
 }
 
-export const DEFAULT_OPERATION_SCHEDULE_COLOR = "#5B7FA3";
+export const DEFAULT_OPERATION_SCHEDULE_COLOR = "#2563EB";
 const OPERATION_ASSIGNEE_COLOR_PALETTE = [
-  "#4568B2",
-  "#2E8B72",
-  "#C1763D",
-  "#6C63B5",
-  "#2C879E",
-  "#B85C78",
-  "#75853B",
-  "#8B6A4C",
+  "#2563EB",
+  "#16A34A",
+  "#7C3AED",
+  "#EA580C",
+  "#0891B2",
+  "#DB2777",
+  "#DC2626",
+  "#92400E",
 ] as const;
 
 export function operationPersonColor(

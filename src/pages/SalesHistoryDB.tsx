@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock3,
+  Dog,
   Eye,
   LoaderCircle,
   Pencil,
@@ -21,10 +22,12 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Undo2,
+  UserRound,
   X,
 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { SearchSelect } from "../components/SearchSelect";
 import {
   Badge,
   Button,
@@ -437,7 +440,6 @@ export function SalesHistoryPage() {
   const [profileNames, setProfileNames] = useState<Record<string, string>>({});
   const [partyCustomers, setPartyCustomers] = useState<PartyCustomer[]>([]);
   const [partyDogs, setPartyDogs] = useState<PartyDog[]>([]);
-  const [partySearch, setPartySearch] = useState("");
   const [partySaving, setPartySaving] = useState(false);
   const [partyModal, setPartyModal] = useState<"customer" | "dog" | null>(null);
   const [newCustomer, setNewCustomer] = useState({ name: "", phone: "" });
@@ -985,29 +987,37 @@ export function SalesHistoryPage() {
   const canEdit = (sale: SaleRow) =>
     (profile?.role === "admin" && sale.status !== "cancelled") ||
     (sale.createdBy === profile?.id && sale.status === "normal");
-  const visiblePartyCustomers = useMemo(() => {
-    const keyword = partySearch.trim().toLocaleLowerCase("ko");
-    return partyCustomers.filter(
-      (customer) =>
-        customer.id === editing?.customerId ||
-        !keyword ||
-        [customer.name, customer.phone].some((value) =>
-          value?.toLocaleLowerCase("ko").includes(keyword),
-        ),
-    );
-  }, [editing?.customerId, partyCustomers, partySearch]);
-  const editingPartyDogs = useMemo(
-    () =>
-      partyDogs.filter(
-        (dog) =>
-          Boolean(editing?.customerId) && dog.customerId === editing?.customerId,
-      ),
-    [editing?.customerId, partyDogs],
-  );
+  const partyCustomerOptions = useMemo(() => {
+    if (
+      !editing?.customerId ||
+      partyCustomers.some((customer) => customer.id === editing.customerId)
+    )
+      return partyCustomers;
+    return [
+      {
+        id: editing.customerId,
+        name: editing.customerName,
+        phone: editing.customerPhone,
+      },
+      ...partyCustomers,
+    ];
+  }, [editing, partyCustomers]);
+  const partyDogOptions = useMemo(() => {
+    if (!editing?.dogId || partyDogs.some((dog) => dog.id === editing.dogId))
+      return partyDogs;
+    return [
+      {
+        id: editing.dogId,
+        customerId: editing.customerId,
+        name: editing.dogName,
+        breed: null,
+      },
+      ...partyDogs,
+    ];
+  }, [editing, partyDogs]);
   const openEditSale = (sale: SaleRow) => {
     setActionError("");
     setPartyError("");
-    setPartySearch("");
     setPartyModal(null);
     setDuplicatePartyDog(null);
     setAllowDuplicatePartyDog(false);
@@ -1080,7 +1090,6 @@ export function SalesHistoryPage() {
     if (duplicate) {
       setEditing({ ...editing, customerId: duplicate.id, dogId: null });
       setPartyModal(null);
-      setPartySearch(`${duplicate.name || "이름 미등록"} ${duplicate.phone || ""}`.trim());
       setNotice("동일 연락처의 기존 보호자를 선택했습니다.");
       return;
     }
@@ -1104,7 +1113,6 @@ export function SalesHistoryPage() {
     }
     setPartyCustomers((current) => [...current, result.data]);
     setEditing({ ...editing, customerId: result.data.id, dogId: null });
-    setPartySearch(`${result.data.name || "이름 미등록"} ${result.data.phone || ""}`.trim());
     setPartyModal(null);
     setNotice("새 보호자를 등록하고 선택했습니다.");
   };
@@ -2254,24 +2262,115 @@ export function SalesHistoryPage() {
                 <Button type="button" variant="ghost" disabled={partySaving || editing.status !== "normal"} onClick={() => setEditing({ ...editing, customerId: null, dogId: null })}>연결 해제</Button>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2 sm:col-span-2">
-                  <SearchBox aria-label="보호자 이름 또는 연락처 검색" placeholder="보호자 이름 또는 연락처 검색" value={partySearch} disabled={editing.status !== "normal"} onClear={() => setPartySearch("")} onChange={(event) => setPartySearch(event.target.value)} />
-                </div>
-                <Field label="보호자">
-                  <Select value={editing.customerId ?? ""} disabled={partySaving || editing.status !== "normal"} onChange={(event) => { const customerId = event.target.value || null; const currentDog = partyDogs.find((dog) => dog.id === editing.dogId); setEditing({ ...editing, customerId, dogId: currentDog?.customerId === customerId ? editing.dogId : null }); setPartyError(""); }}>
-                    <option value="">보호자 미등록</option>
-                    {editing.customerId && !partyCustomers.some((customer) => customer.id === editing.customerId) && <option value={editing.customerId}>{editing.customerName || "기존 보호자"} · {displayPhone(editing.customerPhone)}</option>}
-                    {visiblePartyCustomers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name || "이름 미등록"} · {displayPhone(customer.phone)}</option>)}
-                  </Select>
-                </Field>
-                <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving || editing.status !== "normal"} onClick={() => { setNewCustomer({ name: partySearch, phone: "" }); setPartyError(""); setPartyModal("customer"); }}><Plus size={16} />새 보호자 등록</Button></div>
-                <Field label="반려견">
-                  <Select value={editing.dogId ?? ""} disabled={partySaving || editing.status !== "normal" || !editing.customerId} onChange={(event) => setEditing({ ...editing, dogId: event.target.value || null })}>
-                    <option value="">(반려견 없음)</option>
-                    {editing.dogId && !editingPartyDogs.some((dog) => dog.id === editing.dogId) && <option value={editing.dogId}>{editing.dogName}</option>}
-                    {editingPartyDogs.map((dog) => <option key={dog.id} value={dog.id}>{dog.name}{dog.breed ? ` · ${dog.breed}` : ""}</option>)}
-                  </Select>
-                </Field>
+                <SearchSelect
+                  label="보호자"
+                  items={partyCustomerOptions}
+                  selectedIds={editing.customerId ? [editing.customerId] : []}
+                  multiple={false}
+                  showAllOnEmpty
+                  disabled={partySaving || editing.status !== "normal"}
+                  placeholder="보호자명·연락처·반려견명 검색"
+                  noResultsMessage="일치하는 보호자를 찾지 못했습니다."
+                  recentStorageKey="pm-sales-edit-recent-customers"
+                  getItemId={(customer) => customer.id}
+                  getSearchText={(customer) => {
+                    const dogNames = partyDogs
+                      .filter((dog) => dog.customerId === customer.id)
+                      .map((dog) => dog.name)
+                      .join(" ");
+                    return `${customer.name ?? ""} ${customer.phone ?? ""} ${dogNames}`;
+                  }}
+                  renderSelected={(customer) => (
+                    <span className="inline-flex items-center gap-1.5">
+                      <UserRound size={14} aria-hidden="true" />
+                      {customer.name || "이름 미등록"}
+                    </span>
+                  )}
+                  renderOption={(customer) => {
+                    const dogNames = partyDogs
+                      .filter((dog) => dog.customerId === customer.id)
+                      .map((dog) => dog.name);
+                    return (
+                      <span className="min-w-0">
+                        <strong className="block truncate text-sm text-text-primary">
+                          {customer.name || "이름 미등록"}
+                        </strong>
+                        <span className="mt-0.5 block truncate text-xs text-text-secondary">
+                          {displayPhone(customer.phone)}
+                          {dogNames.length ? ` · ${dogNames.join(", ")}` : ""}
+                        </span>
+                      </span>
+                    );
+                  }}
+                  onChange={(selectedIds) => {
+                    const customerId = selectedIds[0] ?? null;
+                    const currentDog = partyDogs.find(
+                      (dog) => dog.id === editing.dogId,
+                    );
+                    setEditing({
+                      ...editing,
+                      customerId,
+                      dogId:
+                        currentDog?.customerId === customerId
+                          ? editing.dogId
+                          : null,
+                    });
+                    setPartyError("");
+                  }}
+                />
+                <SearchSelect
+                  label="반려견"
+                  items={partyDogOptions}
+                  selectedIds={editing.dogId ? [editing.dogId] : []}
+                  multiple={false}
+                  showAllOnEmpty
+                  disabled={partySaving || editing.status !== "normal"}
+                  placeholder="반려견명·보호자명·연락처 검색"
+                  noResultsMessage="일치하는 반려견을 찾지 못했습니다."
+                  recentStorageKey="pm-sales-edit-recent-dogs"
+                  getItemId={(dog) => dog.id}
+                  getSearchText={(dog) => {
+                    const customer = partyCustomers.find(
+                      (item) => item.id === dog.customerId,
+                    );
+                    return `${dog.name} ${dog.breed ?? ""} ${customer?.name ?? ""} ${customer?.phone ?? ""}`;
+                  }}
+                  renderSelected={(dog) => (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Dog size={14} aria-hidden="true" />
+                      {dog.name}
+                    </span>
+                  )}
+                  renderOption={(dog) => {
+                    const customer = partyCustomers.find(
+                      (item) => item.id === dog.customerId,
+                    );
+                    return (
+                      <span className="min-w-0">
+                        <strong className="block truncate text-sm text-text-primary">
+                          {dog.name}
+                        </strong>
+                        <span className="mt-0.5 block truncate text-xs text-text-secondary">
+                          {[dog.breed, customer?.name, displayPhone(customer?.phone ?? null)]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      </span>
+                    );
+                  }}
+                  onChange={(selectedIds) => {
+                    const dog = partyDogs.find(
+                      (item) => item.id === selectedIds[0],
+                    );
+                    setEditing({
+                      ...editing,
+                      dogId: dog?.id ?? null,
+                      customerId: dog?.customerId ?? editing.customerId,
+                    });
+                    setPartyError("");
+                  }}
+                />
+                <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving || editing.status !== "normal"} onClick={() => { setNewCustomer({ name: "", phone: "" }); setPartyError(""); setPartyModal("customer"); }}><Plus size={16} />새 보호자 등록</Button></div>
                 <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving || editing.status !== "normal" || !editing.customerId} onClick={() => { setNewDog({ name: "", breed: "" }); setPartyError(""); setDuplicatePartyDog(null); setAllowDuplicatePartyDog(false); setPartyModal("dog"); }}><Plus size={16} />새 반려견 등록</Button></div>
               </div>
               {partyError && <p role="alert" className="mt-3 text-sm text-error">{partyError}</p>}

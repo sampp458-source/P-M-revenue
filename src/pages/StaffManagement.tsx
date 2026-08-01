@@ -21,16 +21,14 @@ const operationRoleHelp: Record<OperationRole, string> = {
 };
 const operationRoles = ["owner", "manager", "staff"] as const;
 const scheduleColors = [
-  { name: "브랜드 블루", value: "#4568B2" },
-  { name: "스카이", value: "#52B8D0" },
-  { name: "앰버", value: "#C99845" },
-  { name: "슬레이트", value: "#5B7FA3" },
-  { name: "세이지", value: "#5C7C6F" },
-  { name: "코랄", value: "#B56A6A" },
-  { name: "인디고", value: "#7A6FB0" },
-  { name: "틸", value: "#3F7F89" },
-  { name: "로즈", value: "#B76E79" },
-  { name: "올리브", value: "#7D8450" },
+  { name: "블루", value: "#2563EB" },
+  { name: "그린", value: "#16A34A" },
+  { name: "퍼플", value: "#7C3AED" },
+  { name: "오렌지", value: "#EA580C" },
+  { name: "시안", value: "#0891B2" },
+  { name: "핑크", value: "#DB2777" },
+  { name: "레드", value: "#DC2626" },
+  { name: "브라운", value: "#92400E" },
 ] as const;
 const shortDate = new Intl.DateTimeFormat("ko-KR", { year: "2-digit", month: "numeric", day: "numeric" });
 const shortTime = new Intl.DateTimeFormat("ko-KR", { hour: "numeric", minute: "2-digit" });
@@ -315,7 +313,7 @@ export function StaffManagementPage() {
     <Modal open={!!colorEditing} onClose={() => !processing && setColorEditing(null)} title="캘린더 색상 설정">
       <form onSubmit={saveScheduleColor} className="space-y-5">
         <div><p className="font-semibold text-text-primary">{colorEditing?.name}</p><p className="mt-1 text-sm text-text-secondary">담당자 표시 전용 색상입니다. 캘린더 범위 색상과는 별도로 사용됩니다.</p></div>
-        <div className="grid grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-4 gap-2.5">
           {scheduleColors.map((color) => (
             <button
               key={color.value}

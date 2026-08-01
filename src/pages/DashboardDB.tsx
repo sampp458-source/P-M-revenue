@@ -521,6 +521,8 @@ export function DashboardPage() {
   );
   const recent = useMemo(() => sales.filter((sale) => sale.saleDate >= range.from && sale.saleDate <= range.to).sort((left, right) => right.saleDate.localeCompare(left.saleDate) || right.createdAt.localeCompare(left.createdAt)).slice(0, 5), [range.from, range.to, sales]);
   const openSales = (date = selectedDate, targetUnit = "") => navigate(`/sales?period=custom&start=${date}&end=${date}${targetUnit ? `&unit=${targetUnit}` : ""}`);
+  const registerSale = (date = selectedDate) =>
+    navigate(`/sales/new?date=${encodeURIComponent(date)}`);
   const selectCalendarDate = (date: string) => {
     updateQuery({ day: date });
     setAccountingDrawerView(null);
@@ -598,7 +600,7 @@ export function DashboardPage() {
       {isAdmin && <div className="mt-8"><RecentSales rows={recent} onOpen={() => navigate(`/sales?period=custom&start=${range.from}&end=${range.to}${unitId ? `&unit=${unitId}` : ""}`)} /></div>}
       {isAdmin && <div className="mt-8"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={selectCalendarDate} /></div>}
     </div>
-    <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} themeCode={selectedThemeCode} summary={selectedDateSummary} rows={selectedDateSales} payments={selectedDatePayments} refunds={selectedDateRefunds} paymentMethodTotals={selectedDatePaymentMethods} units={units} outstandingLabel={isAdmin ? "현재 미수" : "발생 미수"} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onOpenSales={() => openSales(selectedDate, unitId)} />
+    <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} themeCode={selectedThemeCode} summary={selectedDateSummary} rows={selectedDateSales} payments={selectedDatePayments} refunds={selectedDateRefunds} paymentMethodTotals={selectedDatePaymentMethods} units={units} outstandingLabel={isAdmin ? "현재 미수" : "발생 미수"} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onRegisterSale={() => registerSale(selectedDate)} onOpenSales={() => openSales(selectedDate, unitId)} />
     <DashboardAccountingDrawer
       open={Boolean(accountingDrawerView)}
       view={accountingDrawerView ?? "sales"}

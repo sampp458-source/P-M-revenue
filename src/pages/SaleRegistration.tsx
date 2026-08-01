@@ -24,7 +24,7 @@ import {
   Settings2,
   UserRound,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   Button,
@@ -345,6 +345,12 @@ function CurrencyInput({
 export function SaleFormPage() {
   const { businessUnits, profile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const requestedSaleDate = searchParams.get("date") ?? "";
+  const hasRequestedSaleDate = /^\d{4}-\d{2}-\d{2}$/.test(requestedSaleDate);
+  const initialSaleDate = hasRequestedSaleDate
+    ? requestedSaleDate
+    : today();
   const searchRef = useRef<HTMLInputElement>(null);
   const quickPhoneRef = useRef<HTMLInputElement>(null);
   const productSectionRef = useRef<HTMLDivElement>(null);
@@ -418,7 +424,7 @@ export function SaleFormPage() {
   const [dirtyBaseline, setDirtyBaseline] = useState<string | null>(null);
   const isFinanceAdmin = profile?.role === "admin";
   const [form, setForm] = useState<SaleRegistrationFormState>({
-    saleDate: today(),
+    saleDate: initialSaleDate,
     businessUnitId: loadRepeatSettings().keepBusinessUnit
       ? stored(lastBusinessUnitKey)
       : "",
@@ -575,6 +581,9 @@ export function SaleFormPage() {
       );
       setForm({
         ...savedDraft.form,
+        saleDate: hasRequestedSaleDate
+          ? initialSaleDate
+          : savedDraft.form.saleDate,
         businessUnitId: savedProduct?.businessUnitId ??
           (savedBusinessUnit ? savedDraft.form.businessUnitId : ""),
         categoryId: savedProduct?.categoryId ?? "",
@@ -634,7 +643,13 @@ export function SaleFormPage() {
           saleInputFingerprint(latest.form, latest.saleReference),
         );
     });
-  }, [businessUnits, isFinanceAdmin, profile]);
+  }, [
+    businessUnits,
+    hasRequestedSaleDate,
+    initialSaleDate,
+    isFinanceAdmin,
+    profile,
+  ]);
 
   useEffect(() => {
     void loadOptions();
