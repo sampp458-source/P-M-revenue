@@ -125,7 +125,7 @@ describe("Operations foundation UI", () => {
     expect(todaySource).toContain("onTitleManuallyEdited(true)");
   });
 
-  it("keeps Today cards focused on color, time, title, and assignees", () => {
+  it("keeps Today cards ordered by title, time, dog, assignee, and status", () => {
     const scheduleRow = todaySource.slice(
       todaySource.indexOf("function ScheduleRow"),
       todaySource.indexOf("function TodaySummary"),
@@ -134,9 +134,10 @@ describe("Operations foundation UI", () => {
     expect(scheduleRow).toContain("schedulePrimaryAssignee");
     expect(scheduleRow).toContain("schedule.title");
     expect(scheduleRow).toContain("schedule.assignees");
+    expect(scheduleRow).toContain("schedule.dogs");
+    expect(scheduleRow).toContain('completed ? "완료"');
     expect(scheduleRow).not.toContain("schedule.calendarName");
     expect(scheduleRow).not.toContain("schedule.scheduleTypeName");
     expect(scheduleRow).not.toContain("schedule.customers");
-    expect(scheduleRow).not.toContain("schedule.dogs");
   });
 });

@@ -40,9 +40,7 @@ describe("DashboardDateDrawer actions", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "매출 등록" }));
-    fireEvent.click(
-      screen.getByRole("button", { name: "매출 내역 전체 매출 내역 보기" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "전체 매출 내역 보기" }));
 
     expect(onRegisterSale).toHaveBeenCalledOnce();
     expect(onOpenSales).toHaveBeenCalledOnce();

@@ -962,30 +962,23 @@ function DayScheduleCard({
       />
       <div className="flex min-w-0 items-start gap-3 pl-1">
         <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <h3
-              className={cn(
-                "truncate text-[15px] font-bold leading-5 tracking-[-0.015em] text-text-primary",
-                schedule.status === "cancelled" && "line-through",
-              )}
-            >
-              {dogName}
-            </h3>
-            <Badge tone="gray">
-              {schedule.status === "completed"
-                ? "완료"
-                : schedule.status === "cancelled"
-                  ? "취소"
-                  : "예정"}
-            </Badge>
-            {isMine && <Badge tone="blue">내 일정</Badge>}
+          <h3
+            className={cn(
+              "truncate text-[15px] font-bold leading-5 tracking-[-0.015em] text-text-primary",
+              schedule.status === "cancelled" && "line-through",
+            )}
+          >
+            {schedule.title}
+          </h3>
+          <div className="mt-1.5 flex items-center gap-1 text-xs font-bold tabular-nums text-text-primary">
+            <Clock3 size={13} className="text-text-muted" />
+            {timeLabel(schedule)}
+          </div>
+          <div className="mt-1.5 truncate text-sm font-semibold text-text-secondary">
+            {dogName}
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
             <span className="flex items-center gap-1 font-bold tabular-nums text-text-primary">
-              <Clock3 size={13} className="text-text-muted" />
-              {timeLabel(schedule)}
-            </span>
-            <span className="flex min-w-0 items-center gap-1.5 font-semibold text-text-secondary">
               <span
                 className="h-2.5 w-2.5 shrink-0 rounded-full"
                 style={{
@@ -1007,17 +1000,22 @@ function DayScheduleCard({
               ))}
             </span>
           </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <Badge tone="gray">
+              {schedule.status === "completed"
+                ? "완료"
+                : schedule.status === "cancelled"
+                  ? "취소"
+                  : "예정"}
+            </Badge>
+            {isMine && <Badge tone="blue">내 일정</Badge>}
+          </div>
           <div className="mt-1.5 flex min-w-0 items-center gap-1 text-xs text-text-secondary">
             <UserRound size={13} className="shrink-0 text-text-muted" />
             <span className="truncate">
               {schedule.customers[0]?.name ?? "보호자 미연결"}
             </span>
           </div>
-          {schedule.title !== dogName && (
-            <p className="mt-1.5 truncate text-xs font-medium text-text-secondary">
-              {schedule.title}
-            </p>
-          )}
           {schedule.memo && (
             <p className="mt-1.5 line-clamp-2 border-t border-border/70 pt-1.5 text-xs leading-5 text-text-muted">
               {schedule.memo}

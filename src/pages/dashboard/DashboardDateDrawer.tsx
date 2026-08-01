@@ -223,6 +223,13 @@ export function DashboardDateDrawer({
               <Summary label="환불" value={won(summary.refund)} warning={summary.refund > 0} />
             </div>
           </div>
+          <Button
+            type="button"
+            className="mt-2 h-10 min-h-10 w-full shadow-sm"
+            onClick={onRegisterSale}
+          >
+            <Plus size={17} /> 매출 등록
+          </Button>
           </div>
 
           <div className="p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:p-5">
@@ -279,15 +286,15 @@ export function DashboardDateDrawer({
           </div>
         </div>
 
-        <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-white/[0.08] bg-[#142b46] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-5">
-          <Button type="button" className="h-[38px] min-h-[38px] w-full py-1" onClick={onRegisterSale}>
-            <Plus size={16} /> 매출 등록
-          </Button>
-          <Button type="button" variant="secondary" className="h-[38px] min-h-[38px] w-full border-white/10 bg-white/[0.055] px-2 py-1 text-slate-200 hover:bg-white/[0.09] hover:text-white" onClick={onOpenSales}>
-            <span className="sm:hidden">매출 내역</span>
-            <span className="hidden sm:inline">전체 매출 내역 보기</span>
-            <ExternalLink size={16} />
-          </Button>
+        <div className="flex shrink-0 justify-center border-t border-white/[0.08] bg-[#142b46] px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-5">
+          <button
+            type="button"
+            onClick={onOpenSales}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/[0.055] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+          >
+            전체 매출 내역 보기
+            <ExternalLink size={14} />
+          </button>
         </div>
       </aside>
     </>

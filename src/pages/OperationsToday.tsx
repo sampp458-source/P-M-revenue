@@ -685,7 +685,7 @@ function ScheduleRow({
       aria-label={`${schedule.title} 일정 상세 보기`}
       onClick={onOpen}
       className={cn(
-        "group relative grid w-full grid-cols-[3.75rem_minmax(0,1fr)_auto] items-center gap-3 border-l-[3px] px-4 py-4 text-left transition hover:bg-surface-secondary/65 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:grid-cols-[4.5rem_minmax(0,1fr)_auto] sm:px-5",
+        "group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-l-[3px] px-4 py-4 text-left transition hover:bg-surface-secondary/65 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:px-5",
         isMine && "bg-primary-soft/35",
         completed && "bg-surface-secondary/30 opacity-70",
         cancelled && "bg-surface-secondary/20 opacity-55",
@@ -696,14 +696,6 @@ function ScheduleRow({
         className="absolute inset-y-0 left-0 w-[3px]"
         style={{ backgroundColor: schedule.calendarColor }}
       />
-      <time
-        className={cn(
-          "self-start pt-0.5 text-base font-bold tabular-nums",
-          completed || cancelled ? "text-text-muted" : "text-text-primary",
-        )}
-      >
-        {time}
-      </time>
       <div className="min-w-0">
         <p
           className={cn(
@@ -737,6 +729,19 @@ function ScheduleRow({
             </Badge>
           )}
         </p>
+        <time
+          className={cn(
+            "mt-1.5 block text-sm font-bold tabular-nums",
+            completed || cancelled ? "text-text-muted" : "text-text-primary",
+          )}
+        >
+          {time}
+        </time>
+        <p className="mt-1 truncate text-sm font-semibold text-text-secondary">
+          {schedule.dogs.length
+            ? schedule.dogs.map((dog) => dog.name).join(", ")
+            : "반려견 미연결"}
+        </p>
         <div className="mt-1.5 flex min-w-0 items-center gap-2 text-xs text-text-secondary">
           <span className="inline-flex min-w-0 items-center gap-1.5">
             <span
@@ -763,6 +768,9 @@ function ScheduleRow({
             ))}
           </span>
         </div>
+        <p className="mt-1.5 text-xs font-medium text-text-muted">
+          {completed ? "완료" : cancelled ? "취소" : "예정"}
+        </p>
       </div>
       <span className="flex h-10 w-10 items-center justify-center rounded-xl text-text-muted transition group-hover:bg-primary-soft group-hover:text-primary">
         <ChevronRight size={18} />

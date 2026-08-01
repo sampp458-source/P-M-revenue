@@ -255,6 +255,18 @@ interface PartyDog {
   breed: string | null;
 }
 
+interface PartyLinkOption {
+  id: string;
+  kind: "dog" | "customer";
+  customerId: string;
+  dogId: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  dogName: string | null;
+  breed: string | null;
+  linkedDogNames: string[];
+}
+
 const paymentLabel: Record<string, string> = {
   card: "카드",
   transfer: "계좌이체",
@@ -1015,6 +1027,47 @@ export function SalesHistoryPage() {
       ...partyDogs,
     ];
   }, [editing, partyDogs]);
+  const partyLinkOptions = useMemo<PartyLinkOption[]>(() => {
+    const customerById = new Map(
+      partyCustomerOptions.map((customer) => [customer.id, customer]),
+    );
+    const dogNamesByCustomer = new Map<string, string[]>();
+    partyDogOptions.forEach((dog) => {
+      if (!dog.customerId) return;
+      const names = dogNamesByCustomer.get(dog.customerId) ?? [];
+      names.push(dog.name);
+      dogNamesByCustomer.set(dog.customerId, names);
+    });
+
+    return [
+      ...partyDogOptions.flatMap((dog) => {
+        if (!dog.customerId) return [];
+        const customer = customerById.get(dog.customerId);
+        return [{
+          id: `dog:${dog.id}`,
+          kind: "dog" as const,
+          customerId: dog.customerId,
+          dogId: dog.id,
+          customerName: customer?.name ?? null,
+          customerPhone: customer?.phone ?? null,
+          dogName: dog.name,
+          breed: dog.breed,
+          linkedDogNames: dogNamesByCustomer.get(dog.customerId) ?? [dog.name],
+        }];
+      }),
+      ...partyCustomerOptions.map((customer) => ({
+        id: `customer:${customer.id}`,
+        kind: "customer" as const,
+        customerId: customer.id,
+        dogId: null,
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        dogName: null,
+        breed: null,
+        linkedDogNames: dogNamesByCustomer.get(customer.id) ?? [],
+      })),
+    ];
+  }, [partyCustomerOptions, partyDogOptions]);
   const openEditSale = (sale: SaleRow) => {
     setActionError("");
     setPartyError("");
@@ -2263,115 +2316,75 @@ export function SalesHistoryPage() {
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <SearchSelect
-                  key={`sale-customer-${editing.customerId ?? "none"}`}
-                  label="보호자"
-                  items={partyCustomerOptions}
-                  selectedIds={editing.customerId ? [editing.customerId] : []}
+                  key={`sale-party-${editing.customerId ?? "none"}-${editing.dogId ?? "none"}`}
+                  label="보호자·반려견"
+                  items={partyLinkOptions}
+                  selectedIds={
+                    editing.dogId
+                      ? [`dog:${editing.dogId}`]
+                      : editing.customerId
+                        ? [`customer:${editing.customerId}`]
+                        : []
+                  }
                   multiple={false}
                   showAllOnEmpty
                   disabled={partySaving || editing.status !== "normal"}
-                  placeholder="보호자명·연락처·반려견명 검색"
-                  noResultsMessage="일치하는 보호자를 찾지 못했습니다."
-                  recentStorageKey="pm-sales-edit-recent-customers"
-                  getItemId={(customer) => customer.id}
-                  getSearchText={(customer) => {
-                    const dogNames = partyDogs
-                      .filter((dog) => dog.customerId === customer.id)
-                      .map((dog) => dog.name)
-                      .join(" ");
-                    return `${customer.name ?? ""} ${customer.phone ?? ""} ${dogNames}`;
-                  }}
-                  renderSelected={(customer) => (
+                  placeholder="보호자명·반려견명·연락처 검색"
+                  noResultsMessage="일치하는 보호자 또는 반려견을 찾지 못했습니다."
+                  recentStorageKey="pm-sales-edit-recent-parties"
+                  getItemId={(option) => option.id}
+                  getSearchText={(option) =>
+                    `${option.customerName ?? ""} ${option.customerPhone ?? ""} ${option.dogName ?? ""} ${option.breed ?? ""} ${option.linkedDogNames.join(" ")}`
+                  }
+                  renderSelected={(option) => (
                     <span className="inline-flex items-center gap-1.5">
-                      <UserRound size={14} aria-hidden="true" />
-                      {customer.name || "이름 미등록"}
+                      {option.dogId ? (
+                        <Dog size={14} aria-hidden="true" />
+                      ) : (
+                        <UserRound size={14} aria-hidden="true" />
+                      )}
+                      {option.dogName
+                        ? `${option.dogName} · ${option.customerName || "보호자 미등록"}`
+                        : option.customerName || "이름 미등록"}
                     </span>
                   )}
-                  renderOption={(customer) => {
-                    const dogNames = partyDogs
-                      .filter((dog) => dog.customerId === customer.id)
-                      .map((dog) => dog.name);
-                    return (
-                      <span className="min-w-0">
-                        <strong className="block truncate text-sm text-text-primary">
-                          {customer.name || "이름 미등록"}
-                        </strong>
-                        <span className="mt-0.5 block truncate text-xs text-text-secondary">
-                          {displayPhone(customer.phone)}
-                          {dogNames.length ? ` · ${dogNames.join(", ")}` : ""}
-                        </span>
+                  renderOption={(option) => (
+                    <span className="min-w-0">
+                      <strong className="block truncate text-sm text-text-primary">
+                        {option.dogName || option.customerName || "이름 미등록"}
+                      </strong>
+                      <span className="mt-0.5 block truncate text-xs text-text-secondary">
+                        {option.dogName
+                          ? [option.breed, option.customerName]
+                              .filter(Boolean)
+                              .join(" · ")
+                          : [
+                              displayPhone(option.customerPhone),
+                              option.linkedDogNames.join(", "),
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")}
                       </span>
-                    );
-                  }}
-                  onChange={(selectedIds) => {
-                    const customerId = selectedIds[0] ?? null;
-                    const currentDog = partyDogs.find(
-                      (dog) => dog.id === editing.dogId,
-                    );
-                    setEditing({
-                      ...editing,
-                      customerId,
-                      dogId:
-                        currentDog?.customerId === customerId
-                          ? editing.dogId
-                          : null,
-                    });
-                    setPartyError("");
-                  }}
-                />
-                <SearchSelect
-                  key={`sale-dog-${editing.dogId ?? "none"}`}
-                  label="반려견"
-                  items={partyDogOptions}
-                  selectedIds={editing.dogId ? [editing.dogId] : []}
-                  multiple={false}
-                  showAllOnEmpty
-                  disabled={partySaving || editing.status !== "normal"}
-                  placeholder="반려견명·보호자명·연락처 검색"
-                  noResultsMessage="일치하는 반려견을 찾지 못했습니다."
-                  recentStorageKey="pm-sales-edit-recent-dogs"
-                  getItemId={(dog) => dog.id}
-                  getSearchText={(dog) => {
-                    const customer = partyCustomers.find(
-                      (item) => item.id === dog.customerId,
-                    );
-                    return `${dog.name} ${dog.breed ?? ""} ${customer?.name ?? ""} ${customer?.phone ?? ""}`;
-                  }}
-                  renderSelected={(dog) => (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Dog size={14} aria-hidden="true" />
-                      {dog.name}
+                      {option.dogName && (
+                        <span className="mt-0.5 block truncate text-xs text-text-muted">
+                          {displayPhone(option.customerPhone)}
+                        </span>
+                      )}
                     </span>
                   )}
-                  renderOption={(dog) => {
-                    const customer = partyCustomers.find(
-                      (item) => item.id === dog.customerId,
-                    );
-                    return (
-                      <span className="min-w-0">
-                        <strong className="block truncate text-sm text-text-primary">
-                          {dog.name}
-                        </strong>
-                        <span className="mt-0.5 block truncate text-xs text-text-secondary">
-                          {[dog.breed, customer?.name, displayPhone(customer?.phone ?? null)]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </span>
-                      </span>
-                    );
-                  }}
                   onChange={(selectedIds) => {
-                    const dog = partyDogs.find(
+                    const option = partyLinkOptions.find(
                       (item) => item.id === selectedIds[0],
                     );
                     setEditing({
                       ...editing,
-                      dogId: dog?.id ?? null,
-                      customerId: dog?.customerId ?? editing.customerId,
+                      customerId: option?.customerId ?? null,
+                      dogId: option?.dogId ?? null,
                     });
                     setPartyError("");
                   }}
                 />
+                <div className="hidden sm:block" aria-hidden="true" />
                 <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving || editing.status !== "normal"} onClick={() => { setNewCustomer({ name: "", phone: "" }); setPartyError(""); setPartyModal("customer"); }}><Plus size={16} />새 보호자 등록</Button></div>
                 <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving || editing.status !== "normal" || !editing.customerId} onClick={() => { setNewDog({ name: "", breed: "" }); setPartyError(""); setDuplicatePartyDog(null); setAllowDuplicatePartyDog(false); setPartyModal("dog"); }}><Plus size={16} />새 반려견 등록</Button></div>
               </div>
