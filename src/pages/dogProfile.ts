@@ -54,6 +54,18 @@ export interface DogUsageSummary {
   unitLabel: string | null;
 }
 
+const normalizeDogUsageUnitLabel = (unitLabel: string | null) =>
+  (unitLabel ?? "").trim().replace(/^1\s*(?=[^0-9])/, "");
+
+export function formatDogUsageQuantity(
+  quantity: number,
+  unitLabel: string | null,
+) {
+  const unit = normalizeDogUsageUnitLabel(unitLabel);
+  const value = quantity.toLocaleString("ko-KR");
+  return unit ? `${value}${unit}` : `${value}건`;
+}
+
 export const isDogUsageActivity = (activity: DogProfileActivity) =>
   activity.status !== "cancelled" &&
   activity.cancellationType !== "entry_error";
@@ -88,7 +100,8 @@ export function summarizeDogUsage(
     };
     current.quantity += Math.max(1, activity.quantity || 1);
     current.count += 1;
-    if (activity.unitLabel?.trim()) current.unitLabels.add(activity.unitLabel.trim());
+    const normalizedUnit = normalizeDogUsageUnitLabel(activity.unitLabel);
+    if (normalizedUnit) current.unitLabels.add(normalizedUnit);
     summaries.set(key, current);
   });
 

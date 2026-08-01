@@ -31,6 +31,7 @@ import {
 import {
   activeDogActivities,
   dogUsageDateRange,
+  formatDogUsageQuantity,
   summarizeDogUsage,
   type DogProfileActivity,
 } from "./dogProfile";
@@ -240,7 +241,7 @@ export function DogProfileModal({
                     </div>
                     <strong className="mt-3 block text-2xl font-bold tabular-nums text-[var(--pm-theme-accent)]">
                       {item.unitLabel
-                        ? `${item.quantity.toLocaleString("ko-KR")}${item.unitLabel}`
+                        ? formatDogUsageQuantity(item.quantity, item.unitLabel)
                         : `${item.count.toLocaleString("ko-KR")}건`}
                     </strong>
                     <span className="mt-1 block text-xs text-text-muted">
@@ -307,8 +308,10 @@ export function DogProfileModal({
                     meta={
                       <span className="flex shrink-0 items-center gap-1 text-xs text-text-muted">
                         <Clock3 size={13} />
-                        {activity.quantity.toLocaleString("ko-KR")}
-                        {activity.unitLabel || "건"}
+                        {formatDogUsageQuantity(
+                          activity.quantity,
+                          activity.unitLabel,
+                        )}
                       </span>
                     }
                   />

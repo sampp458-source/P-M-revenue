@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   activeDogActivities,
   dogUsageDateRange,
+  formatDogUsageQuantity,
   mapDogProfileActivity,
   summarizeDogUsage,
   type DogProfileActivity,
@@ -74,6 +75,30 @@ describe("dog profile usage and timeline", () => {
         quantity: 9,
         unitLabel: "박",
       }),
+    );
+  });
+
+  it("normalizes one-night product units without appending an extra digit", () => {
+    const hotelUsage = summarizeDogUsage([
+      activity("hotel-5", {
+        businessUnitId: "hotel",
+        businessUnitName: "호텔",
+        quantity: 5,
+        unitLabel: "1박",
+      }),
+      activity("hotel-9", {
+        businessUnitId: "hotel",
+        businessUnitName: "호텔",
+        quantity: 9,
+        unitLabel: "박",
+      }),
+    ])[0];
+
+    expect(formatDogUsageQuantity(5, "1박")).toBe("5박");
+    expect(formatDogUsageQuantity(9, "1박")).toBe("9박");
+    expect(hotelUsage.quantity).toBe(14);
+    expect(formatDogUsageQuantity(hotelUsage.quantity, hotelUsage.unitLabel)).toBe(
+      "14박",
     );
   });
 
