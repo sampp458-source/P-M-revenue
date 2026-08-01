@@ -15,6 +15,7 @@ import {
   operationDogProfileLine,
   operationPersonColor,
   operationPersonDisplayName,
+  operationScheduleTimeLabel,
   seoulDateKey,
   scheduleDisplayColor,
   schedulePrimaryAssignee,
@@ -337,6 +338,7 @@ describe("Operations schedule date and display helpers", () => {
       startsAt: "2026-07-29T00:00:00.000Z",
       endsAt: "2026-07-29T01:00:00.000Z",
       allDay: false,
+      timeUnspecified: false,
       status: "scheduled" as const,
       version: 1,
       requestId: "request",
@@ -386,6 +388,7 @@ describe("Operations schedule date and display helpers", () => {
       startsAt: "2026-07-29T00:00:00.000Z",
       endsAt: "2026-07-29T01:00:00.000Z",
       allDay: false,
+      timeUnspecified: false,
       status: "scheduled" as const,
       version: 1,
       requestId: "request",
@@ -418,5 +421,57 @@ describe("Operations schedule date and display helpers", () => {
         "2026-07-29",
       ),
     ).toEqual([]);
+  });
+
+  it("sorts time-unspecified schedules after schedules with a confirmed time", () => {
+    const timed = {
+      id: "timed",
+      allDay: false,
+      timeUnspecified: false,
+      startsAt: "2026-08-01T05:00:00.000Z",
+      createdAt: "2026-08-01T00:00:00.000Z",
+      calendarScope: "common",
+      createdBy: "profile",
+      assignees: [{ id: "profile", name: "직원" }],
+    };
+    const unspecified = {
+      ...timed,
+      id: "unspecified",
+      timeUnspecified: true,
+      startsAt: "2026-08-01T03:00:00.000Z",
+      createdAt: "2026-08-01T01:00:00.000Z",
+    };
+    const unspecifiedLater = {
+      ...unspecified,
+      id: "unspecified-later",
+      startsAt: "2026-08-01T02:00:00.000Z",
+      createdAt: "2026-08-01T02:00:00.000Z",
+    };
+
+    expect(
+      sortOperationSchedulesForViewer(
+        [unspecifiedLater, unspecified, timed] as never[],
+        "profile",
+      ).map(
+        (schedule) => schedule.id,
+      ),
+    ).toEqual(["timed", "unspecified", "unspecified-later"]);
+  });
+
+  it("uses one time label policy across Operations schedule surfaces", () => {
+    expect(
+      operationScheduleTimeLabel({
+        allDay: false,
+        timeUnspecified: true,
+        startsAt: "2026-08-01T03:00:00.000Z",
+      }),
+    ).toBe("시간 미정");
+    expect(
+      operationScheduleTimeLabel({
+        allDay: true,
+        timeUnspecified: false,
+        startsAt: "2026-08-01T03:00:00.000Z",
+      }),
+    ).toBe("종일");
   });
 });

@@ -52,6 +52,7 @@ import {
   mergeOperationScheduleCollection,
   nextSeoulDate,
   operationPersonColor,
+  operationScheduleTimeLabel,
   schedulePrimaryAssignee,
   seoulDateKey,
   setOperationScheduleStatus,
@@ -127,16 +128,6 @@ function occursOn(schedule: OperationSchedule, localDate: string) {
     new Date(schedule.startsAt).getTime() < end &&
     new Date(schedule.endsAt).getTime() > start
   );
-}
-
-function timeLabel(schedule: OperationSchedule) {
-  if (schedule.allDay) return "종일";
-  return new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Seoul",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).format(new Date(schedule.startsAt));
 }
 
 function fullDateLabel(value: string) {
@@ -753,8 +744,15 @@ function MonthScheduleCard({
           {displayTitle}
         </span>
         <div className="mt-px flex min-w-0 items-center gap-1">
-          <span className="shrink-0 text-[9px] font-semibold leading-3 tabular-nums text-text-secondary lg:text-[10px]">
-            {timeLabel(schedule)}
+          <span
+            className={cn(
+              "shrink-0 text-[9px] font-semibold leading-3 tabular-nums lg:text-[10px]",
+              schedule.timeUnspecified
+                ? "rounded-full bg-surface-secondary px-1.5 py-0.5 text-text-secondary"
+                : "text-text-secondary",
+            )}
+          >
+            {operationScheduleTimeLabel(schedule)}
           </span>
           <span
             className="h-3 w-3 shrink-0 rounded-full shadow-[0_1px_4px_rgb(15_23_42_/_0.24)] ring-2 ring-white"
@@ -972,7 +970,11 @@ function DayScheduleCard({
           </h3>
           <div className="mt-1.5 flex items-center gap-1 text-xs font-bold tabular-nums text-text-primary">
             <Clock3 size={13} className="text-text-muted" />
-            {timeLabel(schedule)}
+            {schedule.timeUnspecified ? (
+              <Badge tone="gray">시간 미정</Badge>
+            ) : (
+              operationScheduleTimeLabel(schedule)
+            )}
           </div>
           <div className="mt-1.5 truncate text-sm font-semibold text-text-secondary">
             {dogName}

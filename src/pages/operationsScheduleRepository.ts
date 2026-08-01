@@ -42,6 +42,7 @@ export interface OperationSchedule {
   startsAt: string;
   endsAt: string;
   allDay: boolean;
+  timeUnspecified: boolean;
   status: OperationScheduleStatus;
   version: number;
   requestId: string;
@@ -72,6 +73,7 @@ export interface OperationScheduleInput {
   startsAt: string;
   endsAt: string;
   allDay: boolean;
+  timeUnspecified: boolean;
   memo: string;
   assigneeIds: string[];
   customerIds: string[];
@@ -160,12 +162,69 @@ export function sortOperationSchedulesForViewer(
     return 2;
   };
   return [...schedules].sort((left, right) => {
+    const allDayDifference =
+      Number(Boolean(right.allDay)) - Number(Boolean(left.allDay));
+    if (allDayDifference !== 0) return allDayDifference;
+    const unspecifiedDifference =
+      Number(Boolean(left.timeUnspecified)) -
+      Number(Boolean(right.timeUnspecified));
+    if (unspecifiedDifference !== 0) return unspecifiedDifference;
     const rankDifference = rank(left) - rank(right);
     if (rankDifference !== 0) return rankDifference;
+    if (left.timeUnspecified && right.timeUnspecified) {
+      return (
+        left.createdAt.localeCompare(right.createdAt) ||
+        left.id.localeCompare(right.id)
+      );
+    }
     const timeDifference =
       new Date(left.startsAt).getTime() - new Date(right.startsAt).getTime();
-    return timeDifference || left.id.localeCompare(right.id);
+    return (
+      timeDifference ||
+      left.createdAt.localeCompare(right.createdAt) ||
+      left.id.localeCompare(right.id)
+    );
   });
+}
+
+export function compareOperationScheduleChronology(
+  left: OperationSchedule,
+  right: OperationSchedule,
+) {
+  const allDayDifference =
+    Number(Boolean(right.allDay)) - Number(Boolean(left.allDay));
+  if (allDayDifference !== 0) return allDayDifference;
+  const unspecifiedDifference =
+    Number(Boolean(left.timeUnspecified)) -
+    Number(Boolean(right.timeUnspecified));
+  if (unspecifiedDifference !== 0) return unspecifiedDifference;
+  if (left.timeUnspecified && right.timeUnspecified) {
+    return (
+      left.createdAt.localeCompare(right.createdAt) ||
+      left.id.localeCompare(right.id)
+    );
+  }
+  return (
+    left.startsAt.localeCompare(right.startsAt) ||
+    left.createdAt.localeCompare(right.createdAt) ||
+    left.id.localeCompare(right.id)
+  );
+}
+
+export function operationScheduleTimeLabel(
+  schedule: Pick<
+    OperationSchedule,
+    "allDay" | "timeUnspecified" | "startsAt"
+  >,
+) {
+  if (schedule.allDay) return "종일";
+  if (schedule.timeUnspecified) return "시간 미정";
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(schedule.startsAt));
 }
 
 export function defaultOperationCalendarId(
@@ -206,6 +265,7 @@ interface ScheduleRpcRow {
   startsAt: string;
   endsAt: string;
   allDay: boolean;
+  timeUnspecified?: boolean;
   status: OperationScheduleStatus;
   version: number;
   requestId: string;
@@ -223,6 +283,7 @@ interface ScheduleRpcRow {
 
 const mapSchedule = (row: ScheduleRpcRow): OperationSchedule => ({
   ...row,
+  timeUnspecified: row.timeUnspecified ?? false,
   assignees: row.assignees ?? [],
   dogs: row.dogs ?? [],
   customers: row.customers ?? [],
@@ -235,6 +296,7 @@ const rpcInput = (input: OperationScheduleInput, requestId: string) => ({
   p_starts_at: input.startsAt,
   p_ends_at: input.endsAt,
   p_all_day: input.allDay,
+  p_time_unspecified: input.timeUnspecified,
   p_memo: input.memo,
   p_assignee_ids: input.assigneeIds,
   p_customer_ids: input.customerIds,
@@ -316,6 +378,7 @@ interface ScheduleTableRow {
   starts_at: string;
   ends_at: string;
   all_day: boolean;
+  time_unspecified: boolean;
   status: OperationScheduleStatus;
   version: number;
   request_id: string;
@@ -338,11 +401,13 @@ export async function fetchOperationSchedulesForRange(
   const result = await supabase
     .from("operation_schedules")
     .select(
-      "id, calendar_id, schedule_type_id, title, description, starts_at, ends_at, all_day, status, version, request_id, created_by, created_at, updated_by, updated_at, archived_at",
+      "id, calendar_id, schedule_type_id, title, description, starts_at, ends_at, all_day, time_unspecified, status, version, request_id, created_by, created_at, updated_by, updated_at, archived_at",
     )
     .is("archived_at", null)
     .lt("starts_at", toSeoulInstant(endLocalDateExclusive, "00:00"))
     .gt("ends_at", toSeoulInstant(startLocalDate, "00:00"))
+    .order("all_day", { ascending: false })
+    .order("time_unspecified")
     .order("starts_at")
     .order("created_at");
   throwScheduleError(result.error);
@@ -420,6 +485,7 @@ export async function fetchOperationSchedulesForRange(
       startsAt: row.starts_at,
       endsAt: row.ends_at,
       allDay: row.all_day,
+      timeUnspecified: row.time_unspecified ?? false,
       status: row.status,
       version: row.version,
       requestId: row.request_id,
@@ -444,7 +510,7 @@ export async function fetchOperationSchedulesForRange(
           (customer): customer is OperationCustomer => Boolean(customer),
         ),
     };
-  });
+  }).sort(compareOperationScheduleChronology);
 }
 
 export async function fetchOperationScheduleOptions(): Promise<OperationScheduleOptions> {
@@ -813,13 +879,7 @@ export function mergeOperationTodaySchedule(
     new Date(changed.endsAt).getTime() > dayStart;
 
   if (occursToday) rows.push(changed);
-  return rows.sort(
-    (left, right) =>
-      Number(right.allDay) - Number(left.allDay) ||
-      left.startsAt.localeCompare(right.startsAt) ||
-      left.createdAt.localeCompare(right.createdAt) ||
-      left.id.localeCompare(right.id),
-  );
+  return rows.sort(compareOperationScheduleChronology);
 }
 
 export function mergeOperationScheduleCollection(
@@ -828,10 +888,5 @@ export function mergeOperationScheduleCollection(
 ) {
   const rows = schedules.filter((schedule) => schedule.id !== changed.id);
   if (changed.archivedAt === null) rows.push(changed);
-  return rows.sort(
-    (left, right) =>
-      left.startsAt.localeCompare(right.startsAt) ||
-      left.createdAt.localeCompare(right.createdAt) ||
-      left.id.localeCompare(right.id),
-  );
+  return rows.sort(compareOperationScheduleChronology);
 }

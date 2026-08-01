@@ -140,8 +140,12 @@ describe("Operations foundation UI", () => {
   });
 
   it("disables but preserves manual times while all-day is selected", () => {
-    expect(todaySource).toContain("disabled={form.allDay}");
-    expect(todaySource).toContain("required={!form.allDay}");
+    expect(todaySource).toContain(
+      "disabled={form.allDay || form.timeUnspecified}",
+    );
+    expect(todaySource).toContain(
+      "required={!form.allDay && !form.timeUnspecified}",
+    );
     expect(todaySource).not.toContain("{!form.allDay && (");
   });
 

@@ -57,6 +57,7 @@ import {
   operationDogProfileLine,
   operationPersonColor,
   operationPersonDisplayName,
+  operationScheduleTimeLabel,
   seoulDateKey,
   schedulePrimaryAssignee,
   setOperationScheduleStatus,
@@ -78,6 +79,7 @@ export interface ScheduleForm {
   endDate: string;
   endTime: string;
   allDay: boolean;
+  timeUnspecified: boolean;
   dogIds: string[];
   customerIds: string[];
   assigneeIds: string[];
@@ -97,6 +99,7 @@ export const emptyForm = (): ScheduleForm => {
     scheduleTypeId: "",
     ...scheduleWindow,
     allDay: false,
+    timeUnspecified: false,
     dogIds: [],
     customerIds: [],
     assigneeIds: [],
@@ -134,6 +137,7 @@ export const formFromSchedule = (schedule: OperationSchedule): ScheduleForm => {
     endDate: end.date,
     endTime: end.time,
     allDay: schedule.allDay,
+    timeUnspecified: schedule.timeUnspecified,
     dogIds: schedule.dogs.map((dog) => dog.id),
     customerIds: schedule.customers.map((customer) => customer.id),
     assigneeIds: schedule.assignees.map((assignee) => assignee.id),
@@ -146,6 +150,12 @@ export function scheduleInputFromForm(
   form: ScheduleForm,
   options: OperationScheduleOptions | null,
 ): { input: OperationScheduleInput | null; error: string } {
+  if (form.allDay && form.timeUnspecified) {
+    return {
+      input: null,
+      error: "종일 일정과 시간 미정은 동시에 선택할 수 없습니다.",
+    };
+  }
   const calendarId =
     form.calendarId || defaultOperationCalendarId(options?.calendars ?? []);
   const scheduleTypeId =
@@ -156,6 +166,7 @@ export function scheduleInputFromForm(
     !scheduleTypeId ||
     !form.date ||
     (!form.allDay &&
+      !form.timeUnspecified &&
       (!form.startTime || !form.endDate || !form.endTime)) ||
     form.assigneeIds.length === 0 ||
     !form.title.trim()
@@ -165,12 +176,16 @@ export function scheduleInputFromForm(
       error: "제목, 날짜, 시간, 담당자를 확인해 주세요.",
     };
   }
+  const technicalStartTime = form.startTime || "12:00";
+  const technicalEnd = oneHourScheduleEnd(form.date, technicalStartTime);
   const startsAt = form.allDay
     ? toSeoulInstant(form.date, "00:00")
-    : toSeoulInstant(form.date, form.startTime);
+    : toSeoulInstant(form.date, technicalStartTime);
   const endsAt = form.allDay
     ? toSeoulInstant(nextSeoulDate(form.date), "00:00")
-    : toSeoulInstant(form.endDate, form.endTime);
+    : form.timeUnspecified
+      ? toSeoulInstant(technicalEnd.endDate, technicalEnd.endTime)
+      : toSeoulInstant(form.endDate, form.endTime);
   if (new Date(endsAt) <= new Date(startsAt)) {
     return {
       input: null,
@@ -186,6 +201,7 @@ export function scheduleInputFromForm(
       startsAt,
       endsAt,
       allDay: form.allDay,
+      timeUnspecified: form.timeUnspecified,
       memo: form.memo.trim(),
       assigneeIds: form.assigneeIds,
       customerIds: form.customerIds,
@@ -473,6 +489,7 @@ export function OperationsTodayPage() {
       (schedule) =>
         schedule.status === "scheduled" &&
         !schedule.allDay &&
+        !schedule.timeUnspecified &&
         new Date(schedule.endsAt) < new Date(),
     ).length;
     if (unassigned) rows.push(`담당자 미지정 일정 ${unassigned}건`);
@@ -510,7 +527,7 @@ export function OperationsTodayPage() {
                 오늘 일정
               </h2>
               <p className="mt-1 text-xs text-text-muted">
-                종일 일정 이후 시간순으로 표시합니다
+                종일 일정, 시간 확정 일정, 시간 미정 순으로 표시합니다
               </p>
             </div>
             <span className="tabular-nums text-sm font-semibold text-text-secondary">
@@ -544,7 +561,7 @@ export function OperationsTodayPage() {
             <div className="pb-5">
               <EmptyState
                 title="오늘 등록된 일정이 없습니다"
-                description="새 일정을 등록하면 시간순으로 표시됩니다."
+                description="새 일정을 등록하면 시간 확정 일정부터 표시됩니다."
               />
               <div className="-mt-4 flex justify-center">
                 <Button
@@ -670,14 +687,7 @@ function ScheduleRow({
   const isMine = isOperationScheduleAssignedTo(schedule, currentUserId);
   const completed = schedule.status === "completed";
   const cancelled = schedule.status === "cancelled";
-  const time = schedule.allDay
-    ? "종일"
-    : new Intl.DateTimeFormat("ko-KR", {
-        timeZone: "Asia/Seoul",
-        hour: "2-digit",
-        minute: "2-digit",
-        hourCycle: "h23",
-      }).format(new Date(schedule.startsAt));
+  const time = operationScheduleTimeLabel(schedule);
   return (
     <button
       type="button"
@@ -715,9 +725,13 @@ function ScheduleRow({
           )}
         </p>
         <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-text-secondary sm:text-[13px]">
-          <time className="shrink-0 font-bold tabular-nums text-text-primary">
-            {time}
-          </time>
+          {schedule.timeUnspecified ? (
+            <Badge tone="gray">시간 미정</Badge>
+          ) : (
+            <time className="shrink-0 font-bold tabular-nums text-text-primary">
+              {time}
+            </time>
+          )}
           <span aria-hidden="true" className="text-border-strong">·</span>
           <span className="max-w-[13rem] truncate">
             {schedule.dogs.length
@@ -964,16 +978,53 @@ export function ScheduleFormModal({
               }}
             />
           </Field>
-          <label className="flex min-h-11 items-center gap-2 self-end rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary">
-            <input type="checkbox" checked={form.allDay} onChange={(event) => patch({ allDay: event.target.checked })} />
-            종일 일정
-          </label>
+          <div className="grid gap-2 self-end min-[430px]:grid-cols-2 sm:grid-cols-1 lg:grid-cols-2">
+            <label className="flex min-h-11 items-center gap-2 rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary">
+              <input
+                type="checkbox"
+                checked={form.allDay}
+                onChange={(event) =>
+                  patch({
+                    allDay: event.target.checked,
+                    timeUnspecified: event.target.checked
+                      ? false
+                      : form.timeUnspecified,
+                  })
+                }
+              />
+              종일 일정
+            </label>
+            <label className="flex min-h-11 items-center gap-2 rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary">
+              <input
+                type="checkbox"
+                checked={form.timeUnspecified}
+                onChange={(event) => {
+                  const timeUnspecified = event.target.checked;
+                  patch({
+                    timeUnspecified,
+                    allDay: timeUnspecified ? false : form.allDay,
+                    startTime: timeUnspecified ? form.startTime : "",
+                    endTime: timeUnspecified ? form.endTime : "",
+                    endDate: timeUnspecified ? form.endDate : form.date,
+                  });
+                }}
+              />
+              시간 미정
+            </label>
+          </div>
           <>
-            <div className={cn(form.allDay && "opacity-50")}>
-              <Field label="시작 시간" required={!form.allDay}>
+            <div
+              className={cn(
+                (form.allDay || form.timeUnspecified) && "opacity-50",
+              )}
+            >
+              <Field
+                label="시작 시간"
+                required={!form.allDay && !form.timeUnspecified}
+              >
                 <Input
-                  required={!form.allDay}
-                  disabled={form.allDay}
+                  required={!form.allDay && !form.timeUnspecified}
+                  disabled={form.allDay || form.timeUnspecified}
                   type="time"
                   value={form.startTime}
                   onChange={(event) => {
@@ -988,11 +1039,18 @@ export function ScheduleFormModal({
                 />
               </Field>
             </div>
-            <div className={cn(form.allDay && "opacity-50")}>
-              <Field label="종료 시간" required={!form.allDay}>
+            <div
+              className={cn(
+                (form.allDay || form.timeUnspecified) && "opacity-50",
+              )}
+            >
+              <Field
+                label="종료 시간"
+                required={!form.allDay && !form.timeUnspecified}
+              >
                 <Input
-                  required={!form.allDay}
-                  disabled={form.allDay}
+                  required={!form.allDay && !form.timeUnspecified}
+                  disabled={form.allDay || form.timeUnspecified}
                   type="time"
                   value={form.endTime}
                   onChange={(event) => {
@@ -1222,7 +1280,11 @@ export function ScheduleDetailModal({
           </div>
           <h3 className="mt-3 text-2xl font-bold tracking-[-0.03em] text-text-primary">{schedule.title}</h3>
           <p className="mt-2 text-sm text-text-secondary">
-            {start.date} · {schedule.allDay ? "종일" : `${start.time}–${end.time}`}
+            {start.date} · {schedule.allDay
+              ? "종일"
+              : schedule.timeUnspecified
+                ? "날짜 확정 · 시간 미정"
+                : `${start.time}–${end.time}`}
           </p>
         </div>
         {canManage && schedule.status !== "cancelled" && (
