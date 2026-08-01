@@ -401,6 +401,12 @@ export function OperationsCalendarFoundationPage() {
     }
   };
 
+  const returnToScheduleDetail = () => {
+    const schedule = pendingAction?.schedule ?? null;
+    setPendingAction(null);
+    setDetail(schedule);
+  };
+
   const moveMonth = (amount: number) => {
     const next = shiftMonth(visibleMonth, amount);
     setVisibleMonth(next);
@@ -558,9 +564,11 @@ export function OperationsCalendarFoundationPage() {
         onComplete={(schedule) => void completeSchedule(schedule)}
         onCancel={(schedule) => {
           setPendingAction({ type: "cancel", schedule });
+          setDetail(null);
         }}
         onArchive={(schedule) => {
           setPendingAction({ type: "archive", schedule });
+          setDetail(null);
         }}
         onOpenDog={(id) =>
           navigate(`/operations/customers?dogId=${encodeURIComponent(id)}`)
@@ -579,7 +587,7 @@ export function OperationsCalendarFoundationPage() {
             ? "이 일정을 취소할까요?"
             : "이 일정을 삭제할까요?"
         }
-        onClose={() => setPendingAction(null)}
+        onClose={returnToScheduleDetail}
       >
         <p className="text-sm leading-6 text-text-secondary">
           {pendingAction?.type === "cancel"
@@ -587,7 +595,7 @@ export function OperationsCalendarFoundationPage() {
             : "삭제된 일정은 오늘과 캘린더에서 표시되지 않습니다."}
         </p>
         <div className="mt-5 flex justify-end gap-2">
-          <Button variant="secondary" onClick={() => setPendingAction(null)}>
+          <Button variant="secondary" onClick={returnToScheduleDetail}>
             돌아가기
           </Button>
           <Button

@@ -65,6 +65,8 @@ describe("Operations foundation UI", () => {
     expect(todaySource).toContain("일정 삭제");
     expect(todaySource).toContain("이 일정을 취소할까요?");
     expect(todaySource).toContain("이 일정을 삭제할까요?");
+    expect(todaySource).toContain("returnToScheduleDetail");
+    expect(todaySource).toContain("setDetail(null)");
     expect(todaySource).not.toContain(">취소</Button>");
     expect(calendarSource).toContain("schedulePrimaryAssignee");
     expect(calendarSource).toContain("schedules.slice(0, 2)");

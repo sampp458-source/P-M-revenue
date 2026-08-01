@@ -470,6 +470,12 @@ export function OperationsTodayPage() {
     }
   };
 
+  const returnToScheduleDetail = () => {
+    const schedule = pendingAction?.schedule ?? null;
+    setPendingAction(null);
+    setDetail(schedule);
+  };
+
   const summary = useMemo(() => {
     return calculateOperationTodaySummary(schedules);
   }, [schedules]);
@@ -611,9 +617,11 @@ export function OperationsTodayPage() {
         onComplete={(schedule) => void completeSchedule(schedule)}
         onCancel={(schedule) => {
           setPendingAction({ type: "cancel", schedule });
+          setDetail(null);
         }}
         onArchive={(schedule) => {
           setPendingAction({ type: "archive", schedule });
+          setDetail(null);
         }}
         onOpenDog={(dogId) =>
           navigate(
@@ -635,7 +643,7 @@ export function OperationsTodayPage() {
             ? "이 일정을 취소할까요?"
             : "이 일정을 삭제할까요?"
         }
-        onClose={() => !saving && setPendingAction(null)}
+        onClose={() => !saving && returnToScheduleDetail()}
       >
         <p className="text-sm leading-6 text-text-secondary">
           {pendingAction?.type === "cancel"
@@ -643,7 +651,7 @@ export function OperationsTodayPage() {
             : "삭제된 일정은 오늘과 캘린더에서 표시되지 않습니다."}
         </p>
         <div className="mt-6 flex justify-end gap-2">
-          <Button variant="secondary" disabled={saving} onClick={() => setPendingAction(null)}>
+          <Button variant="secondary" disabled={saving} onClick={returnToScheduleDetail}>
             돌아가기
           </Button>
           <Button
@@ -1276,8 +1284,8 @@ export function ScheduleDetailModal({
       wide
       resetKey={schedule.id}
     >
-      <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+      <div className="relative flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
+        <div className="pr-14 sm:pr-0">
           <div className="flex flex-wrap gap-2">
             <Badge tone="gray">
               {schedule.status === "completed"
@@ -1300,7 +1308,7 @@ export function ScheduleDetailModal({
         </div>
         {canManage && (
           <div
-            className="relative self-start"
+            className="absolute right-0 top-0 sm:static sm:self-start"
             onBlur={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget)) {
                 setActionMenuOpen(false);
