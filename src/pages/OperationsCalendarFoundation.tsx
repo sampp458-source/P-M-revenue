@@ -594,7 +594,7 @@ export function OperationsCalendarFoundationPage() {
             ? "취소된 일정은 기록에 남으며 필요하면 다시 상태를 변경할 수 있습니다."
             : "삭제된 일정은 오늘과 캘린더에서 표시되지 않습니다."}
         </p>
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="sticky -bottom-5 z-10 -mx-5 -mb-5 mt-6 grid grid-cols-2 gap-2 border-t border-border bg-surface px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] sm:static sm:mx-0 sm:mb-0 sm:flex sm:justify-end sm:border-0 sm:p-0 sm:shadow-none">
           <Button variant="secondary" onClick={returnToScheduleDetail}>
             돌아가기
           </Button>
