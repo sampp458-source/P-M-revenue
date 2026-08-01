@@ -89,12 +89,32 @@ const OPERATION_ASSIGNEE_COLOR_PALETTE = [
   "#DC2626",
   "#92400E",
 ] as const;
+const LEGACY_OPERATION_SCHEDULE_COLORS: Record<string, string> = {
+  "#4568B2": "#2563EB",
+  "#52B8D0": "#0891B2",
+  "#C99845": "#EA580C",
+  "#5B7FA3": "#2563EB",
+  "#5C7C6F": "#16A34A",
+  "#B56A6A": "#DC2626",
+  "#7A6FB0": "#7C3AED",
+  "#3F7F89": "#0891B2",
+  "#B76E79": "#DB2777",
+  "#7D8450": "#92400E",
+  "#2E8B72": "#16A34A",
+  "#C1763D": "#EA580C",
+  "#6C63B5": "#7C3AED",
+  "#2C879E": "#0891B2",
+  "#B85C78": "#DB2777",
+  "#75853B": "#16A34A",
+  "#8B6A4C": "#92400E",
+};
 
 export function operationPersonColor(
   person: Pick<OperationPerson, "id" | "scheduleColor">,
 ) {
   if (person.scheduleColor?.match(/^#[0-9A-Fa-f]{6}$/)) {
-    return person.scheduleColor.toUpperCase();
+    const storedColor = person.scheduleColor.toUpperCase();
+    return LEGACY_OPERATION_SCHEDULE_COLORS[storedColor] ?? storedColor;
   }
   let hash = 0;
   for (const character of person.id) {

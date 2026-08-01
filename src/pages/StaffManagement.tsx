@@ -230,7 +230,7 @@ export function StaffManagementPage() {
                 <td>
                   <div className="flex items-center justify-end gap-1.5">
                     {!operationLoadError && canManageOperationRoles && row.status !== "pending" && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedOperationRole(row.operationRole ?? "staff"); setRoleEditing(row); }}>운영 권한</Button>}
-                    {!operationLoadError && scheduleColorAvailable && canManageOperationScheduleColors && row.operationActive && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ?? ""); setColorEditing(row); }}>캘린더 색상</Button>}
+                    {!operationLoadError && scheduleColorAvailable && canManageOperationScheduleColors && row.operationActive && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ? operationPersonColor(row) : ""); setColorEditing(row); }}>캘린더 색상</Button>}
                     {row.role === "staff" && row.status === "pending" && <>
                       <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setConfirming({ row, action: "approve" }); }}>승인</Button>
                       <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setReason(""); setReasoning({ row, action: "reject" }); }}>거절</Button>
@@ -285,7 +285,7 @@ export function StaffManagementPage() {
             className="flex w-full items-center justify-between rounded-xl border border-border px-4 py-3 text-left transition hover:border-primary/40 hover:bg-primary-soft/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             onClick={() => {
               if (!roleEditing) return;
-              setSelectedScheduleColor(roleEditing.scheduleColor ?? "");
+              setSelectedScheduleColor(roleEditing.scheduleColor ? operationPersonColor(roleEditing) : "");
               setColorEditing(roleEditing);
               setRoleEditing(null);
             }}

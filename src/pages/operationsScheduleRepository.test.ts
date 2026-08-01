@@ -183,6 +183,9 @@ describe("Operations schedule date and display helpers", () => {
     expect(
       operationPersonColor({ id: "staff", scheduleColor: "#16a34a" }),
     ).toBe("#16A34A");
+    expect(
+      operationPersonColor({ id: "legacy", scheduleColor: "#B76E79" }),
+    ).toBe("#DB2777");
   });
 
   it("builds a default title only when both a dog and schedule type exist", () => {
