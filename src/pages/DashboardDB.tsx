@@ -469,9 +469,9 @@ export function DashboardPage() {
       accountingDays,
     );
   }, [calendarMonth, payments, refunds, sales]);
-  const selectedDateSales = useMemo(
-    () => dashboardSalesForDate(sales, selectedDate, unitId),
-    [sales, selectedDate, unitId],
+  const selectedDateAllBusinessUnitSales = useMemo(
+    () => dashboardSalesForDate(sales, selectedDate),
+    [sales, selectedDate],
   );
   const selectedDateSummary = useMemo(() => {
     const selectedRange = { from: selectedDate, to: selectedDate };
@@ -492,32 +492,31 @@ export function DashboardPage() {
       outstanding: isAdmin ? currentOutstanding : selectedDateOutstanding,
     };
   }, [currentOutstanding, isAdmin, payments, refunds, sales, selectedDate, selectedDateOutstanding, unitId]);
-  const selectedDatePayments = useMemo(
-    () => ledgerPaymentsForDate(sales, payments, selectedDate, unitId),
-    [payments, sales, selectedDate, unitId],
+  const selectedDateAllBusinessUnitPayments = useMemo(
+    () => ledgerPaymentsForDate(sales, payments, selectedDate),
+    [payments, sales, selectedDate],
   );
-  const selectedDateRefunds = useMemo(() => {
+  const selectedDateAllBusinessUnitRefunds = useMemo(() => {
     const salesById = new Map(sales.map((sale) => [sale.id, sale]));
     return buildAccountingEvents(sales, payments, refunds).flatMap((event) => {
       if (event.kind !== "refund" || event.eventDate !== selectedDate) return [];
       const sale = salesById.get(event.saleId);
-      if (!sale || (unitId && sale.businessUnitId !== unitId)) return [];
+      if (!sale) return [];
       return [{
         id: event.id,
         amount: event.refundAmount,
         sale,
       }];
     });
-  }, [payments, refunds, sales, selectedDate, unitId]);
-  const selectedDatePaymentMethods = useMemo(
+  }, [payments, refunds, sales, selectedDate]);
+  const selectedDateAllBusinessUnitPaymentMethods = useMemo(
     () =>
       calculateLedgerPaymentMethodTotals(
         sales,
         payments,
         { from: selectedDate, to: selectedDate },
-        unitId,
       ),
-    [payments, sales, selectedDate, unitId],
+    [payments, sales, selectedDate],
   );
   const recent = useMemo(() => sales.filter((sale) => sale.saleDate >= range.from && sale.saleDate <= range.to).sort((left, right) => right.saleDate.localeCompare(left.saleDate) || right.createdAt.localeCompare(left.createdAt)).slice(0, 5), [range.from, range.to, sales]);
   const openSales = (date = selectedDate, targetUnit = "") => navigate(`/sales?period=custom&start=${date}&end=${date}${targetUnit ? `&unit=${targetUnit}` : ""}`);
@@ -529,7 +528,10 @@ export function DashboardPage() {
     setOutstandingDrawerOpen(false);
     setDateDrawerOpen(true);
   };
-  const openSale = (saleId: string) => navigate(`/sales?period=custom&start=${selectedDate}&end=${selectedDate}${unitId ? `&unit=${unitId}` : ""}&detail=${saleId}`);
+  const openSale = (saleId: string) =>
+    navigate(
+      `/sales?period=custom&start=${selectedDate}&end=${selectedDate}&detail=${saleId}`,
+    );
   const openAccountingSale = (saleId: string) =>
     navigate(
       `/sales?period=custom&start=${visibleRange.from}&end=${visibleRange.to}${unitId ? `&unit=${unitId}` : ""}&detail=${saleId}`,
@@ -600,7 +602,7 @@ export function DashboardPage() {
       {isAdmin && <div className="mt-8"><RecentSales rows={recent} onOpen={() => navigate(`/sales?period=custom&start=${range.from}&end=${range.to}${unitId ? `&unit=${unitId}` : ""}`)} /></div>}
       {isAdmin && <div className="mt-8"><DailyRevenueTrend data={daily} selectedDate={selectedDate} unitName={selectedUnitName} onSelect={selectCalendarDate} /></div>}
     </div>
-    <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} themeCode={selectedThemeCode} summary={selectedDateSummary} rows={selectedDateSales} payments={selectedDatePayments} refunds={selectedDateRefunds} paymentMethodTotals={selectedDatePaymentMethods} units={units} outstandingLabel={isAdmin ? "현재 미수" : "발생 미수"} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onRegisterSale={() => registerSale(selectedDate)} onOpenSales={() => openSales(selectedDate, unitId)} />
+    <DashboardDateDrawer open={dateDrawerOpen} date={selectedDate} unitName={selectedUnitName} focusedUnitId={unitId} themeCode={selectedThemeCode} summary={selectedDateSummary} rows={selectedDateAllBusinessUnitSales} payments={selectedDateAllBusinessUnitPayments} refunds={selectedDateAllBusinessUnitRefunds} paymentMethodTotals={selectedDateAllBusinessUnitPaymentMethods} units={units} outstandingLabel={isAdmin ? (unitId ? `${selectedUnitName} 현재 미수` : "회사 전체 현재 미수") : "선택 날짜 발생 미수"} onClose={() => setDateDrawerOpen(false)} onOpenSale={openSale} onRegisterSale={() => registerSale(selectedDate)} onOpenSales={() => openSales(selectedDate)} />
     <DashboardAccountingDrawer
       open={Boolean(accountingDrawerView)}
       view={accountingDrawerView ?? "sales"}

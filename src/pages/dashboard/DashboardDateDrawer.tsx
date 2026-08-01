@@ -45,6 +45,7 @@ export function DashboardDateDrawer({
   open,
   date,
   unitName,
+  focusedUnitId = "",
   themeCode,
   summary,
   rows,
@@ -61,6 +62,7 @@ export function DashboardDateDrawer({
   open: boolean;
   date: string;
   unitName: string;
+  focusedUnitId?: string;
   themeCode: DashboardThemeCode;
   summary: DailyRevenue;
   rows: DashboardSale[];
@@ -213,7 +215,9 @@ export function DashboardDateDrawer({
         <div className="flex-1 overflow-y-auto overscroll-contain">
           <div className="dashboard-drawer-summary sticky top-0 z-10 border-b p-2 backdrop-blur sm:px-5 sm:py-2.5">
           <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035] p-2 text-white sm:p-2.5">
-            <p className="dashboard-drawer-accent-text text-xs font-semibold">판매금액</p>
+            <p className="dashboard-drawer-accent-text text-xs font-semibold">
+              {unitName === "전체 사업부" ? "전체 판매금액" : `${unitName} 판매금액`}
+            </p>
             <strong className="mt-0.5 block whitespace-nowrap text-[clamp(1.6rem,7vw,2.3rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
               {won(summary.salesAmount)}
             </strong>
@@ -225,7 +229,7 @@ export function DashboardDateDrawer({
           </div>
           <Button
             type="button"
-            className="mt-2 h-10 min-h-10 w-full shadow-sm"
+            className="dashboard-drawer-primary mt-2 h-10 min-h-10 w-full shadow-sm"
             onClick={onRegisterSale}
           >
             <Plus size={17} /> 매출 등록
@@ -234,6 +238,12 @@ export function DashboardDateDrawer({
 
           <div className="p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:p-5">
           <div>
+            <div className="mb-2 px-0.5">
+              <h3 className="text-sm font-bold text-white">해당 날짜 전체 사업부</h3>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-300">
+                선택한 사업부와 관계없이 실제 매출을 모두 표시합니다.
+              </p>
+            </div>
             <div className="-mx-1 mb-2 overflow-x-auto px-1 pb-1">
               <div className="flex min-w-max gap-1 rounded-xl bg-white/[0.045] p-0.5" role="tablist" aria-label="날짜 상세 사업부">
                 <UnitTab active={selectedUnitId === "all"} onClick={() => setSelectedUnitId("all")}>
@@ -243,6 +253,7 @@ export function DashboardDateDrawer({
                   <UnitTab
                     key={group.id}
                     active={selectedUnitId === group.id}
+                    focused={focusedUnitId === group.id}
                     onClick={() => setSelectedUnitId(group.id)}
                     dotColor={dashboardThemeMap[dashboardThemeCode(group.code, group.name)].accent}
                   >
@@ -258,6 +269,7 @@ export function DashboardDateDrawer({
                   <BusinessUnitSummaryRow
                     key={group.id}
                     group={group}
+                    focused={focusedUnitId === group.id}
                     onClick={() => setSelectedUnitId(group.id)}
                   />
                 ))}
@@ -303,11 +315,13 @@ export function DashboardDateDrawer({
 
 function UnitTab({
   active,
+  focused = false,
   onClick,
   children,
   dotColor,
 }: {
   active: boolean;
+  focused?: boolean;
   onClick: () => void;
   children: string;
   dotColor?: string;
@@ -323,6 +337,7 @@ function UnitTab({
         active
           ? "dashboard-drawer-tab-active bg-white"
           : "text-slate-300 hover:bg-white/[0.07] hover:text-white",
+        focused && !active && "dashboard-drawer-tab-focused",
       )}
     >
       {dotColor && <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: dotColor }} aria-hidden="true" />}
@@ -456,9 +471,11 @@ function groupStats(group: SaleGroup) {
 
 function BusinessUnitSummaryRow({
   group,
+  focused = false,
   onClick,
 }: {
   group: SaleGroup;
+  focused?: boolean;
   onClick: () => void;
 }) {
   const stats = groupStats(group);
@@ -468,7 +485,10 @@ function BusinessUnitSummaryRow({
       type="button"
       onClick={onClick}
       style={dashboardThemeStyle(themeCode)}
-      className="dashboard-drawer-unit-row flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border bg-white/[0.035] px-3.5 py-[0.5625rem] text-left transition-colors focus:outline-none focus-visible:ring-2"
+      className={cn(
+        "dashboard-drawer-unit-row flex min-h-14 w-full items-center justify-between gap-3 rounded-xl border bg-white/[0.035] px-3.5 py-[0.5625rem] text-left transition-colors focus:outline-none focus-visible:ring-2",
+        focused && "dashboard-drawer-unit-row-focused",
+      )}
     >
       <span className="inline-flex min-w-0 items-center gap-2.5">
         <span className="dashboard-theme-dot h-2 w-2 shrink-0 rounded-full" aria-hidden="true" />
