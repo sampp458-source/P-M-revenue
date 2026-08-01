@@ -161,19 +161,19 @@ export function scheduleInputFromForm(
   const scheduleTypeId =
     form.scheduleTypeId ||
     defaultOperationScheduleTypeId(options?.scheduleTypes ?? []);
-  if (
-    !calendarId ||
-    !scheduleTypeId ||
-    !form.date ||
-    (!form.allDay &&
-      !form.timeUnspecified &&
-      (!form.startTime || !form.endTime)) ||
-    form.assigneeIds.length === 0 ||
-    !form.title.trim()
-  ) {
+  const missingFields = [
+    !calendarId && "캘린더",
+    !scheduleTypeId && "일정 유형",
+    !form.title.trim() && "제목",
+    !form.date && "날짜",
+    !form.allDay && !form.timeUnspecified && !form.startTime && "시작 시간",
+    !form.allDay && !form.timeUnspecified && !form.endTime && "종료 시간",
+    form.assigneeIds.length === 0 && "담당자",
+  ].filter(Boolean) as string[];
+  if (missingFields.length > 0) {
     return {
       input: null,
-      error: "제목, 날짜, 시간, 담당자를 확인해 주세요.",
+      error: `${missingFields.join(", ")}을(를) 확인해 주세요.`,
     };
   }
   const technicalStartTime = form.startTime || "12:00";
