@@ -79,6 +79,31 @@ describe("Operations schedule time-unspecified form", () => {
     expect(result.error).toContain("시간");
   });
 
+  it("derives the hidden end date when a time-unspecified schedule gets times", () => {
+    const result = scheduleInputFromForm(
+      {
+        ...emptyForm(),
+        calendarId: "common",
+        scheduleTypeId: "other",
+        date: "2026-08-01",
+        startTime: "21:00",
+        endDate: "",
+        endTime: "22:00",
+        title: "보호자 방문",
+        assigneeIds: ["staff"],
+        timeUnspecified: false,
+      },
+      options,
+    );
+
+    expect(result.error).toBe("");
+    expect(result.input).toMatchObject({
+      timeUnspecified: false,
+      startsAt: "2026-08-01T12:00:00.000Z",
+      endsAt: "2026-08-01T13:00:00.000Z",
+    });
+  });
+
   it("rejects all-day and time-unspecified at the same time", () => {
     const result = scheduleInputFromForm(
       {

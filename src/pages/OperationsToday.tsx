@@ -167,7 +167,7 @@ export function scheduleInputFromForm(
     !form.date ||
     (!form.allDay &&
       !form.timeUnspecified &&
-      (!form.startTime || !form.endDate || !form.endTime)) ||
+      (!form.startTime || !form.endTime)) ||
     form.assigneeIds.length === 0 ||
     !form.title.trim()
   ) {
@@ -178,6 +178,11 @@ export function scheduleInputFromForm(
   }
   const technicalStartTime = form.startTime || "12:00";
   const technicalEnd = oneHourScheduleEnd(form.date, technicalStartTime);
+  const confirmedEndDate =
+    form.endDate ||
+    (form.endTime && form.endTime <= technicalStartTime
+      ? nextSeoulDate(form.date)
+      : form.date);
   const startsAt = form.allDay
     ? toSeoulInstant(form.date, "00:00")
     : toSeoulInstant(form.date, technicalStartTime);
@@ -185,7 +190,7 @@ export function scheduleInputFromForm(
     ? toSeoulInstant(nextSeoulDate(form.date), "00:00")
     : form.timeUnspecified
       ? toSeoulInstant(technicalEnd.endDate, technicalEnd.endTime)
-      : toSeoulInstant(form.endDate, form.endTime);
+      : toSeoulInstant(confirmedEndDate, form.endTime);
   if (new Date(endsAt) <= new Date(startsAt)) {
     return {
       input: null,
