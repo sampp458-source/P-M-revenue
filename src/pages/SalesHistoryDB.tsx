@@ -2302,19 +2302,25 @@ export function SalesHistoryPage() {
       >
         {editing && (
           <form onSubmit={saveEdit} className="grid gap-4 sm:grid-cols-2">
-            <section className="rounded-2xl border border-border bg-surface-secondary p-4 sm:col-span-2" aria-labelledby="sale-party-editor-title">
+            <section className="rounded-[22px] border border-primary/10 bg-[linear-gradient(145deg,#ffffff_0%,#f5f8fb_100%)] p-4 shadow-[var(--pm-shadow-surface)] ring-1 ring-inset ring-white/80 sm:col-span-2 sm:p-5" aria-labelledby="sale-party-editor-title">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 id="sale-party-editor-title" className="text-sm font-semibold text-text-primary">고객·반려견 정보</h3>
-                  <p className="mt-1 text-xs text-text-muted">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary shadow-[0_3px_10px_rgb(39_76_119_/_0.1)]">
+                    <UserRound size={18} aria-hidden="true" />
+                  </span>
+                  <div>
+                  <h3 id="sale-party-editor-title" className="text-base font-bold tracking-[-0.02em] text-text-primary">고객·반려견 연결</h3>
+                  <p className="mt-1 text-xs leading-5 text-text-muted">
                     {editing.status === "normal"
                       ? "고객 연결만 별도로 저장되며 매출 금액과 결제 정보는 변경되지 않습니다."
                       : "취소 또는 환불 처리된 매출의 고객 정보는 변경할 수 없습니다."}
                   </p>
+                  </div>
                 </div>
                 <Button type="button" variant="ghost" disabled={partySaving || editing.status !== "normal"} onClick={() => setEditing({ ...editing, customerId: null, dogId: null })}>연결 해제</Button>
               </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-5 rounded-2xl border border-border/90 bg-surface p-4 shadow-[0_3px_12px_rgb(23_36_58_/_0.055)]">
+                <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-primary">1 · 검색 및 선택</p>
                 <SearchSelect
                   key={`sale-party-${editing.customerId ?? "none"}-${editing.dogId ?? "none"}`}
                   label="보호자·반려견"
@@ -2332,6 +2338,7 @@ export function SalesHistoryPage() {
                   placeholder="보호자명·반려견명·연락처 검색"
                   noResultsMessage="일치하는 보호자 또는 반려견을 찾지 못했습니다."
                   recentStorageKey="pm-sales-edit-recent-parties"
+                  selectedPlacement="after"
                   getItemId={(option) => option.id}
                   getSearchText={(option) =>
                     `${option.customerName ?? ""} ${option.customerPhone ?? ""} ${option.dogName ?? ""} ${option.breed ?? ""} ${option.linkedDogNames.join(" ")}`
@@ -2384,12 +2391,18 @@ export function SalesHistoryPage() {
                     setPartyError("");
                   }}
                 />
-                <div className="hidden sm:block" aria-hidden="true" />
-                <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving || editing.status !== "normal"} onClick={() => { setNewCustomer({ name: "", phone: "" }); setPartyError(""); setPartyModal("customer"); }}><Plus size={16} />새 보호자 등록</Button></div>
-                <div className="flex items-end"><Button type="button" variant="secondary" className="w-full" disabled={partySaving || editing.status !== "normal" || !editing.customerId} onClick={() => { setNewDog({ name: "", breed: "" }); setPartyError(""); setDuplicatePartyDog(null); setAllowDuplicatePartyDog(false); setPartyModal("dog"); }}><Plus size={16} />새 반려견 등록</Button></div>
+              </div>
+              <div className="mt-4">
+                <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-text-muted">2 · 신규 등록</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Button type="button" variant="secondary" className="w-full" disabled={partySaving || editing.status !== "normal"} onClick={() => { setNewCustomer({ name: "", phone: "" }); setPartyError(""); setPartyModal("customer"); }}><Plus size={16} />새 보호자 등록</Button>
+                  <Button type="button" variant="secondary" className="w-full" disabled={partySaving || editing.status !== "normal" || !editing.customerId} onClick={() => { setNewDog({ name: "", breed: "" }); setPartyError(""); setDuplicatePartyDog(null); setAllowDuplicatePartyDog(false); setPartyModal("dog"); }}><Plus size={16} />새 반려견 등록</Button>
+                </div>
               </div>
               {partyError && <p role="alert" className="mt-3 text-sm text-error">{partyError}</p>}
-              <div className="mt-4 flex justify-end"><Button type="button" disabled={partySaving || editing.status !== "normal"} onClick={() => void savePartyLink()}>{partySaving ? "연결 저장 중..." : "연결 정보 저장"}</Button></div>
+              <div className="mt-5 flex items-center justify-end border-t border-border/80 pt-4">
+                <Button type="button" className="w-full sm:w-auto sm:min-w-36" disabled={partySaving || editing.status !== "normal"} onClick={() => void savePartyLink()}>{partySaving ? "연결 저장 중..." : "연결 정보 저장"}</Button>
+              </div>
             </section>
             <Field label="매출 일자" required>
               <Input

@@ -441,7 +441,7 @@ export function OperationsCalendarFoundationPage() {
         </Button>
       </header>
 
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-sm">
+      <div className="overflow-hidden rounded-[22px] border border-border/90 bg-surface shadow-[var(--pm-shadow-surface)] ring-1 ring-inset ring-white/70">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-3 sm:px-5">
           <div className="flex items-center gap-2">
             <button
@@ -655,11 +655,11 @@ function CalendarCell({
       aria-label={`${fullDateLabel(date)}, 일정 ${schedules.length}건`}
       aria-pressed={selected}
       className={cn(
-        "group relative min-h-[76px] border-b border-r border-border p-1.5 text-left transition-[background-color,box-shadow] duration-[180ms] ease-out sm:min-h-[126px] sm:p-1.5 lg:min-h-[146px] lg:p-2",
+        "group relative min-h-[78px] border-b border-r border-border p-1.5 text-left transition-[background-color,border-radius,box-shadow,transform] duration-150 ease-out sm:min-h-[130px] sm:p-2 lg:min-h-[150px] lg:p-2.5",
         "focus:z-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
         outside ? "bg-surface-secondary/35" : "bg-surface",
-        selected && "z-[1] bg-primary-soft/55 ring-2 ring-inset ring-primary",
-        !selected && "hover:bg-primary-soft/25",
+        selected && "z-[2] rounded-lg bg-[linear-gradient(145deg,#ffffff_0%,#edf3f8_100%)] shadow-[0_8px_24px_rgb(39_76_119_/_0.16)] ring-2 ring-inset ring-primary",
+        !selected && "hover:z-[1] hover:-translate-y-0.5 hover:rounded-lg hover:bg-primary-soft/35 hover:shadow-[0_8px_22px_rgb(23_36_58_/_0.1)]",
       )}
     >
       <div className="flex items-center justify-between gap-1">
@@ -677,7 +677,7 @@ function CalendarCell({
               weekday > 0 &&
               weekday < 6 &&
               "text-text-secondary",
-            isToday && "bg-primary text-white",
+            isToday && "bg-primary text-white shadow-[0_4px_10px_rgb(39_76_119_/_0.28)] ring-2 ring-primary/15 ring-offset-1",
           )}
         >
           {Number(date.slice(-2))}
@@ -692,7 +692,7 @@ function CalendarCell({
         {schedules.slice(0, 4).map((schedule) => (
           <span
             key={schedule.id}
-            className="h-1.5 w-1.5 rounded-full"
+            className="h-2.5 w-2.5 rounded-full shadow-[0_1px_4px_rgb(15_23_42_/_0.2)] ring-1 ring-white"
             style={{
               backgroundColor:
                 schedulePrimaryAssignee(schedule)
@@ -702,7 +702,7 @@ function CalendarCell({
           />
         ))}
       </div>
-      <div className="mt-1 hidden space-y-0.5 sm:block">
+      <div className="mt-1.5 hidden space-y-1 sm:block">
         {schedules.slice(0, 2).map((schedule) => (
           <MonthScheduleCard
             key={schedule.id}
@@ -733,19 +733,19 @@ function MonthScheduleCard({
   return (
     <div
       className={cn(
-        "relative overflow-hidden rounded-md border border-border/75 bg-surface px-1.5 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.035)] transition-[border-color,background-color,opacity] duration-[180ms] ease-out lg:rounded-lg lg:px-2",
-        isMine && "border-primary/25 bg-primary-soft/45",
+        "relative min-h-[34px] overflow-hidden rounded-lg border border-border/80 bg-surface px-2 py-1.5 shadow-[0_2px_6px_rgb(15_23_42_/_0.06)] transition-[border-color,background-color,box-shadow,opacity,transform] duration-150 ease-out group-hover:border-primary/15 group-hover:shadow-[0_4px_10px_rgb(15_23_42_/_0.08)] lg:min-h-[38px] lg:px-2.5",
+        isMine && "border-primary/30 bg-primary-soft/65 shadow-[0_3px_8px_rgb(39_76_119_/_0.1)]",
         schedule.status !== "scheduled" && "opacity-55",
       )}
     >
       <span
-        className="absolute inset-y-0 left-0 w-[3px]"
+        className="absolute inset-y-0 left-0 w-1"
         style={{ backgroundColor: schedule.calendarColor }}
       />
       <div className="min-w-0 pl-0.5">
         <span
           className={cn(
-            "block truncate text-[10px] font-bold leading-[0.875rem] tracking-[-0.01em] text-text-primary lg:text-[11px]",
+            "block truncate text-[10px] font-bold leading-4 tracking-[-0.01em] text-text-primary lg:text-xs",
             isMine && "font-extrabold",
             schedule.status === "cancelled" && "line-through",
           )}
@@ -757,7 +757,7 @@ function MonthScheduleCard({
             {timeLabel(schedule)}
           </span>
           <span
-            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            className="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_1px_3px_rgb(15_23_42_/_0.2)] ring-1 ring-white"
             style={{
               backgroundColor: assignee
                 ? operationPersonColor(assignee)
@@ -768,7 +768,7 @@ function MonthScheduleCard({
           {schedule.assignees.slice(1, 3).map((person) => (
             <span
               key={person.id}
-              className="h-1.5 w-1.5 shrink-0 rounded-full"
+              className="h-2 w-2 shrink-0 rounded-full shadow-sm ring-1 ring-white"
             style={{ backgroundColor: operationPersonColor(person) }}
               aria-label={person.name ?? "담당자"}
             />
@@ -950,14 +950,14 @@ function DayScheduleCard({
       type="button"
       onClick={onClick}
       className={cn(
-        "group relative w-full overflow-hidden rounded-2xl border border-border bg-surface px-4 py-3 text-left transition duration-150",
-        "hover:-translate-y-px hover:border-primary/25 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-        isMine && "border-primary/25 bg-primary-soft/35",
+        "group relative w-full overflow-hidden rounded-2xl border border-border/90 bg-surface px-4 py-3.5 text-left shadow-[0_2px_7px_rgb(23_36_58_/_0.05),0_8px_20px_rgb(23_36_58_/_0.045)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out",
+        "hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-subtle/35 hover:shadow-[var(--pm-shadow-surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+        isMine && "border-primary/30 bg-[linear-gradient(135deg,#ffffff_0%,#edf3f8_100%)] shadow-[0_4px_14px_rgb(39_76_119_/_0.1)]",
         schedule.status !== "scheduled" && "opacity-60",
       )}
     >
       <span
-        className="absolute inset-y-0 left-0 w-1"
+        className="absolute inset-y-0 left-0 w-1.5"
         style={{ backgroundColor: schedule.calendarColor }}
       />
       <div className="flex min-w-0 items-start gap-3 pl-1">
@@ -980,7 +980,7 @@ function DayScheduleCard({
           <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
             <span className="flex items-center gap-1 font-bold tabular-nums text-text-primary">
               <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                className="h-3 w-3 shrink-0 rounded-full shadow-[0_1px_4px_rgb(15_23_42_/_0.2)] ring-2 ring-white"
                 style={{
                   backgroundColor: assignee
                     ? operationPersonColor(assignee)
@@ -993,7 +993,7 @@ function DayScheduleCard({
               {schedule.assignees.slice(1).map((person) => (
                 <span
                   key={person.id}
-                  className="h-2 w-2 shrink-0 rounded-full"
+                  className="h-2.5 w-2.5 shrink-0 rounded-full shadow-sm ring-1 ring-white"
                   style={{ backgroundColor: operationPersonColor(person) }}
                   aria-label={person.name ?? "담당자"}
                 />

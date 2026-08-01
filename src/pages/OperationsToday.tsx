@@ -530,7 +530,7 @@ export function OperationsTodayPage() {
               retry={() => void loadSchedules()}
             />
           ) : schedules.length ? (
-            <ol className="divide-y divide-border/80">
+            <ol className="grid gap-3 bg-surface-secondary/55 p-3 sm:p-4">
               {orderedSchedules.map((schedule) => (
                 <li key={schedule.id}>
                   <ScheduleRow
@@ -685,15 +685,15 @@ function ScheduleRow({
       aria-label={`${schedule.title} 일정 상세 보기`}
       onClick={onOpen}
       className={cn(
-        "group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-l-[3px] px-4 py-4 text-left transition hover:bg-surface-secondary/65 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:px-5",
-        isMine && "bg-primary-soft/35",
+        "group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl border border-border/90 bg-surface px-4 py-4 text-left shadow-[0_2px_7px_rgb(23_36_58_/_0.045),0_8px_22px_rgb(23_36_58_/_0.055)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out hover:-translate-y-0.5 hover:border-primary/25 hover:bg-primary-subtle/40 hover:shadow-[var(--pm-shadow-surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:px-5",
+        isMine && "border-primary/25 bg-[linear-gradient(135deg,#ffffff_0%,#edf3f8_100%)] shadow-[0_3px_10px_rgb(39_76_119_/_0.08),0_12px_28px_rgb(39_76_119_/_0.09)]",
         completed && "bg-surface-secondary/30 opacity-70",
         cancelled && "bg-surface-secondary/20 opacity-55",
       )}
     >
       <span
         aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-[3px]"
+        className="absolute inset-y-0 left-0 w-1"
         style={{ backgroundColor: schedule.calendarColor }}
       />
       <div className="min-w-0">
@@ -746,7 +746,7 @@ function ScheduleRow({
           <span className="inline-flex min-w-0 items-center gap-1.5">
             <span
               aria-hidden="true"
-              className="h-2.5 w-2.5 shrink-0 rounded-full shadow-sm ring-2 ring-white"
+              className="h-3 w-3 shrink-0 rounded-full shadow-[0_1px_4px_rgb(15_23_42_/_0.18)] ring-2 ring-white"
               style={{ backgroundColor: primaryAssigneeColor }}
             />
             <span className="truncate">
@@ -759,7 +759,7 @@ function ScheduleRow({
                 key={assignee.id}
                 aria-label={`${operationPersonDisplayName(assignee)} 색상`}
                 title={operationPersonDisplayName(assignee)}
-                className="h-2 w-2 shrink-0 rounded-full border border-white shadow-sm"
+                className="h-2.5 w-2.5 shrink-0 rounded-full border border-white shadow-sm"
                 style={{
                   backgroundColor:
                     operationPersonColor(assignee),

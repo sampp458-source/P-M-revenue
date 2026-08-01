@@ -31,11 +31,11 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-[color,background-color,border-color,transform,opacity] duration-200 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:translate-y-px disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50",
-        variant === "primary" && "bg-primary text-white hover:bg-primary-hover",
+        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:translate-y-px disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50",
+        variant === "primary" && "bg-primary text-white shadow-[0_5px_14px_rgb(39_76_119_/_0.16),inset_0_1px_0_rgb(255_255_255_/_0.18)] hover:-translate-y-px hover:bg-primary-hover hover:shadow-[0_8px_20px_rgb(39_76_119_/_0.22),inset_0_1px_0_rgb(255_255_255_/_0.2)]",
         variant === "secondary" &&
-          "border border-border-strong bg-surface text-text-primary hover:border-primary/30 hover:bg-primary-subtle",
-        variant === "danger" && "bg-error text-white hover:bg-[#aa4141]",
+          "border border-border-strong bg-surface text-text-primary shadow-[0_1px_3px_rgb(23_36_58_/_0.05)] hover:-translate-y-px hover:border-primary/30 hover:bg-primary-subtle hover:shadow-[0_5px_14px_rgb(23_36_58_/_0.08)]",
+        variant === "danger" && "bg-error text-white shadow-[0_5px_14px_rgb(194_77_77_/_0.16)] hover:-translate-y-px hover:bg-[#aa4141] hover:shadow-[0_8px_20px_rgb(194_77_77_/_0.22)]",
         variant === "ghost" && "text-text-secondary hover:bg-primary-soft hover:text-primary",
         className,
       )}
@@ -135,10 +135,10 @@ export function Card({
   return (
     <section
       className={cn(
-        "rounded-[18px]",
-        variant === "surface" && "border border-border bg-surface shadow-[var(--pm-shadow-surface)]",
-        variant === "emphasized" && "border border-primary/15 bg-primary-subtle shadow-[var(--pm-shadow-surface)]",
-        variant === "interactive" && "border border-border bg-surface shadow-[var(--pm-shadow-surface)] transition-[background-color,border-color,transform,box-shadow] duration-200 ease-out hover:border-primary/20 hover:bg-primary-subtle",
+        "rounded-[20px]",
+        variant === "surface" && "pm-card border border-border/90 bg-surface",
+        variant === "emphasized" && "pm-card border border-primary/15 bg-[linear-gradient(145deg,#ffffff_0%,#f5f8fb_100%)]",
+        variant === "interactive" && "pm-card pm-card-interactive border border-border/90 bg-surface transition-[background-color,border-color,transform,box-shadow] duration-150 ease-out hover:border-primary/25 hover:bg-primary-subtle",
         variant === "flat" && "bg-transparent",
         selected && "border-primary/35 bg-primary-soft ring-1 ring-primary/10",
         className,

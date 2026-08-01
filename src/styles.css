@@ -29,10 +29,11 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --pm-shadow-surface: 0 1px 2px rgb(23 36 58 / 0.03), 0 8px 24px rgb(23 36 58 / 0.045);
-  --pm-shadow-modal: 0 24px 64px rgb(15 23 42 / 0.2);
-  --pm-shadow-elevated: 0 18px 48px rgb(23 36 58 / 0.1);
-  --pm-transition: 180ms ease-out;
+  --pm-shadow-surface: 0 1px 2px rgb(23 36 58 / 0.045), 0 10px 30px rgb(23 36 58 / 0.065);
+  --pm-shadow-surface-hover: 0 3px 8px rgb(23 36 58 / 0.06), 0 18px 42px rgb(23 36 58 / 0.11);
+  --pm-shadow-modal: 0 28px 72px rgb(15 23 42 / 0.22), 0 2px 8px rgb(15 23 42 / 0.08);
+  --pm-shadow-elevated: 0 22px 54px rgb(23 36 58 / 0.14), 0 2px 6px rgb(23 36 58 / 0.05);
+  --pm-transition: 160ms ease-out;
 }
 
 * { box-sizing: border-box; }
@@ -44,6 +45,14 @@ button:disabled { cursor: not-allowed; }
 input, select, textarea { color-scheme: light; }
 input[type="number"], input[type="date"], .tabular-nums { font-variant-numeric: tabular-nums; }
 ::selection { background: #dbe7f1; color: #17243a; }
+
+.pm-card {
+  box-shadow: var(--pm-shadow-surface), inset 0 1px 0 rgb(255 255 255 / .82);
+}
+.pm-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--pm-shadow-surface-hover), inset 0 1px 0 rgb(255 255 255 / .9);
+}
 
 /* 기존 화면 구조는 유지하면서 공통 배경만 새 토큰에 맞춘다. */
 aside { background: #1e3a5f !important; }

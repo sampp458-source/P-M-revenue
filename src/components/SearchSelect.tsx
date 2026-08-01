@@ -65,6 +65,7 @@ export interface SearchSelectProps<T> {
   showAllOnEmpty?: boolean;
   debounceMs?: number;
   maxResults?: number;
+  selectedPlacement?: "before" | "after";
 }
 
 export function SearchSelect<T>({
@@ -90,6 +91,7 @@ export function SearchSelect<T>({
   showAllOnEmpty = false,
   debounceMs = 220,
   maxResults = 8,
+  selectedPlacement = "before",
 }: SearchSelectProps<T>) {
   const id = useId();
   const listboxId = `${id}-listbox`;
@@ -261,6 +263,30 @@ export function SearchSelect<T>({
   };
 
   const showRecent = !query.trim() && results.length > 0;
+  const selectedChips = selectedItems.length > 0 && (
+    <div className="flex flex-wrap gap-2" aria-label={`${label} 선택됨`}>
+      {selectedItems.map((item) => {
+        const itemId = getItemId(item);
+        return (
+          <span
+            key={itemId}
+            className="inline-flex min-h-10 max-w-full items-center gap-1.5 rounded-full border border-primary/10 bg-primary-soft py-1 pl-3 pr-1 text-xs font-semibold text-primary shadow-[0_2px_7px_rgb(39_76_119_/_0.08)]"
+          >
+            <span className="truncate">{renderSelected(item)}</span>
+            <button
+              type="button"
+              aria-label={`${getSearchText(item)} 선택 해제`}
+              disabled={disabled}
+              onClick={() => remove(itemId)}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-secondary transition duration-150 ease-out hover:bg-primary/10 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <X size={14} />
+            </button>
+          </span>
+        );
+      })}
+    </div>
+  );
 
   return (
     <fieldset ref={rootRef} className="space-y-2" disabled={disabled}>
@@ -273,30 +299,7 @@ export function SearchSelect<T>({
         )}
       </legend>
 
-      {selectedItems.length > 0 && (
-        <div className="flex flex-wrap gap-2" aria-label={`${label} 선택됨`}>
-          {selectedItems.map((item) => {
-            const itemId = getItemId(item);
-            return (
-              <span
-                key={itemId}
-                className="inline-flex min-h-10 max-w-full items-center gap-1.5 rounded-full bg-primary-soft py-1 pl-3 pr-1 text-xs font-semibold text-primary"
-              >
-                <span className="truncate">{renderSelected(item)}</span>
-                <button
-                  type="button"
-                  aria-label={`${getSearchText(item)} 선택 해제`}
-                  disabled={disabled}
-                  onClick={() => remove(itemId)}
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-secondary transition hover:bg-primary/10 hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  <X size={14} />
-                </button>
-              </span>
-            );
-          })}
-        </div>
-      )}
+      {selectedPlacement === "before" && selectedChips}
 
       <div className="relative">
         <SearchBox
@@ -389,6 +392,7 @@ export function SearchSelect<T>({
           </div>
         )}
       </div>
+      {selectedPlacement === "after" && selectedChips}
     </fieldset>
   );
 }
