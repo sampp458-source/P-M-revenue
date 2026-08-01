@@ -21,7 +21,6 @@ import {
   Badge,
   Button,
   ErrorState,
-  Input,
   LoadingState,
   Modal,
   Toast,
@@ -168,7 +167,6 @@ export function OperationsCalendarFoundationPage() {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(
     null,
   );
-  const [actionReason, setActionReason] = useState("");
   const [notice, setNotice] = useState("");
   const [noticeTone, setNoticeTone] = useState<
     "success" | "warning" | "error"
@@ -362,7 +360,9 @@ export function OperationsCalendarFoundationPage() {
   };
 
   const confirmAction = async () => {
-    if (!pendingAction || !actionReason.trim()) return;
+    if (!pendingAction) return;
+    const actionReason =
+      pendingAction.type === "cancel" ? "일정 취소" : "오등록 일정 삭제";
     setSaving(true);
     try {
       if (pendingAction.type === "cancel") {
@@ -370,7 +370,7 @@ export function OperationsCalendarFoundationPage() {
           pendingAction.schedule.id,
           pendingAction.schedule.version,
           "cancelled",
-          actionReason.trim(),
+          actionReason,
           crypto.randomUUID(),
         ), options?.assignees ?? []);
         setSchedules((current) =>
@@ -381,16 +381,15 @@ export function OperationsCalendarFoundationPage() {
         const updated = await archiveOperationSchedule(
           pendingAction.schedule.id,
           pendingAction.schedule.version,
-          actionReason.trim(),
+          actionReason,
           crypto.randomUUID(),
         );
         setSchedules((current) =>
           mergeOperationScheduleCollection(current, updated),
         );
-        showNotice("일정을 보관했습니다.");
+        showNotice("일정을 삭제했습니다.");
       }
       setPendingAction(null);
-      setActionReason("");
       setDetail(null);
     } catch (error) {
       showNotice(
@@ -558,11 +557,9 @@ export function OperationsCalendarFoundationPage() {
         onEdit={openEdit}
         onComplete={(schedule) => void completeSchedule(schedule)}
         onCancel={(schedule) => {
-          setActionReason("");
           setPendingAction({ type: "cancel", schedule });
         }}
         onArchive={(schedule) => {
-          setActionReason("");
           setPendingAction({ type: "archive", schedule });
         }}
         onOpenDog={(id) =>
@@ -573,38 +570,36 @@ export function OperationsCalendarFoundationPage() {
             `/operations/customers?customerId=${encodeURIComponent(id)}`,
           )
         }
-        archiveLabel="삭제"
         canManage={detail ? canManageSchedule(detail) : false}
       />
       <Modal
         open={pendingAction !== null}
-        title={pendingAction?.type === "cancel" ? "일정 취소" : "일정 삭제"}
+        title={
+          pendingAction?.type === "cancel"
+            ? "이 일정을 취소할까요?"
+            : "이 일정을 삭제할까요?"
+        }
         onClose={() => setPendingAction(null)}
       >
         <p className="text-sm leading-6 text-text-secondary">
           {pendingAction?.type === "cancel"
-            ? "취소 일정은 감사 기록을 유지한 채 캘린더에 취소 상태로 남습니다."
-            : "삭제한 일정은 감사 기록을 유지한 채 보관되며 캘린더에서 제외됩니다."}
+            ? "취소된 일정은 기록에 남으며 필요하면 다시 상태를 변경할 수 있습니다."
+            : "삭제된 일정은 오늘과 캘린더에서 표시되지 않습니다."}
         </p>
-        <label className="mt-4 block text-sm font-semibold text-text-primary">
-          사유
-          <Input
-            className="mt-2"
-            value={actionReason}
-            onChange={(event) => setActionReason(event.target.value)}
-            placeholder="처리 사유를 입력하세요"
-          />
-        </label>
         <div className="mt-5 flex justify-end gap-2">
           <Button variant="secondary" onClick={() => setPendingAction(null)}>
-            닫기
+            돌아가기
           </Button>
           <Button
-            variant={pendingAction?.type === "cancel" ? "danger" : "primary"}
-            disabled={saving || !actionReason.trim()}
+            variant="danger"
+            disabled={saving}
             onClick={() => void confirmAction()}
           >
-            {saving ? "처리 중..." : "확인"}
+            {saving
+              ? "처리 중..."
+              : pendingAction?.type === "cancel"
+                ? "일정 취소"
+                : "일정 삭제"}
           </Button>
         </div>
       </Modal>

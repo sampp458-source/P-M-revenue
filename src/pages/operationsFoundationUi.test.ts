@@ -59,7 +59,13 @@ describe("Operations foundation UI", () => {
     expect(calendarSource).toContain("ScheduleFormModal");
     expect(calendarSource).toContain("ScheduleDetailModal");
     expect(calendarSource).toContain("scheduleInputFromForm");
-    expect(calendarSource).toContain('archiveLabel="삭제"');
+    expect(todaySource).toContain('aria-label="일정 관리 더보기"');
+    expect(todaySource).toContain("일정 수정");
+    expect(todaySource).toContain("일정 취소");
+    expect(todaySource).toContain("일정 삭제");
+    expect(todaySource).toContain("이 일정을 취소할까요?");
+    expect(todaySource).toContain("이 일정을 삭제할까요?");
+    expect(todaySource).not.toContain(">취소</Button>");
     expect(calendarSource).toContain("schedulePrimaryAssignee");
     expect(calendarSource).toContain("schedules.slice(0, 2)");
     expect(calendarSource).toContain("개 일정");

@@ -4,6 +4,7 @@ import {
   ClipboardCheck,
   Clock3,
   Dog,
+  MoreHorizontal,
   Pencil,
   Plus,
   UserRound,
@@ -247,7 +248,6 @@ export function OperationsTodayPage() {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
-  const [actionReason, setActionReason] = useState("");
   const [notice, setNotice] = useState("");
   const [noticeTone, setNoticeTone] = useState<"success" | "warning" | "error">("success");
 
@@ -428,7 +428,9 @@ export function OperationsTodayPage() {
   };
 
   const confirmAction = async () => {
-    if (!pendingAction || !actionReason.trim()) return;
+    if (!pendingAction) return;
+    const actionReason =
+      pendingAction.type === "cancel" ? "일정 취소" : "오등록 일정 삭제";
     setSaving(true);
     try {
       if (pendingAction.type === "cancel") {
@@ -436,7 +438,7 @@ export function OperationsTodayPage() {
           pendingAction.schedule.id,
           pendingAction.schedule.version,
           "cancelled",
-          actionReason.trim(),
+          actionReason,
           crypto.randomUUID(),
         );
         setSchedules((current) =>
@@ -447,16 +449,15 @@ export function OperationsTodayPage() {
         const updated = await archiveOperationSchedule(
           pendingAction.schedule.id,
           pendingAction.schedule.version,
-          actionReason.trim(),
+          actionReason,
           crypto.randomUUID(),
         );
         setSchedules((current) =>
           mergeOperationTodaySchedule(current, updated, localDate),
         );
-        showNotice("일정을 보관했습니다.");
+        showNotice("일정을 삭제했습니다.");
       }
       setPendingAction(null);
-      setActionReason("");
       setDetail(null);
     } catch (error) {
       showNotice(
@@ -609,11 +610,9 @@ export function OperationsTodayPage() {
         onEdit={openEdit}
         onComplete={(schedule) => void completeSchedule(schedule)}
         onCancel={(schedule) => {
-          setActionReason("");
           setPendingAction({ type: "cancel", schedule });
         }}
         onArchive={(schedule) => {
-          setActionReason("");
           setPendingAction({ type: "archive", schedule });
         }}
         onOpenDog={(dogId) =>
@@ -631,33 +630,32 @@ export function OperationsTodayPage() {
 
       <Modal
         open={pendingAction !== null}
-        title={pendingAction?.type === "cancel" ? "일정 취소" : "일정 보관"}
+        title={
+          pendingAction?.type === "cancel"
+            ? "이 일정을 취소할까요?"
+            : "이 일정을 삭제할까요?"
+        }
         onClose={() => !saving && setPendingAction(null)}
       >
         <p className="text-sm leading-6 text-text-secondary">
           {pendingAction?.type === "cancel"
-            ? "취소된 일정은 Today 기본 목록에서 제외되며 이력은 유지됩니다."
-            : "잘못 등록했거나 숨길 일정만 보관하세요. 물리 삭제되지 않습니다."}
+            ? "취소된 일정은 기록에 남으며 필요하면 다시 상태를 변경할 수 있습니다."
+            : "삭제된 일정은 오늘과 캘린더에서 표시되지 않습니다."}
         </p>
-        <div className="mt-4">
-          <Field label="사유" required>
-            <Textarea
-              value={actionReason}
-              onChange={(event) => setActionReason(event.target.value)}
-              placeholder="변경 사유를 입력하세요"
-            />
-          </Field>
-        </div>
         <div className="mt-6 flex justify-end gap-2">
           <Button variant="secondary" disabled={saving} onClick={() => setPendingAction(null)}>
-            닫기
+            돌아가기
           </Button>
           <Button
-            variant={pendingAction?.type === "cancel" ? "danger" : "primary"}
-            disabled={saving || !actionReason.trim()}
+            variant="danger"
+            disabled={saving}
             onClick={() => void confirmAction()}
           >
-            {saving ? "처리 중..." : "확인"}
+            {saving
+              ? "처리 중..."
+              : pendingAction?.type === "cancel"
+                ? "일정 취소"
+                : "일정 삭제"}
           </Button>
         </div>
       </Modal>
@@ -1250,7 +1248,6 @@ export function ScheduleDetailModal({
   onArchive,
   onOpenDog,
   onOpenCustomer,
-  archiveLabel = "보관",
   canManage = true,
 }: {
   schedule: OperationSchedule | null;
@@ -1262,14 +1259,23 @@ export function ScheduleDetailModal({
   onArchive: (schedule: OperationSchedule) => void;
   onOpenDog: (id: string) => void;
   onOpenCustomer: (id: string) => void;
-  archiveLabel?: string;
   canManage?: boolean;
 }) {
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
   if (!schedule) return null;
   const start = seoulParts(schedule.startsAt);
   const end = seoulParts(schedule.endsAt);
   return (
-    <Modal open title="일정 상세" onClose={onClose} wide resetKey={schedule.id}>
+    <Modal
+      open
+      title="일정 상세"
+      onClose={() => {
+        setActionMenuOpen(false);
+        onClose();
+      }}
+      wide
+      resetKey={schedule.id}
+    >
       <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <div className="flex flex-wrap gap-2">
@@ -1292,8 +1298,72 @@ export function ScheduleDetailModal({
                 : `${start.time}–${end.time}`}
           </p>
         </div>
-        {canManage && schedule.status !== "cancelled" && (
-          <Button variant="secondary" onClick={() => onEdit(schedule)}><Pencil size={16} />수정</Button>
+        {canManage && (
+          <div
+            className="relative self-start"
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) {
+                setActionMenuOpen(false);
+              }
+            }}
+          >
+            <button
+              type="button"
+              aria-label="일정 관리 더보기"
+              aria-haspopup="menu"
+              aria-expanded={actionMenuOpen}
+              disabled={processing}
+              onClick={() => setActionMenuOpen((open) => !open)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-border-strong bg-surface text-text-secondary shadow-sm transition duration-150 ease-out hover:-translate-y-px hover:border-primary/30 hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <MoreHorizontal size={20} />
+              <span className="sr-only">일정 관리 더보기</span>
+            </button>
+            {actionMenuOpen && (
+              <div
+                role="menu"
+                aria-label="일정 관리"
+                className="absolute right-0 top-[calc(100%+0.5rem)] z-20 min-w-44 rounded-xl border border-border bg-surface p-1.5 shadow-lg"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setActionMenuOpen(false);
+                    onEdit(schedule);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-text-secondary transition hover:bg-surface-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <Pencil size={15} />
+                  일정 수정
+                </button>
+                {schedule.status !== "cancelled" && (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActionMenuOpen(false);
+                      onCancel(schedule);
+                    }}
+                    className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-text-secondary transition hover:bg-surface-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    일정 취소
+                  </button>
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setActionMenuOpen(false);
+                    onArchive(schedule);
+                  }}
+                  className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-error transition hover:bg-error-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-error"
+                >
+                  일정 삭제
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
       <p className="mt-4 text-sm font-medium text-text-secondary">
@@ -1317,17 +1387,9 @@ export function ScheduleDetailModal({
           <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-text-primary">{schedule.memo}</p>
         </div>
       )}
-      {canManage && (
-        <div className="mt-6 flex flex-wrap justify-between gap-3 border-t border-border pt-5">
-          <Button variant="ghost" disabled={processing} onClick={() => onArchive(schedule)}>{archiveLabel}</Button>
-        <div className="flex flex-wrap gap-2">
-          {schedule.status !== "cancelled" && (
-            <Button variant="secondary" disabled={processing} onClick={() => onCancel(schedule)}>취소</Button>
-          )}
-          {schedule.status === "scheduled" && (
-            <Button disabled={processing} onClick={() => onComplete(schedule)}>완료 처리</Button>
-          )}
-        </div>
+      {canManage && schedule.status === "scheduled" && (
+        <div className="mt-6 flex justify-end border-t border-border pt-5">
+          <Button disabled={processing} onClick={() => onComplete(schedule)}>완료 처리</Button>
         </div>
       )}
     </Modal>
