@@ -1032,8 +1032,8 @@ export function ScheduleFormModal({
                   disabled={form.allDay || form.timeUnspecified}
                   type="time"
                   value={form.startTime}
-                  onChange={(event) => {
-                    const startTime = event.target.value;
+                  onInput={(event) => {
+                    const startTime = event.currentTarget.value;
                     const nextEnd = oneHourScheduleEnd(form.date, startTime);
                     patch({
                       startTime,
@@ -1058,8 +1058,8 @@ export function ScheduleFormModal({
                   disabled={form.allDay || form.timeUnspecified}
                   type="time"
                   value={form.endTime}
-                  onChange={(event) => {
-                    const endTime = event.target.value;
+                  onInput={(event) => {
+                    const endTime = event.currentTarget.value;
                     patch({
                       endTime,
                       endDate:
