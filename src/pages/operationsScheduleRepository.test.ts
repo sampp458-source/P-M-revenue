@@ -22,6 +22,7 @@ import {
   isOperationScheduleAssignedTo,
   isHotelReservationSchedule,
   operationScheduleDisplayTitle,
+  shouldDisplayOperationSchedule,
   sortOperationSchedulesForViewer,
   suggestOperationCustomerIds,
   toSeoulInstant,
@@ -517,5 +518,24 @@ describe("Operations schedule date and display helpers", () => {
         hotelEventKind: null,
       }),
     ).toBe(false);
+  });
+
+  it("hides cancelled Hotel aggregate events without changing general cancellation visibility", () => {
+    expect(
+      shouldDisplayOperationSchedule({
+        status: "cancelled",
+        businessUnitCode: "hotel",
+        scheduleTypeName: "입실·퇴실",
+        hotelEventKind: "check_in",
+      }),
+    ).toBe(false);
+    expect(
+      shouldDisplayOperationSchedule({
+        status: "cancelled",
+        businessUnitCode: "training",
+        scheduleTypeName: "상담",
+        hotelEventKind: null,
+      }),
+    ).toBe(true);
   });
 });

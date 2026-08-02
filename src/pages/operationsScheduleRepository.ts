@@ -252,6 +252,20 @@ export function operationScheduleDisplayTitle(
   return schedule.title;
 }
 
+export function shouldDisplayOperationSchedule(
+  schedule: Pick<
+    OperationSchedule,
+    | "status"
+    | "businessUnitCode"
+    | "scheduleTypeName"
+    | "hotelEventKind"
+  >,
+) {
+  return !(
+    schedule.status === "cancelled" && isHotelReservationSchedule(schedule)
+  );
+}
+
 export function defaultOperationCalendarId(
   calendars: OperationCalendar[],
 ) {
@@ -415,16 +429,18 @@ async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
       link,
     ]),
   );
-  return schedules.map((schedule) => {
-    const link = linkByScheduleId.get(schedule.id);
-    return link
-      ? {
-          ...schedule,
-          hotelStayId: link.hotel_stay_id,
-          hotelEventKind: link.event_kind,
-        }
-      : schedule;
-  });
+  return schedules
+    .map((schedule) => {
+      const link = linkByScheduleId.get(schedule.id);
+      return link
+        ? {
+            ...schedule,
+            hotelStayId: link.hotel_stay_id,
+            hotelEventKind: link.event_kind,
+          }
+        : schedule;
+    })
+    .filter(shouldDisplayOperationSchedule);
 }
 
 export async function fetchOperationSchedulesForDay(localDate: string) {
