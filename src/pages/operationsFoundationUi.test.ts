@@ -178,7 +178,7 @@ describe("Operations foundation UI", () => {
     expect(scheduleRow).toContain("bg-primary/[0.07]");
     expect(scheduleRow).toContain("saturate-50");
     expect(scheduleRow).toContain("schedulePrimaryAssignee");
-    expect(scheduleRow).toContain("schedule.title");
+    expect(scheduleRow).toContain("operationScheduleDisplayTitle(schedule)");
     expect(scheduleRow).toContain("schedule.assignees");
     expect(scheduleRow).toContain("schedule.dogs");
     expect(scheduleRow).toContain('completed ? "완료"');

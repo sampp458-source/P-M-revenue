@@ -58,6 +58,7 @@ import {
   fetchCurrentOperationRole,
   fetchOperationScheduleOptions,
   fetchOperationSchedulesForDay,
+  isHotelReservationSchedule,
   isOperationScheduleAssignedTo,
   mergeOperationTodaySchedule,
   nextSeoulDate,
@@ -65,6 +66,7 @@ import {
   operationDogProfileLine,
   operationPersonColor,
   operationPersonDisplayName,
+  operationScheduleDisplayTitle,
   operationScheduleTimeLabel,
   seoulDateKey,
   schedulePrimaryAssignee,
@@ -486,6 +488,8 @@ export function OperationsTodayPage() {
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [hotelManagementGuideOpen, setHotelManagementGuideOpen] =
+    useState(false);
   const [notice, setNotice] = useState("");
   const [noticeTone, setNoticeTone] = useState<"success" | "warning" | "error">("success");
 
@@ -586,6 +590,11 @@ export function OperationsTodayPage() {
   };
 
   const openEdit = (schedule: OperationSchedule) => {
+    if (isHotelReservationSchedule(schedule)) {
+      setDetail(null);
+      setHotelManagementGuideOpen(true);
+      return;
+    }
     setForm(formFromSchedule(schedule));
     setTitleManuallyEdited(true);
     setFormError("");
@@ -668,6 +677,11 @@ export function OperationsTodayPage() {
   };
 
   const completeSchedule = async (schedule: OperationSchedule) => {
+    if (isHotelReservationSchedule(schedule)) {
+      setDetail(null);
+      setHotelManagementGuideOpen(true);
+      return;
+    }
     setSaving(true);
     try {
       const updated = await setOperationScheduleStatus(
@@ -695,6 +709,11 @@ export function OperationsTodayPage() {
 
   const confirmAction = async () => {
     if (!pendingAction) return;
+    if (isHotelReservationSchedule(pendingAction.schedule)) {
+      setPendingAction(null);
+      setHotelManagementGuideOpen(true);
+      return;
+    }
     const actionReason =
       pendingAction.type === "cancel" ? "일정 취소" : "오등록 일정 삭제";
     setSaving(true);
@@ -883,10 +902,20 @@ export function OperationsTodayPage() {
         onEdit={openEdit}
         onComplete={(schedule) => void completeSchedule(schedule)}
         onCancel={(schedule) => {
+          if (isHotelReservationSchedule(schedule)) {
+            setDetail(null);
+            setHotelManagementGuideOpen(true);
+            return;
+          }
           setPendingAction({ type: "cancel", schedule });
           setDetail(null);
         }}
         onArchive={(schedule) => {
+          if (isHotelReservationSchedule(schedule)) {
+            setDetail(null);
+            setHotelManagementGuideOpen(true);
+            return;
+          }
           setPendingAction({ type: "archive", schedule });
           setDetail(null);
         }}
@@ -935,6 +964,12 @@ export function OperationsTodayPage() {
         </div>
       </Modal>
 
+      <HotelScheduleManagementDialog
+        open={hotelManagementGuideOpen}
+        onClose={() => setHotelManagementGuideOpen(false)}
+        onOpenHotel={() => navigate("/operations/hotel")}
+      />
+
       {notice && (
         <Toast
           message={notice}
@@ -969,7 +1004,7 @@ function ScheduleRow({
   return (
     <button
       type="button"
-      aria-label={`${schedule.title} 일정 상세 보기`}
+      aria-label={`${operationScheduleDisplayTitle(schedule)} 일정 상세 보기`}
       onClick={onOpen}
       className={cn(
         "group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl border border-border/90 bg-surface px-4 py-3.5 text-left shadow-[0_2px_7px_rgb(23_36_58_/_0.045),0_8px_22px_rgb(23_36_58_/_0.055)] transition-[background-color,border-color,box-shadow,opacity,transform,filter] duration-[160ms] ease-out hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[var(--pm-shadow-surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:px-5",
@@ -994,7 +1029,7 @@ function ScheduleRow({
           )}
         >
           <span className={cn("truncate", isMine && "font-bold")}>
-            {schedule.title}
+            {operationScheduleDisplayTitle(schedule)}
           </span>
           {isMine && (
             <Badge tone="blue">
@@ -1694,7 +1729,7 @@ export function ScheduleDetailModal({
             <Badge>{schedule.calendarName}</Badge>
             <Badge>{schedule.scheduleTypeName}</Badge>
           </div>
-          <h3 className="mt-3 text-2xl font-bold tracking-[-0.03em] text-text-primary">{schedule.title}</h3>
+          <h3 className="mt-3 text-2xl font-bold tracking-[-0.03em] text-text-primary">{operationScheduleDisplayTitle(schedule)}</h3>
           <p className="mt-2 text-sm text-text-secondary">
             {start.date} · {schedule.allDay
               ? "종일"
@@ -1797,6 +1832,40 @@ export function ScheduleDetailModal({
           <Button disabled={processing} onClick={() => onComplete(schedule)}>완료 처리</Button>
         </div>
       )}
+    </Modal>
+  );
+}
+
+export function HotelScheduleManagementDialog({
+  open,
+  onClose,
+  onOpenHotel,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onOpenHotel: () => void;
+}) {
+  return (
+    <Modal open={open} title="호텔 예약 일정" onClose={onClose}>
+      <p className="text-sm font-semibold leading-6 text-text-primary">
+        이 일정은 호텔 예약과 연결되어 있습니다.
+      </p>
+      <p className="mt-2 text-sm leading-6 text-text-secondary">
+        호텔 운영에서 예약을 수정하거나 예약 취소를 진행해주세요.
+      </p>
+      <div className="mt-6 flex justify-end gap-2">
+        <Button variant="secondary" onClick={onClose}>
+          닫기
+        </Button>
+        <Button
+          onClick={() => {
+            onClose();
+            onOpenHotel();
+          }}
+        >
+          호텔 운영 열기
+        </Button>
+      </div>
     </Modal>
   );
 }

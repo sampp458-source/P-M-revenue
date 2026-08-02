@@ -29,6 +29,7 @@ import {
 import {
   ScheduleDetailModal,
   ScheduleFormModal,
+  HotelScheduleManagementDialog,
   createNewScheduleFromForm,
   emptyForm,
   formFromSchedule,
@@ -51,10 +52,12 @@ import {
   fetchCurrentOperationRole,
   fetchOperationScheduleOptions,
   fetchOperationSchedulesForRange,
+  isHotelReservationSchedule,
   isOperationScheduleAssignedTo,
   mergeOperationScheduleCollection,
   nextSeoulDate,
   operationPersonColor,
+  operationScheduleDisplayTitle,
   operationScheduleTimeLabel,
   schedulePrimaryAssignee,
   seoulDateKey,
@@ -173,6 +176,8 @@ export function OperationsCalendarFoundationPage() {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(
     null,
   );
+  const [hotelManagementGuideOpen, setHotelManagementGuideOpen] =
+    useState(false);
   const [notice, setNotice] = useState("");
   const [noticeTone, setNoticeTone] = useState<
     "success" | "warning" | "error"
@@ -284,6 +289,11 @@ export function OperationsCalendarFoundationPage() {
   };
 
   const openEdit = (schedule: OperationSchedule) => {
+    if (isHotelReservationSchedule(schedule)) {
+      setDetail(null);
+      setHotelManagementGuideOpen(true);
+      return;
+    }
     setDetail(null);
     setForm(formFromSchedule(schedule));
     setTitleManuallyEdited(true);
@@ -370,6 +380,11 @@ export function OperationsCalendarFoundationPage() {
   };
 
   const completeSchedule = async (schedule: OperationSchedule) => {
+    if (isHotelReservationSchedule(schedule)) {
+      setDetail(null);
+      setHotelManagementGuideOpen(true);
+      return;
+    }
     setSaving(true);
     try {
       const updated = attachOperationAssigneeColors(await setOperationScheduleStatus(
@@ -396,6 +411,11 @@ export function OperationsCalendarFoundationPage() {
 
   const confirmAction = async () => {
     if (!pendingAction) return;
+    if (isHotelReservationSchedule(pendingAction.schedule)) {
+      setPendingAction(null);
+      setHotelManagementGuideOpen(true);
+      return;
+    }
     const actionReason =
       pendingAction.type === "cancel" ? "일정 취소" : "오등록 일정 삭제";
     setSaving(true);
@@ -599,10 +619,20 @@ export function OperationsCalendarFoundationPage() {
         onEdit={openEdit}
         onComplete={(schedule) => void completeSchedule(schedule)}
         onCancel={(schedule) => {
+          if (isHotelReservationSchedule(schedule)) {
+            setDetail(null);
+            setHotelManagementGuideOpen(true);
+            return;
+          }
           setPendingAction({ type: "cancel", schedule });
           setDetail(null);
         }}
         onArchive={(schedule) => {
+          if (isHotelReservationSchedule(schedule)) {
+            setDetail(null);
+            setHotelManagementGuideOpen(true);
+            return;
+          }
           setPendingAction({ type: "archive", schedule });
           setDetail(null);
         }}
@@ -647,6 +677,11 @@ export function OperationsCalendarFoundationPage() {
           </Button>
         </div>
       </Modal>
+      <HotelScheduleManagementDialog
+        open={hotelManagementGuideOpen}
+        onClose={() => setHotelManagementGuideOpen(false)}
+        onOpenHotel={() => navigate("/operations/hotel")}
+      />
       {notice && (
         <Toast
           message={notice}
@@ -758,7 +793,10 @@ function MonthScheduleCard({
   currentUserId?: string | null;
 }) {
   const assignee = schedulePrimaryAssignee(schedule);
-  const displayTitle = schedule.title || schedule.dogs[0]?.name || "제목 없음";
+  const displayTitle =
+    operationScheduleDisplayTitle(schedule) ||
+    schedule.dogs[0]?.name ||
+    "제목 없음";
   const isMine = isOperationScheduleAssignedTo(schedule, currentUserId);
   return (
     <div
@@ -1005,7 +1043,7 @@ function DayScheduleCard({
               schedule.status === "cancelled" && "line-through",
             )}
           >
-            {schedule.title}
+            {operationScheduleDisplayTitle(schedule)}
           </h3>
           <div className="mt-1.5 flex items-center gap-1 text-xs font-bold tabular-nums text-text-primary">
             <Clock3 size={13} className="text-text-muted" />

@@ -20,6 +20,8 @@ import {
   scheduleDisplayColor,
   schedulePrimaryAssignee,
   isOperationScheduleAssignedTo,
+  isHotelReservationSchedule,
+  operationScheduleDisplayTitle,
   sortOperationSchedulesForViewer,
   suggestOperationCustomerIds,
   toSeoulInstant,
@@ -473,5 +475,47 @@ describe("Operations schedule date and display helpers", () => {
         startsAt: "2026-08-01T03:00:00.000Z",
       }),
     ).toBe("종일");
+  });
+
+  it("uses machine-readable Hotel event kinds for Calendar titles", () => {
+    expect(
+      operationScheduleDisplayTitle({
+        title: "입실·퇴실",
+        hotelEventKind: "check_in",
+      }),
+    ).toBe("입실");
+    expect(
+      operationScheduleDisplayTitle({
+        title: "입실·퇴실",
+        hotelEventKind: "check_out",
+      }),
+    ).toBe("퇴실");
+    expect(
+      operationScheduleDisplayTitle({ title: "상담", hotelEventKind: null }),
+    ).toBe("상담");
+  });
+
+  it("recognizes only Hotel reservation schedules for aggregate protection", () => {
+    expect(
+      isHotelReservationSchedule({
+        businessUnitCode: "hotel",
+        scheduleTypeName: "입실·퇴실",
+        hotelEventKind: null,
+      }),
+    ).toBe(true);
+    expect(
+      isHotelReservationSchedule({
+        businessUnitCode: "training",
+        scheduleTypeName: "입실·퇴실",
+        hotelEventKind: null,
+      }),
+    ).toBe(false);
+    expect(
+      isHotelReservationSchedule({
+        businessUnitCode: "hotel",
+        scheduleTypeName: "상담",
+        hotelEventKind: null,
+      }),
+    ).toBe(false);
   });
 });
