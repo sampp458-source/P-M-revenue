@@ -26,7 +26,6 @@ import type {
   HotelStay,
 } from "./hotelOperationsRepository";
 import {
-  activeHotelAllocation,
   hotelStayAssigneeIds,
   hotelStayCalendarContract,
   hotelStayMemo,
@@ -669,8 +668,4 @@ export function SettingsModal({
       </form>
     </Modal>
   );
-}
-
-export function currentAllocatedRoomName(stay: HotelStay) {
-  return activeHotelAllocation(stay)?.roomName ?? "미배정";
 }

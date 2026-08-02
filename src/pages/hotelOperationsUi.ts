@@ -95,3 +95,7 @@ export function isSameRoomType(
 ) {
   return !allocation || allocation.roomTypeId === roomTypeId;
 }
+
+export function currentAllocatedRoomName(stay: HotelStay) {
+  return activeHotelAllocation(stay)?.roomName ?? "미배정";
+}

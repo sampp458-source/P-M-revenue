@@ -31,7 +31,6 @@ import {
   RoomAssignModal,
   RoomReassignModal,
   SettingsModal,
-  currentAllocatedRoomName,
 } from "./HotelOperationsModals";
 import {
   assignHotelRoom,
@@ -52,6 +51,7 @@ import {
 } from "./hotelOperationsRepository";
 import {
   activeHotelAllocation,
+  currentAllocatedRoomName,
   formatHotelDateTime,
   hotelStayMemo,
   hotelStayStatus,
