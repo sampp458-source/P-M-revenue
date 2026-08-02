@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   BarChart3,
+  BedDouble,
   Boxes,
   CalendarDays,
   CalendarRange,
@@ -57,6 +58,7 @@ import { StaffManagementPage } from "./pages/StaffManagement";
 import { OperationsSettingsPage } from "./pages/OperationsSettings";
 import { OperationsCalendarFoundationPage } from "./pages/OperationsCalendarFoundation";
 import { OperationsTodayPage } from "./pages/OperationsToday";
+import { HotelOperationsPage } from "./pages/HotelOperations";
 import { FindAccountPage, ForgotPasswordPage, ResetPasswordPage } from "./pages/AccountRecoveryPages";
 import pmLogo from "./assets/pm-logo.png";
 
@@ -76,6 +78,7 @@ interface OperationsMenuItem { to: string; label: string; icon: typeof CalendarD
 const operationsMenus: OperationsMenuItem[] = [
   { to: "/operations/today", label: "오늘", icon: Clock3 },
   { to: "/operations/calendar", label: "캘린더", icon: CalendarDays },
+  { to: "/operations/hotel", label: "호텔 운영", icon: BedDouble },
   ...(operationsFeatures.scheduleDirectory
     ? [{ to: "/operations/schedules", label: "일정", icon: ListChecks }]
     : []),
@@ -154,6 +157,7 @@ export default function App() {
           path="calendar"
           element={<OperationsCalendarFoundationPage />}
         />
+        <Route path="hotel" element={<HotelOperationsPage />} />
         <Route
           path="schedules"
           element={
