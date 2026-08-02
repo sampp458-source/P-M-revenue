@@ -7,7 +7,7 @@ import {
   MoveRight,
   Settings,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useAuth } from "../auth/AuthContext";
 import {
   Badge,
@@ -26,7 +26,6 @@ import {
 import {
   CheckInModal,
   CheckOutModal,
-  HotelReservationModal,
   MoveRoomModal,
   RoomAssignModal,
   RoomReassignModal,
@@ -37,7 +36,6 @@ import {
   cancelHotelReservation,
   completeHotelCheckIn,
   completeHotelCheckOut,
-  createHotelReservation,
   fetchHotelOperationsSnapshot,
   fetchHotelStay,
   HotelOperationsRepositoryError,
@@ -46,17 +44,27 @@ import {
   updateHotelOperationSettings,
   updateHotelReservation,
   type HotelOperationsSnapshot,
-  type HotelReservationInput,
   type HotelStay,
 } from "./hotelOperationsRepository";
 import {
   activeHotelAllocation,
   currentAllocatedRoomName,
   formatHotelDateTime,
+  hotelStayAssigneeIds,
+  hotelStayCalendarContract,
   hotelStayMemo,
   hotelStayStatus,
   hotelStayTitle,
+  seoulInputParts,
 } from "./hotelOperationsUi";
+import {
+  ScheduleFormModal,
+  createNewScheduleFromForm,
+  emptyForm,
+  hotelReservationInputFromForm,
+  initializeHotelScheduleForm,
+  type ScheduleForm,
+} from "./OperationsToday";
 import {
   fetchCurrentOperationRole,
   fetchOperationScheduleOptions,
@@ -103,6 +111,34 @@ function statusTone(status: ReturnType<typeof hotelStayStatus>) {
   return "blue" as const;
 }
 
+function scheduleFormFromHotelStay(stay: HotelStay): ScheduleForm {
+  const capacity = stay.capacityReservation;
+  const checkIn = capacity
+    ? seoulInputParts(capacity.reservedFrom)
+    : { date: seoulDateKey(), time: "15:00" };
+  const checkOut = capacity
+    ? seoulInputParts(capacity.reservedUntil)
+    : { date: seoulDateKey(), time: "11:00" };
+  const contract = hotelStayCalendarContract(stay);
+  return {
+    ...emptyForm(),
+    calendarId: contract.calendarId,
+    scheduleTypeId: contract.scheduleTypeId,
+    date: checkIn.date,
+    startTime: checkIn.time,
+    endDate: checkOut.date,
+    endTime: checkOut.time,
+    hotelCheckOutDate: checkOut.date,
+    hotelCheckOutTime: checkOut.time,
+    hotelRoomTypeId: capacity?.roomTypeId ?? "",
+    dogIds: [stay.dogId],
+    customerIds: stay.customerId ? [stay.customerId] : [],
+    assigneeIds: hotelStayAssigneeIds(stay),
+    title: hotelStayTitle(stay),
+    memo: hotelStayMemo(stay),
+  };
+}
+
 export function HotelOperationsPage() {
   const { profile } = useAuth();
   const [selectedDate, setSelectedDate] = useState(() => seoulDateKey());
@@ -116,6 +152,11 @@ export function HotelOperationsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [modal, setModal] = useState<ModalName>(null);
   const [processing, setProcessing] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState<ScheduleForm>(() =>
+    emptyForm(),
+  );
+  const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
+  const [formError, setFormError] = useState("");
   const [cancelReason, setCancelReason] = useState("");
   const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
 
@@ -200,19 +241,81 @@ export function HotelOperationsPage() {
     }
   };
 
-  const onCreate = (input: HotelReservationInput) =>
-    void runStayMutation(
-      () => createHotelReservation(input, requestId()),
-      "호텔 예약을 등록했습니다.",
-      true,
-    );
+  const openNewSchedule = () => {
+    const initial = emptyForm();
+    initial.date = selectedDate;
+    initial.endDate = selectedDate;
+    initial.assigneeIds = profile?.id ? [profile.id] : [];
+    setScheduleForm(initializeHotelScheduleForm(initial, options, snapshot!));
+    setTitleManuallyEdited(false);
+    setFormError("");
+    setDetail(null);
+    setModal("reservation");
+  };
 
-  const onUpdate = (input: HotelReservationInput) => {
+  const openReservationEdit = () => {
     if (!detail) return;
-    void runStayMutation(
-      () => updateHotelReservation(detail.id, detail.version, input, requestId()),
-      "호텔 예약을 수정했습니다.",
+    setScheduleForm(scheduleFormFromHotelStay(detail));
+    setTitleManuallyEdited(true);
+    setFormError("");
+    setModal("reservation");
+  };
+
+  const saveReservation = (event: FormEvent) => {
+    event.preventDefault();
+    setFormError("");
+    if (!detail) {
+      setProcessing(true);
+      void createNewScheduleFromForm(
+        scheduleForm,
+        options,
+        snapshot,
+        requestId(),
+      )
+        .then(async (created) => {
+          if (created.kind === "hotel") {
+            await refreshAfterMutation(
+              created.value.id,
+              "호텔 예약과 입·퇴실 일정을 등록했습니다.",
+            );
+            setDetail(null);
+          } else {
+            setToast({ message: "새 일정을 등록했습니다.", tone: "success" });
+            setModal(null);
+          }
+        })
+        .catch((error) =>
+          setFormError(
+            error instanceof Error
+              ? error.message
+              : "일정을 저장하지 못했습니다.",
+          ),
+        )
+        .finally(() => setProcessing(false));
+      return;
+    }
+    const prepared = hotelReservationInputFromForm(
+      scheduleForm,
+      options,
+      snapshot,
     );
+    if (!prepared.input) {
+      setFormError(prepared.error);
+      return;
+    }
+    if (detail) {
+      void runStayMutation(
+        () =>
+          updateHotelReservation(
+            detail.id,
+            detail.version,
+            prepared.input!,
+            requestId(),
+          ),
+        "호텔 예약을 수정했습니다.",
+      );
+      return;
+    }
   };
 
   const stays = snapshot?.stays ?? [];
@@ -235,8 +338,8 @@ export function HotelOperationsPage() {
                 <Settings size={17} /> 기본 시간
               </Button>
             ) : null}
-            <Button type="button" onClick={() => { setDetail(null); setModal("reservation"); }}>
-              <CalendarDays size={17} /> 호텔 예약 등록
+            <Button type="button" onClick={openNewSchedule}>
+              <CalendarDays size={17} /> 새 일정
             </Button>
           </div>
         }
@@ -323,7 +426,7 @@ export function HotelOperationsPage() {
         stay={detail}
         loading={detailLoading}
         onClose={closeDetail}
-        onEdit={() => setModal("reservation")}
+        onEdit={openReservationEdit}
         onAssign={() => setModal("assign")}
         onReassign={() => setModal("reassign")}
         onMove={() => setModal("move")}
@@ -333,7 +436,30 @@ export function HotelOperationsPage() {
         creatorName={options.assignees.find((person) => person.id === detail?.createdBy)?.name ?? null}
       />
 
-      <HotelReservationModal open={modal === "reservation"} selectedDate={selectedDate} snapshot={snapshot} options={options} currentProfileId={profile?.id ?? ""} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={detail ? onUpdate : onCreate} />
+      <ScheduleFormModal
+        open={modal === "reservation"}
+        editing="new"
+        form={scheduleForm}
+        options={options}
+        error={formError}
+        saving={processing}
+        recentScope={profile?.id ?? "hotel"}
+        titleManuallyEdited={titleManuallyEdited}
+        onTitleManuallyEdited={setTitleManuallyEdited}
+        onChange={setScheduleForm}
+        onSubmit={saveReservation}
+        onClose={() => !processing && setModal(null)}
+        currentUserName={
+          detail
+            ? options.assignees.find((person) => person.id === detail.createdBy)
+                ?.name
+            : profile?.name
+        }
+        hotelSnapshot={snapshot}
+        modalTitle={detail ? "호텔 예약 수정" : "새 일정"}
+        modalResetKey={detail?.id ?? `hotel-new-${selectedDate}`}
+        calendarLocked={Boolean(detail)}
+      />
       {detail ? (
         <>
           <RoomAssignModal open={modal === "assign"} snapshot={snapshot} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(roomId, reason) => void runStayMutation(() => assignHotelRoom(detail.id, detail.version, roomId, reason, requestId()), "호실을 배정했습니다.")} />

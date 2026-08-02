@@ -114,7 +114,7 @@ describe("Operations foundation UI", () => {
   });
 
   it("keeps the single schedule form focused on MVP fields", () => {
-    expect(todaySource).toContain('<Field label="제목" required>');
+    expect(todaySource).toContain('label={hotelMode ? "예약 제목" : "제목"}');
     expect(todaySource).toContain('<Field label="날짜" required>');
     expect(todaySource).toContain('<SearchSelect');
     expect(todaySource).toContain('label="담당자"');
@@ -126,9 +126,12 @@ describe("Operations foundation UI", () => {
     expect(todaySource).toContain('label="보호자"');
     expect(todaySource).toContain("formatPhoneForDisplay(customer?.phone)");
     expect(todaySource).not.toContain("phoneLast4");
-    expect(todaySource).toContain('<Field label="일정 유형">');
+    expect(todaySource).toContain('<Field label="일정 유형" required={hotelMode}>');
     expect(todaySource).toContain("선택 안 함 · 기타로 저장");
     expect(todaySource).not.toContain('label="사업부 Calendar"');
+    expect(todaySource).toContain('label="입실 날짜"');
+    expect(todaySource).toContain('label="퇴실 날짜"');
+    expect(todaySource).toContain('label="객실 유형"');
   });
 
   it("uses the shared active-staff directory when the optional assignee RPC is unavailable", () => {

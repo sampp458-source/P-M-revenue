@@ -10,7 +10,7 @@ describe("Operations settings repository", () => {
         scope_type: "business_unit",
         color: "#52B8D0",
         sort_order: 10,
-        business_units: { name: "유치원" },
+        business_units: { code: "daycare", name: "유치원" },
       }),
     ).toEqual({
       id: "calendar-1",
@@ -18,6 +18,7 @@ describe("Operations settings repository", () => {
       scopeType: "business_unit",
       color: "#52B8D0",
       sortOrder: 10,
+      businessUnitCode: "daycare",
       businessUnitName: "유치원",
     });
   });

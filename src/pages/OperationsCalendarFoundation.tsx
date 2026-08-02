@@ -29,11 +29,16 @@ import {
 import {
   ScheduleDetailModal,
   ScheduleFormModal,
+  createNewScheduleFromForm,
   emptyForm,
   formFromSchedule,
   scheduleInputFromForm,
   type ScheduleForm,
 } from "./OperationsToday";
+import {
+  fetchHotelOperationsSnapshot,
+  type HotelOperationsSnapshot,
+} from "./hotelOperationsRepository";
 import {
   OperationScheduleRepositoryError,
   archiveOperationSchedule,
@@ -41,7 +46,6 @@ import {
   canManageOperationSchedule,
   compactDogNames,
   compactNames,
-  createOperationSchedule,
   defaultOperationCalendarId,
   defaultOperationScheduleTypeId,
   fetchCurrentOperationRole,
@@ -152,6 +156,8 @@ export function OperationsCalendarFoundationPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [schedules, setSchedules] = useState<OperationSchedule[]>([]);
   const [options, setOptions] = useState<OperationScheduleOptions | null>(null);
+  const [hotelSnapshot, setHotelSnapshot] =
+    useState<HotelOperationsSnapshot | null>(null);
   const [currentOperationRole, setCurrentOperationRole] =
     useState<OperationRole | null>(null);
   const [loading, setLoading] = useState(true);
@@ -253,7 +259,7 @@ export function OperationsCalendarFoundationPage() {
     setDrawerOpen(true);
   };
 
-  const openNew = () => {
+  const openNew = async () => {
     if (!options) {
       showNotice("일정 등록 정보를 불러오는 중입니다.", "warning");
       return;
@@ -268,6 +274,9 @@ export function OperationsCalendarFoundationPage() {
       ),
     );
     initial.assigneeIds = profile?.id ? [profile.id] : [];
+    setHotelSnapshot(
+      await fetchHotelOperationsSnapshot(initial.date).catch(() => null),
+    );
     setForm(initial);
     setTitleManuallyEdited(false);
     setFormError("");
@@ -285,6 +294,41 @@ export function OperationsCalendarFoundationPage() {
   const save = async (event: FormEvent) => {
     event.preventDefault();
     setFormError("");
+    if (editing === "new") {
+      setSaving(true);
+      try {
+        const created = await createNewScheduleFromForm(
+          form,
+          options,
+          hotelSnapshot,
+          crypto.randomUUID(),
+        );
+        if (created.kind === "hotel") {
+          await loadMonth();
+          showNotice("호텔 예약과 입·퇴실 일정을 등록했습니다.");
+        } else {
+          const schedule = attachOperationAssigneeColors(
+            created.value,
+            options?.assignees ?? [],
+          );
+          setSchedules((current) =>
+            mergeOperationScheduleCollection(current, schedule),
+          );
+          showNotice("새 일정을 등록했습니다.");
+        }
+        setEditing(null);
+        setSelectedDate(form.date);
+      } catch (error) {
+        setFormError(
+          error instanceof Error
+            ? error.message
+            : "일정을 저장하지 못했습니다.",
+        );
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     const prepared = scheduleInputFromForm(form, options);
     if (!prepared.input) {
       setFormError(prepared.error);
@@ -293,16 +337,7 @@ export function OperationsCalendarFoundationPage() {
     const input = prepared.input;
     setSaving(true);
     try {
-      if (editing === "new") {
-        const created = attachOperationAssigneeColors(
-          await createOperationSchedule(input, crypto.randomUUID()),
-          options?.assignees ?? [],
-        );
-        setSchedules((current) =>
-          mergeOperationScheduleCollection(current, created),
-        );
-        showNotice("새 일정을 등록했습니다.");
-      } else if (editing) {
+      if (editing) {
         const updated = attachOperationAssigneeColors(
           await updateOperationSchedule(
             editing.id,
@@ -431,7 +466,7 @@ export function OperationsCalendarFoundationPage() {
             사업부와 담당자별 일정을 한 달 흐름으로 확인하세요.
           </p>
         </div>
-        <Button onClick={openNew} disabled={!options || loading}>
+        <Button onClick={() => void openNew()} disabled={!options || loading}>
           <Plus size={18} aria-hidden="true" />
           새 일정
         </Button>
@@ -532,7 +567,7 @@ export function OperationsCalendarFoundationPage() {
           setSelectedDate(next);
           if (monthKey(next) !== visibleMonth) setVisibleMonth(monthKey(next));
         }}
-        onAdd={openNew}
+        onAdd={() => void openNew()}
         onOpen={setDetail}
         currentUserId={profile?.id}
       />
@@ -551,6 +586,7 @@ export function OperationsCalendarFoundationPage() {
         onSubmit={save}
         onClose={() => setEditing(null)}
         currentUserName={profile?.name}
+        hotelSnapshot={hotelSnapshot}
       />
       <ScheduleDetailModal
         schedule={

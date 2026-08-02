@@ -7,6 +7,13 @@ import {
   hotelStayStatus,
   seoulInputParts,
 } from "./hotelOperationsUi";
+import {
+  emptyForm,
+  hotelReservationInputFromForm,
+  initializeHotelScheduleForm,
+} from "./OperationsToday";
+import type { OperationScheduleOptions } from "./operationsScheduleRepository";
+import type { HotelOperationsSnapshot } from "./hotelOperationsRepository";
 
 const repositorySource = readFileSync(
   resolve(import.meta.dirname, "./hotelOperationsRepository.ts"),
@@ -21,6 +28,14 @@ const modalSource = readFileSync(
   "utf8",
 );
 const appSource = readFileSync(resolve(import.meta.dirname, "../App.tsx"), "utf8");
+const todaySource = readFileSync(
+  resolve(import.meta.dirname, "./OperationsToday.tsx"),
+  "utf8",
+);
+const calendarSource = readFileSync(
+  resolve(import.meta.dirname, "./OperationsCalendarFoundation.tsx"),
+  "utf8",
+);
 
 const stay = (overrides: Partial<HotelStay> = {}): HotelStay => ({
   id: "stay-1",
@@ -74,13 +89,26 @@ describe("Hotel Operations frontend", () => {
     expect(repositorySource).not.toContain(".delete(");
   });
 
-  it("registers one Hotel route and uses Snapshot rooms/settings", () => {
+  it("uses one shared new-schedule modal across Today, Calendar and Hotel", () => {
     expect(appSource).toContain('to: "/operations/hotel"');
     expect(appSource).toContain('path="hotel"');
     expect(pageSource).toContain("snapshot.roomTypes");
     expect(modalSource).toContain("snapshot.rooms.filter");
-    expect(modalSource).toContain("snapshot.settings?.defaultCheckInTime");
-    expect(modalSource).toContain("snapshot.settings?.defaultCheckOutTime");
+    expect(pageSource).toContain("<ScheduleFormModal");
+    expect(todaySource).toContain("<ScheduleFormModal");
+    expect(calendarSource).toContain("<ScheduleFormModal");
+    expect(pageSource).not.toContain("HotelReservationModal");
+    expect(modalSource).not.toContain("HotelReservationModal");
+  });
+
+  it("routes only Hotel creates to create_hotel_reservation", () => {
+    expect(todaySource).toContain("isHotelScheduleCalendar");
+    expect(todaySource).toContain("createHotelReservation");
+    expect(todaySource).toContain("createOperationSchedule");
+    expect(calendarSource).toContain("createNewScheduleFromForm");
+    expect(pageSource).toContain("createNewScheduleFromForm");
+    expect(pageSource).not.toContain("createHotelReservation(");
+    expect(pageSource).not.toContain("createOperationSchedule(");
   });
 
   it("distinguishes unassigned, assigned, active, moved and checked-out stays", () => {
@@ -106,6 +134,89 @@ describe("Hotel Operations frontend", () => {
     expect(seoulInputParts("2026-08-02T06:00:00Z")).toEqual({
       date: "2026-08-02",
       time: "15:00",
+    });
+  });
+
+  it("applies Snapshot defaults and builds one Hotel reservation payload", () => {
+    const options: OperationScheduleOptions = {
+      calendars: [
+        {
+          id: "hotel-calendar",
+          name: "호텔",
+          scopeType: "business_unit",
+          color: "#EA580C",
+          sortOrder: 1,
+          businessUnitCode: "hotel",
+          businessUnitName: "호텔",
+        },
+      ],
+      scheduleTypes: [
+        {
+          id: "class-type",
+          name: "수업",
+          color: "#2563EB",
+          sortOrder: 0,
+          calendarIds: ["hotel-calendar"],
+        },
+        {
+          id: "hotel-type",
+          name: "입실·퇴실",
+          color: "#EA580C",
+          sortOrder: 1,
+          calendarIds: ["hotel-calendar"],
+        },
+      ],
+      assignees: [{ id: "profile-1", name: "담당자" }],
+      customers: [
+        { id: "customer-1", name: "보호자", phone: "01012345678" },
+      ],
+      dogs: [{ id: "dog-1", name: "토리", customerId: "customer-1" }],
+    };
+    const snapshot: HotelOperationsSnapshot = {
+      date: "2026-08-02",
+      roomTypes: [
+        {
+          id: "standard",
+          code: "STANDARD",
+          name: "STANDARD",
+          activeRooms: 5,
+          reservedPeak: 0,
+          checkedInNow: 0,
+          allocatedNow: 0,
+          reservedNow: 0,
+          unassignedNow: 0,
+          physicallyEmpty: 5,
+        },
+      ],
+      rooms: [],
+      settings: {
+        id: "settings-1",
+        version: 1,
+        defaultCheckInTime: "15:00:00",
+        defaultCheckOutTime: "11:00:00",
+        timezone: "Asia/Seoul",
+      },
+      stays: [],
+      unassignedFuture: [],
+    };
+    const initial = emptyForm();
+    initial.date = "2026-08-02";
+    const form = initializeHotelScheduleForm(initial, options, snapshot);
+    form.title = "토리 호텔 예약";
+    form.dogIds = ["dog-1"];
+    form.customerIds = ["customer-1"];
+    form.assigneeIds = ["profile-1"];
+    const result = hotelReservationInputFromForm(form, options, snapshot);
+    expect(form.startTime).toBe("15:00");
+    expect(form.hotelCheckOutTime).toBe("11:00");
+    expect(form.scheduleTypeId).toBe("hotel-type");
+    expect(result.error).toBe("");
+    expect(result.input).toMatchObject({
+      calendarId: "hotel-calendar",
+      roomTypeId: "standard",
+      dogId: "dog-1",
+      customerId: "customer-1",
+      assigneeIds: ["profile-1"],
     });
   });
 });

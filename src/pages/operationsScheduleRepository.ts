@@ -467,14 +467,7 @@ export async function fetchOperationSchedulesForRange(
       calendarName: calendar?.name ?? "캘린더",
       calendarColor: calendar?.color ?? DEFAULT_OPERATION_SCHEDULE_COLOR,
       calendarScope: calendar?.scopeType ?? "common",
-      businessUnitCode:
-        calendar?.businessUnitName === "유치원"
-          ? "daycare"
-          : calendar?.businessUnitName === "교육센터"
-            ? "training"
-            : calendar?.businessUnitName === "호텔"
-              ? "hotel"
-              : null,
+      businessUnitCode: calendar?.businessUnitCode ?? null,
       businessUnitName: calendar?.businessUnitName ?? null,
       scheduleTypeId: row.schedule_type_id,
       scheduleTypeName: scheduleType?.name ?? "기타",

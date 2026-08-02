@@ -36,6 +36,13 @@ import {
 import { SearchSelect } from "../components/SearchSelect";
 import { formatPhoneForDisplay } from "../lib/phone";
 import {
+  createHotelReservation,
+  fetchHotelOperationsSnapshot,
+  type HotelOperationsSnapshot,
+  type HotelReservationInput,
+  type HotelStay,
+} from "./hotelOperationsRepository";
+import {
   OperationScheduleRepositoryError,
   attachOperationAssigneeColors,
   archiveOperationSchedule,
@@ -86,6 +93,9 @@ export interface ScheduleForm {
   assigneeIds: string[];
   title: string;
   memo: string;
+  hotelRoomTypeId: string;
+  hotelCheckOutDate: string;
+  hotelCheckOutTime: string;
 }
 
 interface PendingAction {
@@ -106,6 +116,9 @@ export const emptyForm = (): ScheduleForm => {
     assigneeIds: [],
     title: "",
     memo: "",
+    hotelRoomTypeId: "",
+    hotelCheckOutDate: scheduleWindow.endDate,
+    hotelCheckOutTime: "11:00",
   };
 };
 
@@ -144,8 +157,190 @@ export const formFromSchedule = (schedule: OperationSchedule): ScheduleForm => {
     assigneeIds: schedule.assignees.map((assignee) => assignee.id),
     title: schedule.title,
     memo: schedule.memo ?? "",
+    hotelRoomTypeId: "",
+    hotelCheckOutDate: end.date,
+    hotelCheckOutTime: end.time,
   };
 };
+
+export const HOTEL_SCHEDULE_TYPE_NAME = "입실·퇴실";
+
+export function selectedOperationCalendar(
+  calendarId: string,
+  options: OperationScheduleOptions | null,
+) {
+  return options?.calendars.find((calendar) => calendar.id === calendarId) ?? null;
+}
+
+export function isHotelScheduleCalendar(
+  calendarId: string,
+  options: OperationScheduleOptions | null,
+) {
+  return selectedOperationCalendar(calendarId, options)?.businessUnitCode === "hotel";
+}
+
+export function hotelScheduleTypeForCalendar(
+  calendarId: string,
+  options: OperationScheduleOptions | null,
+) {
+  if (!isHotelScheduleCalendar(calendarId, options)) return null;
+  return options?.scheduleTypes.find(
+    (scheduleType) =>
+      scheduleType.name.trim() === HOTEL_SCHEDULE_TYPE_NAME &&
+      scheduleType.calendarIds?.includes(calendarId),
+  ) ?? null;
+}
+
+export function initializeHotelScheduleForm(
+  form: ScheduleForm,
+  options: OperationScheduleOptions,
+  snapshot: HotelOperationsSnapshot,
+  initialCalendarId?: string,
+) {
+  const calendar = options.calendars.find(
+    (item) =>
+      item.businessUnitCode === "hotel" &&
+      (!initialCalendarId || item.id === initialCalendarId),
+  );
+  const calendarId = calendar?.id ?? "";
+  const scheduleTypeId =
+    hotelScheduleTypeForCalendar(calendarId, options)?.id ?? "";
+  return {
+    ...form,
+    calendarId,
+    scheduleTypeId,
+    allDay: false,
+    timeUnspecified: false,
+    startTime:
+      snapshot.settings?.defaultCheckInTime.slice(0, 5) || form.startTime,
+    hotelCheckOutDate: nextSeoulDate(form.date),
+    hotelCheckOutTime:
+      snapshot.settings?.defaultCheckOutTime.slice(0, 5) || "11:00",
+    hotelRoomTypeId: snapshot.roomTypes[0]?.id ?? "",
+    dogIds: form.dogIds.slice(0, 1),
+    customerIds: form.customerIds.slice(0, 1),
+  };
+}
+
+export function transitionScheduleFormCalendar(
+  form: ScheduleForm,
+  calendarId: string,
+  options: OperationScheduleOptions,
+  snapshot: HotelOperationsSnapshot | null,
+) {
+  if (isHotelScheduleCalendar(calendarId, options)) {
+    if (snapshot) {
+      return initializeHotelScheduleForm(
+        { ...form, calendarId },
+        options,
+        snapshot,
+        calendarId,
+      );
+    }
+    return {
+      ...form,
+      calendarId,
+      scheduleTypeId:
+        hotelScheduleTypeForCalendar(calendarId, options)?.id ?? "",
+      allDay: false,
+      timeUnspecified: false,
+      hotelRoomTypeId: "",
+      hotelCheckOutDate: nextSeoulDate(form.date),
+      dogIds: form.dogIds.slice(0, 1),
+      customerIds: form.customerIds.slice(0, 1),
+    };
+  }
+  const allowedTypes = options.scheduleTypes.filter((scheduleType) =>
+    scheduleType.calendarIds?.includes(calendarId),
+  );
+  return {
+    ...form,
+    calendarId,
+    scheduleTypeId: defaultOperationScheduleTypeId(allowedTypes),
+    hotelRoomTypeId: "",
+    hotelCheckOutDate: "",
+    hotelCheckOutTime: "",
+  };
+}
+
+export function hotelReservationInputFromForm(
+  form: ScheduleForm,
+  options: OperationScheduleOptions | null,
+  snapshot: HotelOperationsSnapshot | null,
+): { input: HotelReservationInput | null; error: string } {
+  if (!isHotelScheduleCalendar(form.calendarId, options)) {
+    return { input: null, error: "호텔 캘린더를 선택해 주세요." };
+  }
+  if (!snapshot) {
+    return {
+      input: null,
+      error: "호텔 객실 유형과 기본 시간을 불러오지 못했습니다.",
+    };
+  }
+  const hotelScheduleType = hotelScheduleTypeForCalendar(
+    form.calendarId,
+    options,
+  );
+  if (!hotelScheduleType || form.scheduleTypeId !== hotelScheduleType.id) {
+    return {
+      input: null,
+      error: "호텔 캘린더의 입실·퇴실 일정 유형을 확인해 주세요.",
+    };
+  }
+  const missingFields = [
+    !form.title.trim() && "예약 제목",
+    !form.date && "입실 날짜",
+    !form.startTime && "입실 시간",
+    !form.hotelCheckOutDate && "퇴실 날짜",
+    !form.hotelCheckOutTime && "퇴실 시간",
+    !form.hotelRoomTypeId && "객실 유형",
+    form.dogIds.length !== 1 && "반려견",
+    form.customerIds.length !== 1 && "보호자",
+    form.assigneeIds.length === 0 && "담당자",
+  ].filter(Boolean) as string[];
+  if (missingFields.length > 0) {
+    return {
+      input: null,
+      error: `${missingFields.join(", ")}을(를) 확인해 주세요.`,
+    };
+  }
+  const selectedDog = options?.dogs.find((dog) => dog.id === form.dogIds[0]);
+  if (
+    selectedDog?.customerId &&
+    selectedDog.customerId !== form.customerIds[0]
+  ) {
+    return {
+      input: null,
+      error: "선택한 반려견과 연결된 보호자를 확인해 주세요.",
+    };
+  }
+  const checkInAt = toSeoulInstant(form.date, form.startTime);
+  const checkOutAt = toSeoulInstant(
+    form.hotelCheckOutDate,
+    form.hotelCheckOutTime,
+  );
+  if (new Date(checkOutAt) <= new Date(checkInAt)) {
+    return {
+      input: null,
+      error: "퇴실 일시는 입실 일시보다 늦어야 합니다.",
+    };
+  }
+  return {
+    error: "",
+    input: {
+      calendarId: form.calendarId,
+      scheduleTypeId: form.scheduleTypeId,
+      title: form.title.trim(),
+      checkInAt,
+      checkOutAt,
+      roomTypeId: form.hotelRoomTypeId,
+      dogId: form.dogIds[0],
+      customerId: form.customerIds[0],
+      assigneeIds: form.assigneeIds,
+      memo: form.memo.trim(),
+    },
+  };
+}
 
 export function scheduleInputFromForm(
   form: ScheduleForm,
@@ -216,6 +411,47 @@ export function scheduleInputFromForm(
   };
 }
 
+export interface NewScheduleCreateDependencies {
+  createHotel: (
+    input: HotelReservationInput,
+    requestId: string,
+  ) => Promise<HotelStay>;
+  createOperation: (
+    input: OperationScheduleInput,
+    requestId: string,
+  ) => Promise<OperationSchedule>;
+}
+
+export type NewScheduleCreateResult =
+  | { kind: "hotel"; value: HotelStay }
+  | { kind: "operation"; value: OperationSchedule };
+
+export async function createNewScheduleFromForm(
+  form: ScheduleForm,
+  options: OperationScheduleOptions | null,
+  snapshot: HotelOperationsSnapshot | null,
+  requestId: string,
+  dependencies: NewScheduleCreateDependencies = {
+    createHotel: createHotelReservation,
+    createOperation: createOperationSchedule,
+  },
+): Promise<NewScheduleCreateResult> {
+  if (isHotelScheduleCalendar(form.calendarId, options)) {
+    const prepared = hotelReservationInputFromForm(form, options, snapshot);
+    if (!prepared.input) throw new Error(prepared.error);
+    return {
+      kind: "hotel",
+      value: await dependencies.createHotel(prepared.input, requestId),
+    };
+  }
+  const prepared = scheduleInputFromForm(form, options);
+  if (!prepared.input) throw new Error(prepared.error);
+  return {
+    kind: "operation",
+    value: await dependencies.createOperation(prepared.input, requestId),
+  };
+}
+
 const todayCopy = (date: Date) => ({
   fullDate: new Intl.DateTimeFormat("ko-KR", {
     timeZone: "Asia/Seoul",
@@ -236,6 +472,8 @@ export function OperationsTodayPage() {
   const { fullDate, weekday } = todayCopy(new Date());
   const [schedules, setSchedules] = useState<OperationSchedule[]>([]);
   const [options, setOptions] = useState<OperationScheduleOptions | null>(null);
+  const [hotelSnapshot, setHotelSnapshot] =
+    useState<HotelOperationsSnapshot | null>(null);
   const [optionsLoading, setOptionsLoading] = useState(true);
   const [currentOperationRole, setCurrentOperationRole] =
     useState<OperationRole | null>(null);
@@ -338,6 +576,9 @@ export function OperationsTodayPage() {
       ),
     );
     initial.assigneeIds = profile?.id ? [profile.id] : [];
+    setHotelSnapshot(
+      await fetchHotelOperationsSnapshot(initial.date).catch(() => null),
+    );
     setForm(initial);
     setTitleManuallyEdited(false);
     setFormError("");
@@ -355,6 +596,40 @@ export function OperationsTodayPage() {
   const save = async (event: FormEvent) => {
     event.preventDefault();
     setFormError("");
+    if (editing === "new") {
+      setSaving(true);
+      try {
+        const created = await createNewScheduleFromForm(
+          form,
+          options,
+          hotelSnapshot,
+          crypto.randomUUID(),
+        );
+        if (created.kind === "hotel") {
+          await loadSchedules();
+          showNotice("호텔 예약과 입·퇴실 일정을 등록했습니다.");
+        } else {
+          const schedule = attachOperationAssigneeColors(
+            created.value,
+            options?.assignees ?? [],
+          );
+          setSchedules((current) =>
+            mergeOperationTodaySchedule(current, schedule, localDate),
+          );
+          showNotice("새 일정을 등록했습니다.");
+        }
+        setEditing(null);
+      } catch (error) {
+        setFormError(
+          error instanceof Error
+            ? error.message
+            : "일정을 저장하지 못했습니다.",
+        );
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
     const prepared = scheduleInputFromForm(form, options);
     if (!prepared.input) {
       setFormError(prepared.error);
@@ -363,16 +638,7 @@ export function OperationsTodayPage() {
     const input = prepared.input;
     setSaving(true);
     try {
-      if (editing === "new") {
-        const created = attachOperationAssigneeColors(await createOperationSchedule(
-          input,
-          crypto.randomUUID(),
-        ), options?.assignees ?? []);
-        setSchedules((current) =>
-          mergeOperationTodaySchedule(current, created, localDate),
-        );
-        showNotice("새 일정을 등록했습니다.");
-      } else if (editing) {
+      if (editing) {
         const updated = attachOperationAssigneeColors(await updateOperationSchedule(
           editing.id,
           editing.version,
@@ -607,6 +873,7 @@ export function OperationsTodayPage() {
         onSubmit={save}
         onClose={() => !saving && setEditing(null)}
         currentUserName={profile?.name}
+        hotelSnapshot={hotelSnapshot}
       />
 
       <ScheduleDetailModal
@@ -872,6 +1139,10 @@ export function ScheduleFormModal({
   onSubmit,
   onClose,
   currentUserName,
+  hotelSnapshot,
+  modalTitle,
+  modalResetKey,
+  calendarLocked = false,
 }: {
   open: boolean;
   editing: OperationSchedule | "new" | null;
@@ -886,8 +1157,20 @@ export function ScheduleFormModal({
   onSubmit: (event: FormEvent) => void;
   onClose: () => void;
   currentUserName?: string | null;
+  hotelSnapshot?: HotelOperationsSnapshot | null;
+  modalTitle?: string;
+  modalResetKey?: string;
+  calendarLocked?: boolean;
 }) {
   const patch = (values: Partial<ScheduleForm>) => onChange({ ...form, ...values });
+  const selectedCalendar = selectedOperationCalendar(form.calendarId, options);
+  const selectedCalendarIsHotel =
+    selectedCalendar?.businessUnitCode === "hotel";
+  const hotelMode =
+    editing === "new" && selectedCalendarIsHotel;
+  const hotelScheduleType = hotelMode
+    ? hotelScheduleTypeForCalendar(form.calendarId, options)
+    : null;
   const patchWithAutoTitle = (values: Partial<ScheduleForm>) => {
     const nextForm = { ...form, ...values };
     if (editing === "new" && !titleManuallyEdited) {
@@ -917,13 +1200,17 @@ export function ScheduleFormModal({
     }
   });
   const changeDogs = (dogIds: string[]) => {
+    const normalizedDogIds = hotelMode ? dogIds.slice(-1) : dogIds;
     const customerIds = suggestOperationCustomerIds(
       form.customerIds,
       form.dogIds,
-      dogIds,
+      normalizedDogIds,
       options?.dogs ?? [],
     );
-    patchWithAutoTitle({ dogIds, customerIds });
+    patchWithAutoTitle({
+      dogIds: normalizedDogIds,
+      customerIds: hotelMode ? customerIds.slice(-1) : customerIds,
+    });
   };
   const creatorName =
     editing === "new"
@@ -934,28 +1221,61 @@ export function ScheduleFormModal({
   return (
     <Modal
       open={open}
-      title={editing === "new" ? "새 일정" : "일정 수정"}
+      title={modalTitle ?? (editing === "new" ? "새 일정" : "일정 수정")}
       onClose={onClose}
       wide
-      resetKey={editing === "new" ? "new" : editing?.id}
+      resetKey={modalResetKey ?? (editing === "new" ? "new" : editing?.id)}
     >
       <form onSubmit={onSubmit} className="space-y-5">
         <>
           <div className="grid gap-4 sm:grid-cols-2">
               <Field label="캘린더" required>
-                <Select value={form.calendarId} onChange={(event) => patchWithAutoTitle({ calendarId: event.target.value, scheduleTypeId: "" })}>
+                <Select disabled={calendarLocked} value={form.calendarId} onChange={(event) => {
+                  const calendarId = event.target.value;
+                  const nextForm =
+                    editing === "new" && options
+                      ? transitionScheduleFormCalendar(
+                          form,
+                          calendarId,
+                          options,
+                          hotelSnapshot ?? null,
+                        )
+                      : { ...form, calendarId, scheduleTypeId: "" };
+                  patchWithAutoTitle(nextForm);
+                }}>
                   <option value="">캘린더 선택</option>
                   {options?.calendars.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
                 </Select>
               </Field>
-              <Field label="일정 유형">
-                <Select value={form.scheduleTypeId} disabled={!form.calendarId} onChange={(event) => patchWithAutoTitle({ scheduleTypeId: event.target.value })}>
-                  <option value="">선택 안 함 · 기타로 저장</option>
-                  {options?.scheduleTypes.filter((row) => row.calendarIds?.includes(form.calendarId)).map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+              <Field label="일정 유형" required={hotelMode}>
+                <Select
+                  value={form.scheduleTypeId}
+                  disabled={!form.calendarId || hotelMode}
+                  onChange={(event) =>
+                    patchWithAutoTitle({ scheduleTypeId: event.target.value })
+                  }
+                >
+                  <option value="">
+                    {hotelMode
+                      ? "입실·퇴실 유형을 찾을 수 없음"
+                      : "선택 안 함 · 기타로 저장"}
+                  </option>
+                  {(hotelMode
+                    ? hotelScheduleType
+                      ? [hotelScheduleType]
+                      : []
+                    : options?.scheduleTypes.filter((row) =>
+                        row.calendarIds?.includes(form.calendarId),
+                      ) ?? []
+                  ).map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.name}
+                    </option>
+                  ))}
                 </Select>
               </Field>
           </div>
-          <Field label="제목" required>
+          <Field label={hotelMode ? "예약 제목" : "제목"} required>
               <Input
                 required
                 value={form.title}
@@ -967,6 +1287,70 @@ export function ScheduleFormModal({
               />
           </Field>
         </>
+        {hotelMode ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="입실 날짜" required>
+              <Input
+                required
+                type="date"
+                value={form.date}
+                onChange={(event) => {
+                  const date = event.target.value;
+                  patch({
+                    date,
+                    hotelCheckOutDate: date ? nextSeoulDate(date) : "",
+                  });
+                }}
+              />
+            </Field>
+            <Field label="입실 시간" required>
+              <Input
+                required
+                type="time"
+                value={form.startTime}
+                onChange={(event) => patch({ startTime: event.target.value })}
+              />
+            </Field>
+            <Field label="퇴실 날짜" required>
+              <Input
+                required
+                type="date"
+                value={form.hotelCheckOutDate}
+                onChange={(event) =>
+                  patch({ hotelCheckOutDate: event.target.value })
+                }
+              />
+            </Field>
+            <Field label="퇴실 시간" required>
+              <Input
+                required
+                type="time"
+                value={form.hotelCheckOutTime}
+                onChange={(event) =>
+                  patch({ hotelCheckOutTime: event.target.value })
+                }
+              />
+            </Field>
+            <div className="sm:col-span-2">
+              <Field label="객실 유형" required>
+                <Select
+                  required
+                  value={form.hotelRoomTypeId}
+                  onChange={(event) =>
+                    patch({ hotelRoomTypeId: event.target.value })
+                  }
+                >
+                  <option value="">객실 유형 선택</option>
+                  {hotelSnapshot?.roomTypes.map((roomType) => (
+                    <option key={roomType.id} value={roomType.id}>
+                      {roomType.name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          </div>
+        ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="날짜" required>
             <Input
@@ -1081,6 +1465,7 @@ export function ScheduleFormModal({
             </div>
           </>
         </div>
+        )}
         <div className="rounded-xl border border-border bg-surface-secondary px-3.5 py-3">
           <p className="text-xs font-semibold text-text-muted">등록자</p>
           <p className="mt-1 text-sm font-semibold text-text-primary">
@@ -1143,7 +1528,7 @@ export function ScheduleFormModal({
           items={options?.dogs ?? []}
           selectedIds={form.dogIds}
           onChange={changeDogs}
-          multiple
+          multiple={!hotelMode}
           getItemId={(row) => row.id}
           getSearchText={(row) => {
             const customer = customerById.get(row.customerId ?? "");
@@ -1195,7 +1580,14 @@ export function ScheduleFormModal({
             label="보호자"
             items={options?.customers ?? []}
             selectedIds={form.customerIds}
-            onChange={(customerIds) => patch({ customerIds })}
+            onChange={(customerIds) =>
+              patch({
+                customerIds: hotelMode
+                  ? customerIds.slice(-1)
+                  : customerIds,
+              })
+            }
+            multiple={!hotelMode}
             getItemId={(row) => row.id}
             getSearchText={(row) =>
               `${row.name ?? ""} ${row.phone ?? ""} ${(dogsByCustomer.get(row.id) ?? []).join(" ")}`
@@ -1237,9 +1629,14 @@ export function ScheduleFormModal({
           />
         </Field>
         {error && <p role="alert" className="rounded-xl bg-error-soft px-3 py-2 text-sm text-error">{error}</p>}
+        {hotelMode && !hotelScheduleType && !error && (
+          <p role="alert" className="rounded-xl bg-error-soft px-3 py-2 text-sm text-error">
+            Hotel 캘린더에 입실·퇴실 일정 유형이 연결되어 있지 않습니다.
+          </p>
+        )}
         <div className="sticky -bottom-5 z-20 -mx-5 -mb-5 flex justify-end gap-2 border-t border-border bg-surface px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:p-0 sm:shadow-none">
           <Button type="button" variant="secondary" disabled={saving} onClick={onClose}>닫기</Button>
-          <Button type="submit" disabled={saving}>{saving ? "저장 중..." : "저장"}</Button>
+          <Button type="submit" disabled={saving || (hotelMode && !hotelScheduleType)}>{saving ? "저장 중..." : "저장"}</Button>
         </div>
       </form>
     </Modal>

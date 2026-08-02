@@ -6,6 +6,7 @@ export interface OperationCalendar {
   scopeType: "business_unit" | "common" | "personal";
   color: string;
   sortOrder: number;
+  businessUnitCode?: "daycare" | "training" | "hotel" | null;
   businessUnitName: string | null;
 }
 
@@ -29,28 +30,35 @@ interface CalendarRow {
   color: string;
   sort_order: number;
   business_units:
-    | { name: string }
-    | Array<{ name: string }>
+    | { code: OperationCalendar["businessUnitCode"]; name: string }
+    | Array<{
+        code: OperationCalendar["businessUnitCode"];
+        name: string;
+      }>
     | null;
 }
 
-const relatedBusinessUnitName = (
+const relatedBusinessUnit = (
   relation: CalendarRow["business_units"],
 ) => {
-  if (Array.isArray(relation)) return relation[0]?.name ?? null;
-  return relation?.name ?? null;
+  if (Array.isArray(relation)) return relation[0] ?? null;
+  return relation;
 };
 
 export const mapOperationCalendar = (
   row: CalendarRow,
-): OperationCalendar => ({
-  id: row.id,
-  name: row.name,
-  scopeType: row.scope_type,
-  color: row.color,
-  sortOrder: row.sort_order,
-  businessUnitName: relatedBusinessUnitName(row.business_units),
-});
+): OperationCalendar => {
+  const businessUnit = relatedBusinessUnit(row.business_units);
+  return {
+    id: row.id,
+    name: row.name,
+    scopeType: row.scope_type,
+    color: row.color,
+    sortOrder: row.sort_order,
+    businessUnitCode: businessUnit?.code ?? null,
+    businessUnitName: businessUnit?.name ?? null,
+  };
+};
 
 const isOptionalScheduleUsabilityObjectMissing = (error: {
   code?: string;
@@ -69,7 +77,7 @@ export async function fetchOperationSettings(): Promise<OperationSettings> {
     supabase
       .from("operation_calendars")
       .select(
-        "id, name, scope_type, color, sort_order, business_units(name)",
+        "id, name, scope_type, color, sort_order, business_units(code, name)",
       )
       .eq("is_active", true)
       .order("sort_order")
