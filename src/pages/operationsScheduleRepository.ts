@@ -56,6 +56,7 @@ export interface OperationSchedule {
   archivedAt: string | null;
   hotelStayId?: string | null;
   hotelEventKind?: HotelScheduleEventKind | null;
+  hotelRoomTypeName?: string | null;
   assignees: OperationPerson[];
   dogs: OperationDog[];
   customers: OperationCustomer[];
@@ -245,10 +246,23 @@ export function isHotelReservationSchedule(
 }
 
 export function operationScheduleDisplayTitle(
-  schedule: Pick<OperationSchedule, "title" | "hotelEventKind">,
+  schedule: Pick<
+    OperationSchedule,
+    "title" | "hotelEventKind" | "hotelRoomTypeName" | "dogs"
+  >,
 ) {
-  if (schedule.hotelEventKind === "check_in") return "입실";
-  if (schedule.hotelEventKind === "check_out") return "퇴실";
+  const eventLabel =
+    schedule.hotelEventKind === "check_in"
+      ? "입실"
+      : schedule.hotelEventKind === "check_out"
+        ? "퇴실"
+        : null;
+  if (eventLabel) {
+    const dogName = schedule.dogs[0]?.name;
+    return [dogName, "호텔링", schedule.hotelRoomTypeName, eventLabel]
+      .filter(Boolean)
+      .join(" · ");
+  }
   return schedule.title;
 }
 
@@ -317,6 +331,7 @@ interface ScheduleRpcRow {
   archivedAt: string | null;
   hotelStayId?: string | null;
   hotelEventKind?: HotelScheduleEventKind | null;
+  hotelRoomTypeName?: string | null;
   assignees?: OperationPerson[];
   dogs?: Array<{ id: string; name: string; customerId: string | null }>;
   customers?: OperationCustomer[];
@@ -327,6 +342,7 @@ const mapSchedule = (row: ScheduleRpcRow): OperationSchedule => ({
   timeUnspecified: row.timeUnspecified ?? false,
   hotelStayId: row.hotelStayId ?? null,
   hotelEventKind: row.hotelEventKind ?? null,
+  hotelRoomTypeName: row.hotelRoomTypeName ?? null,
   assignees: row.assignees ?? [],
   dogs: row.dogs ?? [],
   customers: row.customers ?? [],
@@ -410,6 +426,16 @@ interface HotelScheduleLinkRow {
   event_kind: HotelScheduleEventKind;
 }
 
+interface HotelCapacityLinkRow {
+  hotel_stay_id: string;
+  room_type_id: string;
+}
+
+interface HotelRoomTypeNameRow {
+  id: string;
+  name: string;
+}
+
 async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
   const hotelScheduleIds = schedules
     .filter((schedule) => schedule.businessUnitCode === "hotel")
@@ -429,6 +455,43 @@ async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
       link,
     ]),
   );
+  const hotelStayIds = [
+    ...new Set(
+      [...linkByScheduleId.values()].map((link) => link.hotel_stay_id),
+    ),
+  ];
+  if (hotelStayIds.length === 0) return schedules;
+  const capacityResult = await supabase
+    .from("hotel_capacity_reservations")
+    .select("hotel_stay_id, room_type_id")
+    .in("hotel_stay_id", hotelStayIds)
+    .is("archived_at", null);
+  throwScheduleError(capacityResult.error);
+  const capacityRows = (capacityResult.data ?? []) as HotelCapacityLinkRow[];
+  const roomTypeIds = [
+    ...new Set(capacityRows.map((capacity) => capacity.room_type_id)),
+  ];
+  const roomTypeResult =
+    roomTypeIds.length > 0
+      ? await supabase
+          .from("hotel_room_types")
+          .select("id, name")
+          .in("id", roomTypeIds)
+          .is("archived_at", null)
+      : { data: [], error: null };
+  throwScheduleError(roomTypeResult.error);
+  const roomTypeNameById = new Map(
+    ((roomTypeResult.data ?? []) as HotelRoomTypeNameRow[]).map((roomType) => [
+      roomType.id,
+      roomType.name,
+    ]),
+  );
+  const roomTypeNameByStayId = new Map(
+    capacityRows.map((capacity) => [
+      capacity.hotel_stay_id,
+      roomTypeNameById.get(capacity.room_type_id) ?? null,
+    ]),
+  );
   return schedules
     .map((schedule) => {
       const link = linkByScheduleId.get(schedule.id);
@@ -437,6 +500,8 @@ async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
             ...schedule,
             hotelStayId: link.hotel_stay_id,
             hotelEventKind: link.event_kind,
+            hotelRoomTypeName:
+              roomTypeNameByStayId.get(link.hotel_stay_id) ?? null,
           }
         : schedule;
     })
@@ -577,6 +642,7 @@ export async function fetchOperationSchedulesForRange(
       archivedAt: row.archived_at,
       hotelStayId: null,
       hotelEventKind: null,
+      hotelRoomTypeName: null,
       assignees: (assigneesBySchedule.get(row.id) ?? [])
         .map((item) => people.get(item.profile_id))
         .filter((person): person is OperationPerson => Boolean(person)),

@@ -483,16 +483,25 @@ describe("Operations schedule date and display helpers", () => {
       operationScheduleDisplayTitle({
         title: "입실·퇴실",
         hotelEventKind: "check_in",
+        hotelRoomTypeName: "STANDARD",
+        dogs: [{ id: "dog", name: "오담", customerId: null }],
       }),
-    ).toBe("입실");
+    ).toBe("오담 · 호텔링 · STANDARD · 입실");
     expect(
       operationScheduleDisplayTitle({
         title: "입실·퇴실",
         hotelEventKind: "check_out",
+        hotelRoomTypeName: "DELUXE",
+        dogs: [{ id: "dog", name: "오담", customerId: null }],
       }),
-    ).toBe("퇴실");
+    ).toBe("오담 · 호텔링 · DELUXE · 퇴실");
     expect(
-      operationScheduleDisplayTitle({ title: "상담", hotelEventKind: null }),
+      operationScheduleDisplayTitle({
+        title: "상담",
+        hotelEventKind: null,
+        hotelRoomTypeName: null,
+        dogs: [],
+      }),
     ).toBe("상담");
   });
 
