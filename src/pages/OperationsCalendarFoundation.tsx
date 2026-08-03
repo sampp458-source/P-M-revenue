@@ -38,6 +38,7 @@ import {
 } from "./OperationsToday";
 import {
   fetchHotelOperationsSnapshot,
+  fetchHotelStay,
   type HotelOperationsSnapshot,
 } from "./hotelOperationsRepository";
 import {
@@ -53,6 +54,7 @@ import {
   fetchOperationScheduleOptions,
   fetchOperationSchedulesForRange,
   isHotelReservationSchedule,
+  isLegacyHotelSchedule,
   isOperationScheduleAssignedTo,
   mergeOperationScheduleCollection,
   nextSeoulDate,
@@ -68,6 +70,7 @@ import {
   type OperationScheduleOptions,
   type OperationRole,
 } from "./operationsScheduleRepository";
+import { LegacyHotelConversionModal } from "./LegacyHotelConversionModal";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -178,6 +181,8 @@ export function OperationsCalendarFoundationPage() {
   );
   const [hotelManagementGuideOpen, setHotelManagementGuideOpen] =
     useState(false);
+  const [legacyConversionSchedule, setLegacyConversionSchedule] =
+    useState<OperationSchedule | null>(null);
   const [notice, setNotice] = useState("");
   const [noticeTone, setNoticeTone] = useState<
     "success" | "warning" | "error"
@@ -257,6 +262,16 @@ export function OperationsCalendarFoundationPage() {
   ) => {
     setNotice(message);
     setNoticeTone(tone);
+  };
+
+  const openLegacyConversion = async (schedule: OperationSchedule) => {
+    setDetail(null);
+    setLegacyConversionSchedule(schedule);
+    setHotelSnapshot(
+      await fetchHotelOperationsSnapshot(
+        seoulDateKey(new Date(schedule.startsAt)),
+      ).catch(() => null),
+    );
   };
 
   const openDate = (date: string) => {
@@ -645,6 +660,12 @@ export function OperationsCalendarFoundationPage() {
           )
         }
         canManage={detail ? canManageSchedule(detail) : false}
+        showLegacyHotelConversion={Boolean(
+          detail &&
+          isLegacyHotelSchedule(detail) &&
+          (currentOperationRole === "owner" || currentOperationRole === "manager"),
+        )}
+        onConvertToHotel={(schedule) => void openLegacyConversion(schedule)}
       />
       <Modal
         open={pendingAction !== null}
@@ -681,6 +702,26 @@ export function OperationsCalendarFoundationPage() {
         open={hotelManagementGuideOpen}
         onClose={() => setHotelManagementGuideOpen(false)}
         onOpenHotel={() => navigate("/operations/hotel")}
+      />
+      <LegacyHotelConversionModal
+        open={legacyConversionSchedule !== null}
+        anchor={legacyConversionSchedule}
+        options={options}
+        snapshot={hotelSnapshot}
+        onClose={() => setLegacyConversionSchedule(null)}
+        onConverted={async (stay) => {
+          const snapshotDate = legacyConversionSchedule
+            ? seoulDateKey(new Date(legacyConversionSchedule.startsAt))
+            : selectedDate;
+          const [, nextSnapshot] = await Promise.all([
+            loadMonth(),
+            fetchHotelOperationsSnapshot(snapshotDate),
+            fetchHotelStay(stay.id),
+          ]);
+          setHotelSnapshot(nextSnapshot);
+          setLegacyConversionSchedule(null);
+          showNotice("기존 일정을 호텔 예약으로 전환했습니다.");
+        }}
       />
       {notice && (
         <Toast

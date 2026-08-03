@@ -21,8 +21,10 @@ import {
   schedulePrimaryAssignee,
   isOperationScheduleAssignedTo,
   isHotelReservationSchedule,
+  isLegacyHotelSchedule,
   operationScheduleDisplayTitle,
   shouldDisplayOperationSchedule,
+  sortLegacyHotelCounterparts,
   sortOperationSchedulesForViewer,
   suggestOperationCustomerIds,
   toSeoulInstant,
@@ -508,23 +510,20 @@ describe("Operations schedule date and display helpers", () => {
   it("recognizes only Hotel reservation schedules for aggregate protection", () => {
     expect(
       isHotelReservationSchedule({
-        businessUnitCode: "hotel",
-        scheduleTypeName: "입실·퇴실",
-        hotelEventKind: null,
-      }),
-    ).toBe(true);
-    expect(
-      isHotelReservationSchedule({
-        businessUnitCode: "training",
-        scheduleTypeName: "입실·퇴실",
+        hotelStayId: null,
         hotelEventKind: null,
       }),
     ).toBe(false);
     expect(
       isHotelReservationSchedule({
-        businessUnitCode: "hotel",
-        scheduleTypeName: "상담",
-        hotelEventKind: null,
+        hotelStayId: "stay-1",
+        hotelEventKind: "check_in",
+      }),
+    ).toBe(true);
+    expect(
+      isHotelReservationSchedule({
+        hotelStayId: null,
+        hotelEventKind: "check_out",
       }),
     ).toBe(false);
   });
@@ -533,18 +532,117 @@ describe("Operations schedule date and display helpers", () => {
     expect(
       shouldDisplayOperationSchedule({
         status: "cancelled",
-        businessUnitCode: "hotel",
-        scheduleTypeName: "입실·퇴실",
+        hotelStayId: "stay-1",
         hotelEventKind: "check_in",
       }),
     ).toBe(false);
     expect(
       shouldDisplayOperationSchedule({
         status: "cancelled",
-        businessUnitCode: "training",
-        scheduleTypeName: "상담",
+        hotelStayId: null,
         hotelEventKind: null,
       }),
     ).toBe(true);
+  });
+
+  it("treats only active repository links as Hotel aggregate protection", () => {
+    expect(
+      isHotelReservationSchedule({
+        hotelStayId: "stay-1",
+        hotelEventKind: "check_out",
+      }),
+    ).toBe(true);
+    expect(
+      isHotelReservationSchedule({
+        hotelStayId: null,
+        hotelEventKind: null,
+      }),
+    ).toBe(false);
+    expect(
+      isLegacyHotelSchedule({
+        businessUnitCode: "hotel",
+        archivedAt: null,
+        status: "scheduled",
+        hotelStayId: null,
+        hotelEventKind: null,
+      }),
+    ).toBe(true);
+    expect(
+      isLegacyHotelSchedule({
+        businessUnitCode: "hotel",
+        archivedAt: null,
+        status: "cancelled",
+        hotelStayId: null,
+        hotelEventKind: null,
+      }),
+    ).toBe(false);
+    expect(
+      isLegacyHotelSchedule({
+        businessUnitCode: "hotel",
+        archivedAt: null,
+        status: "scheduled",
+        hotelStayId: "stay-1",
+        hotelEventKind: "check_in",
+      }),
+    ).toBe(false);
+  });
+
+  it("does not infer aggregate protection from a Hotel title or business unit", () => {
+    expect(
+      isHotelReservationSchedule({
+        hotelStayId: null,
+        hotelEventKind: null,
+      }),
+    ).toBe(false);
+    expect(
+      operationScheduleDisplayTitle({
+        title: "오담 · 호텔링 · STANDARD · 입실",
+        hotelEventKind: null,
+        hotelRoomTypeName: null,
+        dogs: [{ id: "dog", name: "오담", customerId: "customer" }],
+      }),
+    ).toBe("오담 · 호텔링 · STANDARD · 입실");
+  });
+
+  it("recommends legacy counterparts by dog, customer, distance, creation, and id", () => {
+    const anchor = {
+      id: "anchor",
+      businessUnitCode: "hotel",
+      archivedAt: null,
+      status: "scheduled",
+      hotelStayId: null,
+      hotelEventKind: null,
+      startsAt: "2026-08-03T06:00:00.000Z",
+      createdAt: "2026-08-01T00:00:00.000Z",
+      dogs: [{ id: "dog-1" }],
+      customers: [{ id: "customer-1" }],
+    };
+    const candidate = (
+      id: string,
+      startsAt: string,
+      dogId: string,
+      customerId: string,
+      createdAt = "2026-08-01T00:00:00.000Z",
+    ) => ({
+      ...anchor,
+      id,
+      startsAt,
+      createdAt,
+      dogs: [{ id: dogId }],
+      customers: [{ id: customerId }],
+    });
+
+    expect(
+      sortLegacyHotelCounterparts(
+        anchor as never,
+        [
+          candidate("other-dog", "2026-08-03T07:00:00.000Z", "dog-2", "customer-1"),
+          candidate("same-dog-far", "2026-08-03T10:00:00.000Z", "dog-1", "customer-1"),
+          candidate("same-dog-near", "2026-08-03T08:00:00.000Z", "dog-1", "customer-1"),
+          candidate("before", "2026-08-03T05:00:00.000Z", "dog-1", "customer-1"),
+        ] as never[],
+        "check_in",
+      ).map((schedule) => schedule.id),
+    ).toEqual(["same-dog-near", "same-dog-far", "other-dog"]);
   });
 });

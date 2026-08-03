@@ -112,6 +112,16 @@ export interface HotelReservationInput {
   memo: string;
 }
 
+export interface LegacyHotelConversionInput {
+  checkInScheduleId: string;
+  checkOutScheduleId: string;
+  dogId: string;
+  customerId: string;
+  roomTypeId: string;
+  assigneeIds: string[];
+  notes: string;
+}
+
 export type HotelRepositoryErrorKind =
   | "permission"
   | "conflict"
@@ -215,6 +225,22 @@ export function createHotelReservation(
     "create_hotel_reservation",
     reservationArgs(input, requestId),
   );
+}
+
+export function convertLegacyHotelSchedulesToReservation(
+  input: LegacyHotelConversionInput,
+  requestId: string,
+) {
+  return rpc<HotelStay>("convert_legacy_hotel_schedules_to_reservation", {
+    p_check_in_schedule_id: input.checkInScheduleId,
+    p_check_out_schedule_id: input.checkOutScheduleId,
+    p_dog_id: input.dogId,
+    p_customer_id: input.customerId,
+    p_room_type_id: input.roomTypeId,
+    p_assignee_ids: input.assigneeIds,
+    p_notes: input.notes || null,
+    p_request_id: requestId,
+  });
 }
 
 export function updateHotelReservation(

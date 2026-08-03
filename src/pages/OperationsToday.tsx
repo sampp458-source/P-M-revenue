@@ -38,6 +38,7 @@ import { formatPhoneForDisplay } from "../lib/phone";
 import {
   createHotelReservation,
   fetchHotelOperationsSnapshot,
+  fetchHotelStay,
   type HotelOperationsSnapshot,
   type HotelReservationInput,
   type HotelStay,
@@ -59,6 +60,7 @@ import {
   fetchOperationScheduleOptions,
   fetchOperationSchedulesForDay,
   isHotelReservationSchedule,
+  isLegacyHotelSchedule,
   isOperationScheduleAssignedTo,
   mergeOperationTodaySchedule,
   nextSeoulDate,
@@ -80,6 +82,7 @@ import {
   type OperationScheduleOptions,
   type OperationRole,
 } from "./operationsScheduleRepository";
+import { LegacyHotelConversionModal } from "./LegacyHotelConversionModal";
 
 export interface ScheduleForm {
   calendarId: string;
@@ -490,6 +493,8 @@ export function OperationsTodayPage() {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [hotelManagementGuideOpen, setHotelManagementGuideOpen] =
     useState(false);
+  const [legacyConversionSchedule, setLegacyConversionSchedule] =
+    useState<OperationSchedule | null>(null);
   const [notice, setNotice] = useState("");
   const [noticeTone, setNoticeTone] = useState<"success" | "warning" | "error">("success");
 
@@ -777,6 +782,15 @@ export function OperationsTodayPage() {
       ),
     [currentOperationRole, profile?.id],
   );
+  const openLegacyConversion = async (schedule: OperationSchedule) => {
+    setDetail(null);
+    setLegacyConversionSchedule(schedule);
+    setHotelSnapshot(
+      await fetchHotelOperationsSnapshot(seoulParts(schedule.startsAt).date).catch(
+        () => null,
+      ),
+    );
+  };
 
   const alerts = useMemo(() => {
     const rows: string[] = [];
@@ -930,6 +944,12 @@ export function OperationsTodayPage() {
           )
         }
         canManage={detail ? canManageSchedule(detail) : false}
+        showLegacyHotelConversion={Boolean(
+          detail &&
+          isLegacyHotelSchedule(detail) &&
+          (currentOperationRole === "owner" || currentOperationRole === "manager"),
+        )}
+        onConvertToHotel={(schedule) => void openLegacyConversion(schedule)}
       />
 
       <Modal
@@ -968,6 +988,23 @@ export function OperationsTodayPage() {
         open={hotelManagementGuideOpen}
         onClose={() => setHotelManagementGuideOpen(false)}
         onOpenHotel={() => navigate("/operations/hotel")}
+      />
+      <LegacyHotelConversionModal
+        open={legacyConversionSchedule !== null}
+        anchor={legacyConversionSchedule}
+        options={options}
+        snapshot={hotelSnapshot}
+        onClose={() => setLegacyConversionSchedule(null)}
+        onConverted={async (stay) => {
+          const [, nextSnapshot] = await Promise.all([
+            loadSchedules(),
+            fetchHotelOperationsSnapshot(localDate),
+            fetchHotelStay(stay.id),
+          ]);
+          setHotelSnapshot(nextSnapshot);
+          setLegacyConversionSchedule(null);
+          showNotice("기존 일정을 호텔 예약으로 전환했습니다.");
+        }}
       />
 
       {notice && (
@@ -1688,6 +1725,8 @@ export function ScheduleDetailModal({
   onArchive,
   onOpenDog,
   onOpenCustomer,
+  onConvertToHotel,
+  showLegacyHotelConversion = false,
   canManage = true,
 }: {
   schedule: OperationSchedule | null;
@@ -1699,6 +1738,8 @@ export function ScheduleDetailModal({
   onArchive: (schedule: OperationSchedule) => void;
   onOpenDog: (id: string) => void;
   onOpenCustomer: (id: string) => void;
+  onConvertToHotel?: (schedule: OperationSchedule) => void;
+  showLegacyHotelConversion?: boolean;
   canManage?: boolean;
 }) {
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
@@ -1728,6 +1769,7 @@ export function ScheduleDetailModal({
             </Badge>
             <Badge>{schedule.calendarName}</Badge>
             <Badge>{schedule.scheduleTypeName}</Badge>
+            {showLegacyHotelConversion ? <Badge tone="gray">기존 수동 일정</Badge> : null}
           </div>
           <h3 className="mt-3 text-2xl font-bold tracking-[-0.03em] text-text-primary">{operationScheduleDisplayTitle(schedule)}</h3>
           <p className="mt-2 text-sm text-text-secondary">
@@ -1777,6 +1819,19 @@ export function ScheduleDetailModal({
                   <Pencil size={15} />
                   일정 수정
                 </button>
+                {showLegacyHotelConversion && onConvertToHotel ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActionMenuOpen(false);
+                      onConvertToHotel(schedule);
+                    }}
+                    className="w-full rounded-lg px-3 py-2.5 text-left text-sm font-semibold text-primary transition hover:bg-primary-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    호텔 예약으로 전환
+                  </button>
+                ) : null}
                 {schedule.status !== "cancelled" && (
                   <button
                     type="button"

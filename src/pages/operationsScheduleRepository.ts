@@ -234,14 +234,27 @@ export function operationScheduleTimeLabel(
 export function isHotelReservationSchedule(
   schedule: Pick<
     OperationSchedule,
-    "businessUnitCode" | "scheduleTypeName" | "hotelEventKind"
+    "hotelStayId" | "hotelEventKind"
   >,
 ) {
-  if (schedule.hotelEventKind) return true;
-  const scheduleTypeName = schedule.scheduleTypeName.replace(/\s/g, "");
+  return Boolean(
+    schedule.hotelStayId &&
+      (schedule.hotelEventKind === "check_in" ||
+        schedule.hotelEventKind === "check_out"),
+  );
+}
+
+export function isLegacyHotelSchedule(
+  schedule: Pick<
+    OperationSchedule,
+    "businessUnitCode" | "archivedAt" | "status" | "hotelStayId" | "hotelEventKind"
+  >,
+) {
   return (
     schedule.businessUnitCode === "hotel" &&
-    (scheduleTypeName.includes("입실") || scheduleTypeName.includes("퇴실"))
+    schedule.archivedAt === null &&
+    schedule.status !== "cancelled" &&
+    !isHotelReservationSchedule(schedule)
   );
 }
 
@@ -270,8 +283,7 @@ export function shouldDisplayOperationSchedule(
   schedule: Pick<
     OperationSchedule,
     | "status"
-    | "businessUnitCode"
-    | "scheduleTypeName"
+    | "hotelStayId"
     | "hotelEventKind"
   >,
 ) {
@@ -437,15 +449,13 @@ interface HotelRoomTypeNameRow {
 }
 
 async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
-  const hotelScheduleIds = schedules
-    .filter((schedule) => schedule.businessUnitCode === "hotel")
-    .map((schedule) => schedule.id);
-  if (hotelScheduleIds.length === 0) return schedules;
+  const scheduleIds = schedules.map((schedule) => schedule.id);
+  if (scheduleIds.length === 0) return schedules;
 
   const result = await supabase
     .from("hotel_stay_schedule_events")
     .select("hotel_stay_id, operation_schedule_id, event_kind")
-    .in("operation_schedule_id", hotelScheduleIds)
+    .in("operation_schedule_id", scheduleIds)
     .is("archived_at", null);
   throwScheduleError(result.error);
 
@@ -461,12 +471,22 @@ async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
     ),
   ];
   if (hotelStayIds.length === 0) return schedules;
-  const capacityResult = await supabase
-    .from("hotel_capacity_reservations")
-    .select("hotel_stay_id, room_type_id")
-    .in("hotel_stay_id", hotelStayIds)
-    .is("archived_at", null);
-  throwScheduleError(capacityResult.error);
+  const [stayResult, capacityResult] = await Promise.all([
+    supabase
+      .from("hotel_stays")
+      .select("id")
+      .in("id", hotelStayIds)
+      .is("archived_at", null),
+    supabase
+      .from("hotel_capacity_reservations")
+      .select("hotel_stay_id, room_type_id")
+      .in("hotel_stay_id", hotelStayIds)
+      .is("archived_at", null),
+  ]);
+  throwScheduleError(stayResult.error ?? capacityResult.error);
+  const activeStayIds = new Set(
+    (stayResult.data ?? []).map((stay) => stay.id as string),
+  );
   const capacityRows = (capacityResult.data ?? []) as HotelCapacityLinkRow[];
   const roomTypeIds = [
     ...new Set(capacityRows.map((capacity) => capacity.room_type_id)),
@@ -495,7 +515,7 @@ async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
   return schedules
     .map((schedule) => {
       const link = linkByScheduleId.get(schedule.id);
-      return link
+      return link && activeStayIds.has(link.hotel_stay_id)
         ? {
             ...schedule,
             hotelStayId: link.hotel_stay_id,
@@ -506,6 +526,123 @@ async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
         : schedule;
     })
     .filter(shouldDisplayOperationSchedule);
+}
+
+export async function fetchLegacyHotelScheduleCandidates(
+  anchor: OperationSchedule,
+  options: OperationScheduleOptions,
+) {
+  const result = await supabase
+    .from("operation_schedules")
+    .select(
+      "id, calendar_id, schedule_type_id, title, description, starts_at, ends_at, all_day, time_unspecified, status, version, request_id, created_by, created_at, updated_by, updated_at, archived_at",
+    )
+    .eq("calendar_id", anchor.calendarId)
+    .eq("status", "scheduled")
+    .is("archived_at", null)
+    .order("starts_at")
+    .order("created_at")
+    .limit(500);
+  throwScheduleError(result.error);
+  const rows = (result.data ?? []) as ScheduleTableRow[];
+  if (rows.length === 0) return [];
+
+  const scheduleIds = rows.map((row) => row.id);
+  const [assigneeResult, dogResult, customerResult] = await Promise.all([
+    supabase.from("operation_schedule_assignees").select("schedule_id, profile_id")
+      .in("schedule_id", scheduleIds).is("archived_at", null),
+    supabase.from("operation_schedule_dogs").select("schedule_id, dog_id")
+      .in("schedule_id", scheduleIds).is("archived_at", null),
+    supabase.from("operation_schedule_customers").select("schedule_id, customer_id")
+      .in("schedule_id", scheduleIds).is("archived_at", null),
+  ]);
+  throwScheduleError(
+    assigneeResult.error ?? dogResult.error ?? customerResult.error,
+  );
+  const group = <T extends { schedule_id: string }>(items: T[]) => {
+    const grouped = new Map<string, T[]>();
+    items.forEach((item) => grouped.set(item.schedule_id, [
+      ...(grouped.get(item.schedule_id) ?? []), item,
+    ]));
+    return grouped;
+  };
+  const assignees = group(assigneeResult.data ?? []);
+  const dogs = group(dogResult.data ?? []);
+  const customers = group(customerResult.data ?? []);
+  const calendar = options.calendars.find((row) => row.id === anchor.calendarId);
+  const scheduleTypes = new Map(options.scheduleTypes.map((row) => [row.id, row]));
+  const people = new Map(options.assignees.map((row) => [row.id, row]));
+  const dogDirectory = new Map(options.dogs.map((row) => [row.id, row]));
+  const customerDirectory = new Map(options.customers.map((row) => [row.id, row]));
+  const mapped = rows.map((row): OperationSchedule => {
+    const scheduleType = scheduleTypes.get(row.schedule_type_id);
+    return {
+      id: row.id,
+      calendarId: row.calendar_id,
+      calendarName: calendar?.name ?? "호텔",
+      calendarColor: calendar?.color ?? DEFAULT_OPERATION_SCHEDULE_COLOR,
+      calendarScope: calendar?.scopeType ?? "business_unit",
+      businessUnitCode: calendar?.businessUnitCode ?? null,
+      businessUnitName: calendar?.businessUnitName ?? null,
+      scheduleTypeId: row.schedule_type_id,
+      scheduleTypeName: scheduleType?.name ?? "기타",
+      scheduleTypeColor: scheduleType?.color ?? DEFAULT_OPERATION_SCHEDULE_COLOR,
+      title: row.title,
+      memo: row.description,
+      startsAt: row.starts_at,
+      endsAt: row.ends_at,
+      allDay: row.all_day,
+      timeUnspecified: row.time_unspecified,
+      status: row.status,
+      version: row.version,
+      requestId: row.request_id,
+      createdBy: row.created_by,
+      createdByName: people.get(row.created_by)?.name ?? null,
+      createdAt: row.created_at,
+      updatedBy: row.updated_by,
+      updatedByName: row.updated_by ? people.get(row.updated_by)?.name ?? null : null,
+      updatedAt: row.updated_at,
+      archivedAt: row.archived_at,
+      hotelStayId: null,
+      hotelEventKind: null,
+      hotelRoomTypeName: null,
+      assignees: (assignees.get(row.id) ?? []).map((item) => people.get(item.profile_id))
+        .filter((item): item is OperationPerson => Boolean(item)),
+      dogs: (dogs.get(row.id) ?? []).map((item) => dogDirectory.get(item.dog_id))
+        .filter((item): item is OperationDog => Boolean(item)),
+      customers: (customers.get(row.id) ?? []).map((item) => customerDirectory.get(item.customer_id))
+        .filter((item): item is OperationCustomer => Boolean(item)),
+    };
+  });
+  return (await attachHotelScheduleLinks(mapped)).filter(isLegacyHotelSchedule);
+}
+
+export function sortLegacyHotelCounterparts(
+  anchor: OperationSchedule,
+  schedules: OperationSchedule[],
+  anchorKind: HotelScheduleEventKind,
+) {
+  const anchorDogIds = new Set(anchor.dogs.map((row) => row.id));
+  const anchorCustomerIds = new Set(anchor.customers.map((row) => row.id));
+  const anchorTime = new Date(anchor.startsAt).getTime();
+  return schedules
+    .filter((schedule) => {
+      if (schedule.id === anchor.id || !isLegacyHotelSchedule(schedule)) return false;
+      const candidateTime = new Date(schedule.startsAt).getTime();
+      return anchorKind === "check_in"
+        ? candidateTime > anchorTime
+        : candidateTime < anchorTime;
+    })
+    .sort((left, right) => {
+      const dog = (schedule: OperationSchedule) =>
+        Number(!schedule.dogs.some((row) => anchorDogIds.has(row.id)));
+      const customer = (schedule: OperationSchedule) =>
+        Number(!schedule.customers.some((row) => anchorCustomerIds.has(row.id)));
+      return dog(left) - dog(right) || customer(left) - customer(right) ||
+        Math.abs(new Date(left.startsAt).getTime() - anchorTime) -
+          Math.abs(new Date(right.startsAt).getTime() - anchorTime) ||
+        left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id);
+    });
 }
 
 export async function fetchOperationSchedulesForDay(localDate: string) {
