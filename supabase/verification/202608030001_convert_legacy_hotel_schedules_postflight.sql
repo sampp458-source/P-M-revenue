@@ -1,5 +1,26 @@
 -- Read-only postflight for legacy Hotel schedule conversion.
-begin read only;
+
+select object_name, row_count
+from (
+  values
+    ('operation_schedules', (select count(*)::bigint from public.operation_schedules)),
+    ('hotel_stays', (select count(*)::bigint from public.hotel_stays)),
+    ('hotel_capacity_reservations', (select count(*)::bigint from public.hotel_capacity_reservations)),
+    ('hotel_stay_schedule_events', (select count(*)::bigint from public.hotel_stay_schedule_events))
+) current_state(object_name, row_count)
+order by object_name;
+
+select
+  procedure_row.oid::regprocedure::text as function_signature,
+  md5(pg_get_functiondef(procedure_row.oid)) as function_fingerprint
+from pg_proc procedure_row
+where procedure_row.oid in (
+  to_regprocedure('public.update_operation_schedule(uuid,integer,uuid,uuid,text,timestamp with time zone,timestamp with time zone,boolean,boolean,text,uuid[],uuid[],uuid[],uuid)'),
+  to_regprocedure('public.assert_hotel_capacity_available(uuid,timestamp with time zone,timestamp with time zone,integer,uuid)'),
+  to_regprocedure('public.hotel_stay_json(uuid)'),
+  to_regprocedure('public.create_hotel_reservation(uuid,uuid,text,timestamp with time zone,timestamp with time zone,uuid,uuid,uuid,uuid[],text,uuid)')
+)
+order by function_signature;
 
 with target as (
   select procedure_row.*,
@@ -79,7 +100,7 @@ with target as (
     coalesce((select normalized_definition like '%return public.hotel_stay_json(stay_id)%'
       from target), false) as stay_json_return_present
 )
-select *, case
+select case
   when not function_exists then 'FAILED_FUNCTION_MISSING'
   when not security_definer then 'FAILED_SECURITY_DEFINER'
   when not fixed_search_path then 'FAILED_SEARCH_PATH'
@@ -97,30 +118,9 @@ select *, case
   when not aggregate_insert_contract_present then 'FAILED_AGGREGATE_INSERT_CONTRACT'
   when not stay_json_return_present then 'FAILED_RETURN_CONTRACT'
   else 'LEGACY_HOTEL_CONVERSION_READY'
-end as postflight_status
+end as postflight_status,
+checks.*
 from checks;
-
-select object_name, row_count
-from (
-  values
-    ('operation_schedules', (select count(*)::bigint from public.operation_schedules)),
-    ('hotel_stays', (select count(*)::bigint from public.hotel_stays)),
-    ('hotel_capacity_reservations', (select count(*)::bigint from public.hotel_capacity_reservations)),
-    ('hotel_stay_schedule_events', (select count(*)::bigint from public.hotel_stay_schedule_events))
-) current_state(object_name, row_count)
-order by object_name;
-
-select
-  procedure_row.oid::regprocedure::text as function_signature,
-  md5(pg_get_functiondef(procedure_row.oid)) as function_fingerprint
-from pg_proc procedure_row
-where procedure_row.oid in (
-  to_regprocedure('public.update_operation_schedule(uuid,integer,uuid,uuid,text,timestamp with time zone,timestamp with time zone,boolean,boolean,text,uuid[],uuid[],uuid[],uuid)'),
-  to_regprocedure('public.assert_hotel_capacity_available(uuid,timestamp with time zone,timestamp with time zone,integer,uuid)'),
-  to_regprocedure('public.hotel_stay_json(uuid)'),
-  to_regprocedure('public.create_hotel_reservation(uuid,uuid,text,timestamp with time zone,timestamp with time zone,uuid,uuid,uuid,uuid[],text,uuid)')
-)
-order by function_signature;
 
 -- Optional manual rollback-only conversion probe (do not run against production data
 -- without replacing every value with disposable test records):
@@ -131,5 +131,3 @@ order by function_signature;
 --   array['<assignee-profile-id>'::uuid], 'rollback probe', gen_random_uuid()
 -- );
 -- rollback;
-
-rollback;
