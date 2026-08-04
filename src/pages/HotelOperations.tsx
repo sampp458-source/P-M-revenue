@@ -7,7 +7,15 @@ import {
   MoveRight,
   Settings,
 } from "lucide-react";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   Badge,
@@ -22,6 +30,7 @@ import {
   Modal,
   PageHeader,
   Toast,
+  cn,
 } from "../components/ui";
 import {
   CheckInModal,
@@ -57,13 +66,16 @@ import {
   formatHotelScheduleTime,
   hotelStayAssigneeIds,
   hotelStayCalendarContract,
+  hotelStayDayPhase,
   hotelStayMemo,
   hotelStayNeedsCheckInFinalization,
   hotelStayStatus,
   hotelStayTitle,
   hotelStayScheduleEvent,
   hotelStayUnspecifiedState,
+  matchesHotelQuickFilter,
   seoulInputParts,
+  type HotelQuickFilter,
 } from "./hotelOperationsUi";
 import {
   ScheduleFormModal,
@@ -155,7 +167,10 @@ export function scheduleFormFromHotelStay(stay: HotelStay): ScheduleForm {
 
 export function HotelOperationsPage() {
   const { profile } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const directStayHandledRef = useRef<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(() => seoulDateKey());
+  const [quickFilter, setQuickFilter] = useState<HotelQuickFilter>("all");
   const [snapshot, setSnapshot] = useState<HotelOperationsSnapshot | null>(null);
   const [options, setOptions] = useState<OperationScheduleOptions>(emptyOptions);
   const [operationRole, setOperationRole] = useState<OperationRole | null>(null);
@@ -206,6 +221,44 @@ export function HotelOperationsPage() {
   useEffect(() => {
     void loadPage();
   }, [loadPage]);
+
+  useEffect(() => {
+    const stayId = searchParams.get("stayId");
+    if (!stayId || loading || !snapshot || directStayHandledRef.current === stayId) {
+      return;
+    }
+    directStayHandledRef.current = stayId;
+    setSelectedStayId(stayId);
+    setDetailLoading(true);
+    void fetchHotelStay(stayId)
+      .then((stay) => {
+        setDetail(stay);
+        const nextParams = new URLSearchParams(searchParams);
+        const mode = nextParams.get("mode");
+        nextParams.delete("stayId");
+        nextParams.delete("mode");
+        setSearchParams(nextParams, { replace: true });
+        if (mode === "edit") {
+          if (stay.archivedAt || stay.checkedInAt || stay.checkedOutAt) {
+            setToast({
+              message: "현재 상태에서는 예약을 수정할 수 없어 상세 정보로 열었습니다.",
+              tone: "error",
+            });
+            return;
+          }
+          setScheduleForm(scheduleFormFromHotelStay(stay));
+          setTitleManuallyEdited(true);
+          setFormError("");
+          setModal("reservation");
+        }
+      })
+      .catch((error) => {
+        setSelectedStayId(null);
+        setDetail(null);
+        setToast({ message: errorMessage(error), tone: "error" });
+      })
+      .finally(() => setDetailLoading(false));
+  }, [loading, searchParams, setSearchParams, snapshot]);
 
   const openStay = async (stayId: string) => {
     setSelectedStayId(stayId);
@@ -367,10 +420,33 @@ export function HotelOperationsPage() {
     }
   };
 
-  const stays = snapshot?.stays ?? [];
-  const roomTypeUnspecifiedStays = stays.filter(
+  const stays = useMemo(() => snapshot?.stays ?? [], [snapshot?.stays]);
+  const filterCounts = useMemo(
+    () => ({
+      all: stays.length,
+      check_in: stays.filter((stay) =>
+        matchesHotelQuickFilter(stay, selectedDate, "check_in"),
+      ).length,
+      in_house: stays.filter((stay) =>
+        matchesHotelQuickFilter(stay, selectedDate, "in_house"),
+      ).length,
+      check_out: stays.filter((stay) =>
+        matchesHotelQuickFilter(stay, selectedDate, "check_out"),
+      ).length,
+    }),
+    [selectedDate, stays],
+  );
+  const filteredStays = useMemo(
+    () =>
+      stays.filter((stay) =>
+        matchesHotelQuickFilter(stay, selectedDate, quickFilter),
+      ),
+    [quickFilter, selectedDate, stays],
+  );
+  const roomTypeUnspecifiedStays = filteredStays.filter(
     (stay) => !stay.capacityReservation?.roomTypeId,
   );
+  const selectedDateIsToday = selectedDate === seoulDateKey();
   const isSettingsManager = operationRole === "owner" || operationRole === "manager";
 
   if (loading) return <LoadingState />;
@@ -402,10 +478,46 @@ export function HotelOperationsPage() {
           <Input
             type="date"
             value={selectedDate}
-            onChange={(event) => setSelectedDate(event.target.value)}
+            onChange={(event) => {
+              setSelectedDate(event.target.value);
+              setQuickFilter("all");
+            }}
             className="max-w-xs"
           />
         </Field>
+        <div className="mt-4 border-t border-border pt-4">
+          <p className="mb-2 text-xs font-semibold text-text-muted">빠른 업무 보기</p>
+          <div
+            role="group"
+            aria-label="호텔 예약 빠른 상태 필터"
+            className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:px-0"
+          >
+            {([
+              ["all", "전체"],
+              ["check_in", selectedDateIsToday ? "오늘 입실" : "입실"],
+              ["in_house", "이용중"],
+              ["check_out", selectedDateIsToday ? "오늘 퇴실" : "퇴실"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                aria-pressed={quickFilter === value}
+                onClick={() => setQuickFilter(value)}
+                className={cn(
+                  "min-h-11 shrink-0 rounded-full border px-4 text-sm font-semibold transition duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                  quickFilter === value
+                    ? "border-primary bg-primary text-white shadow-sm"
+                    : "border-border bg-surface text-text-secondary hover:-translate-y-px hover:border-primary/30 hover:text-primary hover:shadow-sm",
+                )}
+              >
+                {label} <span className="tabular-nums">({filterCounts[value]})</span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-text-muted">
+            목록만 필터링하며 객실 현황 수치는 선택 날짜 전체 예약 기준입니다.
+          </p>
+        </div>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -475,8 +587,8 @@ export function HotelOperationsPage() {
           <EmptyState compact title="객실 미정 예약이 없습니다." />
         ) : (
           <div className="divide-y divide-border">
-            {roomTypeUnspecifiedStays.map((stay) => (
-              <StayRow key={stay.id} stay={stay} onClick={() => void openStay(stay.id)} />
+              {roomTypeUnspecifiedStays.map((stay) => (
+                <StayRow key={stay.id} stay={stay} selectedDate={selectedDate} onClick={() => void openStay(stay.id)} />
             ))}
           </div>
         )}
@@ -487,16 +599,16 @@ export function HotelOperationsPage() {
           <div className="flex items-center justify-between border-b border-border px-5 py-4 sm:px-6">
             <div>
               <h2 className="font-bold text-text-primary">선택 날짜 예약</h2>
-              <p className="mt-0.5 text-xs text-text-secondary">총 {stays.length}건</p>
+              <p className="mt-0.5 text-xs text-text-secondary">총 {filteredStays.length}건</p>
             </div>
             <BedDouble size={20} className="text-primary" />
           </div>
-          {stays.length === 0 ? (
-            <EmptyState title="이 날짜에 호텔 예약이 없습니다." description="호텔 예약은 여기에서 한 번만 등록하며 Calendar에 입·퇴실 일정이 자동 연결됩니다." />
+          {filteredStays.length === 0 ? (
+            <EmptyState title={quickFilter === "all" ? "이 날짜에 호텔 예약이 없습니다." : "선택한 업무에 해당하는 예약이 없습니다."} description="호텔 예약은 여기에서 한 번만 등록하며 Calendar에 입·퇴실 일정이 자동 연결됩니다." />
           ) : (
             <div className="divide-y divide-border">
-              {stays.map((stay) => (
-                <StayRow key={stay.id} stay={stay} onClick={() => void openStay(stay.id)} />
+              {filteredStays.map((stay) => (
+                <StayRow key={stay.id} stay={stay} selectedDate={selectedDate} onClick={() => void openStay(stay.id)} />
               ))}
             </div>
           )}
@@ -634,8 +746,9 @@ function Metric({ label, value, alert = false }: { label: string; value: string;
   return <div className={`rounded-2xl border px-3.5 py-3 ${alert ? "border-warning/20 bg-warning-soft" : "border-border bg-surface-secondary"}`}><dt className="text-xs text-text-secondary">{label}</dt><dd className={`mt-1 text-lg font-bold tabular-nums ${alert ? "text-warning" : "text-text-primary"}`}>{value}</dd></div>;
 }
 
-function StayRow({ stay, onClick }: { stay: HotelStay; onClick: () => void }) {
+function StayRow({ stay, selectedDate, onClick }: { stay: HotelStay; selectedDate: string; onClick: () => void }) {
   const status = hotelStayStatus(stay);
+  const dayPhase = hotelStayDayPhase(stay, selectedDate);
   const unspecified = hotelStayUnspecifiedState(stay);
   return (
     <button type="button" onClick={onClick} className="grid w-full gap-3 px-5 py-4 text-left transition hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-6">
@@ -643,6 +756,7 @@ function StayRow({ stay, onClick }: { stay: HotelStay; onClick: () => void }) {
         <div className="flex flex-wrap items-center gap-2">
           <b className="truncate text-sm text-text-primary">{hotelStayTitle(stay)}</b>
           <Badge tone={statusTone(status)}>{status}</Badge>
+          {dayPhase ? <Badge tone="blue">{dayPhase}</Badge> : null}
           {unspecified.checkInTime ? <Badge tone="amber">입실시간 미정</Badge> : null}
           {unspecified.checkOutTime ? <Badge tone="amber">퇴실시간 미정</Badge> : null}
           {unspecified.roomType ? <Badge tone="amber">객실 미정</Badge> : null}

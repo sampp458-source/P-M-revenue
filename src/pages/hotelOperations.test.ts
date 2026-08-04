@@ -5,9 +5,11 @@ import type { HotelStay } from "./hotelOperationsRepository";
 import {
   activeHotelAllocation,
   formatHotelScheduleTime,
+  hotelStayDayPhase,
   hotelStayNeedsCheckInFinalization,
   hotelStayStatus,
   hotelStayUnspecifiedState,
+  matchesHotelQuickFilter,
   seoulInputParts,
 } from "./hotelOperationsUi";
 import { scheduleFormFromHotelStay } from "./HotelOperations";
@@ -77,6 +79,90 @@ const stay = (overrides: Partial<HotelStay> = {}): HotelStay => ({
 });
 
 describe("Hotel Operations frontend", () => {
+  it("derives selected-day work phases from linked KST event dates", () => {
+    const scheduledStay = stay({
+      scheduleEvents: [
+        {
+          eventKind: "check_in",
+          schedule: {
+            id: "check-in",
+            title: "토리 입실",
+            memo: null,
+            startsAt: "2026-08-02T06:00:00Z",
+            endsAt: "2026-08-02T07:00:00Z",
+            timeUnspecified: false,
+            status: "scheduled",
+            calendarId: "hotel-calendar",
+            scheduleTypeId: "hotel-type",
+            assignees: [],
+          },
+        },
+        {
+          eventKind: "check_out",
+          schedule: {
+            id: "check-out",
+            title: "토리 퇴실",
+            memo: null,
+            startsAt: "2026-08-05T02:00:00Z",
+            endsAt: "2026-08-05T03:00:00Z",
+            timeUnspecified: false,
+            status: "scheduled",
+            calendarId: "hotel-calendar",
+            scheduleTypeId: "hotel-type",
+            assignees: [],
+          },
+        },
+      ],
+    });
+
+    expect(hotelStayDayPhase(scheduledStay, "2026-08-02")).toBe("입실");
+    expect(hotelStayDayPhase(scheduledStay, "2026-08-03")).toBe("이용중");
+    expect(hotelStayDayPhase(scheduledStay, "2026-08-05")).toBe("퇴실");
+    expect(matchesHotelQuickFilter(scheduledStay, "2026-08-03", "in_house")).toBe(true);
+    expect(matchesHotelQuickFilter(scheduledStay, "2026-08-02", "check_in")).toBe(true);
+    expect(matchesHotelQuickFilter(scheduledStay, "2026-08-05", "check_out")).toBe(true);
+  });
+
+  it("shows a same-day stay in both arrival and departure work filters", () => {
+    const sameDayStay = stay({
+      scheduleEvents: [
+        {
+          eventKind: "check_in",
+          schedule: {
+            id: "check-in",
+            title: "토리 입실",
+            memo: null,
+            startsAt: "2026-08-02T06:00:00Z",
+            endsAt: "2026-08-02T07:00:00Z",
+            timeUnspecified: false,
+            status: "scheduled",
+            calendarId: "hotel-calendar",
+            scheduleTypeId: "hotel-type",
+            assignees: [],
+          },
+        },
+        {
+          eventKind: "check_out",
+          schedule: {
+            id: "check-out",
+            title: "토리 퇴실",
+            memo: null,
+            startsAt: "2026-08-02T11:00:00Z",
+            endsAt: "2026-08-02T12:00:00Z",
+            timeUnspecified: false,
+            status: "scheduled",
+            calendarId: "hotel-calendar",
+            scheduleTypeId: "hotel-type",
+            assignees: [],
+          },
+        },
+      ],
+    });
+    expect(hotelStayDayPhase(sameDayStay, "2026-08-02")).toBe("입실·퇴실");
+    expect(matchesHotelQuickFilter(sameDayStay, "2026-08-02", "check_in")).toBe(true);
+    expect(matchesHotelQuickFilter(sameDayStay, "2026-08-02", "check_out")).toBe(true);
+    expect(matchesHotelQuickFilter(sameDayStay, "2026-08-02", "in_house")).toBe(false);
+  });
   it("renders an unspecified check-in from the linked event instead of the Capacity placeholder", () => {
     const unspecifiedStay = stay({
       capacityReservation: {
@@ -163,6 +249,16 @@ describe("Hotel Operations frontend", () => {
     expect(calendarSource).toContain("<ScheduleFormModal");
     expect(pageSource).not.toContain("HotelReservationModal");
     expect(modalSource).not.toContain("HotelReservationModal");
+  });
+
+  it("deep-links linked Calendar events to the exact Hotel stay edit flow", () => {
+    expect(todaySource).toContain("hotelManagementStayId");
+    expect(calendarSource).toContain("hotelManagementStayId");
+    expect(todaySource).toContain("?stayId=${encodeURIComponent(hotelManagementStayId)}&mode=edit");
+    expect(calendarSource).toContain("?stayId=${encodeURIComponent(hotelManagementStayId)}&mode=edit");
+    expect(pageSource).toContain("useSearchParams");
+    expect(pageSource).toContain("fetchHotelStay(stayId)");
+    expect(pageSource).toContain("setSearchParams(nextParams, { replace: true })");
   });
 
   it("labels confirmed and safe availability without overstating room-type inventory", () => {

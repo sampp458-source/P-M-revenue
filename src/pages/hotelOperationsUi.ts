@@ -9,6 +9,9 @@ export type HotelStayStatus =
   | "객실 이동"
   | "퇴실 완료";
 
+export type HotelStayDayPhase = "입실" | "이용중" | "퇴실" | "입실·퇴실";
+export type HotelQuickFilter = "all" | "check_in" | "in_house" | "check_out";
+
 export function activeHotelAllocation(stay: HotelStay) {
   return [...stay.roomAllocations].sort(
     (left, right) =>
@@ -64,6 +67,42 @@ export function hotelStayScheduleEvent(
 ) {
   return stay.scheduleEvents.find((event) => event.eventKind === eventKind)
     ?.schedule ?? null;
+}
+
+export function hotelStayScheduleDate(
+  stay: HotelStay,
+  eventKind: "check_in" | "check_out",
+) {
+  const schedule = hotelStayScheduleEvent(stay, eventKind);
+  return schedule ? seoulInputParts(schedule.startsAt).date : null;
+}
+
+export function hotelStayDayPhase(
+  stay: HotelStay,
+  selectedDate: string,
+): HotelStayDayPhase | null {
+  const checkInDate = hotelStayScheduleDate(stay, "check_in");
+  const checkOutDate = hotelStayScheduleDate(stay, "check_out");
+  if (!checkInDate || !checkOutDate) return null;
+  if (checkInDate === selectedDate && checkOutDate === selectedDate) {
+    return "입실·퇴실";
+  }
+  if (checkInDate === selectedDate) return "입실";
+  if (checkOutDate === selectedDate) return "퇴실";
+  if (checkInDate < selectedDate && selectedDate < checkOutDate) return "이용중";
+  return null;
+}
+
+export function matchesHotelQuickFilter(
+  stay: HotelStay,
+  selectedDate: string,
+  filter: HotelQuickFilter,
+) {
+  if (filter === "all") return true;
+  const phase = hotelStayDayPhase(stay, selectedDate);
+  if (filter === "check_in") return phase === "입실" || phase === "입실·퇴실";
+  if (filter === "check_out") return phase === "퇴실" || phase === "입실·퇴실";
+  return phase === "이용중";
 }
 
 export function hotelStayUnspecifiedState(stay: HotelStay) {

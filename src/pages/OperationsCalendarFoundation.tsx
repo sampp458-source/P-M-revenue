@@ -181,6 +181,8 @@ export function OperationsCalendarFoundationPage() {
   );
   const [hotelManagementGuideOpen, setHotelManagementGuideOpen] =
     useState(false);
+  const [hotelManagementStayId, setHotelManagementStayId] =
+    useState<string | null>(null);
   const [legacyConversionSchedule, setLegacyConversionSchedule] =
     useState<OperationSchedule | null>(null);
   const [notice, setNotice] = useState("");
@@ -264,6 +266,11 @@ export function OperationsCalendarFoundationPage() {
     setNoticeTone(tone);
   };
 
+  const openHotelManagementGuide = (schedule: OperationSchedule) => {
+    setHotelManagementStayId(schedule.hotelStayId ?? null);
+    setHotelManagementGuideOpen(true);
+  };
+
   const openLegacyConversion = async (schedule: OperationSchedule) => {
     setDetail(null);
     setLegacyConversionSchedule(schedule);
@@ -306,7 +313,7 @@ export function OperationsCalendarFoundationPage() {
   const openEdit = (schedule: OperationSchedule) => {
     if (isHotelReservationSchedule(schedule)) {
       setDetail(null);
-      setHotelManagementGuideOpen(true);
+      openHotelManagementGuide(schedule);
       return;
     }
     setDetail(null);
@@ -397,7 +404,7 @@ export function OperationsCalendarFoundationPage() {
   const completeSchedule = async (schedule: OperationSchedule) => {
     if (isHotelReservationSchedule(schedule)) {
       setDetail(null);
-      setHotelManagementGuideOpen(true);
+      openHotelManagementGuide(schedule);
       return;
     }
     setSaving(true);
@@ -427,8 +434,8 @@ export function OperationsCalendarFoundationPage() {
   const confirmAction = async () => {
     if (!pendingAction) return;
     if (isHotelReservationSchedule(pendingAction.schedule)) {
+      openHotelManagementGuide(pendingAction.schedule);
       setPendingAction(null);
-      setHotelManagementGuideOpen(true);
       return;
     }
     const actionReason =
@@ -636,7 +643,7 @@ export function OperationsCalendarFoundationPage() {
         onCancel={(schedule) => {
           if (isHotelReservationSchedule(schedule)) {
             setDetail(null);
-            setHotelManagementGuideOpen(true);
+            openHotelManagementGuide(schedule);
             return;
           }
           setPendingAction({ type: "cancel", schedule });
@@ -645,7 +652,7 @@ export function OperationsCalendarFoundationPage() {
         onArchive={(schedule) => {
           if (isHotelReservationSchedule(schedule)) {
             setDetail(null);
-            setHotelManagementGuideOpen(true);
+            openHotelManagementGuide(schedule);
             return;
           }
           setPendingAction({ type: "archive", schedule });
@@ -700,8 +707,16 @@ export function OperationsCalendarFoundationPage() {
       </Modal>
       <HotelScheduleManagementDialog
         open={hotelManagementGuideOpen}
-        onClose={() => setHotelManagementGuideOpen(false)}
-        onOpenHotel={() => navigate("/operations/hotel")}
+        onClose={() => {
+          setHotelManagementGuideOpen(false);
+          setHotelManagementStayId(null);
+        }}
+        onOpenHotel={() => {
+          if (!hotelManagementStayId) return;
+          navigate(
+            `/operations/hotel?stayId=${encodeURIComponent(hotelManagementStayId)}&mode=edit`,
+          );
+        }}
       />
       <LegacyHotelConversionModal
         open={legacyConversionSchedule !== null}

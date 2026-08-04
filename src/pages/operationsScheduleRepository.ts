@@ -272,7 +272,12 @@ export function operationScheduleDisplayTitle(
         : null;
   if (eventLabel) {
     const dogName = schedule.dogs[0]?.name;
-    return [dogName, "호텔링", schedule.hotelRoomTypeName, eventLabel]
+    return [
+      dogName,
+      "호텔링",
+      eventLabel,
+      schedule.hotelRoomTypeName ?? "객실 미정",
+    ]
       .filter(Boolean)
       .join(" · ");
   }

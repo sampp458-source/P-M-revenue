@@ -12,6 +12,7 @@ import {
   ScheduleFormModal,
   createNewScheduleFromForm,
   emptyForm,
+  halfHourTimeOptions,
   hotelReservationInputFromForm,
   initializeHotelScheduleForm,
   transitionScheduleFormCalendar,
@@ -202,6 +203,29 @@ describe("shared ScheduleFormModal Hotel mode", () => {
     );
   });
 
+  it("switches a Hotel calendar between reservation and general operation modes", () => {
+    render(<Harness initialHotel />);
+
+    expect(screen.getByLabelText(/입실 날짜/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "상담·일반 일정" }));
+    expect(screen.queryByLabelText(/입실 날짜/)).toBeNull();
+    expect(screen.getByLabelText(/^제목/)).toBeTruthy();
+    expect((screen.getByLabelText(/일정 유형/) as HTMLSelectElement).disabled).toBe(false);
+    expect((screen.getByLabelText(/일정 유형/) as HTMLSelectElement).value).toBe("class-type");
+
+    fireEvent.click(screen.getByRole("button", { name: "호텔 예약" }));
+    expect(screen.getByLabelText(/입실 날짜/)).toBeTruthy();
+    expect((screen.getByLabelText(/일정 유형/) as HTMLSelectElement).value).toBe("hotel-stay-type");
+  });
+
+  it("prioritizes configured Hotel defaults while retaining every 30-minute option", () => {
+    const options = halfHourTimeOptions("15:00:00");
+    expect(options[0]).toBe("15:00");
+    expect(options).toHaveLength(48);
+    expect(options).toContain("09:30");
+    expect(options).toContain("23:30");
+  });
+
   it("does not leak Hotel calendar state after closing and reopening", () => {
     render(<Harness />);
     fireEvent.change(screen.getByLabelText(/캘린더/), {
@@ -269,6 +293,33 @@ describe("shared ScheduleFormModal Hotel mode", () => {
     expect(createOperation.mock.calls[0][0]).not.toHaveProperty(
       "hotelRoomTypeId",
     );
+
+    const hotelGeneralForm = initializeHotelScheduleForm(
+      generalForm(),
+      options,
+      snapshot,
+    );
+    hotelGeneralForm.hotelScheduleMode = "operation";
+    hotelGeneralForm.scheduleTypeId = "class-type";
+    hotelGeneralForm.title = "호텔 방문 상담";
+    hotelGeneralForm.startTime = "14:00";
+    hotelGeneralForm.endTime = "15:00";
+    await createNewScheduleFromForm(
+      hotelGeneralForm,
+      options,
+      snapshot,
+      "request-hotel-consultation",
+      { createHotel, createOperation },
+    );
+    expect(createOperation).toHaveBeenCalledTimes(2);
+    expect(createOperation.mock.calls[1][0]).toEqual(
+      expect.objectContaining({
+        calendarId: "hotel-calendar",
+        scheduleTypeId: "class-type",
+        title: "호텔 방문 상담",
+      }),
+    );
+    expect(createHotel).toHaveBeenCalledTimes(1);
   });
 
   it("does not choose the first mapped type when the stay type is missing", () => {

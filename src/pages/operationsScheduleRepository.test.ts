@@ -488,7 +488,7 @@ describe("Operations schedule date and display helpers", () => {
         hotelRoomTypeName: "STANDARD",
         dogs: [{ id: "dog", name: "오담", customerId: null }],
       }),
-    ).toBe("오담 · 호텔링 · STANDARD · 입실");
+    ).toBe("오담 · 호텔링 · 입실 · STANDARD");
     expect(
       operationScheduleDisplayTitle({
         title: "입실·퇴실",
@@ -496,7 +496,15 @@ describe("Operations schedule date and display helpers", () => {
         hotelRoomTypeName: "DELUXE",
         dogs: [{ id: "dog", name: "오담", customerId: null }],
       }),
-    ).toBe("오담 · 호텔링 · DELUXE · 퇴실");
+    ).toBe("오담 · 호텔링 · 퇴실 · DELUXE");
+    expect(
+      operationScheduleDisplayTitle({
+        title: "입실·퇴실",
+        hotelEventKind: "check_in",
+        hotelRoomTypeName: null,
+        dogs: [{ id: "dog", name: "오담", customerId: null }],
+      }),
+    ).toBe("오담 · 호텔링 · 입실 · 객실 미정");
     expect(
       operationScheduleDisplayTitle({
         title: "상담",

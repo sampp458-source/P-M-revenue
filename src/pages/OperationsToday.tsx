@@ -85,6 +85,7 @@ import {
 import { LegacyHotelConversionModal } from "./LegacyHotelConversionModal";
 
 export interface ScheduleForm {
+  hotelScheduleMode: "reservation" | "operation";
   calendarId: string;
   scheduleTypeId: string;
   date: string;
@@ -113,6 +114,7 @@ interface PendingAction {
 export const emptyForm = (): ScheduleForm => {
   const scheduleWindow = defaultOperationScheduleWindow();
   return {
+    hotelScheduleMode: "operation",
     calendarId: "",
     scheduleTypeId: "",
     ...scheduleWindow,
@@ -153,6 +155,7 @@ export const formFromSchedule = (schedule: OperationSchedule): ScheduleForm => {
   const start = seoulParts(schedule.startsAt);
   const end = seoulParts(schedule.endsAt);
   return {
+    hotelScheduleMode: "operation",
     calendarId: schedule.calendarId,
     scheduleTypeId: schedule.scheduleTypeId,
     date: start.date,
@@ -207,7 +210,7 @@ export function initializeHotelScheduleForm(
   options: OperationScheduleOptions,
   snapshot: HotelOperationsSnapshot,
   initialCalendarId?: string,
-) {
+): ScheduleForm {
   const calendar = options.calendars.find(
     (item) =>
       item.businessUnitCode === "hotel" &&
@@ -218,6 +221,7 @@ export function initializeHotelScheduleForm(
     hotelScheduleTypeForCalendar(calendarId, options)?.id ?? "";
   return {
     ...form,
+    hotelScheduleMode: "reservation",
     calendarId,
     scheduleTypeId,
     allDay: false,
@@ -240,7 +244,7 @@ export function transitionScheduleFormCalendar(
   calendarId: string,
   options: OperationScheduleOptions,
   snapshot: HotelOperationsSnapshot | null,
-) {
+): ScheduleForm {
   if (isHotelScheduleCalendar(calendarId, options)) {
     if (snapshot) {
       return initializeHotelScheduleForm(
@@ -252,6 +256,7 @@ export function transitionScheduleFormCalendar(
     }
     return {
       ...form,
+      hotelScheduleMode: "reservation",
       calendarId,
       scheduleTypeId:
         hotelScheduleTypeForCalendar(calendarId, options)?.id ?? "",
@@ -270,6 +275,7 @@ export function transitionScheduleFormCalendar(
   );
   return {
     ...form,
+    hotelScheduleMode: "operation",
     calendarId,
     scheduleTypeId: defaultOperationScheduleTypeId(allowedTypes),
     hotelRoomTypeId: "",
@@ -285,7 +291,10 @@ export function hotelReservationInputFromForm(
   options: OperationScheduleOptions | null,
   snapshot: HotelOperationsSnapshot | null,
 ): { input: HotelReservationInput | null; error: string } {
-  if (!isHotelScheduleCalendar(form.calendarId, options)) {
+  if (
+    !isHotelScheduleCalendar(form.calendarId, options) ||
+    form.hotelScheduleMode !== "reservation"
+  ) {
     return { input: null, error: "호텔 캘린더를 선택해 주세요." };
   }
   if (!snapshot) {
@@ -462,7 +471,10 @@ export async function createNewScheduleFromForm(
     createOperation: createOperationSchedule,
   },
 ): Promise<NewScheduleCreateResult> {
-  if (isHotelScheduleCalendar(form.calendarId, options)) {
+  if (
+    isHotelScheduleCalendar(form.calendarId, options) &&
+    form.hotelScheduleMode === "reservation"
+  ) {
     const prepared = hotelReservationInputFromForm(form, options, snapshot);
     if (!prepared.input) throw new Error(prepared.error);
     return {
@@ -514,6 +526,8 @@ export function OperationsTodayPage() {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [hotelManagementGuideOpen, setHotelManagementGuideOpen] =
     useState(false);
+  const [hotelManagementStayId, setHotelManagementStayId] =
+    useState<string | null>(null);
   const [legacyConversionSchedule, setLegacyConversionSchedule] =
     useState<OperationSchedule | null>(null);
   const [notice, setNotice] = useState("");
@@ -590,6 +604,11 @@ export function OperationsTodayPage() {
     setNoticeTone(tone);
   };
 
+  const openHotelManagementGuide = (schedule: OperationSchedule) => {
+    setHotelManagementStayId(schedule.hotelStayId ?? null);
+    setHotelManagementGuideOpen(true);
+  };
+
   const openNew = async () => {
     const availableOptions = options ?? (await loadOptions());
     if (!availableOptions) {
@@ -618,7 +637,7 @@ export function OperationsTodayPage() {
   const openEdit = (schedule: OperationSchedule) => {
     if (isHotelReservationSchedule(schedule)) {
       setDetail(null);
-      setHotelManagementGuideOpen(true);
+      openHotelManagementGuide(schedule);
       return;
     }
     setForm(formFromSchedule(schedule));
@@ -705,7 +724,7 @@ export function OperationsTodayPage() {
   const completeSchedule = async (schedule: OperationSchedule) => {
     if (isHotelReservationSchedule(schedule)) {
       setDetail(null);
-      setHotelManagementGuideOpen(true);
+      openHotelManagementGuide(schedule);
       return;
     }
     setSaving(true);
@@ -736,8 +755,8 @@ export function OperationsTodayPage() {
   const confirmAction = async () => {
     if (!pendingAction) return;
     if (isHotelReservationSchedule(pendingAction.schedule)) {
+      openHotelManagementGuide(pendingAction.schedule);
       setPendingAction(null);
-      setHotelManagementGuideOpen(true);
       return;
     }
     const actionReason =
@@ -939,7 +958,7 @@ export function OperationsTodayPage() {
         onCancel={(schedule) => {
           if (isHotelReservationSchedule(schedule)) {
             setDetail(null);
-            setHotelManagementGuideOpen(true);
+            openHotelManagementGuide(schedule);
             return;
           }
           setPendingAction({ type: "cancel", schedule });
@@ -948,7 +967,7 @@ export function OperationsTodayPage() {
         onArchive={(schedule) => {
           if (isHotelReservationSchedule(schedule)) {
             setDetail(null);
-            setHotelManagementGuideOpen(true);
+            openHotelManagementGuide(schedule);
             return;
           }
           setPendingAction({ type: "archive", schedule });
@@ -1007,8 +1026,16 @@ export function OperationsTodayPage() {
 
       <HotelScheduleManagementDialog
         open={hotelManagementGuideOpen}
-        onClose={() => setHotelManagementGuideOpen(false)}
-        onOpenHotel={() => navigate("/operations/hotel")}
+        onClose={() => {
+          setHotelManagementGuideOpen(false);
+          setHotelManagementStayId(null);
+        }}
+        onOpenHotel={() => {
+          if (!hotelManagementStayId) return;
+          navigate(
+            `/operations/hotel?stayId=${encodeURIComponent(hotelManagementStayId)}&mode=edit`,
+          );
+        }}
       />
       <LegacyHotelConversionModal
         open={legacyConversionSchedule !== null}
@@ -1218,6 +1245,66 @@ function TodayAlerts({ alerts }: { alerts: string[] }) {
   );
 }
 
+export function halfHourTimeOptions(priorityTime?: string | null) {
+  const values = Array.from({ length: 48 }, (_, index) => {
+    const hour = Math.floor(index / 2).toString().padStart(2, "0");
+    const minute = index % 2 === 0 ? "00" : "30";
+    return `${hour}:${minute}`;
+  });
+  const normalizedPriority = priorityTime?.slice(0, 5) ?? "";
+  return normalizedPriority && values.includes(normalizedPriority)
+    ? [normalizedPriority, ...values.filter((value) => value !== normalizedPriority)]
+    : values;
+}
+
+function QuickTimeInput({
+  label,
+  value,
+  disabled,
+  required,
+  priorityTime,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  disabled: boolean;
+  required: boolean;
+  priorityTime?: string | null;
+  onChange: (value: string) => void;
+}) {
+  const options = halfHourTimeOptions(priorityTime);
+  return (
+    <div className={cn("space-y-2", disabled && "opacity-50")}>
+      <Input
+        aria-label={label}
+        required={required}
+        disabled={disabled}
+        type="time"
+        value={value}
+        onInput={(event) => onChange(event.currentTarget.value)}
+      />
+      <Select
+        aria-label={`30분 단위 빠른 선택 · ${label.replace(" 시간", "")}`}
+        disabled={disabled}
+        value={options.includes(value) ? value : ""}
+        onChange={(event) => {
+          if (event.target.value) onChange(event.target.value);
+        }}
+      >
+        <option value="">30분 단위 빠른 선택</option>
+        {options.map((time, index) => (
+          <option key={time} value={time}>
+            {time}
+            {priorityTime?.slice(0, 5) === time && index === 0
+              ? " · 기본 시간"
+              : ""}
+          </option>
+        ))}
+      </Select>
+    </div>
+  );
+}
+
 export function ScheduleFormModal({
   open,
   editing,
@@ -1260,7 +1347,9 @@ export function ScheduleFormModal({
   const selectedCalendarIsHotel =
     selectedCalendar?.businessUnitCode === "hotel";
   const hotelMode =
-    editing === "new" && selectedCalendarIsHotel;
+    editing === "new" &&
+    selectedCalendarIsHotel &&
+    form.hotelScheduleMode === "reservation";
   const hotelScheduleType = hotelMode
     ? hotelScheduleTypeForCalendar(form.calendarId, options)
     : null;
@@ -1358,7 +1447,9 @@ export function ScheduleFormModal({
                       ? [hotelScheduleType]
                       : []
                     : options?.scheduleTypes.filter((row) =>
-                        row.calendarIds?.includes(form.calendarId),
+                        row.calendarIds?.includes(form.calendarId) &&
+                        (!selectedCalendarIsHotel ||
+                          row.name.trim() !== HOTEL_SCHEDULE_TYPE_NAME),
                       ) ?? []
                   ).map((row) => (
                     <option key={row.id} value={row.id}>
@@ -1368,6 +1459,68 @@ export function ScheduleFormModal({
                 </Select>
               </Field>
           </div>
+          {editing === "new" && selectedCalendarIsHotel && !calendarLocked ? (
+            <fieldset>
+              <legend className="mb-2 text-sm font-semibold text-text-primary">
+                등록 유형
+              </legend>
+              <div className="grid grid-cols-2 gap-1 rounded-xl border border-border bg-surface-secondary p-1">
+                {([
+                  ["reservation", "호텔 예약"],
+                  ["operation", "상담·일반 일정"],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={form.hotelScheduleMode === value}
+                    className={cn(
+                      "min-h-11 rounded-lg px-3 text-sm font-semibold transition duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                      form.hotelScheduleMode === value
+                        ? "bg-surface text-primary shadow-sm"
+                        : "text-text-secondary hover:bg-surface/70",
+                    )}
+                    onClick={() => {
+                      if (value === "reservation") {
+                        if (options && hotelSnapshot) {
+                          onChange(
+                            initializeHotelScheduleForm(
+                              { ...form, hotelScheduleMode: value },
+                              options,
+                              hotelSnapshot,
+                              form.calendarId,
+                            ),
+                          );
+                        } else {
+                          patch({
+                            hotelScheduleMode: value,
+                            scheduleTypeId:
+                              hotelScheduleTypeForCalendar(form.calendarId, options)?.id ?? "",
+                          });
+                        }
+                        return;
+                      }
+                      const generalTypes =
+                        options?.scheduleTypes.filter(
+                          (scheduleType) =>
+                            scheduleType.name.trim() !== HOTEL_SCHEDULE_TYPE_NAME &&
+                            scheduleType.calendarIds?.includes(form.calendarId),
+                        ) ?? [];
+                      patchWithAutoTitle({
+                        hotelScheduleMode: value,
+                        scheduleTypeId: defaultOperationScheduleTypeId(generalTypes),
+                        hotelRoomTypeId: "",
+                      });
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-text-muted">
+                상담·일반 일정은 객실 점유와 Hotel Stay를 생성하지 않습니다.
+              </p>
+            </fieldset>
+          ) : null}
           {!hotelMode ? <Field label="제목" required>
               <Input
                 required
@@ -1401,12 +1554,13 @@ export function ScheduleFormModal({
                 label="입실 시간"
                 required={!form.hotelCheckInTimeUnspecified}
               >
-                <Input
-                  required={!form.hotelCheckInTimeUnspecified}
+                <QuickTimeInput
+                  label="입실 시간"
                   disabled={form.hotelCheckInTimeUnspecified}
-                  type="time"
+                  required={!form.hotelCheckInTimeUnspecified}
                   value={form.startTime}
-                  onChange={(event) => patch({ startTime: event.target.value })}
+                  priorityTime={hotelSnapshot?.settings?.defaultCheckInTime}
+                  onChange={(startTime) => patch({ startTime })}
                 />
               </Field>
               <label className="flex min-h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-medium text-text-primary">
@@ -1436,14 +1590,13 @@ export function ScheduleFormModal({
                 label="퇴실 시간"
                 required={!form.hotelCheckOutTimeUnspecified}
               >
-                <Input
-                  required={!form.hotelCheckOutTimeUnspecified}
+                <QuickTimeInput
+                  label="퇴실 시간"
                   disabled={form.hotelCheckOutTimeUnspecified}
-                  type="time"
+                  required={!form.hotelCheckOutTimeUnspecified}
                   value={form.hotelCheckOutTime}
-                  onChange={(event) =>
-                    patch({ hotelCheckOutTime: event.target.value })
-                  }
+                  priorityTime={hotelSnapshot?.settings?.defaultCheckOutTime}
+                  onChange={(hotelCheckOutTime) => patch({ hotelCheckOutTime })}
                 />
               </Field>
               <label className="flex min-h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-medium text-text-primary">
@@ -1524,8 +1677,8 @@ export function ScheduleFormModal({
                   patch({
                     timeUnspecified,
                     allDay: timeUnspecified ? false : form.allDay,
-                    startTime: timeUnspecified ? form.startTime : "",
-                    endTime: timeUnspecified ? form.endTime : "",
+                    startTime: "",
+                    endTime: "",
                     endDate: timeUnspecified ? form.endDate : form.date,
                   });
                 }}
@@ -1543,13 +1696,12 @@ export function ScheduleFormModal({
                 label="시작 시간"
                 required={!form.allDay && !form.timeUnspecified}
               >
-                <Input
-                  required={!form.allDay && !form.timeUnspecified}
+                <QuickTimeInput
+                  label="시작 시간"
                   disabled={form.allDay || form.timeUnspecified}
-                  type="time"
+                  required={!form.allDay && !form.timeUnspecified}
                   value={form.startTime}
-                  onInput={(event) => {
-                    const startTime = event.currentTarget.value;
+                  onChange={(startTime) => {
                     const nextEnd = oneHourScheduleEnd(form.date, startTime);
                     patch({
                       startTime,
@@ -1569,13 +1721,12 @@ export function ScheduleFormModal({
                 label="종료 시간"
                 required={!form.allDay && !form.timeUnspecified}
               >
-                <Input
-                  required={!form.allDay && !form.timeUnspecified}
+                <QuickTimeInput
+                  label="종료 시간"
                   disabled={form.allDay || form.timeUnspecified}
-                  type="time"
+                  required={!form.allDay && !form.timeUnspecified}
                   value={form.endTime}
-                  onInput={(event) => {
-                    const endTime = event.currentTarget.value;
+                  onChange={(endTime) => {
                     patch({
                       endTime,
                       endDate:
