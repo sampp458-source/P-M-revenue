@@ -467,6 +467,7 @@ describe("Hotel Operations frontend", () => {
     });
 
     const form = scheduleFormFromHotelStay(flexibleStay);
+    expect(form.hotelScheduleMode).toBe("reservation");
     expect(form.date).toBe("2026-08-15");
     expect(form.hotelCheckOutDate).toBe("2026-08-16");
     expect(form.hotelCheckOutTimeUnspecified).toBe(true);

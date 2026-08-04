@@ -146,6 +146,7 @@ export function scheduleFormFromHotelStay(stay: HotelStay): ScheduleForm {
   const checkOutTimeUnspecified = Boolean(checkOutSchedule?.timeUnspecified);
   return {
     ...emptyForm(),
+    hotelScheduleMode: "reservation",
     calendarId: contract.calendarId,
     scheduleTypeId: contract.scheduleTypeId,
     date: checkIn.date,
