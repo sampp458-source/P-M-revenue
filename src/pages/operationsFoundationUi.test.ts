@@ -114,7 +114,7 @@ describe("Operations foundation UI", () => {
   });
 
   it("keeps the single schedule form focused on MVP fields", () => {
-    expect(todaySource).toContain('label={hotelMode ? "예약 제목" : "제목"}');
+    expect(todaySource).toContain('!hotelMode ? <Field label="제목" required>');
     expect(todaySource).toContain('<Field label="날짜" required>');
     expect(todaySource).toContain('<SearchSelect');
     expect(todaySource).toContain('label="담당자"');

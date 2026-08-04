@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SearchSelect } from "../components/SearchSelect";
-import { Button, Field, Input, Modal } from "../components/ui";
+import { Button, Field, Input, Modal, Select } from "../components/ui";
 import { toSeoulInstant } from "./operationsScheduleRepository";
 import type {
   HotelOperationSettingsSnapshot,
@@ -8,7 +8,11 @@ import type {
   HotelRoomSnapshot,
   HotelStay,
 } from "./hotelOperationsRepository";
-import { seoulInputParts } from "./hotelOperationsUi";
+import {
+  activeHotelAllocation,
+  hotelStayUnspecifiedState,
+  seoulInputParts,
+} from "./hotelOperationsUi";
 
 function SingleRoomSearch({
   rooms,
@@ -106,7 +110,7 @@ function RoomSelectModal({
             placeholder="선택 사항"
           />
         </Field>
-        <div className="flex justify-end gap-2">
+        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-surface-primary py-3">
           <Button
             type="button"
             variant="secondary"
@@ -237,7 +241,7 @@ function CompletionModal({
             onChange={(event) => setCompletedAt(event.target.value)}
           />
         </Field>
-        <div className="flex justify-end gap-2">
+        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-surface-primary py-3">
           <Button
             type="button"
             variant="secondary"
@@ -260,7 +264,93 @@ type CompletionModalProps = Omit<
   "title" | "label"
 >;
 
-export function CheckInModal(props: CompletionModalProps) {
+export function CheckInModal({
+  open,
+  snapshot,
+  stay,
+  processing,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  snapshot: HotelOperationsSnapshot;
+  stay: HotelStay;
+  processing: boolean;
+  onClose: () => void;
+  onSubmit: (completedAt: string, roomTypeId: string, roomId: string) => void;
+}) {
+  const [completedAt, setCompletedAt] = useState("");
+  const [roomTypeId, setRoomTypeId] = useState("");
+  const [roomId, setRoomId] = useState("");
+  const unspecified = hotelStayUnspecifiedState(stay);
+  const currentAllocation = activeHotelAllocation(stay);
+  const rooms = useMemo(
+    () => snapshot.rooms.filter(
+      (room) => room.isActive && room.roomTypeId === roomTypeId,
+    ),
+    [roomTypeId, snapshot.rooms],
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    const now = seoulInputParts(new Date().toISOString());
+    setCompletedAt(`${now.date}T${now.time}`);
+    setRoomTypeId(stay.capacityReservation?.roomTypeId ?? "");
+    setRoomId(currentAllocation?.roomId ?? "");
+  }, [currentAllocation?.roomId, open, stay.capacityReservation?.roomTypeId]);
+
+  return (
+    <Modal open={open} title="입실 확정 및 완료" onClose={onClose} resetKey={stay.id}>
+      <form
+        className="space-y-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const [date, time] = completedAt.split("T");
+          if (date && time && roomTypeId && roomId) {
+            onSubmit(toSeoulInstant(date, time), roomTypeId, roomId);
+          }
+        }}
+      >
+        {(unspecified.checkInTime || unspecified.roomType || !currentAllocation) ? (
+          <p className="rounded-xl bg-warning-soft px-3.5 py-3 text-sm text-warning">
+            미정 항목을 확정하고 Capacity를 재검증한 후 입실 완료합니다.
+          </p>
+        ) : null}
+        <Field label="입실 시각" required>
+          <Input type="datetime-local" required value={completedAt} onChange={(event) => setCompletedAt(event.target.value)} />
+        </Field>
+        <Field label="객실 유형" required>
+          <Select
+            required
+            value={roomTypeId}
+            onChange={(event) => {
+              setRoomTypeId(event.target.value);
+              setRoomId("");
+            }}
+          >
+            <option value="">객실 유형 선택</option>
+            {snapshot.roomTypes.map((roomType) => (
+              <option key={roomType.id} value={roomType.id}>{roomType.name}</option>
+            ))}
+          </Select>
+        </Field>
+        <SingleRoomSearch rooms={rooms} selectedId={roomId} onChange={setRoomId} />
+        <p className="text-xs leading-relaxed text-text-secondary">
+          활성 호실과 선택한 객실 유형을 기준으로 표시합니다. 전체 예약 기간의
+          최종 충돌 여부는 입실 완료 시 다시 확인합니다.
+        </p>
+        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-surface-primary py-3">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={processing}>닫기</Button>
+          <Button disabled={processing || !completedAt || !roomTypeId || !roomId}>
+            {processing ? "처리 중..." : "입실 완료"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+export function CompleteCheckInModal(props: CompletionModalProps) {
   return <CompletionModal {...props} title="입실 완료" label="입실 완료" />;
 }
 

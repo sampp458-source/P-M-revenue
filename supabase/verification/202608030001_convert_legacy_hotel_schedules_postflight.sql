@@ -1,5 +1,7 @@
 -- Read-only postflight for legacy Hotel schedule conversion.
 
+begin read only;
+
 select object_name, row_count
 from (
   values
@@ -121,6 +123,8 @@ select case
 end as postflight_status,
 checks.*
 from checks;
+
+rollback;
 
 -- Optional manual rollback-only conversion probe (do not run against production data
 -- without replacing every value with disposable test records):

@@ -440,7 +440,7 @@ interface HotelScheduleLinkRow {
 
 interface HotelCapacityLinkRow {
   hotel_stay_id: string;
-  room_type_id: string;
+  room_type_id: string | null;
 }
 
 interface HotelRoomTypeNameRow {
@@ -489,7 +489,17 @@ async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
   );
   const capacityRows = (capacityResult.data ?? []) as HotelCapacityLinkRow[];
   const roomTypeIds = [
-    ...new Set(capacityRows.map((capacity) => capacity.room_type_id)),
+    ...new Set(
+      capacityRows
+        .map((capacity) => capacity.room_type_id)
+        .filter(
+          (roomTypeId): roomTypeId is string =>
+            typeof roomTypeId === "string" &&
+            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+              roomTypeId,
+            ),
+        ),
+    ),
   ];
   const roomTypeResult =
     roomTypeIds.length > 0
@@ -509,7 +519,9 @@ async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
   const roomTypeNameByStayId = new Map(
     capacityRows.map((capacity) => [
       capacity.hotel_stay_id,
-      roomTypeNameById.get(capacity.room_type_id) ?? null,
+      capacity.room_type_id
+        ? (roomTypeNameById.get(capacity.room_type_id) ?? null)
+        : null,
     ]),
   );
   return schedules

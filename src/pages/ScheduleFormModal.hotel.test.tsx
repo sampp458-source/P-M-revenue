@@ -12,6 +12,7 @@ import {
   ScheduleFormModal,
   createNewScheduleFromForm,
   emptyForm,
+  hotelReservationInputFromForm,
   initializeHotelScheduleForm,
   transitionScheduleFormCalendar,
   type ScheduleForm,
@@ -169,6 +170,8 @@ describe("shared ScheduleFormModal Hotel mode", () => {
     expect(screen.getByLabelText(/입실 날짜/)).toBeTruthy();
     expect(screen.getByLabelText(/퇴실 날짜/)).toBeTruthy();
     expect(screen.getByLabelText(/객실 유형/)).toBeTruthy();
+    expect(screen.queryByLabelText(/^제목/)).toBeNull();
+    expect(screen.queryByLabelText(/예약 제목/)).toBeNull();
     expect(screen.queryByText("종일 일정")).toBeNull();
   });
 
@@ -282,5 +285,93 @@ describe("shared ScheduleFormModal Hotel mode", () => {
       snapshot,
     );
     expect(transitioned.scheduleTypeId).toBe("");
+  });
+
+  it("supports independent unknown check-in, check-out and room-type values", async () => {
+    const createHotel = vi
+      .fn<
+        (input: HotelReservationInput, requestId: string) => Promise<HotelStay>
+      >()
+      .mockResolvedValue({ id: "stay-flexible" } as HotelStay);
+    const createOperation = vi
+      .fn<
+        (
+          input: OperationScheduleInput,
+          requestId: string,
+        ) => Promise<OperationSchedule>
+      >();
+    const form = initializeHotelScheduleForm(
+      generalForm(),
+      options,
+      snapshot,
+    );
+    form.title = "토리 호텔 예약";
+    form.dogIds = ["dog-1"];
+    form.customerIds = ["customer-1"];
+    form.hotelCheckInTimeUnspecified = true;
+    form.hotelCheckOutTimeUnspecified = true;
+    form.hotelRoomTypeId = "";
+
+    await createNewScheduleFromForm(
+      form,
+      options,
+      snapshot,
+      "request-flexible",
+      { createHotel, createOperation },
+    );
+
+    expect(createHotel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        checkInTime: null,
+        checkInTimeUnspecified: true,
+        checkOutTime: null,
+        checkOutTimeUnspecified: true,
+        roomTypeId: null,
+      }),
+      "request-flexible",
+    );
+    expect(createOperation).not.toHaveBeenCalled();
+  });
+
+  it("clears stale times when an unknown-time option changes", () => {
+    render(<Harness initialHotel />);
+
+    const checkInTime = screen.getByLabelText(/입실 시간/) as HTMLInputElement;
+    const checkOutTime = screen.getByLabelText(/퇴실 시간/) as HTMLInputElement;
+    expect(checkInTime.value).toBe("15:00");
+    expect(checkOutTime.value).toBe("11:00");
+
+    const unknownTimeOptions = screen.getAllByLabelText("시간 미정");
+    fireEvent.click(unknownTimeOptions[0]);
+    expect(checkInTime.value).toBe("");
+    expect(checkInTime.disabled).toBe(true);
+    fireEvent.click(unknownTimeOptions[0]);
+    expect(checkInTime.value).toBe("");
+    expect(checkInTime.disabled).toBe(false);
+
+    fireEvent.click(unknownTimeOptions[1]);
+    expect(checkOutTime.value).toBe("");
+    expect(checkOutTime.disabled).toBe(true);
+  });
+
+  it("rejects invalid same-day fixed times but permits unknown times", () => {
+    const form = initializeHotelScheduleForm(
+      generalForm(),
+      options,
+      snapshot,
+    );
+    form.title = "토리 호텔 예약";
+    form.dogIds = ["dog-1"];
+    form.customerIds = ["customer-1"];
+    form.hotelCheckOutDate = form.date;
+    form.startTime = "15:00";
+    form.hotelCheckOutTime = "11:00";
+
+    const invalid = hotelReservationInputFromForm(form, options, snapshot);
+    expect(invalid.error).toContain("퇴실 시간은 입실 시간보다 늦어야");
+
+    form.hotelCheckOutTimeUnspecified = true;
+    const flexible = hotelReservationInputFromForm(form, options, snapshot);
+    expect(flexible.error).toBe("");
   });
 });

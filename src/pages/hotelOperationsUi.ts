@@ -58,6 +58,45 @@ export function hotelStayCalendarContract(stay: HotelStay) {
   };
 }
 
+export function hotelStayScheduleEvent(
+  stay: HotelStay,
+  eventKind: "check_in" | "check_out",
+) {
+  return stay.scheduleEvents.find((event) => event.eventKind === eventKind)
+    ?.schedule ?? null;
+}
+
+export function hotelStayUnspecifiedState(stay: HotelStay) {
+  return {
+    checkInTime: Boolean(
+      hotelStayScheduleEvent(stay, "check_in")?.timeUnspecified,
+    ),
+    checkOutTime: Boolean(
+      hotelStayScheduleEvent(stay, "check_out")?.timeUnspecified,
+    ),
+    roomType: !stay.capacityReservation?.roomTypeId,
+  };
+}
+
+export function hotelStayNeedsCheckInFinalization(stay: HotelStay) {
+  const unspecified = hotelStayUnspecifiedState(stay);
+  return (
+    unspecified.checkInTime ||
+    unspecified.roomType ||
+    activeHotelAllocation(stay) === null
+  );
+}
+
+export function formatHotelScheduleTime(
+  stay: HotelStay,
+  eventKind: "check_in" | "check_out",
+) {
+  const schedule = hotelStayScheduleEvent(stay, eventKind);
+  if (!schedule) return "-";
+  if (schedule.timeUnspecified) return "시간 미정";
+  return formatHotelDateTime(schedule.startsAt);
+}
+
 export function seoulInputParts(value: string) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Seoul",

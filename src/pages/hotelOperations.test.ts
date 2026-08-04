@@ -4,9 +4,13 @@ import { describe, expect, it } from "vitest";
 import type { HotelStay } from "./hotelOperationsRepository";
 import {
   activeHotelAllocation,
+  formatHotelScheduleTime,
+  hotelStayNeedsCheckInFinalization,
   hotelStayStatus,
+  hotelStayUnspecifiedState,
   seoulInputParts,
 } from "./hotelOperationsUi";
+import { scheduleFormFromHotelStay } from "./HotelOperations";
 import {
   emptyForm,
   hotelReservationInputFromForm,
@@ -17,6 +21,10 @@ import type { HotelOperationsSnapshot } from "./hotelOperationsRepository";
 
 const repositorySource = readFileSync(
   resolve(import.meta.dirname, "./hotelOperationsRepository.ts"),
+  "utf8",
+);
+const scheduleRepositorySource = readFileSync(
+  resolve(import.meta.dirname, "./operationsScheduleRepository.ts"),
   "utf8",
 );
 const pageSource = readFileSync(
@@ -69,24 +77,80 @@ const stay = (overrides: Partial<HotelStay> = {}): HotelStay => ({
 });
 
 describe("Hotel Operations frontend", () => {
+  it("renders an unspecified check-in from the linked event instead of the Capacity placeholder", () => {
+    const unspecifiedStay = stay({
+      capacityReservation: {
+        id: "capacity-1",
+        roomTypeId: null,
+        roomTypeCode: null,
+        roomTypeName: null,
+        reservedFrom: "2026-08-06T15:00:00Z",
+        reservedUntil: "2026-08-09T15:00:00Z",
+        quantity: 1,
+      },
+      scheduleEvents: [
+        {
+          eventKind: "check_in",
+          schedule: {
+            id: "check-in",
+            title: "토리 · 호텔링 · 객실 미정 · 입실",
+            memo: null,
+            startsAt: "2026-08-06T15:00:00Z",
+            endsAt: "2026-08-06T16:00:00Z",
+            timeUnspecified: true,
+            status: "scheduled",
+            calendarId: "hotel-calendar",
+            scheduleTypeId: "hotel-type",
+            assignees: [],
+          },
+        },
+      ],
+    });
+
+    expect(formatHotelScheduleTime(unspecifiedStay, "check_in")).toBe(
+      "시간 미정",
+    );
+    expect(pageSource).toContain(
+      'stay.capacityReservation?.roomTypeName ?? "객실 미정"',
+    );
+    expect(pageSource).toContain(
+      'formatHotelScheduleTime(stay, "check_in")',
+    );
+  });
+
+  it("removes nullable and malformed room type ids before the Calendar UUID lookup", () => {
+    expect(scheduleRepositorySource).toContain(
+      '(roomTypeId): roomTypeId is string =>',
+    );
+    expect(scheduleRepositorySource).toContain(
+      "typeof roomTypeId === \"string\"",
+    );
+    expect(scheduleRepositorySource).toContain(
+      ".in(\"id\", roomTypeIds)",
+    );
+  });
+
   it("keeps every Hotel write behind the installed RPC contract", () => {
     [
-      "get_hotel_operations_snapshot",
+      "get_hotel_operations_snapshot_v2",
       "hotel_stay_json",
-      "create_hotel_reservation",
-      "update_hotel_reservation",
+      "create_flexible_hotel_reservation",
+      "update_flexible_hotel_reservation",
       "cancel_hotel_reservation",
       "assign_hotel_room",
       "reassign_hotel_room_before_check_in",
       "move_hotel_room_same_type",
       "complete_hotel_check_in",
       "complete_hotel_check_out",
+      "finalize_and_complete_hotel_check_in",
+      "finalize_and_complete_hotel_check_out",
       "update_hotel_operation_settings",
     ].forEach((rpcName) => expect(repositorySource).toContain(`"${rpcName}"`));
     expect(repositorySource).not.toContain('.from("hotel_');
     expect(repositorySource).not.toContain(".insert(");
     expect(repositorySource).not.toContain(".update(");
     expect(repositorySource).not.toContain(".delete(");
+    expect(repositorySource).not.toContain("p_title: input.title");
   });
 
   it("uses one shared new-schedule modal across Today, Calendar and Hotel", () => {
@@ -101,7 +165,16 @@ describe("Hotel Operations frontend", () => {
     expect(modalSource).not.toContain("HotelReservationModal");
   });
 
-  it("routes only Hotel creates to create_hotel_reservation", () => {
+  it("labels confirmed and safe availability without overstating room-type inventory", () => {
+    expect(pageSource).toContain('label="유형 확정 잔여"');
+    expect(pageSource).toContain('label="안전 예약 가능"');
+    expect(pageSource).toContain('label="객실 미정 영향"');
+    expect(pageSource).toContain("객실 미정 예약");
+    expect(pageSource).toContain('label="전체 안전 잔여"');
+    expect(pageSource).toContain("유형별 잔여는 변동될 수 있습니다");
+  });
+
+  it("routes only Hotel creates to the flexible Hotel reservation RPC", () => {
     expect(todaySource).toContain("isHotelScheduleCalendar");
     expect(todaySource).toContain("createHotelReservation");
     expect(todaySource).toContain("createOperationSchedule");
@@ -128,6 +201,34 @@ describe("Hotel Operations frontend", () => {
     expect(hotelStayStatus(stay({ checkedInAt: "2026-08-02T06:05:00Z", roomAllocations: [allocation, { ...allocation, id: "allocation-2", roomId: "room-2", roomName: "STANDARD-2", allocatedFrom: "2026-08-02T09:00:00Z" }] }))).toBe("객실 이동");
     expect(hotelStayStatus(stay({ checkedInAt: "2026-08-02T06:05:00Z", checkedOutAt: "2026-08-03T02:10:00Z", roomAllocations: [allocation] }))).toBe("퇴실 완료");
     expect(activeHotelAllocation(stay({ roomAllocations: [allocation, { ...allocation, id: "allocation-2", allocatedFrom: "2026-08-02T09:00:00Z" }] }))?.id).toBe("allocation-2");
+    expect(hotelStayNeedsCheckInFinalization(stay())).toBe(true);
+    expect(
+      hotelStayNeedsCheckInFinalization(stay({ roomAllocations: [allocation] })),
+    ).toBe(false);
+    expect(
+      hotelStayNeedsCheckInFinalization(
+        stay({
+          roomAllocations: [allocation],
+          scheduleEvents: [
+            {
+              eventKind: "check_in",
+              schedule: {
+                id: "check-in",
+                title: "토리 입실",
+                memo: null,
+                startsAt: "2026-08-02T15:00:00Z",
+                endsAt: "2026-08-02T16:00:00Z",
+                timeUnspecified: true,
+                status: "scheduled",
+                calendarId: "hotel-calendar",
+                scheduleTypeId: "hotel-type",
+                assignees: [],
+              },
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
   });
 
   it("converts stored instants to KST form values", () => {
@@ -213,10 +314,73 @@ describe("Hotel Operations frontend", () => {
     expect(result.error).toBe("");
     expect(result.input).toMatchObject({
       calendarId: "hotel-calendar",
+      checkInDate: "2026-08-02",
+      checkInTime: "15:00",
+      checkInTimeUnspecified: false,
+      checkOutTimeUnspecified: false,
       roomTypeId: "standard",
       dogId: "dog-1",
       customerId: "customer-1",
       assigneeIds: ["profile-1"],
+    });
+  });
+
+  it("uses linked event schedules, not conservative Capacity bounds, for edit dates", () => {
+    const flexibleStay = stay({
+      capacityReservation: {
+        id: "capacity-1",
+        roomTypeId: null,
+        roomTypeCode: null,
+        roomTypeName: null,
+        reservedFrom: "2026-08-14T15:00:00Z",
+        reservedUntil: "2026-08-16T15:00:00Z",
+        quantity: 1,
+      },
+      scheduleEvents: [
+        {
+          eventKind: "check_in",
+          schedule: {
+            id: "check-in",
+            title: "토리 입실",
+            memo: null,
+            startsAt: "2026-08-14T15:00:00Z",
+            endsAt: "2026-08-15T15:00:00Z",
+            timeUnspecified: true,
+            status: "scheduled",
+            calendarId: "hotel-calendar",
+            scheduleTypeId: "hotel-type",
+            assignees: [{ id: "profile-1", name: "담당자" }],
+          },
+        },
+        {
+          eventKind: "check_out",
+          schedule: {
+            id: "check-out",
+            title: "토리 퇴실",
+            memo: null,
+            startsAt: "2026-08-15T15:00:00Z",
+            endsAt: "2026-08-16T15:00:00Z",
+            timeUnspecified: true,
+            status: "scheduled",
+            calendarId: "hotel-calendar",
+            scheduleTypeId: "hotel-type",
+            assignees: [{ id: "profile-1", name: "담당자" }],
+          },
+        },
+      ],
+    });
+
+    const form = scheduleFormFromHotelStay(flexibleStay);
+    expect(form.date).toBe("2026-08-15");
+    expect(form.hotelCheckOutDate).toBe("2026-08-16");
+    expect(form.hotelCheckOutTimeUnspecified).toBe(true);
+    expect(form.startTime).toBe("");
+    expect(form.hotelCheckOutTime).toBe("");
+    expect(form.hotelRoomTypeId).toBe("");
+    expect(hotelStayUnspecifiedState(flexibleStay)).toEqual({
+      checkInTime: true,
+      checkOutTime: true,
+      roomType: true,
     });
   });
 });

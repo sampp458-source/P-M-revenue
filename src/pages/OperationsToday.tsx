@@ -99,8 +99,10 @@ export interface ScheduleForm {
   title: string;
   memo: string;
   hotelRoomTypeId: string;
+  hotelCheckInTimeUnspecified: boolean;
   hotelCheckOutDate: string;
   hotelCheckOutTime: string;
+  hotelCheckOutTimeUnspecified: boolean;
 }
 
 interface PendingAction {
@@ -122,8 +124,10 @@ export const emptyForm = (): ScheduleForm => {
     title: "",
     memo: "",
     hotelRoomTypeId: "",
+    hotelCheckInTimeUnspecified: false,
     hotelCheckOutDate: scheduleWindow.endDate,
     hotelCheckOutTime: "11:00",
+    hotelCheckOutTimeUnspecified: false,
   };
 };
 
@@ -163,8 +167,10 @@ export const formFromSchedule = (schedule: OperationSchedule): ScheduleForm => {
     title: schedule.title,
     memo: schedule.memo ?? "",
     hotelRoomTypeId: "",
+    hotelCheckInTimeUnspecified: false,
     hotelCheckOutDate: end.date,
     hotelCheckOutTime: end.time,
+    hotelCheckOutTimeUnspecified: false,
   };
 };
 
@@ -216,12 +222,14 @@ export function initializeHotelScheduleForm(
     scheduleTypeId,
     allDay: false,
     timeUnspecified: false,
+    hotelCheckInTimeUnspecified: false,
     startTime:
       snapshot.settings?.defaultCheckInTime.slice(0, 5) || form.startTime,
     hotelCheckOutDate: nextSeoulDate(form.date),
     hotelCheckOutTime:
       snapshot.settings?.defaultCheckOutTime.slice(0, 5) || "11:00",
     hotelRoomTypeId: snapshot.roomTypes[0]?.id ?? "",
+    hotelCheckOutTimeUnspecified: false,
     dogIds: form.dogIds.slice(0, 1),
     customerIds: form.customerIds.slice(0, 1),
   };
@@ -249,8 +257,10 @@ export function transitionScheduleFormCalendar(
         hotelScheduleTypeForCalendar(calendarId, options)?.id ?? "",
       allDay: false,
       timeUnspecified: false,
+      hotelCheckInTimeUnspecified: false,
       hotelRoomTypeId: "",
       hotelCheckOutDate: nextSeoulDate(form.date),
+      hotelCheckOutTimeUnspecified: false,
       dogIds: form.dogIds.slice(0, 1),
       customerIds: form.customerIds.slice(0, 1),
     };
@@ -263,8 +273,10 @@ export function transitionScheduleFormCalendar(
     calendarId,
     scheduleTypeId: defaultOperationScheduleTypeId(allowedTypes),
     hotelRoomTypeId: "",
+    hotelCheckInTimeUnspecified: false,
     hotelCheckOutDate: "",
     hotelCheckOutTime: "",
+    hotelCheckOutTimeUnspecified: false,
   };
 }
 
@@ -293,12 +305,10 @@ export function hotelReservationInputFromForm(
     };
   }
   const missingFields = [
-    !form.title.trim() && "예약 제목",
     !form.date && "입실 날짜",
-    !form.startTime && "입실 시간",
+    !form.hotelCheckInTimeUnspecified && !form.startTime && "입실 시간",
     !form.hotelCheckOutDate && "퇴실 날짜",
-    !form.hotelCheckOutTime && "퇴실 시간",
-    !form.hotelRoomTypeId && "객실 유형",
+    !form.hotelCheckOutTimeUnspecified && !form.hotelCheckOutTime && "퇴실 시간",
     form.dogIds.length !== 1 && "반려견",
     form.customerIds.length !== 1 && "보호자",
     form.assigneeIds.length === 0 && "담당자",
@@ -319,15 +329,21 @@ export function hotelReservationInputFromForm(
       error: "선택한 반려견과 연결된 보호자를 확인해 주세요.",
     };
   }
-  const checkInAt = toSeoulInstant(form.date, form.startTime);
-  const checkOutAt = toSeoulInstant(
-    form.hotelCheckOutDate,
-    form.hotelCheckOutTime,
-  );
-  if (new Date(checkOutAt) <= new Date(checkInAt)) {
+  if (form.hotelCheckOutDate < form.date) {
     return {
       input: null,
-      error: "퇴실 일시는 입실 일시보다 늦어야 합니다.",
+      error: "퇴실 날짜는 입실 날짜보다 빠를 수 없습니다.",
+    };
+  }
+  if (
+    form.hotelCheckOutDate === form.date &&
+    !form.hotelCheckInTimeUnspecified &&
+    !form.hotelCheckOutTimeUnspecified &&
+    form.hotelCheckOutTime <= form.startTime
+  ) {
+    return {
+      input: null,
+      error: "같은 날 예약의 퇴실 시간은 입실 시간보다 늦어야 합니다.",
     };
   }
   return {
@@ -335,10 +351,15 @@ export function hotelReservationInputFromForm(
     input: {
       calendarId: form.calendarId,
       scheduleTypeId: form.scheduleTypeId,
-      title: form.title.trim(),
-      checkInAt,
-      checkOutAt,
-      roomTypeId: form.hotelRoomTypeId,
+      checkInDate: form.date,
+      checkInTime: form.hotelCheckInTimeUnspecified ? null : form.startTime,
+      checkInTimeUnspecified: form.hotelCheckInTimeUnspecified,
+      checkOutDate: form.hotelCheckOutDate,
+      checkOutTime: form.hotelCheckOutTimeUnspecified
+        ? null
+        : form.hotelCheckOutTime,
+      checkOutTimeUnspecified: form.hotelCheckOutTimeUnspecified,
+      roomTypeId: form.hotelRoomTypeId || null,
       dogId: form.dogIds[0],
       customerId: form.customerIds[0],
       assigneeIds: form.assigneeIds,
@@ -1347,7 +1368,7 @@ export function ScheduleFormModal({
                 </Select>
               </Field>
           </div>
-          <Field label={hotelMode ? "예약 제목" : "제목"} required>
+          {!hotelMode ? <Field label="제목" required>
               <Input
                 required
                 value={form.title}
@@ -1357,7 +1378,7 @@ export function ScheduleFormModal({
                 }}
                 placeholder="반려견과 일정 유형을 선택하면 자동 입력됩니다"
               />
-          </Field>
+          </Field> : null}
         </>
         {hotelMode ? (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -1375,14 +1396,31 @@ export function ScheduleFormModal({
                 }}
               />
             </Field>
-            <Field label="입실 시간" required>
-              <Input
-                required
-                type="time"
-                value={form.startTime}
-                onChange={(event) => patch({ startTime: event.target.value })}
-              />
-            </Field>
+            <div className="space-y-2">
+              <Field
+                label="입실 시간"
+                required={!form.hotelCheckInTimeUnspecified}
+              >
+                <Input
+                  required={!form.hotelCheckInTimeUnspecified}
+                  disabled={form.hotelCheckInTimeUnspecified}
+                  type="time"
+                  value={form.startTime}
+                  onChange={(event) => patch({ startTime: event.target.value })}
+                />
+              </Field>
+              <label className="flex min-h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-medium text-text-primary">
+                <input
+                  type="checkbox"
+                  checked={form.hotelCheckInTimeUnspecified}
+                  onChange={(event) => patch({
+                    hotelCheckInTimeUnspecified: event.target.checked,
+                    startTime: "",
+                  })}
+                />
+                시간 미정
+              </label>
+            </div>
             <Field label="퇴실 날짜" required>
               <Input
                 required
@@ -1393,26 +1431,42 @@ export function ScheduleFormModal({
                 }
               />
             </Field>
-            <Field label="퇴실 시간" required>
-              <Input
-                required
-                type="time"
-                value={form.hotelCheckOutTime}
-                onChange={(event) =>
-                  patch({ hotelCheckOutTime: event.target.value })
-                }
-              />
-            </Field>
+            <div className="space-y-2">
+              <Field
+                label="퇴실 시간"
+                required={!form.hotelCheckOutTimeUnspecified}
+              >
+                <Input
+                  required={!form.hotelCheckOutTimeUnspecified}
+                  disabled={form.hotelCheckOutTimeUnspecified}
+                  type="time"
+                  value={form.hotelCheckOutTime}
+                  onChange={(event) =>
+                    patch({ hotelCheckOutTime: event.target.value })
+                  }
+                />
+              </Field>
+              <label className="flex min-h-10 items-center gap-2 rounded-xl border border-border px-3 text-sm font-medium text-text-primary">
+                <input
+                  type="checkbox"
+                  checked={form.hotelCheckOutTimeUnspecified}
+                  onChange={(event) => patch({
+                    hotelCheckOutTimeUnspecified: event.target.checked,
+                    hotelCheckOutTime: "",
+                  })}
+                />
+                시간 미정
+              </label>
+            </div>
             <div className="sm:col-span-2">
-              <Field label="객실 유형" required>
+              <Field label="객실 유형">
                 <Select
-                  required
                   value={form.hotelRoomTypeId}
                   onChange={(event) =>
                     patch({ hotelRoomTypeId: event.target.value })
                   }
                 >
-                  <option value="">객실 유형 선택</option>
+                  <option value="">객실 미정</option>
                   {hotelSnapshot?.roomTypes.map((roomType) => (
                     <option key={roomType.id} value={roomType.id}>
                       {roomType.name}

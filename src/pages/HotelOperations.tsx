@@ -26,6 +26,7 @@ import {
 import {
   CheckInModal,
   CheckOutModal,
+  CompleteCheckInModal,
   MoveRoomModal,
   RoomAssignModal,
   RoomReassignModal,
@@ -36,6 +37,8 @@ import {
   cancelHotelReservation,
   completeHotelCheckIn,
   completeHotelCheckOut,
+  finalizeAndCompleteHotelCheckIn,
+  finalizeAndCompleteHotelCheckOut,
   fetchHotelOperationsSnapshot,
   fetchHotelStay,
   HotelOperationsRepositoryError,
@@ -44,17 +47,22 @@ import {
   updateHotelOperationSettings,
   updateHotelReservation,
   type HotelOperationsSnapshot,
+  type HotelReservationInput,
   type HotelStay,
 } from "./hotelOperationsRepository";
 import {
   activeHotelAllocation,
   currentAllocatedRoomName,
   formatHotelDateTime,
+  formatHotelScheduleTime,
   hotelStayAssigneeIds,
   hotelStayCalendarContract,
   hotelStayMemo,
+  hotelStayNeedsCheckInFinalization,
   hotelStayStatus,
   hotelStayTitle,
+  hotelStayScheduleEvent,
+  hotelStayUnspecifiedState,
   seoulInputParts,
 } from "./hotelOperationsUi";
 import {
@@ -111,30 +119,36 @@ function statusTone(status: ReturnType<typeof hotelStayStatus>) {
   return "blue" as const;
 }
 
-function scheduleFormFromHotelStay(stay: HotelStay): ScheduleForm {
+export function scheduleFormFromHotelStay(stay: HotelStay): ScheduleForm {
   const capacity = stay.capacityReservation;
-  const checkIn = capacity
-    ? seoulInputParts(capacity.reservedFrom)
+  const checkInSchedule = hotelStayScheduleEvent(stay, "check_in");
+  const checkOutSchedule = hotelStayScheduleEvent(stay, "check_out");
+  const checkIn = checkInSchedule
+    ? seoulInputParts(checkInSchedule.startsAt)
     : { date: seoulDateKey(), time: "15:00" };
-  const checkOut = capacity
-    ? seoulInputParts(capacity.reservedUntil)
+  const checkOut = checkOutSchedule
+    ? seoulInputParts(checkOutSchedule.startsAt)
     : { date: seoulDateKey(), time: "11:00" };
   const contract = hotelStayCalendarContract(stay);
+  const checkInTimeUnspecified = Boolean(checkInSchedule?.timeUnspecified);
+  const checkOutTimeUnspecified = Boolean(checkOutSchedule?.timeUnspecified);
   return {
     ...emptyForm(),
     calendarId: contract.calendarId,
     scheduleTypeId: contract.scheduleTypeId,
     date: checkIn.date,
-    startTime: checkIn.time,
+    startTime: checkInTimeUnspecified ? "" : checkIn.time,
     endDate: checkOut.date,
     endTime: checkOut.time,
     hotelCheckOutDate: checkOut.date,
-    hotelCheckOutTime: checkOut.time,
+    hotelCheckOutTime: checkOutTimeUnspecified ? "" : checkOut.time,
+    hotelCheckInTimeUnspecified: checkInTimeUnspecified,
+    hotelCheckOutTimeUnspecified: checkOutTimeUnspecified,
     hotelRoomTypeId: capacity?.roomTypeId ?? "",
     dogIds: [stay.dogId],
     customerIds: stay.customerId ? [stay.customerId] : [],
     assigneeIds: hotelStayAssigneeIds(stay),
-    title: hotelStayTitle(stay),
+    title: "",
     memo: hotelStayMemo(stay),
   };
 }
@@ -157,6 +171,8 @@ export function HotelOperationsPage() {
   );
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
   const [formError, setFormError] = useState("");
+  const [roomTypeChangeConfirmationOpen, setRoomTypeChangeConfirmationOpen] =
+    useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
 
@@ -197,6 +213,21 @@ export function HotelOperationsPage() {
     try {
       setDetail(await fetchHotelStay(stayId));
     } catch (error) {
+      if (
+        error instanceof HotelOperationsRepositoryError &&
+        error.kind === "conflict" &&
+        detail
+      ) {
+        try {
+          const [latestStay] = await Promise.all([
+            fetchHotelStay(detail.id),
+            loadSnapshot(selectedDate),
+          ]);
+          setDetail(latestStay);
+        } catch {
+          // 원래 충돌 안내를 유지하고 사용자가 재시도할 수 있게 Modal을 닫지 않는다.
+        }
+      }
       setToast({ message: errorMessage(error), tone: "error" });
       setSelectedStayId(null);
     } finally {
@@ -261,6 +292,26 @@ export function HotelOperationsPage() {
     setModal("reservation");
   };
 
+  const updateReservation = (
+    input: HotelReservationInput,
+    roomTypeChanged = false,
+  ) => {
+    if (!detail) return;
+    setRoomTypeChangeConfirmationOpen(false);
+    void runStayMutation(
+      () =>
+        updateHotelReservation(
+          detail.id,
+          detail.version,
+          input,
+          requestId(),
+        ),
+      roomTypeChanged
+        ? "호텔 예약을 수정했습니다. 새 객실 유형에 맞는 호실을 배정해 주세요."
+        : "호텔 예약을 수정했습니다.",
+    );
+  };
+
   const saveReservation = (event: FormEvent) => {
     event.preventDefault();
     setFormError("");
@@ -304,21 +355,22 @@ export function HotelOperationsPage() {
       return;
     }
     if (detail) {
-      void runStayMutation(
-        () =>
-          updateHotelReservation(
-            detail.id,
-            detail.version,
-            prepared.input!,
-            requestId(),
-          ),
-        "호텔 예약을 수정했습니다.",
-      );
+      const allocation = activeHotelAllocation(detail);
+      const roomTypeChanged =
+        detail.capacityReservation?.roomTypeId !== prepared.input.roomTypeId;
+      if (allocation && roomTypeChanged) {
+        setRoomTypeChangeConfirmationOpen(true);
+        return;
+      }
+      updateReservation(prepared.input, roomTypeChanged);
       return;
     }
   };
 
   const stays = snapshot?.stays ?? [];
+  const roomTypeUnspecifiedStays = stays.filter(
+    (stay) => !stay.capacityReservation?.roomTypeId,
+  );
   const isSettingsManager = operationRole === "owner" || operationRole === "manager";
 
   if (loading) return <LoadingState />;
@@ -358,7 +410,15 @@ export function HotelOperationsPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         {snapshot.roomTypes.map((roomType) => {
-          const remaining = Math.max(0, roomType.activeRooms - roomType.reservedPeak);
+          const remaining = snapshot.confirmedRemainingByType?.[roomType.code]
+            ?? roomType.confirmedRemaining
+            ?? Math.max(0, roomType.activeRooms - roomType.reservedPeak);
+          const conservativeRemaining =
+            roomType.conservativeRemaining ?? remaining;
+          const affectedByUnspecifiedCount =
+            roomType.affectedByUnspecifiedCount ?? 0;
+          const confirmedReserved =
+            roomType.confirmedReservedPeak ?? roomType.reservedPeak;
           return (
             <Card key={roomType.id} className="p-5 sm:p-6">
               <div className="flex items-start justify-between gap-4">
@@ -370,16 +430,57 @@ export function HotelOperationsPage() {
               </div>
               <dl className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <Metric label="총 객실" value={`${roomType.activeRooms}실`} />
-                <Metric label="예약" value={`${roomType.reservedPeak}실`} />
-                <Metric label="잔여" value={`${remaining}실`} />
+                <Metric label="확정 예약" value={`${confirmedReserved}실`} />
+                <Metric label="유형 확정 잔여" value={`${remaining}실`} />
+                <Metric label="안전 예약 가능" value={`${conservativeRemaining}실`} alert={conservativeRemaining === 0} />
+                <Metric label="객실 미정 영향" value={`${affectedByUnspecifiedCount}건`} alert={affectedByUnspecifiedCount > 0} />
                 <Metric label="입실 중" value={`${roomType.checkedInNow}실`} />
                 <Metric label="현재 배정" value={`${roomType.allocatedNow}실`} />
                 <Metric label="미배정" value={`${roomType.unassignedNow}건`} alert={roomType.unassignedNow > 0} />
               </dl>
+              {affectedByUnspecifiedCount > 0 || snapshot.individualTypeAvailabilityWarning ? (
+                <p className="mt-4 text-xs font-medium text-amber-700">
+                  객실 미정 예약의 확정 유형에 따라 유형별 잔여가 변동될 수 있습니다.
+                </p>
+              ) : null}
             </Card>
           );
         })}
+        <Card className="p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.12em] text-amber-700">객실 미정</p>
+              <h2 className="mt-1 text-xl font-bold text-text-primary">유형 확정 대기</h2>
+            </div>
+            <Badge tone="amber">객실 미정 예약</Badge>
+          </div>
+          <dl className="mt-5 grid grid-cols-2 gap-3">
+            <Metric label="예약" value={`${snapshot.unassignedRoomTypeCount ?? 0}건`} alert={(snapshot.unassignedRoomTypeCount ?? 0) > 0} />
+            <Metric label="전체 안전 잔여" value={`${snapshot.overallSafeRemaining ?? 0}실`} alert={(snapshot.overallSafeRemaining ?? 0) === 0} />
+          </dl>
+          {snapshot.individualTypeAvailabilityWarning ? (
+            <p className="mt-4 text-xs font-medium text-amber-700">
+              객실 미정 예약이 있어 유형별 잔여는 변동될 수 있습니다.
+            </p>
+          ) : null}
+        </Card>
       </div>
+
+      <Card className="mt-6 overflow-hidden">
+        <div className="border-b border-border px-5 py-4 sm:px-6">
+          <h2 className="font-bold text-text-primary">객실 미정 예약</h2>
+          <p className="mt-0.5 text-xs text-text-secondary">선택 날짜에 객실 유형 확정이 필요한 예약입니다.</p>
+        </div>
+        {roomTypeUnspecifiedStays.length === 0 ? (
+          <EmptyState compact title="객실 미정 예약이 없습니다." />
+        ) : (
+          <div className="divide-y divide-border">
+            {roomTypeUnspecifiedStays.map((stay) => (
+              <StayRow key={stay.id} stay={stay} onClick={() => void openStay(stay.id)} />
+            ))}
+          </div>
+        )}
+      </Card>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <Card className="overflow-hidden">
@@ -413,7 +514,7 @@ export function HotelOperationsPage() {
               {snapshot.unassignedFuture.slice(0, 8).map((stay) => (
                 <button key={stay.id} type="button" onClick={() => void openStay(stay.id)} className="block w-full px-5 py-3.5 text-left transition hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary">
                   <b className="block truncate text-sm text-text-primary">{stay.dogName}</b>
-                  <span className="mt-1 block text-xs text-text-secondary">{stay.capacityReservation?.roomTypeName} · {formatHotelDateTime(stay.capacityReservation?.reservedFrom ?? null)}</span>
+                  <span className="mt-1 block text-xs text-text-secondary">{stay.capacityReservation?.roomTypeName ?? "객실 미정"} · {formatHotelScheduleTime(stay, "check_in")}</span>
                 </button>
               ))}
             </div>
@@ -448,7 +549,11 @@ export function HotelOperationsPage() {
         onTitleManuallyEdited={setTitleManuallyEdited}
         onChange={setScheduleForm}
         onSubmit={saveReservation}
-        onClose={() => !processing && setModal(null)}
+        onClose={() => {
+          if (processing) return;
+          setRoomTypeChangeConfirmationOpen(false);
+          setModal(null);
+        }}
         currentUserName={
           detail
             ? options.assignees.find((person) => person.id === detail.createdBy)
@@ -460,13 +565,62 @@ export function HotelOperationsPage() {
         modalResetKey={detail?.id ?? `hotel-new-${selectedDate}`}
         calendarLocked={Boolean(detail)}
       />
+      <ConfirmModal
+        open={roomTypeChangeConfirmationOpen}
+        title="객실 유형을 변경할까요?"
+        description={
+          <p>
+            객실 유형을 변경하면 기존 호실 배정이 해제됩니다.<br />
+            저장 후 새 객실 유형에 맞는 호실을 다시 배정해 주세요.
+          </p>
+        }
+        confirmLabel="변경 후 저장"
+        cancelLabel="돌아가기"
+        processing={processing}
+        onClose={() => setRoomTypeChangeConfirmationOpen(false)}
+        onConfirm={() => {
+          const prepared = hotelReservationInputFromForm(
+            scheduleForm,
+            options,
+            snapshot,
+          );
+          if (!prepared.input) {
+            setFormError(prepared.error);
+            setRoomTypeChangeConfirmationOpen(false);
+            return;
+          }
+          updateReservation(prepared.input, true);
+        }}
+      />
       {detail ? (
         <>
           <RoomAssignModal open={modal === "assign"} snapshot={snapshot} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(roomId, reason) => void runStayMutation(() => assignHotelRoom(detail.id, detail.version, roomId, reason, requestId()), "호실을 배정했습니다.")} />
           <RoomReassignModal open={modal === "reassign"} snapshot={snapshot} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(roomId, reason) => void runStayMutation(() => reassignHotelRoomBeforeCheckIn(detail.id, detail.version, roomId, reason, requestId()), "호실을 재배정했습니다.")} />
           <MoveRoomModal open={modal === "move"} snapshot={snapshot} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(roomId, moveAt, reason) => void runStayMutation(() => moveHotelRoomSameType(detail.id, detail.version, roomId, moveAt, reason, requestId()), "객실 이동을 기록했습니다.")} />
-          <CheckInModal open={modal === "checkin"} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(completedAt) => void runStayMutation(() => completeHotelCheckIn(detail.id, detail.version, completedAt, requestId()), "입실 완료로 처리했습니다.")} />
-          <CheckOutModal open={modal === "checkout"} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(completedAt) => void runStayMutation(() => completeHotelCheckOut(detail.id, detail.version, completedAt, requestId()), "퇴실 완료로 처리했습니다.")} />
+          {hotelStayNeedsCheckInFinalization(detail) ? (
+            <CheckInModal open={modal === "checkin"} snapshot={snapshot} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(completedAt, roomTypeId, roomId) => {
+              void runStayMutation(
+                () => finalizeAndCompleteHotelCheckIn(detail.id, detail.version, completedAt, roomTypeId, roomId, requestId()),
+                "입실 완료로 처리했습니다.",
+              );
+            }} />
+          ) : (
+            <CompleteCheckInModal open={modal === "checkin"} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(completedAt) => {
+              void runStayMutation(
+                () => completeHotelCheckIn(detail.id, detail.version, completedAt, requestId()),
+                "입실 완료로 처리했습니다.",
+              );
+            }} />
+          )}
+          <CheckOutModal open={modal === "checkout"} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(completedAt) => {
+            const unspecified = hotelStayUnspecifiedState(detail);
+            void runStayMutation(
+              () => unspecified.checkOutTime
+                ? finalizeAndCompleteHotelCheckOut(detail.id, detail.version, completedAt, requestId())
+                : completeHotelCheckOut(detail.id, detail.version, completedAt, requestId()),
+              "퇴실 완료로 처리했습니다.",
+            );
+          }} />
           <ConfirmModal open={modal === "cancel"} title="호텔 예약을 취소할까요?" description={<div className="space-y-3"><p>연결된 입·퇴실 일정과 Capacity가 함께 취소되며 기록은 유지됩니다.</p><Field label="취소 사유"><Input value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} placeholder="선택 사항" /></Field></div>} confirmLabel="예약 취소" cancelLabel="돌아가기" processing={processing} onClose={() => setModal(null)} onConfirm={() => void runStayMutation(() => cancelHotelReservation(detail.id, detail.version, cancelReason, requestId()), "호텔 예약을 취소했습니다.", true)} />
         </>
       ) : null}
@@ -482,14 +636,37 @@ function Metric({ label, value, alert = false }: { label: string; value: string;
 
 function StayRow({ stay, onClick }: { stay: HotelStay; onClick: () => void }) {
   const status = hotelStayStatus(stay);
-  return <button type="button" onClick={onClick} className="grid w-full gap-3 px-5 py-4 text-left transition hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-6"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><b className="truncate text-sm text-text-primary">{hotelStayTitle(stay)}</b><Badge tone={statusTone(status)}>{status}</Badge></div><p className="mt-1.5 text-sm text-text-secondary">🐶 {stay.dogName} · {stay.customerName ?? "보호자 미등록"}</p><p className="mt-1 text-xs text-text-muted">{formatHotelDateTime(stay.capacityReservation?.reservedFrom ?? null)} → {formatHotelDateTime(stay.capacityReservation?.reservedUntil ?? null)}</p></div><div className="flex items-center gap-2 text-sm font-semibold text-primary"><DoorOpen size={16} /> {currentAllocatedRoomName(stay)}</div></button>;
+  const unspecified = hotelStayUnspecifiedState(stay);
+  return (
+    <button type="button" onClick={onClick} className="grid w-full gap-3 px-5 py-4 text-left transition hover:bg-primary-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-6">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <b className="truncate text-sm text-text-primary">{hotelStayTitle(stay)}</b>
+          <Badge tone={statusTone(status)}>{status}</Badge>
+          {unspecified.checkInTime ? <Badge tone="amber">입실시간 미정</Badge> : null}
+          {unspecified.checkOutTime ? <Badge tone="amber">퇴실시간 미정</Badge> : null}
+          {unspecified.roomType ? <Badge tone="amber">객실 미정</Badge> : null}
+        </div>
+        <p className="mt-1.5 text-sm text-text-secondary">🐶 {stay.dogName} · {stay.customerName ?? "보호자 미등록"}</p>
+        <p className="mt-1 text-xs text-text-muted">
+          {formatHotelScheduleTime(stay, "check_in")} → {formatHotelScheduleTime(stay, "check_out")}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+        <DoorOpen size={16} /> {currentAllocatedRoomName(stay)}
+      </div>
+    </button>
+  );
 }
 
 function StayDetailModal({ open, stay, loading, creatorName, onClose, onEdit, onAssign, onReassign, onMove, onCheckIn, onCheckOut, onCancel }: { open: boolean; stay: HotelStay | null; loading: boolean; creatorName: string | null; onClose: () => void; onEdit: () => void; onAssign: () => void; onReassign: () => void; onMove: () => void; onCheckIn: () => void; onCheckOut: () => void; onCancel: () => void }) {
   if (!stay && !loading) return null;
   const allocation = stay ? activeHotelAllocation(stay) : null;
   const status = stay ? hotelStayStatus(stay) : "예약";
-  return <Modal open={open} title="호텔 예약 상세" onClose={onClose} wide resetKey={stay?.id}>{loading || !stay ? <LoadingState /> : <div className="space-y-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-xl font-bold text-text-primary">{hotelStayTitle(stay)}</h3><p className="mt-1 text-sm text-text-secondary">🐶 {stay.dogName} · {stay.customerName ?? "보호자 미등록"}</p></div><Badge tone={statusTone(status)}>{status}</Badge></div><dl className="grid gap-3 sm:grid-cols-2"><Detail label="객실 유형" value={stay.capacityReservation?.roomTypeName ?? "-"} icon={<Hotel size={16} />} /><Detail label="현재 호실" value={allocation?.roomName ?? "미배정"} icon={<DoorOpen size={16} />} /><Detail label="입실 예정" value={formatHotelDateTime(stay.capacityReservation?.reservedFrom ?? null)} icon={<CalendarDays size={16} />} /><Detail label="퇴실 예정" value={formatHotelDateTime(stay.capacityReservation?.reservedUntil ?? null)} icon={<CalendarDays size={16} />} /><Detail label="입실 완료" value={formatHotelDateTime(stay.checkedInAt)} icon={<CheckCircle2 size={16} />} /><Detail label="퇴실 완료" value={formatHotelDateTime(stay.checkedOutAt)} icon={<CheckCircle2 size={16} />} /></dl><div className="rounded-2xl bg-surface-secondary p-4 text-sm text-text-secondary"><p><b className="text-text-primary">담당자</b> {stay.scheduleEvents[0]?.schedule.assignees.map((person) => person.name ?? "이름 미등록").join(", ") || "미지정"}</p><p className="mt-2"><b className="text-text-primary">생성자</b> {creatorName ?? stay.createdBy}</p>{stay.customerPhone ? <p className="mt-2"><b className="text-text-primary">보호자 연락처</b> {stay.customerPhone}</p> : null}{hotelStayMemo(stay) ? <p className="mt-2 whitespace-pre-wrap"><b className="text-text-primary">메모</b> {hotelStayMemo(stay)}</p> : null}{stay.roomAllocations.length > 1 ? <p className="mt-2"><b className="text-text-primary">객실 이동</b> {stay.roomAllocations.map((row) => row.roomName).join(" → ")}</p> : null}</div><div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="secondary" onClick={onEdit}>예약 수정</Button>{!stay.checkedInAt && !allocation ? <Button type="button" variant="secondary" onClick={onAssign}>호실 배정</Button> : null}{!stay.checkedInAt && allocation ? <Button type="button" variant="secondary" onClick={onReassign}>호실 재배정</Button> : null}{stay.checkedInAt && !stay.checkedOutAt ? <Button type="button" variant="secondary" onClick={onMove}><MoveRight size={16} /> 객실 이동</Button> : null}{!stay.checkedInAt ? <Button type="button" onClick={onCheckIn}>입실 완료</Button> : null}{stay.checkedInAt && !stay.checkedOutAt ? <Button type="button" onClick={onCheckOut}>퇴실 완료</Button> : null}{!stay.checkedInAt ? <Button type="button" variant="danger" onClick={onCancel}>예약 취소</Button> : null}</div></div>}</Modal>;
+  const unspecified = stay
+    ? hotelStayUnspecifiedState(stay)
+    : { checkInTime: false, checkOutTime: false, roomType: false };
+  return <Modal open={open} title="호텔 예약 상세" onClose={onClose} wide resetKey={stay?.id}>{loading || !stay ? <LoadingState /> : <div className="space-y-6"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-xl font-bold text-text-primary">{hotelStayTitle(stay)}</h3><p className="mt-1 text-sm text-text-secondary">🐶 {stay.dogName} · {stay.customerName ?? "보호자 미등록"}</p><div className="mt-2 flex flex-wrap gap-1.5">{unspecified.checkInTime ? <Badge tone="amber">입실시간 미정</Badge> : null}{unspecified.checkOutTime ? <Badge tone="amber">퇴실시간 미정</Badge> : null}{unspecified.roomType ? <Badge tone="amber">객실 미정</Badge> : null}</div></div><Badge tone={statusTone(status)}>{status}</Badge></div><dl className="grid gap-3 sm:grid-cols-2"><Detail label="객실 유형" value={stay.capacityReservation?.roomTypeName ?? "객실 미정"} icon={<Hotel size={16} />} /><Detail label="현재 호실" value={allocation?.roomName ?? "미배정"} icon={<DoorOpen size={16} />} /><Detail label="입실 예정" value={formatHotelScheduleTime(stay, "check_in")} icon={<CalendarDays size={16} />} /><Detail label="퇴실 예정" value={formatHotelScheduleTime(stay, "check_out")} icon={<CalendarDays size={16} />} /><Detail label="입실 완료" value={formatHotelDateTime(stay.checkedInAt)} icon={<CheckCircle2 size={16} />} /><Detail label="퇴실 완료" value={formatHotelDateTime(stay.checkedOutAt)} icon={<CheckCircle2 size={16} />} /></dl><div className="rounded-2xl bg-surface-secondary p-4 text-sm text-text-secondary"><p><b className="text-text-primary">담당자</b> {stay.scheduleEvents[0]?.schedule.assignees.map((person) => person.name ?? "이름 미등록").join(", ") || "미지정"}</p><p className="mt-2"><b className="text-text-primary">생성자</b> {creatorName ?? stay.createdBy}</p>{stay.customerPhone ? <p className="mt-2"><b className="text-text-primary">보호자 연락처</b> {stay.customerPhone}</p> : null}{hotelStayMemo(stay) ? <p className="mt-2 whitespace-pre-wrap"><b className="text-text-primary">메모</b> {hotelStayMemo(stay)}</p> : null}{stay.roomAllocations.length > 1 ? <p className="mt-2"><b className="text-text-primary">객실 이동</b> {stay.roomAllocations.map((row) => row.roomName).join(" → ")}</p> : null}</div><div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="secondary" onClick={onEdit}>예약 수정</Button>{!stay.checkedInAt && !allocation && !unspecified.roomType ? <Button type="button" variant="secondary" onClick={onAssign}>호실 배정</Button> : null}{!stay.checkedInAt && allocation ? <Button type="button" variant="secondary" onClick={onReassign}>호실 재배정</Button> : null}{stay.checkedInAt && !stay.checkedOutAt ? <Button type="button" variant="secondary" onClick={onMove}><MoveRight size={16} /> 객실 이동</Button> : null}{!stay.checkedInAt ? <Button type="button" onClick={onCheckIn}>입실 완료</Button> : null}{stay.checkedInAt && !stay.checkedOutAt ? <Button type="button" onClick={onCheckOut}>퇴실 완료</Button> : null}{!stay.checkedInAt ? <Button type="button" variant="danger" onClick={onCancel}>예약 취소</Button> : null}</div></div>}</Modal>;
 }
 
 function Detail({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
