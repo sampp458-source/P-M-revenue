@@ -6,9 +6,11 @@ import {
   activeHotelAllocation,
   formatHotelScheduleTime,
   hotelStayDayPhase,
+  hotelStayDayTitle,
   hotelStayNeedsCheckInFinalization,
   hotelStayStatus,
   hotelStayUnspecifiedState,
+  isValidHotelSnapshotDate,
   matchesHotelQuickFilter,
   seoulInputParts,
 } from "./hotelOperationsUi";
@@ -78,6 +80,30 @@ const stay = (overrides: Partial<HotelStay> = {}): HotelStay => ({
   ...overrides,
 });
 
+describe("Hotel snapshot date validation", () => {
+  it.each([
+    ["", false],
+    ["2026-08", false],
+    ["2026-08-", false],
+    ["2026-8-04", false],
+    ["2026-02-30", false],
+    ["not-a-date", false],
+    ["2026-08-07", true],
+    ["2028-02-29", true],
+  ])("validates %s before loading a Snapshot", (value, expected) => {
+    expect(isValidHotelSnapshotDate(value)).toBe(expected);
+  });
+
+  it("keeps every Snapshot call behind the shared date guard", () => {
+    expect(pageSource).toContain(
+      "if (!isValidHotelSnapshotDate(date)) return null;",
+    );
+    expect(pageSource).toContain(
+      "if (!profile || !isValidHotelSnapshotDate(selectedDate)) return;",
+    );
+  });
+});
+
 describe("Hotel Operations frontend", () => {
   it("derives selected-day work phases from linked KST event dates", () => {
     const scheduledStay = stay({
@@ -118,6 +144,15 @@ describe("Hotel Operations frontend", () => {
     expect(hotelStayDayPhase(scheduledStay, "2026-08-02")).toBe("입실");
     expect(hotelStayDayPhase(scheduledStay, "2026-08-03")).toBe("이용중");
     expect(hotelStayDayPhase(scheduledStay, "2026-08-05")).toBe("퇴실");
+    expect(hotelStayDayTitle(scheduledStay, "2026-08-02")).toBe(
+      "토리 · 호텔링 · 입실 · STANDARD",
+    );
+    expect(hotelStayDayTitle(scheduledStay, "2026-08-03")).toBe(
+      "토리 · 호텔링 · 이용중 · STANDARD",
+    );
+    expect(hotelStayDayTitle(scheduledStay, "2026-08-05")).toBe(
+      "토리 · 호텔링 · 퇴실 · STANDARD",
+    );
     expect(matchesHotelQuickFilter(scheduledStay, "2026-08-03", "in_house")).toBe(true);
     expect(matchesHotelQuickFilter(scheduledStay, "2026-08-02", "check_in")).toBe(true);
     expect(matchesHotelQuickFilter(scheduledStay, "2026-08-05", "check_out")).toBe(true);
@@ -159,6 +194,9 @@ describe("Hotel Operations frontend", () => {
       ],
     });
     expect(hotelStayDayPhase(sameDayStay, "2026-08-02")).toBe("입실·퇴실");
+    expect(hotelStayDayTitle(sameDayStay, "2026-08-02")).toBe(
+      "토리 · 호텔링 · 입실·퇴실 · STANDARD",
+    );
     expect(matchesHotelQuickFilter(sameDayStay, "2026-08-02", "check_in")).toBe(true);
     expect(matchesHotelQuickFilter(sameDayStay, "2026-08-02", "check_out")).toBe(true);
     expect(matchesHotelQuickFilter(sameDayStay, "2026-08-02", "in_house")).toBe(false);

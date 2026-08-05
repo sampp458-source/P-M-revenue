@@ -59,6 +59,7 @@ function RoomSelectModal({
   processing,
   onClose,
   onSubmit,
+  includeOtherRoomTypes = false,
   children,
 }: {
   open: boolean;
@@ -69,6 +70,7 @@ function RoomSelectModal({
   processing: boolean;
   onClose: () => void;
   onSubmit: (roomId: string, reason: string) => void;
+  includeOtherRoomTypes?: boolean;
   children?: ReactNode;
 }) {
   const [roomId, setRoomId] = useState("");
@@ -77,9 +79,11 @@ function RoomSelectModal({
   const rooms = useMemo(
     () =>
       snapshot.rooms.filter(
-        (room) => room.roomTypeId === roomTypeId && room.isActive,
+        (room) =>
+          room.isActive &&
+          (includeOtherRoomTypes || room.roomTypeId === roomTypeId),
       ),
-    [roomTypeId, snapshot.rooms],
+    [includeOtherRoomTypes, roomTypeId, snapshot.rooms],
   );
 
   useEffect(() => {
@@ -156,6 +160,7 @@ export function MoveRoomModal({
   processing,
   onClose,
   onSubmit,
+  includeOtherRoomTypes = false,
 }: {
   open: boolean;
   snapshot: HotelOperationsSnapshot;
@@ -163,6 +168,7 @@ export function MoveRoomModal({
   processing: boolean;
   onClose: () => void;
   onSubmit: (roomId: string, moveAt: string, reason: string) => void;
+  includeOtherRoomTypes?: boolean;
 }) {
   const [moveAt, setMoveAt] = useState("");
 
@@ -180,6 +186,7 @@ export function MoveRoomModal({
       snapshot={snapshot}
       stay={stay}
       processing={processing}
+      includeOtherRoomTypes={includeOtherRoomTypes}
       onClose={onClose}
       onSubmit={(roomId, reason) => {
         const [date, time] = moveAt.split("T");

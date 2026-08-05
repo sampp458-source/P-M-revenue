@@ -1,5 +1,12 @@
-import { Clock3, GripVertical } from "lucide-react";
-import { type DragEvent, useMemo, useRef, useState } from "react";
+import { Clock3, GripVertical, Sparkles } from "lucide-react";
+import {
+  type DragEvent,
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Badge, Card, cn } from "../components/ui";
 import type {
   HotelOperationsSnapshot,
@@ -18,6 +25,20 @@ import {
 type RoomBoardStage = "check_in" | "in_house" | "check_out";
 
 export type HotelRoomBoardDropAction = "assign" | "reassign" | "move";
+export type HotelRoomBoardRoomTarget =
+  | "same_type"
+  | "change_type"
+  | "blocked";
+
+const ROOM_BOARD_DRAG_THRESHOLD = 7;
+
+export function isHotelRoomBoardDragGesture(
+  deltaX: number,
+  deltaY: number,
+  threshold = ROOM_BOARD_DRAG_THRESHOLD,
+) {
+  return Math.hypot(deltaX, deltaY) >= threshold;
+}
 
 export function hotelRoomBoardDropAction(
   stay: HotelStay,
@@ -47,6 +68,66 @@ export function hotelRoomBoardUnassigned(stays: HotelStay[]) {
   );
 }
 
+export function hotelRoomBoardRoomTarget(
+  stay: HotelStay,
+  room: HotelRoomSnapshot,
+  occupied: boolean,
+): HotelRoomBoardRoomTarget {
+  const allocation = activeHotelAllocation(stay);
+  if (
+    occupied ||
+    stay.checkedOutAt ||
+    (!allocation && !stay.capacityReservation?.roomTypeId) ||
+    allocation?.roomId === room.id
+  ) {
+    return "blocked";
+  }
+  return stay.capacityReservation?.roomTypeId === room.roomTypeId
+    ? "same_type"
+    : allocation
+      ? "change_type"
+      : "blocked";
+}
+
+export function canDropHotelStayToUnassigned(stay: HotelStay) {
+  return Boolean(
+    !stay.checkedInAt && !stay.checkedOutAt && activeHotelAllocation(stay),
+  );
+}
+
+export function hotelRoomBoardRecommendedRoom(
+  stay: HotelStay,
+  rooms: HotelRoomSnapshot[],
+  occupiedRoomIds: Set<string>,
+) {
+  const roomTypeId = stay.capacityReservation?.roomTypeId;
+  if (!roomTypeId) return null;
+  const allocation = activeHotelAllocation(stay);
+  const currentRoom = rooms.find((room) => room.id === allocation?.roomId);
+  return (
+    rooms
+      .filter(
+        (room) =>
+          room.isActive &&
+          room.roomTypeId === roomTypeId &&
+          room.id !== allocation?.roomId &&
+          !occupiedRoomIds.has(room.id),
+      )
+      .sort((left, right) => {
+        if (currentRoom) {
+          const distance =
+            Math.abs(left.sortOrder - currentRoom.sortOrder) -
+            Math.abs(right.sortOrder - currentRoom.sortOrder);
+          if (distance !== 0) return distance;
+        }
+        return (
+          left.sortOrder - right.sortOrder ||
+          left.name.localeCompare(right.name)
+        );
+      })[0] ?? null
+  );
+}
+
 export function hotelRoomBoardCheckInTime(stay: HotelStay) {
   const schedule = hotelStayScheduleEvent(stay, "check_in");
   if (!schedule) return "입실 시간 없음";
@@ -66,6 +147,17 @@ function stageClass(stage: RoomBoardStage) {
     return "border-orange-300 bg-orange-50 text-orange-950";
   }
   return "border-blue-300 bg-blue-50 text-blue-950";
+}
+
+function stageBadgeClass(stage: RoomBoardStage, waiting: boolean) {
+  if (waiting) return "bg-amber-100 text-amber-800 ring-amber-300/70";
+  if (stage === "in_house") {
+    return "bg-emerald-100 text-emerald-800 ring-emerald-300/70";
+  }
+  if (stage === "check_out") {
+    return "bg-orange-100 text-orange-900 ring-orange-300/70";
+  }
+  return "bg-blue-100 text-blue-800 ring-blue-300/70";
 }
 
 function roomStageClass(stage: RoomBoardStage | null) {
@@ -90,6 +182,8 @@ function DraggableStayCard({
   selectedDate,
   disabled,
   dragging,
+  returning,
+  settling,
   variant,
   onOpen,
   onSelectForDrop,
@@ -100,12 +194,25 @@ function DraggableStayCard({
   selectedDate: string;
   disabled: boolean;
   dragging: boolean;
+  returning: boolean;
+  settling: boolean;
   variant: "waiting" | "room";
   onOpen: () => void;
   onSelectForDrop: (stayId: string) => void;
   onDragStart: (event: DragEvent<HTMLDivElement>, stayId: string) => void;
   onPointerStart: (stayId: string) => void;
 }) {
+  const pointerOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const dragGestureRef = useRef(false);
+  const suppressOpenRef = useRef(false);
+  useEffect(() => {
+    if (dragging || !suppressOpenRef.current) return;
+    const timer = window.setTimeout(() => {
+      suppressOpenRef.current = false;
+      dragGestureRef.current = false;
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [dragging]);
   const stage = hotelRoomBoardStage(stay, selectedDate);
   const unspecified = hotelStayUnspecifiedState(stay);
   const draggable = !disabled && hotelRoomBoardDropAction(stay) !== null;
@@ -119,24 +226,57 @@ function DraggableStayCard({
     <div
       draggable={draggable}
       onDragStart={(event) => {
-        if (draggable) onDragStart(event, stay.id);
+        if (!draggable) return;
+        dragGestureRef.current = true;
+        suppressOpenRef.current = true;
+        onDragStart(event, stay.id);
       }}
-      onPointerDown={() => {
-        if (draggable) onPointerStart(stay.id);
+      onPointerDown={(event) => {
+        if (!draggable) return;
+        pointerOriginRef.current = { x: event.clientX, y: event.clientY };
+        dragGestureRef.current = false;
+      }}
+      onPointerMove={(event: ReactPointerEvent<HTMLDivElement>) => {
+        const origin = pointerOriginRef.current;
+        if (!draggable || !origin || dragGestureRef.current) return;
+        if (
+          !isHotelRoomBoardDragGesture(
+            event.clientX - origin.x,
+            event.clientY - origin.y,
+          )
+        ) {
+          return;
+        }
+        dragGestureRef.current = true;
+        suppressOpenRef.current = true;
+        onPointerStart(stay.id);
+      }}
+      onPointerUp={() => {
+        pointerOriginRef.current = null;
+      }}
+      onPointerCancel={() => {
+        pointerOriginRef.current = null;
       }}
       data-testid={`hotel-room-board-stay-${stay.id}`}
+      data-room-phase={stage}
       className={cn(
-        "hotel-room-card-enter group select-none rounded-2xl border shadow-sm transition-[transform,box-shadow,opacity] duration-150 ease-out",
-        variant === "waiting" ? "px-4 py-3.5" : "px-3 py-3",
-        stageClass(stage),
+        "hotel-room-card-settle group relative select-none rounded-xl border shadow-sm transition-[transform,box-shadow,opacity] duration-200 ease-out will-change-transform",
+        variant === "waiting"
+          ? "border-amber-300 bg-amber-50 px-2.5 py-1.5 text-amber-950"
+          : `px-2 py-1 ${stageClass(stage)}`,
         draggable &&
           "cursor-grab hover:-translate-y-0.5 hover:shadow-lg active:cursor-grabbing",
         dragging &&
-          "z-10 scale-[1.02] cursor-grabbing opacity-55 shadow-[0_18px_36px_rgb(15_23_42_/_0.24)] ring-2 ring-white/80",
+          "z-10 rotate-[1.25deg] scale-[1.04] cursor-grabbing opacity-40 shadow-[0_26px_54px_rgb(15_23_42_/_0.34)] ring-2 ring-white/80",
+        returning && "hotel-room-card-return",
+        settling && "hotel-room-card-absorb",
         disabled && "opacity-60",
       )}
     >
-      <div className="flex min-h-14 w-full items-start gap-2.5">
+      {dragging ? (
+        <div className="pointer-events-none absolute inset-1 rounded-lg border border-dashed border-slate-500/50 bg-white/35" />
+      ) : null}
+      <div className="relative flex min-h-9 w-full items-start gap-1">
         <button
           type="button"
           aria-label={`${stay.dogName} 호실 이동 시작`}
@@ -146,48 +286,50 @@ function DraggableStayCard({
             event.stopPropagation();
             if (draggable) onSelectForDrop(stay.id);
           }}
-          className="-m-1 flex h-8 w-7 shrink-0 items-center justify-center rounded-lg opacity-50 transition hover:bg-white/70 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed"
+          className="-m-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg opacity-45 transition hover:bg-white/70 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed"
         >
           <GripVertical size={17} />
         </button>
         <button
           type="button"
-          onClick={onOpen}
+          onClick={(event) => {
+            if (suppressOpenRef.current || dragGestureRef.current) {
+              event.preventDefault();
+              event.stopPropagation();
+              suppressOpenRef.current = false;
+              dragGestureRef.current = false;
+              return;
+            }
+            onOpen();
+          }}
           className="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-base font-extrabold tracking-[-0.01em] text-slate-950">
-            {stay.dogName}
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[15px] font-extrabold leading-5 tracking-[-0.015em] text-slate-950">
+              {stay.dogName}
+            </span>
+            <span className="mt-0.5 block">
+              <span
+                className={cn(
+                  "inline-flex rounded-full px-1.5 py-px text-[9px] font-extrabold leading-[0.875rem] ring-1 ring-inset",
+                  stageBadgeClass(stage, variant === "waiting"),
+                )}
+              >
+                {variant === "waiting"
+                  ? "미배정"
+                  : stageLabel(stay, selectedDate)}
+              </span>
+            </span>
+            <span className="mt-0.5 flex items-center gap-1 text-[11px] font-bold tabular-nums text-slate-800">
+              <Clock3 size={12} />
+              {variant === "waiting"
+                ? formatHotelScheduleTime(stay, "check_in")
+                : checkInTime}
+            </span>
+            <span className="block truncate text-[10px] font-semibold text-slate-500">
+              {unspecified.roomType ? "객실 유형 미정" : roomType}
+            </span>
           </span>
-          {variant === "waiting" ? (
-            <>
-              <span className="mt-1.5 flex items-center gap-1.5 text-xs font-semibold opacity-80">
-                <Clock3 size={13} />
-                {formatHotelScheduleTime(stay, "check_in")}
-              </span>
-              <span className="mt-2 flex flex-wrap items-center gap-1.5">
-                <Badge tone={unspecified.roomType ? "amber" : "gray"}>
-                  {roomType}
-                </Badge>
-                <Badge tone="gray">{stageLabel(stay, selectedDate)}</Badge>
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="mt-1.5 block text-sm font-extrabold tabular-nums text-slate-900">
-                {checkInTime}
-              </span>
-              {stay.customerName ? (
-                <span className="mt-1.5 block truncate text-xs font-medium text-slate-600">
-                  {stay.customerName}
-                </span>
-              ) : null}
-              <span className="mt-2 block">
-                <Badge tone="gray">{stageLabel(stay, selectedDate)}</Badge>
-              </span>
-            </>
-          )}
-        </span>
         </button>
       </div>
     </div>
@@ -200,8 +342,13 @@ function RoomCell({
   selectedDate,
   draggedStay,
   draggedStayId,
+  returningStayId,
+  settlingStayId,
   hoveredRoomId,
+  recommended,
+  settling,
   processing,
+  allowCrossTypeChange,
   onOpenStay,
   onDropStay,
   onDragStart,
@@ -215,20 +362,32 @@ function RoomCell({
   selectedDate: string;
   draggedStay: HotelStay | null;
   draggedStayId: string | null;
+  returningStayId: string | null;
+  settlingStayId: string | null;
   hoveredRoomId: string | null;
+  recommended: boolean;
+  settling: boolean;
   processing: boolean;
+  allowCrossTypeChange: boolean;
   onOpenStay: (stayId: string) => void;
-  onDropStay: (stayId: string, roomId: string) => void;
+  onDropStay: (
+    stayId: string,
+    roomId: string,
+    requiresRoomTypeChange: boolean,
+  ) => void;
   onDragStart: (event: DragEvent<HTMLDivElement>, stayId: string) => void;
   onSelectForDrop: (stayId: string) => void;
   onPointerDrop: (roomId: string) => void;
   onPointerStart: (stayId: string) => void;
   onTargetHover: (roomId: string | null) => void;
 }) {
-  const acceptsDraggedStay = Boolean(
-    draggedStay?.capacityReservation?.roomTypeId === room.roomTypeId &&
-      stayRoomId(draggedStay) !== room.id,
-  );
+  const targetState = draggedStay
+    ? hotelRoomBoardRoomTarget(draggedStay, room, stays.length > 0)
+    : "blocked";
+  const acceptsDraggedStay =
+    targetState !== "blocked" &&
+    (targetState !== "change_type" || allowCrossTypeChange);
+  const requiresRoomTypeChange = targetState === "change_type";
   const isHoveredDropTarget = acceptsDraggedStay && hoveredRoomId === room.id;
   const roomStage = stays[0]
     ? hotelRoomBoardStage(stays[0], selectedDate)
@@ -236,6 +395,7 @@ function RoomCell({
   return (
     <div
       data-testid={`hotel-room-board-room-${room.id}`}
+      data-room-phase={roomStage ?? "empty"}
       onPointerDown={() => {
         if (acceptsDraggedStay) onPointerDrop(room.id);
       }}
@@ -264,7 +424,9 @@ function RoomCell({
           event.dataTransfer.getData("application/x-hotel-stay-id") ||
           event.dataTransfer.getData("text/plain") ||
           draggedStayId;
-        if (stayId && acceptsDraggedStay) onDropStay(stayId, room.id);
+        if (stayId && acceptsDraggedStay) {
+          onDropStay(stayId, room.id, requiresRoomTypeChange);
+        }
       }}
       onPointerEnter={() => {
         if (acceptsDraggedStay) onTargetHover(room.id);
@@ -274,18 +436,40 @@ function RoomCell({
       }}
       onPointerUp={() => onPointerDrop(room.id)}
       className={cn(
-        "relative min-h-40 overflow-hidden rounded-2xl border p-3 transition-[transform,box-shadow,border-color,background-color] duration-150 ease-out",
+        "relative min-h-[5.5rem] overflow-visible rounded-xl border p-1.5 transition-[transform,box-shadow,border-color,background-color,opacity] duration-200 ease-out will-change-transform",
         roomStageClass(roomStage),
         acceptsDraggedStay &&
-          "border-dashed border-primary/55 bg-primary-subtle/20",
+          (requiresRoomTypeChange
+            ? "border-dashed border-amber-500/70 bg-amber-50/60"
+            : "border-dashed border-primary/55 bg-primary-subtle/20"),
         isHoveredDropTarget &&
-          "z-10 scale-[1.015] border-2 border-solid border-primary bg-primary-subtle shadow-[0_14px_30px_rgb(39_76_119_/_0.22),inset_0_0_0_1px_rgb(39_76_119_/_0.22)]",
+          (requiresRoomTypeChange
+            ? "z-10 scale-[1.015] border-2 border-solid border-amber-600 bg-amber-50 shadow-[0_14px_30px_rgb(180_83_9_/_0.22)]"
+            : "z-10 scale-[1.015] border-2 border-solid border-primary bg-primary-subtle shadow-[0_14px_30px_rgb(39_76_119_/_0.22),inset_0_0_0_1px_rgb(39_76_119_/_0.22)]"),
+        Boolean(draggedStay) && !acceptsDraggedStay && "opacity-55",
+        recommended &&
+          acceptsDraggedStay &&
+          !isHoveredDropTarget &&
+          "border-emerald-400/75 bg-emerald-50/35 ring-2 ring-emerald-300/45 ring-offset-1",
+        settling &&
+          "hotel-room-drop-settle border-primary/70 bg-primary-subtle/70 shadow-[0_14px_28px_rgb(39_76_119_/_0.18)]",
       )}
     >
-      <div className="mb-3 min-w-0">
+      <div className="mb-1 flex min-w-0 items-center justify-between gap-1.5 px-0.5">
         <b className="whitespace-nowrap text-sm font-extrabold text-text-primary">
           {room.name}
         </b>
+        {recommended && acceptsDraggedStay ? (
+          <span className="group/reason relative flex items-center gap-1 rounded-full bg-emerald-100/70 px-1.5 py-0.5 text-[10px] font-extrabold text-emerald-800">
+            <Sparkles size={10} /> 추천
+            <span
+              role="tooltip"
+              className="pointer-events-none absolute right-0 top-full z-30 mt-1 w-max max-w-44 translate-y-1 rounded-lg bg-slate-900 px-2 py-1.5 text-[10px] font-semibold leading-4 text-white opacity-0 shadow-lg transition duration-200 ease-out group-hover/reason:translate-y-0 group-hover/reason:opacity-100"
+            >
+              같은 유형에서 가장 가까운 빈 호실
+            </span>
+          </span>
+        ) : null}
       </div>
 
       {stays.length ? (
@@ -297,6 +481,8 @@ function RoomCell({
               selectedDate={selectedDate}
               disabled={processing}
               dragging={draggedStayId === stay.id}
+              returning={returningStayId === stay.id}
+              settling={settlingStayId === stay.id}
               variant="room"
               onOpen={() => onOpenStay(stay.id)}
               onSelectForDrop={onSelectForDrop}
@@ -306,21 +492,21 @@ function RoomCell({
           ))}
         </div>
       ) : (
-        <div className="flex min-h-20 items-center justify-center px-3 text-center text-[11px] font-medium text-slate-500/80">
-          비어 있음
+        <div className="flex min-h-8 items-center justify-center px-2 text-center text-[9px] font-medium text-slate-400/60">
+          빈 호실
         </div>
       )}
 
       <div
         aria-hidden={!isHoveredDropTarget}
         className={cn(
-          "pointer-events-none absolute inset-2 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-white/95 text-sm font-extrabold text-primary shadow-lg transition-[opacity,transform] duration-150 ease-out",
+          "pointer-events-none absolute inset-1.5 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-white/95 text-sm font-extrabold text-primary shadow-lg transition-[opacity,transform] duration-200 ease-out",
           isHoveredDropTarget
             ? "scale-100 opacity-100"
             : "scale-95 opacity-0",
         )}
       >
-        여기에 배정
+        {requiresRoomTypeChange ? "유형 변경 후 배정" : "여기에 배정"}
       </div>
     </div>
   );
@@ -329,21 +515,46 @@ function RoomCell({
 export function HotelRoomBoard({
   snapshot,
   selectedDate,
+  selectedDateIsToday,
   processing,
+  processingStayId = null,
+  allowCrossTypeChange,
   onOpenStay,
   onDropStay,
+  onUnassignStay,
 }: {
   snapshot: HotelOperationsSnapshot;
   selectedDate: string;
+  selectedDateIsToday: boolean;
   processing: boolean;
+  processingStayId?: string | null;
+  allowCrossTypeChange: boolean;
   onOpenStay: (stayId: string) => void;
-  onDropStay: (stayId: string, roomId: string) => void;
+  onDropStay: (
+    stayId: string,
+    roomId: string,
+    requiresRoomTypeChange: boolean,
+  ) => void;
+  onUnassignStay: (stayId: string) => void;
 }) {
   const [draggedStayId, setDraggedStayId] = useState<string | null>(null);
   const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
+  const [settlingRoomId, setSettlingRoomId] = useState<string | null>(null);
+  const [settlingStayId, setSettlingStayId] = useState<string | null>(null);
+  const [returningStayId, setReturningStayId] = useState<string | null>(null);
   const draggedStayIdRef = useRef<string | null>(null);
   const dragModeRef = useRef<"pointer" | "selected" | null>(null);
   const dropCommittedRef = useRef(false);
+  const previousRoomByStayRef = useRef<Map<string, string | null> | null>(null);
+  const settleTimerRef = useRef<number | null>(null);
+  const returnTimerRef = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
+      if (returnTimerRef.current) window.clearTimeout(returnTimerRef.current);
+    },
+    [],
+  );
   const stays = snapshot.stays;
   const boardStays = useMemo(() => {
     const byId = new Map<string, HotelStay>();
@@ -367,12 +578,68 @@ export function HotelRoomBoard({
     });
     return entries;
   }, [stays]);
-  const activeRooms = snapshot.rooms
-    .filter((room) => room.isActive)
-    .sort(
-      (left, right) =>
-        left.sortOrder - right.sortOrder || left.name.localeCompare(right.name),
+  const activeRooms = useMemo(
+    () =>
+      snapshot.rooms
+        .filter((room) => room.isActive)
+        .sort(
+          (left, right) =>
+            left.sortOrder - right.sortOrder ||
+            left.name.localeCompare(right.name),
+        ),
+    [snapshot.rooms],
+  );
+  const occupiedRoomIds = useMemo(
+    () => new Set([...roomStays.keys()]),
+    [roomStays],
+  );
+  const boardSummary = useMemo(() => {
+    const phases = boardStays.map((stay) => hotelStayDayPhase(stay, selectedDate));
+    return {
+      empty: Math.max(activeRooms.length - occupiedRoomIds.size, 0),
+      unassigned: unassigned.length,
+      checkIn: phases.filter(
+        (phase) => phase === "입실" || phase === "입실·퇴실",
+      ).length,
+      inHouse: phases.filter((phase) => phase === "이용중").length,
+      checkOut: phases.filter(
+        (phase) => phase === "퇴실" || phase === "입실·퇴실",
+      ).length,
+    };
+  }, [activeRooms.length, boardStays, occupiedRoomIds.size, selectedDate, unassigned.length]);
+  useEffect(() => {
+    const current = new Map(
+      stays.map((stay) => [stay.id, stayRoomId(stay)] as const),
     );
+    const previous = previousRoomByStayRef.current;
+    previousRoomByStayRef.current = current;
+    if (!previous) return;
+    const moved = [...current.entries()].find(
+      ([stayId, roomId]) => roomId && previous.get(stayId) !== roomId,
+    );
+    if (!moved?.[1]) return;
+    setSettlingStayId(moved[0]);
+    setSettlingRoomId(moved[1]);
+    if (settleTimerRef.current) window.clearTimeout(settleTimerRef.current);
+    settleTimerRef.current = window.setTimeout(
+      () => {
+        setSettlingRoomId(null);
+        setSettlingStayId(null);
+      },
+      240,
+    );
+  }, [stays]);
+  const recommendedRoomId = useMemo(
+    () =>
+      draggedStay
+        ? (hotelRoomBoardRecommendedRoom(
+            draggedStay,
+            activeRooms,
+            occupiedRoomIds,
+          )?.id ?? null)
+        : null,
+    [activeRooms, draggedStay, occupiedRoomIds],
+  );
   const beginPointerDrag = (stayId: string) => {
     dropCommittedRef.current = false;
     dragModeRef.current = "pointer";
@@ -402,11 +669,44 @@ export function HotelRoomBoard({
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("application/x-hotel-stay-id", stayId);
     event.dataTransfer.setData("text/plain", stayId);
+    const preview = event.currentTarget.cloneNode(true) as HTMLElement;
+    preview.style.position = "fixed";
+    preview.style.left = "-1000px";
+    preview.style.top = "-1000px";
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const previewScale = 1.04;
+    preview.style.width = `${Math.min(bounds.width, 240)}px`;
+    preview.style.opacity = "0.92";
+    preview.style.transform = `rotate(1.25deg) scale(${previewScale})`;
+    preview.style.transformOrigin = "top left";
+    preview.style.boxShadow = "0 28px 58px rgb(15 23 42 / 0.34)";
+    preview.style.borderRadius = "12px";
+    preview.style.pointerEvents = "none";
+    document.body.appendChild(preview);
+    const offsetX = Math.max(
+      12,
+      Math.min((event.clientX - bounds.left) * previewScale, bounds.width - 12),
+    );
+    const offsetY = Math.max(
+      10,
+      Math.min((event.clientY - bounds.top) * previewScale, bounds.height - 10),
+    );
+    event.dataTransfer.setDragImage(preview, offsetX, offsetY);
+    requestAnimationFrame(() => preview.remove());
   };
   const commitDrop = (stayId: string, roomId: string) => {
     if (dropCommittedRef.current) return;
     dropCommittedRef.current = true;
-    onDropStay(stayId, roomId);
+    const stay = boardStays.find((item) => item.id === stayId);
+    const room = activeRooms.find((item) => item.id === roomId);
+    if (!stay || !room) return;
+    const targetState = hotelRoomBoardRoomTarget(
+      stay,
+      room,
+      (roomStays.get(room.id) ?? []).length > 0,
+    );
+    if (targetState === "blocked") return;
+    onDropStay(stayId, roomId, targetState === "change_type");
   };
   const commitPointerDrop = (roomId: string) => {
     const stayId = draggedStayIdRef.current;
@@ -417,24 +717,54 @@ export function HotelRoomBoard({
       !stay ||
       !room ||
       processing ||
-      stay.capacityReservation?.roomTypeId !== room.roomTypeId ||
-      stayRoomId(stay) === room.id
+      hotelRoomBoardRoomTarget(
+        stay,
+        room,
+        (roomStays.get(room.id) ?? []).length > 0,
+      ) === "blocked"
     ) {
       return;
     }
     commitDrop(stayId, roomId);
   };
+  const commitUnassignDrop = () => {
+    const stayId = draggedStayIdRef.current;
+    const stay = boardStays.find((item) => item.id === stayId);
+    if (
+      !stayId ||
+      !stay ||
+      processing ||
+      processingStayId === stayId ||
+      !canDropHotelStayToUnassigned(stay) ||
+      dropCommittedRef.current
+    ) {
+      return;
+    }
+    dropCommittedRef.current = true;
+    onUnassignStay(stayId);
+  };
   const endDrag = () => {
     if (dragModeRef.current === "selected" && !dropCommittedRef.current) return;
+    const returningId = !dropCommittedRef.current
+      ? draggedStayIdRef.current
+      : null;
     dragModeRef.current = null;
     draggedStayIdRef.current = null;
     setDraggedStayId(null);
     setHoveredRoomId(null);
+    if (returningId) {
+      setReturningStayId(returningId);
+      if (returnTimerRef.current) window.clearTimeout(returnTimerRef.current);
+      returnTimerRef.current = window.setTimeout(
+        () => setReturningStayId(null),
+        260,
+      );
+    }
   };
 
   return (
     <Card
-      className="mb-6 hidden overflow-hidden md:block"
+      className="mb-6 overflow-hidden"
       data-testid="hotel-room-board"
     >
       <div
@@ -442,38 +772,72 @@ export function HotelRoomBoard({
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
       >
-        <div className="border-b border-border px-5 py-4 sm:px-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="border-b border-border px-4 py-4 sm:px-5 lg:px-6">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-lg font-extrabold text-text-primary">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-primary">
                 Room Board
+              </p>
+              <h2 className="mt-1 text-xl font-extrabold text-text-primary">
+                객실 현황
               </h2>
               <p className="mt-0.5 text-xs text-text-secondary">
-                입실 대기 예약을 호실에 끌어 배정하고, 배정된 카드를 바로 이동합니다.
+                빈방과 오늘의 입·퇴실, 이용중 객실을 한 화면에서 관리합니다.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2 text-xs font-medium">
-              <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-text-muted">
-                빈방
-              </span>
-              <span className="rounded-full border border-blue-300 bg-blue-50 px-2.5 py-1 text-blue-900">
-                오늘 입실
-              </span>
-              <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-emerald-900">
-                이용중
-              </span>
-              <span className="rounded-full border border-orange-300 bg-orange-50 px-2.5 py-1 text-orange-950">
-                오늘 퇴실
-              </span>
-            </div>
+          </div>
+          <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {[
+              ["빈방", boardSummary.empty, "border-slate-200 bg-slate-50 text-slate-700"],
+              ["이용중", boardSummary.inHouse, "border-emerald-200 bg-emerald-50 text-emerald-900"],
+              ["미배정", boardSummary.unassigned, "border-amber-200 bg-amber-50 text-amber-900"],
+              [selectedDateIsToday ? "오늘 입실" : "입실", boardSummary.checkIn, "border-blue-200 bg-blue-50 text-blue-900"],
+              [selectedDateIsToday ? "오늘 퇴실" : "퇴실", boardSummary.checkOut, "border-orange-200 bg-orange-50 text-orange-950"],
+            ].map(([label, value, className]) => (
+              <div
+                key={label}
+                className={cn(
+                  "flex min-h-14 items-center justify-between rounded-xl border px-3 py-2",
+                  className as string,
+                )}
+              >
+                <dt className="text-xs font-bold">{label}</dt>
+                <dd className="text-lg font-black tabular-nums">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-medium text-text-muted">
+            <span>카드를 눌러 상세 보기</span>
+            <span>끌어서 호실 배정·이동</span>
           </div>
         </div>
 
-        <div className="space-y-6 p-5 sm:p-6">
+        <div className="space-y-5 p-4 sm:p-5 lg:p-6">
           <div
+            data-testid="hotel-room-board-unassigned-drop-zone"
+            onDragEnter={(event) => {
+              if (draggedStay && canDropHotelStayToUnassigned(draggedStay)) {
+                event.preventDefault();
+              }
+            }}
+            onDragOver={(event) => {
+              if (draggedStay && canDropHotelStayToUnassigned(draggedStay)) {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+              }
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              commitUnassignDrop();
+            }}
+            onPointerUp={commitUnassignDrop}
             className={cn(
               "min-w-0 rounded-2xl border border-amber-200/80 bg-[#fbfaf7] px-4 shadow-[inset_3px_0_0_0_rgb(245_158_11_/_0.5)]",
               unassigned.length ? "py-3.5" : "py-2.5",
+              Boolean(
+                draggedStay && canDropHotelStayToUnassigned(draggedStay),
+              ) &&
+                "border-dashed border-amber-500 bg-amber-50 ring-2 ring-amber-200",
             )}
           >
             <div
@@ -510,8 +874,14 @@ export function HotelRoomBoard({
                       <DraggableStayCard
                         stay={stay}
                         selectedDate={selectedDate}
-                        disabled={processing || !roomTypeReady}
+                        disabled={
+                          processing ||
+                          processingStayId === stay.id ||
+                          !roomTypeReady
+                        }
                         dragging={draggedStayId === stay.id}
+                        returning={returningStayId === stay.id}
+                        settling={settlingStayId === stay.id}
                         variant="waiting"
                         onOpen={() => onOpenStay(stay.id)}
                         onSelectForDrop={selectForDrop}
@@ -574,8 +944,17 @@ export function HotelRoomBoard({
                         selectedDate={selectedDate}
                         draggedStay={draggedStay}
                         draggedStayId={draggedStayId}
+                        returningStayId={returningStayId}
+                        settlingStayId={settlingStayId}
                         hoveredRoomId={hoveredRoomId}
-                        processing={processing}
+                        recommended={recommendedRoomId === room.id}
+                        settling={settlingRoomId === room.id}
+                        processing={
+                          processing ||
+                          (processingStayId !== null &&
+                            processingStayId === draggedStayId)
+                        }
+                        allowCrossTypeChange={allowCrossTypeChange}
                         onOpenStay={onOpenStay}
                         onDropStay={commitDrop}
                         onDragStart={beginNativeDrag}

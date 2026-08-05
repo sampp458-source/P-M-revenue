@@ -768,11 +768,59 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   }
 }
 
-@keyframes hotel-room-card-enter {
-  from { opacity: .45; transform: translateY(6px) scale(.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+@keyframes hotel-room-card-settle {
+  0% { opacity: .55; transform: translateY(-6px) rotate(1deg) scale(.96); }
+  58% { opacity: 1; transform: translateY(1px) rotate(-.25deg) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
 }
-.hotel-room-card-enter { animation: hotel-room-card-enter 170ms ease-out; }
+.hotel-room-card-settle { animation: hotel-room-card-settle 220ms cubic-bezier(.22,1,.36,1); }
+
+@keyframes hotel-room-card-return {
+  0% { opacity: .4; transform: translateY(-3px) rotate(1.25deg) scale(1.04); }
+  72% { opacity: 1; transform: translateY(1px) rotate(-.2deg) scale(.99); }
+  100% { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+}
+.hotel-room-card-return { animation: hotel-room-card-return 220ms cubic-bezier(.22,1,.36,1); }
+
+@keyframes hotel-room-card-absorb {
+  0% { opacity: .38; transform: translateY(-7px) rotate(1deg) scale(.9); }
+  68% { opacity: 1; transform: translateY(1px) rotate(-.2deg) scale(1.025); }
+  100% { opacity: 1; transform: translateY(0) rotate(0) scale(1); }
+}
+.hotel-room-card-absorb { animation: hotel-room-card-absorb 220ms cubic-bezier(.22,1,.36,1); }
+
+@keyframes hotel-room-drop-settle {
+  0% { transform: scale(.992); box-shadow: 0 0 0 0 rgb(39 76 119 / .25); }
+  52% { transform: scale(1.01); box-shadow: 0 0 0 6px rgb(39 76 119 / .09); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgb(39 76 119 / 0); }
+}
+.hotel-room-drop-settle { animation: hotel-room-drop-settle 220ms cubic-bezier(.22,1,.36,1); }
+
+@media (prefers-reduced-motion: reduce) {
+  .hotel-room-card-settle,
+  .hotel-room-card-return,
+  .hotel-room-card-absorb,
+  .hotel-room-drop-settle {
+    animation-duration: 1ms;
+  }
+}
+
+@keyframes pm-room-board-undo-progress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+.pm-room-board-undo { overflow: hidden; }
+.pm-room-board-undo::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  content: "";
+  background: rgb(255 255 255 / .72);
+  transform-origin: left;
+  animation: pm-room-board-undo-progress 5s linear forwards;
+}
 
 @keyframes pm-fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pm-modal-in { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }

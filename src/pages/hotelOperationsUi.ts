@@ -77,6 +77,19 @@ export function hotelStayScheduleDate(
   return schedule ? seoulInputParts(schedule.startsAt).date : null;
 }
 
+export function isValidHotelSnapshotDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+
+  const [year, month, day] = value.split("-").map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
+
 export function hotelStayDayPhase(
   stay: HotelStay,
   selectedDate: string,
@@ -91,6 +104,16 @@ export function hotelStayDayPhase(
   if (checkOutDate === selectedDate) return "퇴실";
   if (checkInDate < selectedDate && selectedDate < checkOutDate) return "이용중";
   return null;
+}
+
+export function hotelStayDayTitle(stay: HotelStay, selectedDate: string) {
+  const phase = hotelStayDayPhase(stay, selectedDate);
+  if (!phase) return hotelStayTitle(stay);
+  const roomType =
+    stay.capacityReservation?.roomTypeCode ??
+    stay.capacityReservation?.roomTypeName ??
+    "객실 미정";
+  return [stay.dogName, "호텔링", phase, roomType].join(" · ");
 }
 
 export function matchesHotelQuickFilter(

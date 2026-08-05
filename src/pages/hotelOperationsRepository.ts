@@ -361,6 +361,54 @@ export function moveHotelRoomSameType(
   });
 }
 
+export function unassignHotelRoomBeforeCheckIn(
+  hotelStayId: string,
+  expectedVersion: number,
+  reason: string,
+  requestId: string,
+) {
+  return rpc<HotelStay>("unassign_hotel_room_before_check_in", {
+    p_hotel_stay_id: hotelStayId,
+    p_expected_version: expectedVersion,
+    p_reason: reason.trim(),
+    p_request_id: requestId,
+  });
+}
+
+export function changeRoomTypeBeforeCheckIn(
+  hotelStayId: string,
+  expectedVersion: number,
+  newRoomId: string,
+  reason: string,
+  requestId: string,
+) {
+  return rpc<HotelStay>("change_room_type_before_check_in", {
+    p_hotel_stay_id: hotelStayId,
+    p_expected_version: expectedVersion,
+    p_new_room_id: newRoomId,
+    p_reason: reason.trim(),
+    p_request_id: requestId,
+  });
+}
+
+export function changeRoomTypeAfterCheckIn(
+  hotelStayId: string,
+  expectedVersion: number,
+  newRoomId: string,
+  effectiveAt: string,
+  reason: string,
+  requestId: string,
+) {
+  return rpc<HotelStay>("change_room_type_after_check_in", {
+    p_hotel_stay_id: hotelStayId,
+    p_expected_version: expectedVersion,
+    p_new_room_id: newRoomId,
+    p_effective_at: effectiveAt,
+    p_reason: reason.trim(),
+    p_request_id: requestId,
+  });
+}
+
 export function completeHotelCheckIn(
   hotelStayId: string,
   expectedVersion: number,
