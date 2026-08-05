@@ -2,6 +2,7 @@ import {
   BedDouble,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   DoorOpen,
   Hotel,
   MoveRight,
@@ -41,6 +42,7 @@ import {
   RoomReassignModal,
   SettingsModal,
 } from "./HotelOperationsModals";
+import { HotelRoomBoard } from "./HotelRoomBoard";
 import {
   assignHotelRoom,
   cancelHotelReservation,
@@ -118,6 +120,44 @@ function errorMessage(error: unknown) {
   return "호텔 운영 요청을 처리하지 못했습니다.";
 }
 
+type HotelToast = {
+  message: string;
+  title?: string;
+  description?: string;
+  tone: "success" | "error";
+};
+
+function roomDropErrorToast(error: unknown): HotelToast {
+  if (error instanceof HotelOperationsRepositoryError) {
+    if (error.kind === "room_conflict") {
+      return {
+        title: "호실을 변경할 수 없습니다",
+        message: "해당 기간에 다른 예약이 있습니다. 다른 호실을 선택해 주세요.",
+        tone: "error",
+      };
+    }
+    if (error.kind === "conflict") {
+      return {
+        title: "최신 상태를 다시 확인해 주세요",
+        message: "다른 사용자가 먼저 변경했습니다. 카드 위치를 새로고침했습니다.",
+        tone: "error",
+      };
+    }
+    if (error.kind === "unavailable") {
+      return {
+        title: "호실 변경 요청을 전송하지 못했습니다",
+        message: "네트워크 연결을 확인한 뒤 다시 시도해 주세요. 카드 위치는 변경되지 않았습니다.",
+        tone: "error",
+      };
+    }
+  }
+  return {
+    title: "호실을 변경할 수 없습니다",
+    message: errorMessage(error),
+    tone: "error",
+  };
+}
+
 function requestId() {
   return crypto.randomUUID();
 }
@@ -172,6 +212,7 @@ export function HotelOperationsPage() {
   const directStayHandledRef = useRef<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(() => seoulDateKey());
   const [quickFilter, setQuickFilter] = useState<HotelQuickFilter>("all");
+  const [showSupportDetails, setShowSupportDetails] = useState(false);
   const [snapshot, setSnapshot] = useState<HotelOperationsSnapshot | null>(null);
   const [options, setOptions] = useState<OperationScheduleOptions>(emptyOptions);
   const [operationRole, setOperationRole] = useState<OperationRole | null>(null);
@@ -190,7 +231,7 @@ export function HotelOperationsPage() {
   const [roomTypeChangeConfirmationOpen, setRoomTypeChangeConfirmationOpen] =
     useState(false);
   const [cancelReason, setCancelReason] = useState("");
-  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
+  const [toast, setToast] = useState<HotelToast | null>(null);
 
   const loadSnapshot = useCallback(async (date: string) => {
     return fetchHotelOperationsSnapshot(date).then((value) => {
@@ -421,6 +462,42 @@ export function HotelOperationsPage() {
     }
   };
 
+  const dropStayOnRoom = (stayId: string, roomId: string) => {
+    const stay = [...(snapshot?.stays ?? []), ...(snapshot?.unassignedFuture ?? [])]
+      .find((row) => row.id === stayId);
+    const room = snapshot?.rooms.find((row) => row.id === roomId);
+    if (!stay || !room || processing) return;
+    if (stay.capacityReservation?.roomTypeId !== room.roomTypeId) {
+      setToast({
+        title: "호실을 변경할 수 없습니다",
+        message: "같은 객실 유형의 호실로만 배정할 수 있습니다.",
+        tone: "error",
+      });
+      return;
+    }
+    const allocation = activeHotelAllocation(stay);
+    if (allocation?.roomId === roomId) return;
+    const action = !allocation
+      ? assignHotelRoom(stay.id, stay.version, roomId, "Room Board 드래그 배정", requestId())
+      : stay.checkedInAt
+        ? moveHotelRoomSameType(stay.id, stay.version, roomId, new Date().toISOString(), "Room Board 드래그 이동", requestId())
+        : reassignHotelRoomBeforeCheckIn(stay.id, stay.version, roomId, "Room Board 드래그 재배정", requestId());
+    setProcessing(true);
+    void action
+      .then(async (updatedStay) => {
+        await Promise.all([
+          fetchHotelStay(updatedStay.id),
+          loadSnapshot(selectedDate),
+        ]);
+        setToast({
+          message: allocation ? "호실을 변경했습니다." : "호실을 배정했습니다.",
+          tone: "success",
+        });
+      })
+      .catch((error) => setToast(roomDropErrorToast(error)))
+      .finally(() => setProcessing(false));
+  };
+
   const stays = useMemo(() => snapshot?.stays ?? [], [snapshot?.stays]);
   const filterCounts = useMemo(
     () => ({
@@ -521,6 +598,38 @@ export function HotelOperationsPage() {
         </div>
       </Card>
 
+      <HotelRoomBoard
+        snapshot={snapshot}
+        selectedDate={selectedDate}
+        processing={processing}
+        onOpenStay={(stayId) => void openStay(stayId)}
+        onDropStay={dropStayOnRoom}
+      />
+
+      <Card className="mb-4 overflow-hidden">
+        <button
+          type="button"
+          aria-expanded={showSupportDetails}
+          onClick={() => setShowSupportDetails((value) => !value)}
+          className="flex min-h-14 w-full items-center justify-between gap-4 px-5 py-3.5 text-left transition hover:bg-surface-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:px-6"
+        >
+          <span>
+            <b className="block text-sm text-text-primary">상세 현황 및 예약 목록</b>
+            <span className="mt-0.5 block text-xs text-text-secondary">
+              Capacity 지표와 선택 날짜 예약을 확인합니다.
+            </span>
+          </span>
+          <ChevronDown
+            size={19}
+            className={cn(
+              "shrink-0 text-text-muted transition-transform duration-150 ease-out",
+              showSupportDetails && "rotate-180",
+            )}
+          />
+        </button>
+      </Card>
+
+      {showSupportDetails ? <>
       <div className="grid gap-4 md:grid-cols-2">
         {snapshot.roomTypes.map((roomType) => {
           const remaining = snapshot.confirmedRemainingByType?.[roomType.code]
@@ -634,6 +743,7 @@ export function HotelOperationsPage() {
           )}
         </Card>
       </div>
+      </> : null}
 
       <StayDetailModal
         open={Boolean(selectedStayId) && modal === null}
@@ -738,7 +848,7 @@ export function HotelOperationsPage() {
         </>
       ) : null}
       {snapshot.settings ? <SettingsModal open={modal === "settings"} settings={snapshot.settings} processing={processing} onClose={() => setModal(null)} onSubmit={(checkIn, checkOut) => { setProcessing(true); void updateHotelOperationSettings(snapshot.settings!.version, checkIn, checkOut, requestId()).then(async () => { await loadSnapshot(selectedDate); setToast({ message: "호텔 기본 시간을 저장했습니다.", tone: "success" }); setModal(null); }).catch((error) => setToast({ message: errorMessage(error), tone: "error" })).finally(() => setProcessing(false)); }} /> : null}
-      {toast ? <Toast message={toast.message} tone={toast.tone} onClose={() => setToast(null)} /> : null}
+      {toast ? <Toast message={toast.message} title={toast.title} description={toast.description} tone={toast.tone} onClose={() => setToast(null)} /> : null}
     </>
   );
 }
