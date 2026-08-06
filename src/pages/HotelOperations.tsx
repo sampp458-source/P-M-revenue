@@ -176,6 +176,13 @@ function roomDropErrorToast(error: unknown): HotelToast {
         tone: "error",
       };
     }
+    if (error.code === "PGRST202") {
+      return {
+        title: "서버 기능 적용이 필요합니다",
+        message: error.message,
+        tone: "error",
+      };
+    }
     if (error.kind === "unavailable") {
       return {
         title: "호실 변경 요청을 전송하지 못했습니다",

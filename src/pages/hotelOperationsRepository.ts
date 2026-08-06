@@ -178,6 +178,15 @@ function throwHotelError(error: SupabaseErrorLike | null) {
       code,
     );
   }
+  if (code === "PGRST202") {
+    throw new HotelOperationsRepositoryError(
+      raw.includes("unassign_hotel_room_before_check_in")
+        ? "배정 해제 기능이 서버에 아직 적용되지 않았습니다."
+        : "요청한 호텔 기능이 서버에 아직 적용되지 않았습니다.",
+      "unavailable",
+      code,
+    );
+  }
   if (
     code === "23P01" ||
     /room.*conflict|room.*overlap|호실.*충돌|allocation.*overlap/i.test(raw)
