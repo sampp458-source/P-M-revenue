@@ -148,7 +148,7 @@ describe("dog profile audit and Customer Master connection", () => {
   ).toLowerCase();
 
   it("keeps owner editing on the shared customers row", () => {
-    expect(profileUi).toContain("보호자 정보");
+    expect(profileUi).toContain("보호자 프로필");
     expect(profileUi).toContain("onEditOwner");
     expect(managementUi).toContain('.from("customers")');
     expect(managementUi).toContain(".update(values)");
@@ -191,8 +191,8 @@ describe("dog profile audit and Customer Master connection", () => {
     expect(managementUi).not.toContain("<th>중성화</th>");
     expect(managementUi).not.toContain('className="min-w-[1180px]"');
     expect(managementUi).toContain('className="divide-y divide-border xl:hidden"');
-    expect(managementUi).toContain('<col className="w-[22%]" />');
-    expect(managementUi).toContain('<col className="w-[252px]" />');
+    expect(managementUi).toContain('<col className="w-[17%]" />');
+    expect(managementUi).toContain('<col className="w-[230px]" />');
     expect(managementUi).toContain(
       '<th className="px-3 text-center">관리</th>',
     );
@@ -215,10 +215,10 @@ describe("dog profile audit and Customer Master connection", () => {
   it("keeps the requested profile section order", () => {
     const sections = [
       'title="반려견 정보"',
-      'title="보호자 정보"',
       'title="이용 정보"',
       'title="메모"',
       'title="Timeline"',
+      'title="사진"',
     ].map((title) => profileUi.indexOf(title));
 
     expect(sections.every((index) => index >= 0)).toBe(true);
@@ -249,7 +249,7 @@ describe("dog profile audit and Customer Master connection", () => {
   });
 
   it("uses customer-friendly labels and formatted display phones", () => {
-    expect(profileUi).toContain("보호자 프로필 보기");
+    expect(profileUi).toContain("보호자 프로필");
     expect(profileUi).not.toContain("보호자 Master 보기");
     expect(profileUi).toContain("formatPhoneForDisplay(owner.phone)");
   });

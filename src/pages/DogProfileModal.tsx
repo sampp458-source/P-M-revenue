@@ -1,8 +1,6 @@
 import {
   Clock3,
-  MapPin,
   Pencil,
-  Phone,
   UserRound,
 } from "lucide-react";
 import {
@@ -58,9 +56,6 @@ export interface DogProfileOwner {
   is_active: boolean;
 }
 
-const detailValue = (value: string | number | null | undefined) =>
-  value === null || value === undefined || value === "" ? "미등록" : value;
-
 export function DogProfileModal({
   dog,
   owner,
@@ -68,7 +63,9 @@ export function DogProfileModal({
   loading,
   error,
   canEditDog,
+  siblingDogCount,
   onClose,
+  onOpenCustomer,
   onEditDog,
   onEditOwner,
   onRetry,
@@ -79,7 +76,9 @@ export function DogProfileModal({
   loading: boolean;
   error: string;
   canEditDog: boolean;
+  siblingDogCount: number;
   onClose: () => void;
+  onOpenCustomer: () => void;
   onEditDog: () => void;
   onEditOwner: () => void;
   onRetry: () => void;
@@ -125,6 +124,57 @@ export function DogProfileModal({
           }
         />
 
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+          <button
+            type="button"
+            disabled={!owner}
+            onClick={onOpenCustomer}
+            className="flex w-full items-center gap-3 rounded-2xl border border-border bg-primary-subtle p-4 text-left transition hover:border-primary/25 hover:bg-primary-soft disabled:cursor-default disabled:opacity-70 sm:w-auto sm:min-w-80"
+          >
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-surface text-primary shadow-sm">
+              <UserRound size={19} />
+            </span>
+            <span className="min-w-0 flex-1">
+              <strong className="block truncate text-sm text-text-primary">
+                {owner?.name || "보호자 미등록"}
+              </strong>
+              <span className="mt-1 block text-xs text-text-secondary">
+                {owner
+                  ? `${formatPhoneForDisplay(owner.phone) || "연락처 미등록"} · ${Math.max(1, siblingDogCount)}마리`
+                  : "연결된 Customer가 없습니다."}
+              </span>
+            </span>
+            {owner && (
+              <span className="text-xs font-semibold text-primary">
+                보호자 프로필
+              </span>
+            )}
+          </button>
+          {owner && canEditDog && (
+            <Button variant="secondary" onClick={onEditOwner}>
+              <Pencil size={15} />
+              보호자 수정
+            </Button>
+          )}
+        </div>
+
+        <nav className="flex gap-2 overflow-x-auto pb-1" aria-label="반려견 프로필 구성">
+          {["기본정보", "Timeline", "호텔", "교육", "유치원", "메모", "사진"].map(
+            (label, index) => (
+              <span
+                key={label}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                  index === 0
+                    ? "border-primary/25 bg-primary-soft text-primary"
+                    : "border-border bg-surface text-text-secondary"
+                }`}
+              >
+                {label}
+              </span>
+            ),
+          )}
+        </nav>
+
         <div className="grid items-start gap-7 lg:grid-cols-2">
           <div className="space-y-7">
         <ProfileSection id="dog-profile-basic-title" title="반려견 정보">
@@ -146,56 +196,6 @@ export function DogProfileModal({
               value={dog.neutered === null ? "미등록" : dog.neutered ? "완료" : "미완료"}
             />
           </ProfileInfoGrid>
-        </ProfileSection>
-
-        <ProfileSection
-          id="dog-profile-owner-title"
-          title="보호자 정보"
-          action={
-            owner ? (
-              <Button variant="secondary" onClick={onEditOwner}>
-                <Pencil size={15} />
-                수정
-              </Button>
-            ) : null
-          }
-        >
-          {owner ? (
-            <div className="rounded-2xl border border-border bg-surface p-4">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                  <UserRound size={19} />
-                </span>
-                <span>
-                  <strong className="block text-base text-text-primary">
-                    {owner.name || "이름 미등록"}
-                  </strong>
-                  <span className="text-xs text-text-muted">보호자 프로필 보기</span>
-                </span>
-              </div>
-              <dl className="mt-4 grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
-                <ProfileField
-                  icon={<Phone size={15} />}
-                  label="전화번호"
-                  value={formatPhoneForDisplay(owner.phone) || "미등록"}
-                />
-                <ProfileField
-                  icon={<MapPin size={15} />}
-                  label="주소"
-                  value={detailValue(owner.address)}
-                />
-                <ProfileField
-                  className="sm:col-span-2"
-                  label="메모"
-                  value={detailValue(owner.memo)}
-                />
-              </dl>
-            </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-border p-5 text-sm text-text-secondary">
-              연결된 보호자가 없습니다.
-            </div>
-          )}
         </ProfileSection>
           </div>
 
@@ -321,6 +321,14 @@ export function DogProfileModal({
           ) : (
             <EmptyState compact title="표시할 Timeline이 없습니다." />
           )}
+        </ProfileSection>
+
+        <ProfileSection
+          id="dog-profile-photo-title"
+          title="사진"
+          description="이 반려견 전용 사진 영역입니다."
+        >
+          <EmptyState compact title="등록된 사진이 없습니다." />
         </ProfileSection>
       </ProfileContent>
     </Modal>

@@ -24,6 +24,7 @@ import {
   ShieldCheck,
   UserCog,
   UserRound,
+  UsersRound,
   WalletCards,
   X,
 } from "lucide-react";
@@ -59,6 +60,8 @@ import { OperationsSettingsPage } from "./pages/OperationsSettings";
 import { OperationsCalendarFoundationPage } from "./pages/OperationsCalendarFoundation";
 import { OperationsTodayPage } from "./pages/OperationsToday";
 import { HotelOperationsPage } from "./pages/HotelOperations";
+import { CustomerManagementPage } from "./pages/CustomerManagement";
+import { CustomerDogHeaderSearch } from "./components/CustomerDogHeaderSearch";
 import { FindAccountPage, ForgotPasswordPage, ResetPasswordPage } from "./pages/AccountRecoveryPages";
 import pmLogo from "./assets/pm-logo.png";
 
@@ -68,6 +71,7 @@ const menus: MenuItem[] = [
   { to: "/sales/new", label: "매출 등록", icon: ClipboardPlus, group: "업무" },
   { to: "/sales", label: "매출 내역", icon: ReceiptText, end: true, group: "업무" },
   { to: "/customers", label: "반려견 관리", icon: Dog, group: "관리" },
+  { to: "/customer-management", label: "보호자 관리", icon: UsersRound, group: "관리" },
   { to: "/categories", label: "상품 분류 관리", icon: Boxes, adminOnly: true, group: "관리" },
   { to: "/products", label: "상품 관리", icon: Package, group: "관리" },
   { to: "/reports", label: "월별 보고서", icon: BarChart3, adminOnly: true, group: "분석" },
@@ -83,6 +87,7 @@ const operationsMenus: OperationsMenuItem[] = [
     ? [{ to: "/operations/schedules", label: "일정", icon: ListChecks }]
     : []),
   { to: "/operations/customers", label: "반려견 관리", icon: Dog },
+  { to: "/operations/customer-management", label: "보호자 관리", icon: UsersRound },
   { to: "/operations/staff", label: "직원 관리", icon: UserCog },
   { to: "/operations/settings", label: "일정 설정", icon: Settings },
 ];
@@ -138,6 +143,7 @@ export default function App() {
         <Route path="sales/new" element={<SaleFormPage />} />
         <Route path="sales/:saleId/edit" element={<LegacySaleFormPage />} />
         <Route path="customers" element={<PetManagementPage />} />
+        <Route path="customer-management" element={<CustomerManagementPage />} />
         <Route path="categories" element={<CategoriesPage />} />
         <Route path="products" element={<ProductsPage />} />
         <Route path="reports" element={<AdminOnly><ReportsPage /></AdminOnly>} />
@@ -173,6 +179,7 @@ export default function App() {
           }
         />
         <Route path="customers" element={<PetManagementPage />} />
+        <Route path="customer-management" element={<CustomerManagementPage />} />
         <Route
           path="staff"
           element={
@@ -741,6 +748,7 @@ function AppLayout() {
               <b className="text-text-primary">{current}</b>
             </div>
           </div>
+          <CustomerDogHeaderSearch module="finance" />
           <div className="hidden text-right sm:block">
             <b className="block text-sm text-text-primary">{profile?.name || "이름 미등록"}</b>
             <span className="text-xs text-text-muted">{profile?.role === "admin" ? "관리자" : "직원"}</span>
@@ -879,6 +887,7 @@ function OperationsAppLayout() {
               <b className="text-text-primary">{current}</b>
             </div>
           </div>
+          <CustomerDogHeaderSearch module="operations" />
           <div className="hidden items-center gap-2.5 sm:flex">
             <b className="text-sm leading-none text-text-primary">
               {profile?.name || "이름 미등록"}

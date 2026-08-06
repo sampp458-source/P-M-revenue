@@ -37,7 +37,7 @@ describe("customer editing inside pet workflow", () => {
   });
 
   it("edits the selected Customer Master without leaving the pet screen", () => {
-    expect(dogProfile).toContain("보호자 정보");
+    expect(dogProfile).toContain("보호자 프로필");
     expect(dogProfile).toContain("onEditOwner");
     expect(dogManagement).toContain("보호자 정보 수정");
     expect(dogManagement).toContain('label="주소"');

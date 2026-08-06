@@ -10,6 +10,7 @@ import { Eye, MoreHorizontal, Pencil, Plus } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
+  Badge,
   Button,
   Card,
   EmptyState,
@@ -51,6 +52,15 @@ import {
   type DogProfileActivity,
   type DogProfileActivityRow,
 } from "./dogProfile";
+import { CustomerProfileModal } from "./CustomerProfileModal";
+import {
+  customerDogCountById,
+  isSingleDogProfileName,
+  preferredDogService,
+  type CustomerDogServiceStatus,
+} from "./customerDogArchitecture";
+import { loadCurrentCustomerDogServices } from "./customerDogDirectory";
+import { DogCurrentService } from "../components/CustomerDogServiceSummary";
 
 interface OwnerOption {
   id: string;
@@ -298,11 +308,13 @@ function DogRowActions({
 // UI freeze: preserve this layout after the final polish; bug fixes only.
 export function PetManagementPage() {
   const { profile } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const canEditDog = profile?.isActive === true;
   const canDeactivateDog = profile?.role === "admin";
   const [dogs, setDogs] = useState<DogRow[]>([]);
   const [owners, setOwners] = useState<OwnerOption[]>([]);
+  const [currentServices, setCurrentServices] = useState<CustomerDogServiceStatus[]>([]);
+  const [currentServicesAvailable, setCurrentServicesAvailable] = useState(true);
   const [ownerAddressSupported, setOwnerAddressSupported] = useState(true);
   const [query, setQuery] = useState("");
   const [breed, setBreed] = useState("");
@@ -310,6 +322,7 @@ export function PetManagementPage() {
   const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<DogForm | null>(null);
   const [profileDogId, setProfileDogId] = useState<string | null>(null);
+  const [profileCustomerId, setProfileCustomerId] = useState<string | null>(null);
   const [profileActivities, setProfileActivities] = useState<DogProfileActivity[]>([]);
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState("");
@@ -330,18 +343,23 @@ export function PetManagementPage() {
   const [notice, setNotice] = useState("");
   const loadRequestIdRef = useRef(0);
   const handledProfileLinkRef = useRef("");
+  const handledAddDogLinkRef = useRef("");
   const pageSize = 20;
 
   const loadData = useCallback(async () => {
     const requestId = ++loadRequestIdRef.current;
     setLoading(true);
     setLoadError("");
-    const [dogsResult, ownersResult] = await Promise.all([
+    const [dogsResult, ownersResult, serviceResult] = await Promise.all([
       supabase
         .from("dogs")
         .select("id, customer_id, name, breed, sex, birth_date, weight, neutered, memo, is_active, customers(id, name, phone, is_active)")
         .order("name"),
       loadOwnerOptions(),
+      loadCurrentCustomerDogServices().catch(() => ({
+        services: [] as CustomerDogServiceStatus[],
+        available: false,
+      })),
     ]);
     if (requestId !== loadRequestIdRef.current) return;
     if (dogsResult.error) {
@@ -375,6 +393,8 @@ export function PetManagementPage() {
       setOwners(ownersResult.data ?? []);
       setOwnerAddressSupported(ownersResult.addressSupported);
     }
+    setCurrentServices(serviceResult.services);
+    setCurrentServicesAvailable(serviceResult.available);
     setLoading(false);
   }, []);
 
@@ -465,11 +485,24 @@ export function PetManagementPage() {
       owners.find((owner) => owner.id === profileDog?.customerId) ?? null,
     [owners, profileDog?.customerId],
   );
+  const dogCountByCustomerId = useMemo(
+    () => customerDogCountById(dogs),
+    [dogs],
+  );
   const openProfile = (dogId: string) => {
     setProfileActivities([]);
     setProfileError("");
     setProfileLoading(true);
     setProfileDogId(dogId);
+  };
+  const openCustomerProfile = (customerId: string) => {
+    setProfileDogId(null);
+    setProfileCustomerId(customerId);
+  };
+  const clearProfileParam = (key: "dogId" | "customerId") => {
+    const next = new URLSearchParams(searchParams);
+    next.delete(key);
+    setSearchParams(next, { replace: true });
   };
 
   useEffect(() => {
@@ -477,18 +510,30 @@ export function PetManagementPage() {
     const requestedDogId = searchParams.get("dogId") ?? "";
     const requestedCustomerId = searchParams.get("customerId") ?? "";
     if (!requestedDogId && !requestedCustomerId) return;
-    const target =
-      dogs.find((dog) => dog.id === requestedDogId) ??
-      dogs.find((dog) => dog.customerId === requestedCustomerId);
-    if (!target) return;
-    const linkKey = `${requestedDogId}|${requestedCustomerId}|${target.id}`;
+    const target = dogs.find((dog) => dog.id === requestedDogId) ?? null;
+    if (!target && !owners.some((owner) => owner.id === requestedCustomerId)) return;
+    const linkKey = `${requestedDogId}|${requestedCustomerId}`;
     if (handledProfileLinkRef.current === linkKey) return;
     handledProfileLinkRef.current = linkKey;
-    setProfileActivities([]);
-    setProfileError("");
-    setProfileLoading(true);
-    setProfileDogId(target.id);
-  }, [dogs, loading, searchParams]);
+    if (target) openProfile(target.id);
+    else openCustomerProfile(requestedCustomerId);
+  }, [dogs, loading, owners, searchParams]);
+
+  useEffect(() => {
+    if (loading) return;
+    const customerId = searchParams.get("addDogForCustomerId") ?? "";
+    if (!customerId || !owners.some((owner) => owner.id === customerId)) return;
+    if (handledAddDogLinkRef.current === customerId) return;
+    handledAddDogLinkRef.current = customerId;
+    setFormError("");
+    setOwnerSearch("");
+    setDuplicateDog(null);
+    setAllowDuplicateDog(false);
+    setEditing({ ...emptyForm(), customerId });
+    const next = new URLSearchParams(searchParams);
+    next.delete("addDogForCustomerId");
+    setSearchParams(next, { replace: true });
+  }, [loading, owners, searchParams, setSearchParams]);
 
   const openEdit = (dog: DogRow) => {
     setFormError("");
@@ -656,6 +701,17 @@ export function PetManagementPage() {
       focus("name");
       return;
     }
+    const originalDog = editing.id
+      ? dogs.find((dog) => dog.id === editing.id) ?? null
+      : null;
+    if (
+      !isSingleDogProfileName(editing.name) &&
+      editing.name.trim() !== originalDog?.name.trim()
+    ) {
+      setFormError("반려견은 한 마리씩 등록해 주세요. 이름을 쉼표나 기호로 묶을 수 없습니다.");
+      focus("name");
+      return;
+    }
     if (!editing.id && profile?.role === "staff" && !editing.customerId) {
       setFormError("직원은 보호자를 선택한 뒤 반려견을 등록할 수 있습니다.");
       focus("customerId");
@@ -774,12 +830,13 @@ export function PetManagementPage() {
                 ].join("|")}
               >
                 <colgroup>
-                  <col className="w-[22%]" />
-                  <col className="w-[15%]" />
                   <col className="w-[17%]" />
-                  <col className="w-[18%]" />
-                  <col className="w-[8%]" />
-                  <col className="w-[252px]" />
+                  <col className="w-[13%]" />
+                  <col className="w-[15%]" />
+                  <col className="w-[14%]" />
+                  <col className="w-[17%]" />
+                  <col className="w-[7%]" />
+                  <col className="w-[230px]" />
                 </colgroup>
                 <thead>
                   <tr>
@@ -787,6 +844,7 @@ export function PetManagementPage() {
                     <th>보호자</th>
                     <th>연락처</th>
                     <th>견종</th>
+                    <th>현재 서비스</th>
                     <th className="px-3 text-center">상태</th>
                     <th className="px-3 text-center">관리</th>
                   </tr>
@@ -796,6 +854,10 @@ export function PetManagementPage() {
                     const owner =
                       owners.find((item) => item.id === dog.customerId) ?? null;
                     const secondary = dogListSecondary(dog);
+                    const currentService = preferredDogService(
+                      dog.id,
+                      currentServices,
+                    );
                     return (
                       <tr
                         key={dog.id}
@@ -810,6 +872,9 @@ export function PetManagementPage() {
                             <span className="block font-semibold text-text-primary transition hover:text-primary">
                               {dog.name}
                             </span>
+                            {!isSingleDogProfileName(dog.name) ? (
+                              <Badge tone="amber">Legacy · 다견 이름</Badge>
+                            ) : null}
                             {secondary && (
                               <span className="mt-1 block text-xs font-normal text-text-muted">
                                 {secondary}
@@ -818,12 +883,40 @@ export function PetManagementPage() {
                           </button>
                         </td>
                         <td className="font-medium text-text-secondary">
-                          {dog.ownerName || "미등록"}
+                          {dog.customerId ? (
+                            <button
+                              type="button"
+                              className="rounded-md text-left hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                              onClick={() => openCustomerProfile(dog.customerId!)}
+                            >
+                              <span>{dog.ownerName || "이름 미등록"}</span>
+                              {(dogCountByCustomerId.get(dog.customerId) ?? 0) > 1 && (
+                                <span className="ml-1.5 inline-flex rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-semibold text-primary">
+                                  다견 {dogCountByCustomerId.get(dog.customerId)}마리
+                                </span>
+                              )}
+                            </button>
+                          ) : (
+                            "미등록"
+                          )}
                         </td>
                         <td className="tabular-nums">
                           {formatPhoneForDisplay(dog.ownerPhone) || "미등록"}
                         </td>
-                        <td>{dog.breed || "미등록"}</td>
+                        <td>
+                          <span
+                            className="block truncate"
+                            title={dog.breed || "미등록"}
+                          >
+                            {dog.breed || "미등록"}
+                          </span>
+                        </td>
+                        <td>
+                          <DogCurrentService
+                            service={currentService}
+                            unavailable={!currentServicesAvailable}
+                          />
+                        </td>
                         <td className="px-3 text-center [&>span]:px-3">
                           <StatusBadge status={dog.active ? "active" : "inactive"} />
                         </td>
@@ -850,6 +943,10 @@ export function PetManagementPage() {
                 const owner =
                   owners.find((item) => item.id === dog.customerId) ?? null;
                 const secondary = dogListSecondary(dog);
+                const currentService = preferredDogService(
+                  dog.id,
+                  currentServices,
+                );
                 return (
                   <article key={dog.id} className="p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-3">
@@ -861,6 +958,11 @@ export function PetManagementPage() {
                         <strong className="block text-base text-text-primary">
                           {dog.name}
                         </strong>
+                        {!isSingleDogProfileName(dog.name) ? (
+                          <span className="mt-1 inline-flex">
+                            <Badge tone="amber">Legacy · 다견 이름</Badge>
+                          </span>
+                        ) : null}
                         <span className="mt-1 block text-sm text-text-secondary">
                           {[dog.breed || "견종 미등록", secondary]
                             .filter(Boolean)
@@ -872,11 +974,33 @@ export function PetManagementPage() {
                     <dl className="mt-4 grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 border-t border-border pt-4 text-sm">
                       <dt className="text-text-muted">보호자</dt>
                       <dd className="font-medium text-text-primary">
-                        {dog.ownerName || "미등록"}
+                        {dog.customerId ? (
+                          <button
+                            type="button"
+                            className="rounded-md text-left hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            onClick={() => openCustomerProfile(dog.customerId!)}
+                          >
+                            {dog.ownerName || "이름 미등록"}
+                            {(dogCountByCustomerId.get(dog.customerId) ?? 0) > 1 && (
+                              <span className="ml-1.5 text-xs font-semibold text-primary">
+                                · 다견 {dogCountByCustomerId.get(dog.customerId)}마리
+                              </span>
+                            )}
+                          </button>
+                        ) : (
+                          "미등록"
+                        )}
                       </dd>
                       <dt className="text-text-muted">연락처</dt>
                       <dd className="whitespace-nowrap tabular-nums text-text-secondary">
                         {formatPhoneForDisplay(dog.ownerPhone) || "미등록"}
+                      </dd>
+                      <dt className="text-text-muted">현재 서비스</dt>
+                      <dd>
+                        <DogCurrentService
+                          service={currentService}
+                          unavailable={!currentServicesAvailable}
+                        />
                       </dd>
                     </dl>
                     <div className="mt-4 border-t border-border pt-3">
@@ -910,13 +1034,48 @@ export function PetManagementPage() {
         loading={profileLoading}
         error={profileError}
         canEditDog={canEditDog}
-        onClose={() => setProfileDogId(null)}
+        siblingDogCount={
+          profileDog?.customerId
+            ? (dogCountByCustomerId.get(profileDog.customerId) ?? 0)
+            : 0
+        }
+        onClose={() => {
+          setProfileDogId(null);
+          clearProfileParam("dogId");
+        }}
+        onOpenCustomer={() => {
+          if (!profileDog?.customerId) return;
+          setProfileDogId(null);
+          clearProfileParam("dogId");
+          openCustomerProfile(profileDog.customerId);
+        }}
         onEditDog={() => {
           if (profileDog) openEdit(profileDog);
         }}
         onEditOwner={() => openOwnerEdit(profileOwner)}
         onRetry={() => {
           if (profileDogId) void loadProfileActivities(profileDogId);
+        }}
+      />
+      <CustomerProfileModal
+        customerId={profileCustomerId}
+        onClose={() => {
+          setProfileCustomerId(null);
+          clearProfileParam("customerId");
+        }}
+        onOpenDog={(dogId) => {
+          setProfileCustomerId(null);
+          clearProfileParam("customerId");
+          openProfile(dogId);
+        }}
+        onAddDog={(customerId) => {
+          setProfileCustomerId(null);
+          clearProfileParam("customerId");
+          setFormError("");
+          setOwnerSearch("");
+          setDuplicateDog(null);
+          setAllowDuplicateDog(false);
+          setEditing({ ...emptyForm(), customerId });
         }}
       />
       <Modal open={!!editing && !ownerCreating && !ownerEditing} onClose={() => !saving && setEditing(null)} title={editing?.id ? "반려견 수정" : "반려견 등록"} wide>
