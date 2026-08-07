@@ -5,6 +5,7 @@ import {
   customerDogCountById,
   customerServiceCounts,
   customerServiceDogNames,
+  defaultFamilyBookingDates,
   isSingleDogProfileName,
   preferredDogService,
   type CustomerDogServiceStatus,
@@ -94,6 +95,13 @@ describe("Customer and Dog architecture V2", () => {
     ).toEqual({ hotel: ["동동이"], training: ["동동이"], daycare: ["마루"] });
     expect(compactDogNames(["동동이", "마루", "콩이"])).toBe("동동이 외 2마리");
   });
+
+  it("defaults a Family Booking to the KST day and following day", () => {
+    expect(defaultFamilyBookingDates(new Date("2026-08-06T15:30:00Z"))).toEqual({
+      start: "2026-08-07",
+      end: "2026-08-08",
+    });
+  });
 });
 
 describe("Customer and Dog UI boundary", () => {
@@ -166,5 +174,27 @@ describe("Customer and Dog UI boundary", () => {
     expect(source).toContain("export interface LongStayContractDraft");
     expect(source).toContain("export interface RoomOccupancyCapacityDraft");
     expect(source).not.toContain("supabase");
+  });
+
+  it("keeps Family Booking orchestration outside the presentation component", () => {
+    const familyBooking = readFileSync(
+      new URL("./CustomerFamilyBookingMock.tsx", import.meta.url),
+      "utf8",
+    );
+    expect(customerProfile).toContain("CustomerFamilyBookingForm");
+    expect(customerProfile).toContain("FamilyBookingRecordCard");
+    expect(customerProfile).toContain("예약 상세 보기");
+    expect(customerProfile).toContain("새 가족 예약 만들기");
+    expect(customerProfile).toContain("개별 일정에서 수정");
+    expect(customerProfile).not.toContain(">예약 수정</Button>");
+    expect(familyBooking).toContain("각 반려견 예약을 한 화면에서 독립적으로 설정");
+    expect(familyBooking).toContain("각 반려견 예약을 한 화면에서 독립적으로 설정하고 한 번에 생성합니다");
+    expect(familyBooking).toContain("전체 기간 적용");
+    expect(familyBooking).toContain("전체 담당자 적용");
+    expect(familyBooking).toContain("같은 DELUXE 방 사용");
+    expect(familyBooking).toContain("예약 생성");
+    expect(familyBooking).not.toContain("예약 완료 · UI 미리보기");
+    expect(familyBooking).not.toContain("supabase");
+    expect(familyBooking).not.toContain("rpc(");
   });
 });

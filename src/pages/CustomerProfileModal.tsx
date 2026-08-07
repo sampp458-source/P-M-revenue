@@ -1,4 +1,4 @@
-import { CalendarDays, Dog, Phone, Plus, UserRound } from "lucide-react";
+import { CalendarDays, Dog, Eye, Phone, Plus, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
   ProfileContent,
@@ -35,6 +35,16 @@ import {
   loadCustomerDogDirectory,
   type CustomerDogDirectoryData,
 } from "./customerDogDirectory";
+import {
+  CustomerFamilyBookingForm,
+  FamilyBookingRecordCard,
+} from "./CustomerFamilyBookingMock";
+import {
+  createFamilyBookingFromDraft,
+  familyBookingErrorMessage,
+  familyBookingRepository,
+} from "../platform/familyBookingRepository";
+import type { FamilyBookingRecord } from "../platform/familyBookingRepositoryContract";
 
 export function CustomerProfileModal({
   customerId,
@@ -51,6 +61,12 @@ export function CustomerProfileModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [familyBookingOpen, setFamilyBookingOpen] = useState(false);
+  const [familyBookings, setFamilyBookings] = useState<readonly FamilyBookingRecord[]>([]);
+  const [selectedFamilyBookingId, setSelectedFamilyBookingId] = useState<string | null>(null);
+  const [familyBookingDetailsOpen, setFamilyBookingDetailsOpen] = useState(false);
+  const [familyBookingSubmitting, setFamilyBookingSubmitting] = useState(false);
+  const [familyBookingError, setFamilyBookingError] = useState("");
 
   useEffect(() => {
     if (!customerId) {
@@ -61,9 +77,16 @@ export function CustomerProfileModal({
     let active = true;
     setLoading(true);
     setError("");
-    void loadCustomerDogDirectory()
-      .then((result) => {
-        if (active) setData(result);
+    void Promise.all([
+      loadCustomerDogDirectory(),
+      familyBookingRepository.listByCustomer(customerId),
+    ])
+      .then(([result, bookings]) => {
+        if (active) {
+          setData(result);
+          setFamilyBookings(bookings);
+          setSelectedFamilyBookingId((current) => current ?? bookings[0]?.id ?? null);
+        }
       })
       .catch(() => {
         if (active) setError("보호자 프로필을 불러오지 못했습니다.");
@@ -75,6 +98,15 @@ export function CustomerProfileModal({
       active = false;
     };
   }, [customerId, reloadKey]);
+
+  useEffect(() => {
+    setFamilyBookingOpen(false);
+    setFamilyBookings([]);
+    setSelectedFamilyBookingId(null);
+    setFamilyBookingDetailsOpen(false);
+    setFamilyBookingSubmitting(false);
+    setFamilyBookingError("");
+  }, [customerId]);
 
   const customer = data?.customers.find((row) => row.id === customerId) ?? null;
   const dogs = useMemo(
@@ -99,11 +131,14 @@ export function CustomerProfileModal({
     () => customerServiceDogNames(dogs, data?.services ?? []),
     [data?.services, dogs],
   );
+  const selectedFamilyBooking = familyBookings.find(
+    (booking) => booking.id === selectedFamilyBookingId,
+  ) ?? familyBookings[0] ?? null;
 
   return (
     <Modal
       open={Boolean(customerId)}
-      title="보호자 프로필"
+      title={familyBookingOpen ? "Family Booking 예약 생성" : "보호자 프로필"}
       onClose={onClose}
       resetKey={customerId ?? undefined}
       extraWide
@@ -114,6 +149,36 @@ export function CustomerProfileModal({
         <ErrorState title={error} retry={() => setReloadKey((value) => value + 1)} />
       ) : !customer ? (
         <EmptyState title="보호자 정보를 찾을 수 없습니다." />
+      ) : familyBookingOpen ? (
+        <CustomerFamilyBookingForm
+          customerId={customer.id}
+          customerName={customer.name || "이름 미등록"}
+          dogs={dogs.map((dog) => ({ id: dog.id, name: dog.name, breed: dog.breed }))}
+          initialBooking={null}
+          onCancel={() => setFamilyBookingOpen(false)}
+          submitting={familyBookingSubmitting}
+          submissionError={familyBookingError}
+          onComplete={async (booking) => {
+            setFamilyBookingSubmitting(true);
+            setFamilyBookingError("");
+            try {
+              const result = await createFamilyBookingFromDraft(booking);
+              const detail = await familyBookingRepository.getById(result.id);
+              setFamilyBookings((current) => [
+                detail,
+                ...current.filter((item) => item.id !== detail.id),
+              ]);
+              setSelectedFamilyBookingId(detail.id);
+              setFamilyBookingDetailsOpen(true);
+              setFamilyBookingOpen(false);
+              setReloadKey((value) => value + 1);
+            } catch (submissionError) {
+              setFamilyBookingError(familyBookingErrorMessage(submissionError));
+            } finally {
+              setFamilyBookingSubmitting(false);
+            }
+          }}
+        />
       ) : (
         <ProfileContent className="pt-1">
           <ProfileHeader
@@ -123,13 +188,62 @@ export function CustomerProfileModal({
             summary={formatPhoneForDisplay(customer.phone) || "연락처 미등록"}
             actions={
               customer.active ? (
-                <Button onClick={() => onAddDog(customer.id)}>
-                  <Plus size={16} />
-                  반려견 추가
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => onAddDog(customer.id)}>
+                    <Plus size={16} />
+                    반려견 추가
+                  </Button>
+                  <Button onClick={() => setFamilyBookingOpen(true)} disabled={!dogs.length}>
+                    <UsersRound size={16} />
+                    예약 생성
+                  </Button>
+                </div>
               ) : null
             }
           />
+
+          {selectedFamilyBooking ? (
+            <ProfileSection
+              id="customer-family-booking-preview-title"
+              title="Family Booking"
+              description="Family Booking과 각 반려견의 서비스 예약이 함께 생성되었습니다."
+              action={(
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setFamilyBookingDetailsOpen((value) => !value)}
+                  >
+                    <Eye size={16} />
+                    예약 상세 보기
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      setFamilyBookingError("");
+                      setFamilyBookingOpen(true);
+                    }}
+                  >
+                    <Plus size={16} />
+                    새 가족 예약 만들기
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => window.location.assign("/operations/calendar")}
+                  >
+                    개별 일정에서 수정
+                  </Button>
+                </div>
+              )}
+            >
+              <FamilyBookingRecordCard
+                booking={selectedFamilyBooking}
+                expanded={familyBookingDetailsOpen}
+              />
+            </ProfileSection>
+          ) : null}
 
           <ProfileInfoGrid className="sm:grid-cols-2 lg:grid-cols-4">
             <ProfileField

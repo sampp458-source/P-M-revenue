@@ -25,13 +25,43 @@ export interface CustomerTimelineEntry {
   sourceEntityId: string;
 }
 
+export type FamilyBookingServiceType = "hotel" | "training" | "daycare";
+export type FamilyBookingRoomType = "standard" | "deluxe" | "unspecified";
+
+export interface FamilyBookingDogDraft {
+  dogId: string;
+  dogName: string;
+  serviceType: FamilyBookingServiceType;
+  startsOn: string;
+  endsOn: string;
+  checkInTime: string;
+  checkOutTime: string;
+  checkInTimeUnspecified: boolean;
+  checkOutTimeUnspecified: boolean;
+  roomType: FamilyBookingRoomType | null;
+  assigneeIds: string[];
+  assigneeDisplayName: string;
+  memo?: string;
+  sharedRoomGroupKey: string | null;
+}
+
 export interface FamilyBookingDraft {
+  id: string;
   customerId: string;
-  dogs: Array<{
-    dogId: string;
-    stayId?: string;
-  }>;
-  sharedMemo?: string;
+  commonRequest?: string;
+  commonMemo?: string;
+  combinePayment: boolean;
+  multiDogDiscountPlanned: boolean;
+  defaultAssigneeDisplayName: string;
+  dogs: FamilyBookingDogDraft[];
+  status: "mock" | "created";
+  familyBookingId?: string;
+  requestId?: string;
+}
+
+export interface FamilyBookingMember {
+  dogId: string;
+  serviceRecordId: string;
 }
 
 export interface LongStayContractDraft {
@@ -53,6 +83,29 @@ export interface RoomOccupancyStateDraft {
   occupancyCapacity: number;
   occupiedDogCount: number;
   activeAllocationIds: string[];
+}
+
+export function defaultFamilyBookingDates(now = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = Object.fromEntries(
+    formatter.formatToParts(now).map((part) => [part.type, part.value]),
+  );
+  const year = Number(parts.year);
+  const month = Number(parts.month);
+  const day = Number(parts.day);
+  const start = `${parts.year}-${parts.month}-${parts.day}`;
+  const next = new Date(Date.UTC(year, month - 1, day + 1));
+  const end = [
+    next.getUTCFullYear(),
+    String(next.getUTCMonth() + 1).padStart(2, "0"),
+    String(next.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+  return { start, end };
 }
 
 const combinedDogNameDelimiter = /[,，、;；/\\&＋+\n]/;
