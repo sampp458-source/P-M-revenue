@@ -153,7 +153,7 @@ export function LongStayProfileSection({
       setReverseReason("");
       await load();
     } catch (reverseError) {
-      if (reverseError instanceof LongStayRepositoryError && reverseError.code === "40001") {
+      if (reverseError instanceof LongStayRepositoryError && reverseError.kind === "conflict") {
         setReverseTarget(null);
         await load();
       }

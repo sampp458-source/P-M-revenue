@@ -69,6 +69,18 @@ const shiftMonth = (value: string, delta: number) => {
   const [year, month] = value.split("-").map(Number);
   return monthStart(new Date(year, month - 1 + delta, 1));
 };
+
+export const isServiceMonthBeforeLongStayStart = (
+  serviceMonth: string,
+  startedOn: string,
+) => {
+  const [year, month] = serviceMonth.split("-").map(Number);
+  const nextYear = month === 12 ? year + 1 : year;
+  const nextMonth = month === 12 ? 1 : month + 1;
+  const nextMonthStart = `${nextYear}-${String(nextMonth).padStart(2, "0")}-01`;
+  return nextMonthStart <= startedOn;
+};
+
 const nowLocalInput = () => {
   const value = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString();
   return value.slice(0, 16);
@@ -296,7 +308,13 @@ export function LongStayOperationsPanel({
         ) : (
           <div className="grid gap-3 xl:grid-cols-2">
             {contracts.map((contract) => {
-              const status = statusPresentation(contract);
+              const beforeContractStart = isServiceMonthBeforeLongStayStart(
+                serviceMonth,
+                contract.startedOn,
+              );
+              const status = beforeContractStart
+                ? { label: "계약 시작 전", tone: "gray" as const }
+                : statusPresentation(contract);
               return (
                 <article key={contract.id} className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
@@ -320,7 +338,7 @@ export function LongStayOperationsPanel({
                     <span>객실 유지 <b className="text-text-primary">{contract.isOpenEnded ? "실제 퇴실까지" : "종료"}</b></span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {!contract.monthlyOccupancy && contract.storedStatus !== "completed" ? <Button onClick={() => openAction("confirm", contract)}><DoorOpen size={15} /> 객실 배정</Button> : null}
+                    {!beforeContractStart && !contract.monthlyOccupancy && contract.storedStatus !== "completed" ? <Button onClick={() => openAction("confirm", contract)}><DoorOpen size={15} /> 객실 배정</Button> : null}
                     {contract.monthlyOccupancy && !contract.checkedInAt ? <Button onClick={() => openAction("checkin", contract)}><LogIn size={15} /> 입실</Button> : null}
                     {contract.checkedInAt && !contract.checkedOutAt && !contract.isAway ? <Button variant="secondary" onClick={() => openAction("leave", contract)}>외출</Button> : null}
                     {contract.isAway ? <Button onClick={() => openAction("return", contract)}>복귀 처리</Button> : null}
