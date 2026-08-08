@@ -1,0 +1,360 @@
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarClock,
+  DoorOpen,
+  Home,
+  LogIn,
+  LogOut,
+  RotateCcw,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  Field,
+  Input,
+  LoadingState,
+  Modal,
+  Select,
+  Textarea,
+  Toast,
+} from "../components/ui";
+import { koDate, monthLabel } from "../lib/format";
+import {
+  completeLongStayAbsence,
+  completeLongStayCheckIn,
+  completeLongStayCheckOut,
+  confirmLongStayMonth,
+  getLongStayHotelVersion,
+  getLongStayContract,
+  getLongStayMonth,
+  LongStayRepositoryError,
+  newLongStayRequestId,
+  reverseLongStayCompletion,
+  setLongStayPlannedCheckout,
+  startLongStayAbsence,
+} from "../platform/longStayHotelRepository";
+import type {
+  LongStayContractProjection,
+  LongStayMonthContractProjection,
+} from "../platform/longStayHotelContract";
+import type { HotelOperationsSnapshot } from "./hotelOperationsRepository";
+import type {
+  OperationRole,
+  OperationScheduleOptions,
+} from "./operationsScheduleRepository";
+import { hotelScheduleTypeForCalendar } from "./OperationsToday";
+
+type ActionKind =
+  | "confirm"
+  | "checkin"
+  | "leave"
+  | "return"
+  | "planned_checkout"
+  | "checkout"
+  | "reverse";
+
+interface ActionState {
+  kind: ActionKind;
+  contract: LongStayMonthContractProjection;
+  requestId: string;
+}
+
+const monthStart = (value: Date) =>
+  `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-01`;
+const shiftMonth = (value: string, delta: number) => {
+  const [year, month] = value.split("-").map(Number);
+  return monthStart(new Date(year, month - 1 + delta, 1));
+};
+const nowLocalInput = () => {
+  const value = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString();
+  return value.slice(0, 16);
+};
+const kstIso = (value: string) => new Date(`${value}:00+09:00`).toISOString();
+
+const statusPresentation = (contract: LongStayMonthContractProjection) => {
+  if (contract.derivedStatus === "overstay") return { label: "초과체류", tone: "red" as const };
+  if (contract.storedStatus === "completed") return { label: "완료", tone: "gray" as const };
+  if (contract.isAway) return { label: "외출 중", tone: "amber" as const };
+  if (contract.checkedInAt) return { label: "이용중", tone: "green" as const };
+  if (contract.monthlyState === "unassigned") return { label: "미배정", tone: "amber" as const };
+  return { label: "입실 예정", tone: "blue" as const };
+};
+
+const actionTitle: Record<ActionKind, string> = {
+  confirm: "이번 달 객실 배정",
+  checkin: "장기호텔 입실",
+  leave: "외출 기록",
+  return: "복귀 처리",
+  planned_checkout: "퇴실 예정 등록·수정",
+  checkout: "실제 퇴실",
+  reverse: "퇴실 완료 취소",
+};
+
+export function LongStayOperationsPanel({
+  snapshot,
+  options,
+  operationRole,
+  onHotelSnapshotRefresh,
+}: {
+  snapshot: HotelOperationsSnapshot;
+  options: OperationScheduleOptions;
+  operationRole: OperationRole | null;
+  onHotelSnapshotRefresh: () => Promise<unknown>;
+}) {
+  const [serviceMonth, setServiceMonth] = useState(() => monthStart(new Date()));
+  const [contracts, setContracts] = useState<LongStayMonthContractProjection[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [action, setAction] = useState<ActionState | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
+  const [roomId, setRoomId] = useState("");
+  const [occurredAt, setOccurredAt] = useState(nowLocalInput);
+  const [expectedReturnAt, setExpectedReturnAt] = useState("");
+  const [plannedDate, setPlannedDate] = useState("");
+  const [timeUnspecified, setTimeUnspecified] = useState(false);
+  const [memo, setMemo] = useState("");
+  const [reason, setReason] = useState("");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const result = await getLongStayMonth(serviceMonth);
+      setContracts(result.contracts);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "장기호텔 월 현황을 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }, [serviceMonth]);
+
+  useEffect(() => void load(), [load]);
+
+  const hotelCalendar = options.calendars.find((calendar) => calendar.businessUnitCode === "hotel") ?? null;
+  const hotelScheduleType = hotelCalendar
+    ? hotelScheduleTypeForCalendar(hotelCalendar.id, options)
+    : null;
+  const availableRooms = useMemo(
+    () => snapshot.rooms.filter((room) => room.isActive).sort((a, b) => a.sortOrder - b.sortOrder),
+    [snapshot.rooms],
+  );
+  const selectedRoom = availableRooms.find((room) => room.id === roomId) ?? null;
+  const selectableRooms = action && operationRole === "staff" && action.contract.currentRoom
+    ? availableRooms.filter((room) => room.roomTypeId === action.contract.currentRoom?.roomTypeId)
+    : availableRooms;
+
+  const openAction = (kind: ActionKind, contract: LongStayMonthContractProjection) => {
+    setToast(null);
+    setAction({ kind, contract, requestId: newLongStayRequestId() });
+    setRoomId(contract.currentRoom?.id ?? availableRooms[0]?.id ?? "");
+    setOccurredAt(nowLocalInput());
+    setExpectedReturnAt("");
+    setPlannedDate(contract.plannedCheckOutDate ?? "");
+    setTimeUnspecified(false);
+    setMemo("");
+    setReason("");
+  };
+
+  const finishMutation = async (result: LongStayContractProjection) => {
+    await Promise.all([load(), onHotelSnapshotRefresh()]);
+    setAction(null);
+    setToast({
+      message: result.replayed ? "이미 처리된 요청 결과를 불러왔습니다." : "장기호텔 상태를 반영했습니다.",
+      tone: "success",
+    });
+  };
+
+  const submit = async () => {
+    if (!action || processing) return;
+    setProcessing(true);
+    try {
+      const { contract, kind } = action;
+      let result: LongStayContractProjection;
+      if (kind === "confirm") {
+        if (!selectedRoom || !hotelCalendar || !hotelScheduleType) throw new Error("호텔 일정 설정과 호실을 확인해 주세요.");
+        result = await confirmLongStayMonth({
+          contractId: contract.id,
+          expectedContractVersion: contract.version,
+          serviceMonth,
+          calendarId: hotelCalendar.id,
+          scheduleTypeId: hotelScheduleType.id,
+          checkInTime: timeUnspecified ? null : snapshot.settings?.defaultCheckInTime ?? "15:00",
+          checkInTimeUnspecified: timeUnspecified,
+          roomTypeId: selectedRoom.roomTypeId,
+          roomId: selectedRoom.id,
+          assigneeIds: options.assignees.slice(0, 1).map((person) => person.id),
+          reason: reason || "장기호텔 월 객실 배정",
+        }, action.requestId);
+      } else if (kind === "checkin") {
+        const stayVersion = await getLongStayHotelVersion(contract);
+        if (stayVersion === null) throw new Error("먼저 이번 달 객실을 배정해 주세요.");
+        result = await completeLongStayCheckIn({
+          contractId: contract.id,
+          expectedContractVersion: contract.version,
+          expectedStayVersion: stayVersion,
+          completedAt: kstIso(occurredAt),
+          reason: reason || "장기호텔 입실 완료",
+        }, action.requestId);
+      } else if (kind === "leave") {
+        result = await startLongStayAbsence({
+          contractId: contract.id,
+          expectedContractVersion: contract.version,
+          leftAt: kstIso(occurredAt),
+          expectedReturnAt: expectedReturnAt ? kstIso(expectedReturnAt) : null,
+          memo,
+          reason: reason || "장기호텔 외출",
+        }, action.requestId);
+      } else if (kind === "return") {
+        result = await completeLongStayAbsence({
+          contractId: contract.id,
+          expectedContractVersion: contract.version,
+          returnedAt: kstIso(occurredAt),
+          memo,
+          reason: reason || "장기호텔 복귀",
+        }, action.requestId);
+      } else if (kind === "planned_checkout") {
+        if (!hotelCalendar || !hotelScheduleType) throw new Error("호텔 일정 설정을 확인해 주세요.");
+        result = await setLongStayPlannedCheckout({
+          contractId: contract.id,
+          expectedContractVersion: contract.version,
+          plannedCheckOutDate: plannedDate || null,
+          calendarId: hotelCalendar.id,
+          scheduleTypeId: hotelScheduleType.id,
+          checkOutTime: timeUnspecified ? null : snapshot.settings?.defaultCheckOutTime ?? "11:00",
+          timeUnspecified,
+          assigneeIds: options.assignees.slice(0, 1).map((person) => person.id),
+          reason: reason || "장기호텔 퇴실 예정 변경",
+        }, action.requestId);
+      } else if (kind === "checkout") {
+        const stayVersion = await getLongStayHotelVersion(contract);
+        if (stayVersion === null) throw new Error("연결된 호텔 이용 정보를 찾을 수 없습니다.");
+        result = await completeLongStayCheckOut({
+          contractId: contract.id,
+          expectedContractVersion: contract.version,
+          expectedStayVersion: stayVersion,
+          completedAt: kstIso(occurredAt),
+          reason: reason || "장기호텔 실제 퇴실",
+        }, action.requestId);
+      } else {
+        const stayVersion = await getLongStayHotelVersion(contract);
+        if (stayVersion === null) throw new Error("연결된 호텔 이용 정보를 찾을 수 없습니다.");
+        result = await reverseLongStayCompletion({
+          contractId: contract.id,
+          expectedContractVersion: contract.version,
+          expectedStayVersion: stayVersion,
+          reason: reason || "장기호텔 퇴실 완료 취소",
+        }, action.requestId);
+      }
+      await finishMutation(result);
+    } catch (mutationError) {
+      if (mutationError instanceof LongStayRepositoryError && mutationError.kind === "conflict") {
+        await Promise.all([
+          load(),
+          getLongStayContract(action.contract.id),
+          onHotelSnapshotRefresh(),
+        ]);
+        setAction(null);
+      }
+      setToast({
+        message: mutationError instanceof Error ? mutationError.message : "장기호텔 요청을 처리하지 못했습니다.",
+        tone: "error",
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  return (
+    <Card className="mb-4 overflow-hidden">
+      <div className="border-b border-border bg-[linear-gradient(135deg,#f7fafc,#eef5f2)] px-4 py-4 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Home size={19} className="text-primary" />
+              <h2 className="font-bold text-text-primary">장기호텔 월 운영</h2>
+            </div>
+            <p className="mt-1 text-xs text-text-secondary">결제일과 분리하여 매월 실제 객실을 확정합니다.</p>
+          </div>
+          <div className="flex items-center gap-1 rounded-xl border border-border bg-surface p-1">
+            <button type="button" aria-label="이전 달" className="flex h-10 w-10 items-center justify-center rounded-lg hover:bg-primary-soft" onClick={() => setServiceMonth((value) => shiftMonth(value, -1))}><ArrowLeft size={17} /></button>
+            <strong className="min-w-28 text-center text-sm">{monthLabel(serviceMonth.slice(0, 7))}</strong>
+            <button type="button" aria-label="다음 달" className="flex h-10 w-10 items-center justify-center rounded-lg hover:bg-primary-soft" onClick={() => setServiceMonth((value) => shiftMonth(value, 1))}><ArrowRight size={17} /></button>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-4 sm:p-6">
+        {loading ? <LoadingState /> : error ? (
+          <div className="rounded-2xl bg-error-soft p-4 text-sm text-error">{error} <Button variant="ghost" onClick={() => void load()}>다시 시도</Button></div>
+        ) : contracts.length === 0 ? (
+          <EmptyState compact title="이 달에 운영할 장기호텔 계약이 없습니다." />
+        ) : (
+          <div className="grid gap-3 xl:grid-cols-2">
+            {contracts.map((contract) => {
+              const status = statusPresentation(contract);
+              return (
+                <article key={contract.id} className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <strong className="truncate text-base text-text-primary">{contract.dogName || "이름 미등록"}</strong>
+                        <Badge tone={status.tone}>{status.label}</Badge>
+                        <Badge tone="blue">장기호텔</Badge>
+                      </div>
+                      <p className="mt-1 text-sm text-text-secondary">{contract.customerName || "보호자 미등록"}</p>
+                    </div>
+                    <div className="text-right">
+                      <b className="block text-sm text-text-primary">{contract.currentRoom?.name || "호실 미배정"}</b>
+                      <span className="text-xs text-text-muted">이번 달 {contract.monthlyOccupancy ? "확정" : "미확정"}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-surface-secondary p-3 text-xs text-text-secondary">
+                    <span>시작일 <b className="text-text-primary">{koDate(contract.startedOn)}</b></span>
+                    <span>퇴실 예정 <b className="text-text-primary">{contract.plannedCheckOutDate ? koDate(contract.plannedCheckOutDate) : "미정"}</b></span>
+                    <span>월 점유 <b className="text-text-primary">{contract.monthlyOccupancy ? `${koDate(contract.monthlyOccupancy.plannedOccupiedFrom.slice(0, 10))}부터` : "미배정"}</b></span>
+                    <span>객실 유지 <b className="text-text-primary">{contract.isOpenEnded ? "실제 퇴실까지" : "종료"}</b></span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {!contract.monthlyOccupancy && contract.storedStatus !== "completed" ? <Button onClick={() => openAction("confirm", contract)}><DoorOpen size={15} /> 객실 배정</Button> : null}
+                    {contract.monthlyOccupancy && !contract.checkedInAt ? <Button onClick={() => openAction("checkin", contract)}><LogIn size={15} /> 입실</Button> : null}
+                    {contract.checkedInAt && !contract.checkedOutAt && !contract.isAway ? <Button variant="secondary" onClick={() => openAction("leave", contract)}>외출</Button> : null}
+                    {contract.isAway ? <Button onClick={() => openAction("return", contract)}>복귀 처리</Button> : null}
+                    {contract.hotelStayId && !contract.checkedOutAt && (operationRole === "owner" || operationRole === "manager") ? <Button variant="secondary" onClick={() => openAction("planned_checkout", contract)}><CalendarClock size={15} /> 퇴실 예정</Button> : null}
+                    {contract.checkedInAt && !contract.checkedOutAt ? <Button variant="danger" onClick={() => openAction("checkout", contract)}><LogOut size={15} /> 실제 퇴실</Button> : null}
+                    {contract.checkedOutAt && (operationRole === "owner" || operationRole === "manager") ? <Button variant="secondary" onClick={() => openAction("reverse", contract)}><RotateCcw size={15} /> 완료 취소</Button> : null}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      <Modal open={Boolean(action)} title={action ? actionTitle[action.kind] : "장기호텔 처리"} onClose={() => !processing && setAction(null)} resetKey={`${action?.kind ?? ""}-${action?.contract.id ?? ""}`} wide>
+        {action ? (
+          <div className="space-y-4">
+            <div className="rounded-2xl bg-primary-subtle p-4"><b>{action.contract.dogName || "반려견"}</b><span className="ml-2 text-sm text-text-secondary">{action.contract.currentRoom?.name || "호실 미배정"}</span></div>
+            {action.kind === "confirm" ? (
+              <>
+                <Field label="이번 달 호실" required><Select value={roomId} onChange={(event) => setRoomId(event.target.value)}>{selectableRooms.map((room) => <option key={room.id} value={room.id}>{room.roomTypeName} · {room.name}</option>)}</Select></Field>
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={timeUnspecified} onChange={(event) => setTimeUnspecified(event.target.checked)} /> 입실 시간 미정</label>
+              </>
+            ) : null}
+            {["checkin", "leave", "return", "checkout"].includes(action.kind) ? <Field label={action.kind === "leave" ? "외출 시각" : action.kind === "return" ? "복귀 시각" : action.kind === "checkout" ? "실제 퇴실 시각" : "입실 시각"} required><Input type="datetime-local" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} /></Field> : null}
+            {action.kind === "leave" ? <Field label="예상 복귀 시각"><Input type="datetime-local" value={expectedReturnAt} onChange={(event) => setExpectedReturnAt(event.target.value)} /></Field> : null}
+            {action.kind === "planned_checkout" ? <><Field label="퇴실 예정일"><Input type="date" value={plannedDate} onChange={(event) => setPlannedDate(event.target.value)} /></Field><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={timeUnspecified} onChange={(event) => setTimeUnspecified(event.target.checked)} /> 퇴실 시간 미정</label></> : null}
+            {["leave", "return"].includes(action.kind) ? <Field label="메모"><Textarea value={memo} onChange={(event) => setMemo(event.target.value)} /></Field> : null}
+            <Field label="처리 사유"><Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="비워두면 기본 사유가 기록됩니다." /></Field>
+            <div className="flex justify-end gap-2"><Button variant="secondary" disabled={processing} onClick={() => setAction(null)}>취소</Button><Button disabled={processing || (action.kind === "confirm" && !roomId)} onClick={() => void submit()}>{processing ? "처리 중..." : "확인"}</Button></div>
+          </div>
+        ) : null}
+      </Modal>
+      {toast ? <Toast message={toast.message} tone={toast.tone} onClose={() => setToast(null)} /> : null}
+    </Card>
+  );
+}

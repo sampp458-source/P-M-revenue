@@ -44,6 +44,7 @@ import {
   SettingsModal,
 } from "./HotelOperationsModals";
 import { HotelRoomBoard } from "./HotelRoomBoard";
+import { LongStayOperationsPanel } from "./LongStayOperationsPanel";
 import {
   assignHotelRoom,
   cancelHotelReservation,
@@ -938,6 +939,13 @@ export function HotelOperationsPage() {
         onOpenStay={(stayId) => void openStay(stayId)}
         onDropStay={dropStayOnRoom}
         onUnassignStay={requestUnassignRoom}
+      />
+
+      <LongStayOperationsPanel
+        snapshot={snapshot}
+        options={options}
+        operationRole={operationRole}
+        onHotelSnapshotRefresh={() => loadSnapshot(selectedDate)}
       />
 
       <Card className="mb-4 overflow-hidden">

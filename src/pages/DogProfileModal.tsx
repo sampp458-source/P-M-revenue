@@ -33,6 +33,7 @@ import {
   summarizeDogUsage,
   type DogProfileActivity,
 } from "./dogProfile";
+import { LongStayProfileSection } from "./LongStayProfileSection";
 
 export interface DogProfileDog {
   id: string;
@@ -274,6 +275,14 @@ export function DogProfileModal({
         </ProfileSection>
           </div>
         </div>
+
+        {owner ? (
+          <LongStayProfileSection
+            customerId={owner.id}
+            dogId={dog.id}
+            dogs={[{ id: dog.id, name: dog.name }]}
+          />
+        ) : null}
 
         <ProfileSection
           id="dog-profile-timeline-title"

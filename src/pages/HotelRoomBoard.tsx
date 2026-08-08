@@ -95,6 +95,10 @@ export function canDropHotelStayToUnassigned(stay: HotelStay) {
   );
 }
 
+export function hotelRoomBoardOccupiesRoom(stay: HotelStay) {
+  return !stay.checkedOutAt && activeHotelAllocation(stay) !== null;
+}
+
 export function hotelRoomBoardRecommendedRoom(
   stay: HotelStay,
   rooms: HotelRoomSnapshot[],
@@ -572,6 +576,7 @@ export function HotelRoomBoard({
   const roomStays = useMemo(() => {
     const entries = new Map<string, HotelStay[]>();
     stays.forEach((stay) => {
+      if (!hotelRoomBoardOccupiesRoom(stay)) return;
       const roomId = stayRoomId(stay);
       if (!roomId) return;
       entries.set(roomId, [...(entries.get(roomId) ?? []), stay]);

@@ -45,6 +45,7 @@ import {
   familyBookingRepository,
 } from "../platform/familyBookingRepository";
 import type { FamilyBookingRecord } from "../platform/familyBookingRepositoryContract";
+import { LongStayProfileSection } from "./LongStayProfileSection";
 
 export function CustomerProfileModal({
   customerId,
@@ -336,6 +337,11 @@ export function CustomerProfileModal({
               />
             )}
           </ProfileSection>
+
+          <LongStayProfileSection
+            customerId={customer.id}
+            dogs={dogs.map((dog) => ({ id: dog.id, name: dog.name }))}
+          />
 
           <ProfileSection
             id="customer-profile-timeline-title"

@@ -9,6 +9,7 @@ import {
   canDropHotelStayToUnassigned,
   hotelRoomBoardCheckInTime,
   hotelRoomBoardDropAction,
+  hotelRoomBoardOccupiesRoom,
   hotelRoomBoardRoomTarget,
   hotelRoomBoardRecommendedRoom,
   hotelRoomBoardStage,
@@ -107,6 +108,9 @@ describe("Hotel Room Board", () => {
     expect(hotelRoomBoardDropAction(assigned)).toBe("reassign");
     expect(hotelRoomBoardDropAction(checkedIn)).toBe("move");
     expect(hotelRoomBoardDropAction(checkedOut)).toBeNull();
+    expect(hotelRoomBoardOccupiesRoom(checkedIn)).toBe(true);
+    expect(hotelRoomBoardOccupiesRoom(checkedOut)).toBe(false);
+    expect(hotelRoomBoardOccupiesRoom({ ...checkedOut, checkedOutAt: null })).toBe(true);
   });
 
   it("keeps only active unassigned reservations in the drag source", () => {
