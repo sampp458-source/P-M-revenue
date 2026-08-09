@@ -393,6 +393,13 @@ export class OperationScheduleRepositoryError extends Error {
   }
 }
 
+export const isOperationOptimisticConflictCode = (code?: string) =>
+  code === "PT409" || code === "40001";
+
+export const isOperationScheduleConflictError = (error: unknown) =>
+  error instanceof OperationScheduleRepositoryError &&
+  error.kind === "conflict";
+
 const throwScheduleError = (error: {
   code?: string;
   message?: string;
@@ -404,9 +411,9 @@ const throwScheduleError = (error: {
       "permission",
     );
   }
-  if (error.code === "40001") {
+  if (isOperationOptimisticConflictCode(error.code)) {
     throw new OperationScheduleRepositoryError(
-      "다른 사용자가 먼저 일정을 수정했습니다. 새로고침 후 다시 시도해 주세요.",
+      "다른 사용자가 먼저 일정을 수정했습니다. 최신 상태를 불러왔습니다.",
       "conflict",
     );
   }

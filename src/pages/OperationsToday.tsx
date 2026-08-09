@@ -62,6 +62,7 @@ import {
   isHotelReservationSchedule,
   isLegacyHotelSchedule,
   isOperationScheduleAssignedTo,
+  isOperationScheduleConflictError,
   mergeOperationTodaySchedule,
   nextSeoulDate,
   oneHourScheduleEnd,
@@ -742,9 +743,10 @@ export function OperationsTodayPage() {
       setDetail(null);
       showNotice("일정을 완료 처리했습니다.");
     } catch (error) {
+      const conflict = isOperationScheduleConflictError(error);
       showNotice(
         error instanceof Error ? error.message : "일정을 완료하지 못했습니다.",
-        "error",
+        conflict ? "warning" : "error",
       );
       await loadSchedules();
     } finally {
@@ -790,9 +792,10 @@ export function OperationsTodayPage() {
       setPendingAction(null);
       setDetail(null);
     } catch (error) {
+      const conflict = isOperationScheduleConflictError(error);
       showNotice(
         error instanceof Error ? error.message : "일정을 처리하지 못했습니다.",
-        "error",
+        conflict ? "warning" : "error",
       );
       await loadSchedules();
     } finally {

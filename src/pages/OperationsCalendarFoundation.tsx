@@ -56,6 +56,7 @@ import {
   isHotelReservationSchedule,
   isLegacyHotelSchedule,
   isOperationScheduleAssignedTo,
+  isOperationScheduleConflictError,
   mergeOperationScheduleCollection,
   nextSeoulDate,
   operationPersonColor,
@@ -422,9 +423,11 @@ export function OperationsCalendarFoundationPage() {
       setDetail(null);
       showNotice("일정을 완료 처리했습니다.");
     } catch (error) {
+      const conflict = isOperationScheduleConflictError(error);
+      if (conflict) await loadMonth();
       showNotice(
         error instanceof Error ? error.message : "일정을 처리하지 못했습니다.",
-        "error",
+        conflict ? "warning" : "error",
       );
     } finally {
       setSaving(false);
@@ -469,9 +472,11 @@ export function OperationsCalendarFoundationPage() {
       setPendingAction(null);
       setDetail(null);
     } catch (error) {
+      const conflict = isOperationScheduleConflictError(error);
+      if (conflict) await loadMonth();
       showNotice(
         error instanceof Error ? error.message : "일정을 처리하지 못했습니다.",
-        "error",
+        conflict ? "warning" : "error",
       );
     } finally {
       setSaving(false);

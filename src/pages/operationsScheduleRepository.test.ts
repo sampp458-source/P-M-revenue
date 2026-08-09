@@ -20,6 +20,7 @@ import {
   scheduleDisplayColor,
   schedulePrimaryAssignee,
   isOperationScheduleAssignedTo,
+  isOperationOptimisticConflictCode,
   isHotelReservationSchedule,
   isLegacyHotelSchedule,
   operationScheduleDisplayTitle,
@@ -31,6 +32,11 @@ import {
 } from "./operationsScheduleRepository";
 
 describe("Operations schedule date and display helpers", () => {
+  it("classifies both application PT409 and genuine serialization conflicts", () => {
+    expect(isOperationOptimisticConflictCode("PT409")).toBe(true);
+    expect(isOperationOptimisticConflictCode("40001")).toBe(true);
+    expect(isOperationOptimisticConflictCode("23514")).toBe(false);
+  });
   it("creates UTC instants from Seoul local date and time", () => {
     expect(toSeoulInstant("2026-07-29", "09:00")).toBe(
       "2026-07-29T00:00:00.000Z",
