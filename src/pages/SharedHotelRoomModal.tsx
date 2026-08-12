@@ -13,6 +13,7 @@ import {
   type HotelStay,
 } from "./hotelOperationsRepository";
 import { activeHotelAllocation } from "./hotelOperationsUi";
+import { hotelRoomBoardDogStatus } from "./HotelRoomBoard";
 
 export interface ExistingStaySharedRoomCandidate {
   stay: HotelStay;
@@ -129,12 +130,14 @@ const localDateTime = () => {
 export function SharedHotelRoomModal({
   occupancy,
   snapshot,
+  selectedDate,
   operationRole,
   onClose,
   onChanged,
 }: {
   occupancy: SharedHotelOccupancy | null;
   snapshot: HotelOperationsSnapshot;
+  selectedDate: string;
   operationRole: OperationRole | null;
   onClose: () => void;
   onChanged: (occupancy: SharedHotelOccupancy) => void | Promise<void>;
@@ -215,11 +218,15 @@ export function SharedHotelRoomModal({
         {loading ? <LoadingState /> : occupancy.members.map((member) => {
           const stay = stays[member.hotelStayId];
           const busy = processingMemberId === member.id;
+          const status = stay ? hotelRoomBoardDogStatus(stay, selectedDate) : null;
           return (
             <article key={member.id} className="rounded-2xl border border-border p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <strong>{member.dogName}</strong>
-                <Badge tone={member.status === "active" ? "blue" : "gray"}>{member.status === "active" ? "객실 이용" : "퇴실 완료"}</Badge>
+                <span className="flex items-center gap-1.5">
+                  {status ? <Badge tone={status.stage === "in_house" ? "green" : status.stage === "check_out" ? "amber" : "blue"}>{status.label}</Badge> : null}
+                  <Badge tone={member.status === "active" ? "blue" : "gray"}>{member.status === "active" ? "객실 이용" : "퇴실 완료"}</Badge>
+                </span>
               </div>
               <p className="mt-1 text-xs text-text-muted">{stay?.checkedInAt ? "입실 완료" : "입실 전"}</p>
               <div className="mt-3 flex flex-wrap gap-2">

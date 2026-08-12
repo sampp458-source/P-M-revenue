@@ -975,6 +975,7 @@ export function HotelOperationsPage() {
       <SharedHotelRoomModal
         occupancy={sharedOccupancies.find((item) => item.id === selectedSharedOccupancyId) ?? null}
         snapshot={snapshot}
+        selectedDate={selectedDate}
         operationRole={operationRole}
         onClose={() => setSelectedSharedOccupancyId(null)}
         onChanged={async (next) => {

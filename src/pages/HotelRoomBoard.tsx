@@ -140,10 +140,6 @@ export function hotelRoomBoardCheckInTime(stay: HotelStay) {
   return seoulInputParts(schedule.startsAt).time;
 }
 
-function stageLabel(stay: HotelStay, selectedDate: string) {
-  return hotelStayDayPhase(stay, selectedDate) ?? "예약";
-}
-
 function stageClass(stage: RoomBoardStage) {
   if (stage === "in_house") {
     return "border-emerald-300 bg-emerald-50 text-emerald-950";
@@ -163,6 +159,18 @@ function stageBadgeClass(stage: RoomBoardStage, waiting: boolean) {
     return "bg-orange-100 text-orange-900 ring-orange-300/70";
   }
   return "bg-blue-100 text-blue-800 ring-blue-300/70";
+}
+
+export function hotelRoomBoardDogStatus(stay: HotelStay, selectedDate: string) {
+  const phase = hotelStayDayPhase(stay, selectedDate) as string | null;
+  if (stay.checkedOutAt || phase === "완료") return { label: "완료", stage: "check_out" as const };
+  if (stay.checkedInAt) {
+    if (phase === "퇴실" || phase === "오늘 퇴실" || phase === "입실·퇴실") {
+      return { label: "퇴실", stage: "check_out" as const };
+    }
+    return { label: "이용중", stage: "in_house" as const };
+  }
+  return { label: "입실", stage: "check_in" as const };
 }
 
 function roomStageClass(stage: RoomBoardStage | null) {
@@ -226,6 +234,7 @@ function DraggableStayCard({
     stay.capacityReservation?.roomTypeName ??
     "객실 미정";
   const checkInTime = hotelRoomBoardCheckInTime(stay);
+  const dogStatus = hotelRoomBoardDogStatus(stay, selectedDate);
 
   return (
     <div
@@ -322,7 +331,7 @@ function DraggableStayCard({
               >
                 {variant === "waiting"
                   ? "미배정"
-                  : stageLabel(stay, selectedDate)}
+                  : dogStatus.label}
               </span>
             </span>
             <span className="mt-0.5 flex items-center gap-1 text-[11px] font-bold tabular-nums text-slate-800">
@@ -341,11 +350,15 @@ function DraggableStayCard({
   );
 }
 
-function SharedRoomCard({
+export function SharedRoomCard({
   occupancy,
+  staysById,
+  selectedDate,
   onOpen,
 }: {
   occupancy: SharedHotelOccupancy;
+  staysById: ReadonlyMap<string, HotelStay>;
+  selectedDate: string;
   onOpen: () => void;
 }) {
   const activeMembers = occupancy.members.filter((member) => member.status === "active");
@@ -357,8 +370,24 @@ function SharedRoomCard({
       className="w-full rounded-xl border border-violet-300 bg-violet-50 px-2 py-2 text-left text-violet-950 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       <span className="flex items-center justify-between gap-1">
-        <strong className="truncate text-sm">{activeMembers.map((member) => member.dogName).join(" · ")}</strong>
+        <strong className="truncate text-sm">같은 방 투숙</strong>
         <Badge tone="blue">공유</Badge>
+      </span>
+      <span className="mt-1 grid gap-1">
+        {activeMembers.map((member) => {
+          const stay = staysById.get(member.hotelStayId);
+          const status = stay
+            ? hotelRoomBoardDogStatus(stay, selectedDate)
+            : { label: "이용중", stage: "in_house" as const };
+          return (
+            <span key={member.id} className="flex min-w-0 items-center justify-between gap-1.5">
+              <span className="truncate text-xs font-extrabold">{member.dogName}</span>
+              <span className={cn("shrink-0 rounded-full px-1.5 py-px text-[9px] font-extrabold leading-[0.875rem] ring-1 ring-inset", stageBadgeClass(status.stage, false))}>
+                {status.label}
+              </span>
+            </span>
+          );
+        })}
       </span>
       <span className="mt-1 block text-[11px] font-semibold">Shared Room · {activeMembers.length}마리</span>
       <span className="mt-0.5 block text-[10px] text-violet-700">객실 1 · Capacity {occupancy.capacityUsed}</span>
@@ -370,6 +399,7 @@ function RoomCell({
   room,
   stays,
   sharedOccupancy,
+  staysById,
   selectedDate,
   draggedStay,
   draggedStayId,
@@ -392,6 +422,7 @@ function RoomCell({
   room: HotelRoomSnapshot;
   stays: HotelStay[];
   sharedOccupancy: SharedHotelOccupancy | null;
+  staysById: ReadonlyMap<string, HotelStay>;
   selectedDate: string;
   draggedStay: HotelStay | null;
   draggedStayId: string | null;
@@ -509,6 +540,8 @@ function RoomCell({
       {sharedOccupancy ? (
         <SharedRoomCard
           occupancy={sharedOccupancy}
+          staysById={staysById}
+          selectedDate={selectedDate}
           onOpen={() => onOpenSharedOccupancy(sharedOccupancy.id)}
         />
       ) : stays.length ? (
@@ -599,6 +632,10 @@ export function HotelRoomBoard({
     [],
   );
   const stays = snapshot.stays;
+  const staysById = useMemo(
+    () => new Map([...snapshot.stays, ...snapshot.unassignedFuture].map((stay) => [stay.id, stay])),
+    [snapshot.stays, snapshot.unassignedFuture],
+  );
   const sharedMemberStayIds = useMemo(
     () => new Set(sharedOccupancies.flatMap((occupancy) => occupancy.members.map((member) => member.hotelStayId))),
     [sharedOccupancies],
@@ -995,6 +1032,7 @@ export function HotelRoomBoard({
                         room={room}
                         stays={roomStays.get(room.id) ?? []}
                         sharedOccupancy={sharedByRoom.get(room.id) ?? null}
+                        staysById={staysById}
                         selectedDate={selectedDate}
                         draggedStay={draggedStay}
                         draggedStayId={draggedStayId}

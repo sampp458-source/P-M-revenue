@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
+import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
 import type {
   HotelRoomSnapshot,
   HotelStay,
@@ -8,6 +11,7 @@ import type {
 import {
   canDropHotelStayToUnassigned,
   hotelRoomBoardCheckInTime,
+  hotelRoomBoardDogStatus,
   hotelRoomBoardDropAction,
   hotelRoomBoardOccupiesRoom,
   hotelRoomBoardRoomTarget,
@@ -15,6 +19,7 @@ import {
   hotelRoomBoardStage,
   hotelRoomBoardUnassigned,
   isHotelRoomBoardDragGesture,
+  SharedRoomCard,
 } from "./HotelRoomBoard";
 
 const stay = (overrides: Partial<HotelStay> = {}): HotelStay => ({
@@ -80,6 +85,57 @@ const stay = (overrides: Partial<HotelStay> = {}): HotelStay => ({
 });
 
 describe("Hotel Room Board", () => {
+  it("uses compact canonical labels for single-Dog lifecycle states", () => {
+    expect(hotelRoomBoardDogStatus(stay(), "2026-08-05")).toEqual({ label: "입실", stage: "check_in" });
+    expect(hotelRoomBoardDogStatus(stay({ checkedInAt: "2026-08-05T06:05:00Z" }), "2026-08-06")).toEqual({ label: "이용중", stage: "in_house" });
+    expect(hotelRoomBoardDogStatus(stay({ checkedInAt: "2026-08-05T06:05:00Z" }), "2026-08-08")).toEqual({ label: "퇴실", stage: "check_out" });
+    expect(hotelRoomBoardDogStatus(stay({ checkedInAt: "2026-08-05T06:05:00Z", checkedOutAt: "2026-08-08T02:05:00Z" }), "2026-08-08")).toEqual({ label: "완료", stage: "check_out" });
+  });
+
+  it("renders each active Shared Room Dog with its own mixed lifecycle badge", () => {
+    const occupancy: SharedHotelOccupancy = {
+      id: "shared-1", familyBookingId: "family-1", sharedRoomGroupId: "group-1",
+      customerId: "customer-1", roomTypeId: "deluxe", roomTypeCode: "DELUXE",
+      roomId: "deluxe-2", roomName: "DELUXE 2", occupiedFrom: "2026-08-05T06:00:00Z",
+      occupiedUntil: "2026-08-08T02:00:00Z", status: "active", version: 1,
+      capacityReservationId: "capacity-1", roomAllocationId: "allocation-1",
+      capacityUsed: 1, dogCount: 3,
+      members: [
+        { id: "member-a", familyBookingMemberId: "family-a", hotelStayId: "stay-a", dogId: "dog-a", dogName: "망치", status: "active", joinedAt: "2026-08-05T06:00:00Z", leftAt: null },
+        { id: "member-b", familyBookingMemberId: "family-b", hotelStayId: "stay-b", dogId: "dog-b", dogName: "몽치", status: "active", joinedAt: "2026-08-05T06:00:00Z", leftAt: null },
+        { id: "member-c", familyBookingMemberId: "family-c", hotelStayId: "stay-c", dogId: "dog-c", dogName: "아주긴이름의반려견세번째", status: "active", joinedAt: "2026-08-05T06:00:00Z", leftAt: null },
+      ],
+    };
+    const staysById = new Map([
+      ["stay-a", stay({ id: "stay-a", dogName: "망치", checkedInAt: "2026-08-05T06:05:00Z" })],
+      ["stay-b", stay({ id: "stay-b", dogName: "몽치", scheduleEvents: stay().scheduleEvents.map((event) => event.eventKind === "check_in" ? { ...event, schedule: { ...event.schedule, startsAt: "2026-08-06T06:00:00Z" } } : event) })],
+      ["stay-c", stay({ id: "stay-c", dogName: "아주긴이름의반려견세번째", checkedInAt: "2026-08-05T06:05:00Z" })],
+    ]);
+    const markup = renderToStaticMarkup(createElement(SharedRoomCard, { occupancy, staysById, selectedDate: "2026-08-06", onOpen: () => undefined }));
+    expect(markup).toContain("망치");
+    expect(markup).toContain("몽치");
+    expect(markup).toContain("아주긴이름의반려견세번째");
+    expect(markup).toContain("이용중");
+    expect(markup).toContain("입실");
+    expect(markup).toContain("Shared Room · 3마리");
+    expect(markup).toContain("truncate");
+  });
+
+  it("keeps a partial-checkout member out while preserving the remaining Dog status", () => {
+    const active = { id: "member-a", familyBookingMemberId: "family-a", hotelStayId: "stay-a", dogId: "dog-a", dogName: "망치", status: "active" as const, joinedAt: "2026-08-05T06:00:00Z", leftAt: null };
+    const occupancy = {
+      id: "shared-2", familyBookingId: "family-1", sharedRoomGroupId: "group-1", customerId: "customer-1",
+      roomTypeId: "deluxe", roomTypeCode: "DELUXE" as const, roomId: "deluxe-2", roomName: "DELUXE 2",
+      occupiedFrom: "2026-08-05T06:00:00Z", occupiedUntil: "2026-08-08T02:00:00Z", status: "active" as const,
+      version: 2, capacityReservationId: "capacity-1", roomAllocationId: "allocation-1", capacityUsed: 1 as const,
+      dogCount: 2, members: [active, { ...active, id: "member-b", hotelStayId: "stay-b", dogId: "dog-b", dogName: "몽치", status: "completed" as const, leftAt: "2026-08-07T02:00:00Z" }],
+    };
+    const markup = renderToStaticMarkup(createElement(SharedRoomCard, { occupancy, staysById: new Map([["stay-a", stay({ id: "stay-a", checkedInAt: "2026-08-05T06:05:00Z" })]]), selectedDate: "2026-08-07", onOpen: () => undefined }));
+    expect(markup).toContain("망치");
+    expect(markup).toContain("이용중");
+    expect(markup).not.toContain("몽치");
+    expect(markup).toContain("Shared Room · 1마리");
+  });
   it("separates a short card click from an intentional drag gesture", () => {
     expect(isHotelRoomBoardDragGesture(2, 3)).toBe(false);
     expect(isHotelRoomBoardDragGesture(6, 2)).toBe(false);
