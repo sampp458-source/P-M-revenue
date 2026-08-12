@@ -46,6 +46,7 @@ export interface CustomerDirectoryDog {
 export interface CustomerDogDirectoryData {
   customers: CustomerDirectoryCustomer[];
   dogs: CustomerDirectoryDog[];
+  hotelSnapshot: HotelOperationsSnapshot | null;
   services: CustomerDogServiceStatus[];
   timeline: CustomerTimelineEntry[];
   recentUseByCustomerId: Map<string, string>;
@@ -368,6 +369,7 @@ export async function loadCustomerDogDirectory(): Promise<CustomerDogDirectoryDa
   return {
     customers,
     dogs,
+    hotelSnapshot: snapshotResult,
     services,
     timeline: buildTimeline(dogs, salesResult, schedules),
     recentUseByCustomerId,

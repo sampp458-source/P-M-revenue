@@ -20,6 +20,11 @@ import {
   type FamilyBookingServiceType,
 } from "./customerDogArchitecture";
 import type { FamilyBookingRecord } from "../platform/familyBookingRepositoryContract";
+import type { HotelRoomSnapshot } from "./hotelOperationsRepository";
+import {
+  sharedHotelRoomErrorMessage,
+  sharedHotelRoomRepository,
+} from "../platform/multiDogSharedRoomRepository";
 
 type SelectableDog = { id: string; name: string; breed: string | null };
 
@@ -172,7 +177,16 @@ export function CustomerFamilyBookingForm({
   const deluxeHotelDogs = drafts.filter(
     (draft) => draft.serviceType === "hotel" && draft.roomType === "deluxe",
   );
-  const canShareDeluxe = deluxeHotelDogs.length >= 2;
+  const sharedPeriod = deluxeHotelDogs[0];
+  const canShareDeluxe = deluxeHotelDogs.length >= 2 && deluxeHotelDogs.every(
+    (draft) =>
+      draft.startsOn === sharedPeriod.startsOn &&
+      draft.endsOn === sharedPeriod.endsOn &&
+      draft.checkInTime === sharedPeriod.checkInTime &&
+      draft.checkOutTime === sharedPeriod.checkOutTime &&
+      draft.checkInTimeUnspecified === sharedPeriod.checkInTimeUnspecified &&
+      draft.checkOutTimeUnspecified === sharedPeriod.checkOutTimeUnspecified,
+  );
 
   const toggleSharedDeluxe = (checked: boolean) => {
     setSharedDeluxeRoom(checked);
@@ -354,10 +368,37 @@ export function FamilyBookingMockCard({ booking, customerName }: { booking: Fami
 export function FamilyBookingRecordCard({
   booking,
   expanded,
+  rooms = [],
+  onSharedRoomAllocated,
 }: {
   booking: FamilyBookingRecord;
   expanded: boolean;
+  rooms?: readonly HotelRoomSnapshot[];
+  onSharedRoomAllocated?: () => void | Promise<void>;
 }) {
+  const [selectedRooms, setSelectedRooms] = useState<Record<string, string>>({});
+  const [allocatingGroupId, setAllocatingGroupId] = useState<string | null>(null);
+  const [allocationError, setAllocationError] = useState("");
+  const deluxeRooms = rooms.filter(
+    (room) => room.isActive && room.roomTypeCode === "DELUXE",
+  );
+  const allocate = async (groupId: string) => {
+    const roomId = selectedRooms[groupId];
+    if (!roomId) {
+      setAllocationError("같이 사용할 DELUXE 호실을 선택해 주세요.");
+      return;
+    }
+    setAllocatingGroupId(groupId);
+    setAllocationError("");
+    try {
+      await sharedHotelRoomRepository.create(groupId, roomId, crypto.randomUUID());
+      await onSharedRoomAllocated?.();
+    } catch (error) {
+      setAllocationError(sharedHotelRoomErrorMessage(error));
+    } finally {
+      setAllocatingGroupId(null);
+    }
+  };
   return (
     <article className="rounded-2xl border border-primary/20 bg-surface p-4 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -375,6 +416,55 @@ export function FamilyBookingRecordCard({
       </div>
       {expanded ? (
         <div className="mt-4 space-y-2 border-t border-border pt-4">
+          {booking.sharedRoomGroups.map((group) => (
+            <div
+              key={group.id}
+              data-testid={`shared-room-intent-${group.id}`}
+              className="rounded-xl border border-primary/20 bg-primary-subtle p-3"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <strong className="text-sm text-text-primary">같은 DELUXE 방 사용</strong>
+                  <p className="mt-1 text-xs text-text-secondary">
+                    반려견 {group.requestedCapacity}마리 · 객실 1실 · Capacity 1
+                  </p>
+                </div>
+                <Badge tone={group.status === "allocated" ? "green" : "amber"}>
+                  {group.status === "allocated" ? "호실 배정 완료" : "호실 미배정"}
+                </Badge>
+              </div>
+              {group.status === "requested" ? (
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <Field label="DELUXE 호실">
+                    <Select
+                      aria-label="Shared DELUXE 호실"
+                      value={selectedRooms[group.id] ?? ""}
+                      onChange={(event) =>
+                        setSelectedRooms((current) => ({
+                          ...current,
+                          [group.id]: event.target.value,
+                        }))
+                      }
+                    >
+                      <option value="">호실 선택</option>
+                      {deluxeRooms.map((room) => (
+                        <option key={room.id} value={room.id}>{room.name}</option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <Button
+                    type="button"
+                    disabled={allocatingGroupId === group.id || !deluxeRooms.length}
+                    onClick={() => void allocate(group.id)}
+                  >
+                    <BedDouble size={16} />
+                    {allocatingGroupId === group.id ? "배정 중…" : "같은 방 배정"}
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ))}
+          {allocationError ? <p role="alert" className="rounded-xl bg-error-soft px-3 py-2 text-sm font-medium text-error">{allocationError}</p> : null}
           {booking.members.map((member) => (
             <div key={member.id} className="rounded-xl bg-surface-secondary px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">

@@ -242,6 +242,12 @@ export function CustomerProfileModal({
               <FamilyBookingRecordCard
                 booking={selectedFamilyBooking}
                 expanded={familyBookingDetailsOpen}
+                rooms={data?.hotelSnapshot?.rooms ?? []}
+                onSharedRoomAllocated={async () => {
+                  const latest = await familyBookingRepository.getById(selectedFamilyBooking.id);
+                  setFamilyBookings((current) => current.map((item) => item.id === latest.id ? latest : item));
+                  setReloadKey((value) => value + 1);
+                }}
               />
             </ProfileSection>
           ) : null}

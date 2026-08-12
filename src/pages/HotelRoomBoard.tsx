@@ -13,6 +13,7 @@ import type {
   HotelRoomSnapshot,
   HotelStay,
 } from "./hotelOperationsRepository";
+import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
 import {
   activeHotelAllocation,
   formatHotelScheduleTime,
@@ -340,9 +341,35 @@ function DraggableStayCard({
   );
 }
 
+function SharedRoomCard({
+  occupancy,
+  onOpen,
+}: {
+  occupancy: SharedHotelOccupancy;
+  onOpen: () => void;
+}) {
+  const activeMembers = occupancy.members.filter((member) => member.status === "active");
+  return (
+    <button
+      type="button"
+      data-testid={`shared-room-card-${occupancy.id}`}
+      onClick={onOpen}
+      className="w-full rounded-xl border border-violet-300 bg-violet-50 px-2 py-2 text-left text-violet-950 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
+      <span className="flex items-center justify-between gap-1">
+        <strong className="truncate text-sm">{activeMembers.map((member) => member.dogName).join(" · ")}</strong>
+        <Badge tone="blue">공유</Badge>
+      </span>
+      <span className="mt-1 block text-[11px] font-semibold">Shared Room · {activeMembers.length}마리</span>
+      <span className="mt-0.5 block text-[10px] text-violet-700">객실 1 · Capacity {occupancy.capacityUsed}</span>
+    </button>
+  );
+}
+
 function RoomCell({
   room,
   stays,
+  sharedOccupancy,
   selectedDate,
   draggedStay,
   draggedStayId,
@@ -354,6 +381,7 @@ function RoomCell({
   processing,
   allowCrossTypeChange,
   onOpenStay,
+  onOpenSharedOccupancy,
   onDropStay,
   onDragStart,
   onSelectForDrop,
@@ -363,6 +391,7 @@ function RoomCell({
 }: {
   room: HotelRoomSnapshot;
   stays: HotelStay[];
+  sharedOccupancy: SharedHotelOccupancy | null;
   selectedDate: string;
   draggedStay: HotelStay | null;
   draggedStayId: string | null;
@@ -374,6 +403,7 @@ function RoomCell({
   processing: boolean;
   allowCrossTypeChange: boolean;
   onOpenStay: (stayId: string) => void;
+  onOpenSharedOccupancy: (occupancyId: string) => void;
   onDropStay: (
     stayId: string,
     roomId: string,
@@ -386,7 +416,7 @@ function RoomCell({
   onTargetHover: (roomId: string | null) => void;
 }) {
   const targetState = draggedStay
-    ? hotelRoomBoardRoomTarget(draggedStay, room, stays.length > 0)
+    ? hotelRoomBoardRoomTarget(draggedStay, room, stays.length > 0 || Boolean(sharedOccupancy))
     : "blocked";
   const acceptsDraggedStay =
     targetState !== "blocked" &&
@@ -476,7 +506,12 @@ function RoomCell({
         ) : null}
       </div>
 
-      {stays.length ? (
+      {sharedOccupancy ? (
+        <SharedRoomCard
+          occupancy={sharedOccupancy}
+          onOpen={() => onOpenSharedOccupancy(sharedOccupancy.id)}
+        />
+      ) : stays.length ? (
         <div className="space-y-2">
           {stays.map((stay) => (
             <DraggableStayCard
@@ -518,22 +553,26 @@ function RoomCell({
 
 export function HotelRoomBoard({
   snapshot,
+  sharedOccupancies = [],
   selectedDate,
   selectedDateIsToday,
   processing,
   processingStayId = null,
   allowCrossTypeChange,
   onOpenStay,
+  onOpenSharedOccupancy = () => undefined,
   onDropStay,
   onUnassignStay,
 }: {
   snapshot: HotelOperationsSnapshot;
+  sharedOccupancies?: readonly SharedHotelOccupancy[];
   selectedDate: string;
   selectedDateIsToday: boolean;
   processing: boolean;
   processingStayId?: string | null;
   allowCrossTypeChange: boolean;
   onOpenStay: (stayId: string) => void;
+  onOpenSharedOccupancy?: (occupancyId: string) => void;
   onDropStay: (
     stayId: string,
     roomId: string,
@@ -560,13 +599,17 @@ export function HotelRoomBoard({
     [],
   );
   const stays = snapshot.stays;
+  const sharedMemberStayIds = useMemo(
+    () => new Set(sharedOccupancies.flatMap((occupancy) => occupancy.members.map((member) => member.hotelStayId))),
+    [sharedOccupancies],
+  );
   const boardStays = useMemo(() => {
     const byId = new Map<string, HotelStay>();
     [...stays, ...snapshot.unassignedFuture].forEach((stay) =>
-      byId.set(stay.id, stay),
+      !sharedMemberStayIds.has(stay.id) && byId.set(stay.id, stay),
     );
     return [...byId.values()];
-  }, [snapshot.unassignedFuture, stays]);
+  }, [sharedMemberStayIds, snapshot.unassignedFuture, stays]);
   const unassigned = useMemo(
     () => hotelRoomBoardUnassigned(boardStays),
     [boardStays],
@@ -576,13 +619,18 @@ export function HotelRoomBoard({
   const roomStays = useMemo(() => {
     const entries = new Map<string, HotelStay[]>();
     stays.forEach((stay) => {
+      if (sharedMemberStayIds.has(stay.id)) return;
       if (!hotelRoomBoardOccupiesRoom(stay)) return;
       const roomId = stayRoomId(stay);
       if (!roomId) return;
       entries.set(roomId, [...(entries.get(roomId) ?? []), stay]);
     });
     return entries;
-  }, [stays]);
+  }, [sharedMemberStayIds, stays]);
+  const sharedByRoom = useMemo(
+    () => new Map(sharedOccupancies.filter((occupancy) => occupancy.status === "active").map((occupancy) => [occupancy.roomId, occupancy])),
+    [sharedOccupancies],
+  );
   const activeRooms = useMemo(
     () =>
       snapshot.rooms
@@ -595,8 +643,8 @@ export function HotelRoomBoard({
     [snapshot.rooms],
   );
   const occupiedRoomIds = useMemo(
-    () => new Set([...roomStays.keys()]),
-    [roomStays],
+    () => new Set([...roomStays.keys(), ...sharedByRoom.keys()]),
+    [roomStays, sharedByRoom],
   );
   const boardSummary = useMemo(() => {
     const phases = boardStays.map((stay) => hotelStayDayPhase(stay, selectedDate));
@@ -606,12 +654,12 @@ export function HotelRoomBoard({
       checkIn: phases.filter(
         (phase) => phase === "입실" || phase === "입실·퇴실",
       ).length,
-      inHouse: phases.filter((phase) => phase === "이용중").length,
+      inHouse: phases.filter((phase) => phase === "이용중").length + sharedOccupancies.reduce((count, occupancy) => count + occupancy.members.filter((member) => member.status === "active").length, 0),
       checkOut: phases.filter(
         (phase) => phase === "퇴실" || phase === "입실·퇴실",
       ).length,
     };
-  }, [activeRooms.length, boardStays, occupiedRoomIds.size, selectedDate, unassigned.length]);
+  }, [activeRooms.length, boardStays, occupiedRoomIds.size, selectedDate, sharedOccupancies, unassigned.length]);
   useEffect(() => {
     const current = new Map(
       stays.map((stay) => [stay.id, stayRoomId(stay)] as const),
@@ -911,7 +959,7 @@ export function HotelRoomBoard({
                 (room) => room.roomTypeCode === roomTypeCode,
               );
               const usedCount = rooms.filter(
-                (room) => (roomStays.get(room.id) ?? []).length > 0,
+                (room) => (roomStays.get(room.id) ?? []).length > 0 || sharedByRoom.has(room.id),
               ).length;
               const remainingCount = Math.max(rooms.length - usedCount, 0);
 
@@ -946,6 +994,7 @@ export function HotelRoomBoard({
                         key={room.id}
                         room={room}
                         stays={roomStays.get(room.id) ?? []}
+                        sharedOccupancy={sharedByRoom.get(room.id) ?? null}
                         selectedDate={selectedDate}
                         draggedStay={draggedStay}
                         draggedStayId={draggedStayId}
@@ -961,6 +1010,7 @@ export function HotelRoomBoard({
                         }
                         allowCrossTypeChange={allowCrossTypeChange}
                         onOpenStay={onOpenStay}
+                        onOpenSharedOccupancy={onOpenSharedOccupancy}
                         onDropStay={commitDrop}
                         onDragStart={beginNativeDrag}
                         onSelectForDrop={selectForDrop}
