@@ -177,6 +177,22 @@ export function hotelRoomBoardDogStatus(stay: HotelStay, selectedDate: string) {
   return { label: "입실", stage: "check_in" as const };
 }
 
+export function sharedRoomCardStage(
+  occupancy: SharedHotelOccupancy,
+  staysById: ReadonlyMap<string, HotelStay>,
+  selectedDate: string,
+): RoomBoardStage | null {
+  const stages = occupancy.members
+    .filter((member) => member.status === "active")
+    .map((member) => staysById.get(member.hotelStayId))
+    .filter((stay): stay is HotelStay => Boolean(stay))
+    .map((stay) => hotelRoomBoardDogStatus(stay, selectedDate).stage);
+  if (!stages.length) return null;
+  if (stages.includes("in_house")) return "in_house";
+  if (stages.every((stage) => stage === "check_out")) return "check_out";
+  return "check_in";
+}
+
 function roomStageClass(stage: RoomBoardStage | null) {
   if (stage === "in_house") {
     return "border-emerald-300 bg-emerald-50/65 shadow-[inset_0_3px_0_0_rgb(16_185_129_/_0.75)]";
@@ -366,12 +382,17 @@ export function SharedRoomCard({
   onOpen: () => void;
 }) {
   const activeMembers = occupancy.members.filter((member) => member.status === "active");
+  const cardStage = sharedRoomCardStage(occupancy, staysById, selectedDate);
   return (
     <button
       type="button"
       data-testid={`shared-room-card-${occupancy.id}`}
+      data-room-phase={cardStage ?? "unknown"}
       onClick={onOpen}
-      className="w-full rounded-xl border border-violet-300 bg-violet-50 px-2 py-2 text-left text-violet-950 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className={cn(
+        "w-full rounded-xl border px-2 py-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        cardStage ? stageClass(cardStage) : "border-slate-300 bg-slate-50 text-slate-950",
+      )}
     >
       <span className="flex items-center justify-between gap-1">
         <strong className="truncate text-sm">같은 방 투숙</strong>
@@ -380,21 +401,21 @@ export function SharedRoomCard({
       <span className="mt-1 grid gap-1">
         {activeMembers.map((member) => {
           const stay = staysById.get(member.hotelStayId);
-          const status = stay
-            ? hotelRoomBoardDogStatus(stay, selectedDate)
-            : { label: "이용중", stage: "in_house" as const };
+          const status = stay ? hotelRoomBoardDogStatus(stay, selectedDate) : null;
           return (
             <span key={member.id} className="flex min-w-0 items-center justify-between gap-1.5">
               <span className="truncate text-xs font-extrabold">{member.dogName}</span>
-              <span className={cn("shrink-0 rounded-full px-1.5 py-px text-[9px] font-extrabold leading-[0.875rem] ring-1 ring-inset", stageBadgeClass(status.stage, false))}>
-                {status.label}
-              </span>
+              {status ? (
+                <span className={cn("shrink-0 rounded-full px-1.5 py-px text-[9px] font-extrabold leading-[0.875rem] ring-1 ring-inset", stageBadgeClass(status.stage, false))}>
+                  {status.label}
+                </span>
+              ) : <span className="text-[9px] font-bold text-slate-500">일정 확인</span>}
             </span>
           );
         })}
       </span>
       <span className="mt-1 block text-[11px] font-semibold">Shared Room · {activeMembers.length}마리</span>
-      <span className="mt-0.5 block text-[10px] text-violet-700">객실 1 · Capacity {occupancy.capacityUsed}</span>
+      <span className="mt-0.5 block text-[10px] text-slate-600">객실 1 · Capacity {occupancy.capacityUsed}</span>
     </button>
   );
 }
@@ -458,9 +479,11 @@ function RoomCell({
     (targetState !== "change_type" || allowCrossTypeChange);
   const requiresRoomTypeChange = targetState === "change_type";
   const isHoveredDropTarget = acceptsDraggedStay && hoveredRoomId === room.id;
-  const roomStage = stays[0]
-    ? hotelRoomBoardStage(stays[0], selectedDate)
-    : null;
+  const roomStage = sharedOccupancy
+    ? sharedRoomCardStage(sharedOccupancy, staysById, selectedDate)
+    : stays[0]
+      ? hotelRoomBoardStage(stays[0], selectedDate)
+      : null;
   return (
     <div
       data-testid={`hotel-room-board-room-${room.id}`}
@@ -591,6 +614,7 @@ function RoomCell({
 export function HotelRoomBoard({
   snapshot,
   sharedOccupancies = [],
+  sharedMemberStays = [],
   selectedDate,
   selectedDateIsToday,
   processing,
@@ -603,6 +627,7 @@ export function HotelRoomBoard({
 }: {
   snapshot: HotelOperationsSnapshot;
   sharedOccupancies?: readonly SharedHotelOccupancy[];
+  sharedMemberStays?: readonly HotelStay[];
   selectedDate: string;
   selectedDateIsToday: boolean;
   processing: boolean;
@@ -637,8 +662,8 @@ export function HotelRoomBoard({
   );
   const stays = snapshot.stays;
   const staysById = useMemo(
-    () => new Map([...snapshot.stays, ...snapshot.unassignedFuture].map((stay) => [stay.id, stay])),
-    [snapshot.stays, snapshot.unassignedFuture],
+    () => new Map([...snapshot.stays, ...snapshot.unassignedFuture, ...sharedMemberStays].map((stay) => [stay.id, stay])),
+    [sharedMemberStays, snapshot.stays, snapshot.unassignedFuture],
   );
   const sharedMemberStayIds = useMemo(
     () => new Set(sharedOccupancies.flatMap((occupancy) => occupancy.members.map((member) => member.hotelStayId))),

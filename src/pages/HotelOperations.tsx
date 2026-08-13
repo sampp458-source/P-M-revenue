@@ -259,11 +259,13 @@ export function HotelOperationsPage() {
   const { profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const directStayHandledRef = useRef<string | null>(null);
+  const roomBoardLoadSequenceRef = useRef(0);
   const [selectedDate, setSelectedDate] = useState(() => seoulDateKey());
   const [quickFilter, setQuickFilter] = useState<HotelQuickFilter>("all");
   const [showSupportDetails, setShowSupportDetails] = useState(false);
   const [snapshot, setSnapshot] = useState<HotelOperationsSnapshot | null>(null);
   const [sharedOccupancies, setSharedOccupancies] = useState<readonly SharedHotelOccupancy[]>([]);
+  const [sharedMemberStays, setSharedMemberStays] = useState<readonly HotelStay[]>([]);
   const [selectedSharedOccupancyId, setSelectedSharedOccupancyId] = useState<string | null>(null);
   const [options, setOptions] = useState<OperationScheduleOptions>(emptyOptions);
   const [operationRole, setOperationRole] = useState<OperationRole | null>(null);
@@ -338,19 +340,29 @@ export function HotelOperationsPage() {
     );
   }, [rememberLatestRoomBoardStay, snapshot]);
 
+  const loadSharedMemberStays = useCallback(async (occupancies: readonly SharedHotelOccupancy[]) => {
+    const stayIds = [...new Set(occupancies.flatMap((occupancy) =>
+      occupancy.members.map((member) => member.hotelStayId),
+    ))];
+    return Promise.all(stayIds.map((stayId) => fetchHotelStay(stayId)));
+  }, []);
+
   const loadSnapshot = useCallback(async (date: string) => {
     if (!isValidHotelSnapshotDate(date)) return null;
     const [value, shared] = await Promise.all([
       fetchHotelOperationsSnapshot(date),
       sharedHotelRoomRepository.listForDate(date),
     ]);
+    const memberStays = await loadSharedMemberStays(shared);
     setSnapshot(value);
     setSharedOccupancies(shared);
+    setSharedMemberStays(memberStays);
     return value;
-  }, []);
+  }, [loadSharedMemberStays]);
 
   const loadPage = useCallback(async () => {
     if (!profile || !isValidHotelSnapshotDate(selectedDate)) return;
+    const loadSequence = ++roomBoardLoadSequenceRef.current;
     setLoading(true);
     setLoadError("");
     try {
@@ -360,16 +372,23 @@ export function HotelOperationsPage() {
         fetchOperationScheduleOptions(),
         fetchCurrentOperationRole(profile.id),
       ]);
+      const nextSharedMemberStays = await loadSharedMemberStays(nextShared);
+      if (loadSequence !== roomBoardLoadSequenceRef.current) return;
       setSnapshot(nextSnapshot);
       setSharedOccupancies(nextShared);
+      setSharedMemberStays(nextSharedMemberStays);
       setOptions(nextOptions);
       setOperationRole(nextRole);
     } catch (error) {
-      setLoadError(errorMessage(error));
+      if (loadSequence === roomBoardLoadSequenceRef.current) {
+        setLoadError(errorMessage(error));
+      }
     } finally {
-      setLoading(false);
+      if (loadSequence === roomBoardLoadSequenceRef.current) {
+        setLoading(false);
+      }
     }
-  }, [profile, selectedDate]);
+  }, [loadSharedMemberStays, profile, selectedDate]);
 
   useEffect(() => {
     void loadPage();
@@ -954,6 +973,7 @@ export function HotelOperationsPage() {
       <HotelRoomBoard
         snapshot={snapshot}
         sharedOccupancies={sharedOccupancies}
+        sharedMemberStays={sharedMemberStays}
         selectedDate={selectedDate}
         selectedDateIsToday={selectedDateIsToday}
         processing={processing}

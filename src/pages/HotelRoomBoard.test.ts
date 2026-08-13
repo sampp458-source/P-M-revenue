@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
 import type {
+  HotelOperationsSnapshot,
   HotelRoomSnapshot,
   HotelStay,
 } from "./hotelOperationsRepository";
@@ -18,7 +19,9 @@ import {
   hotelRoomBoardRecommendedRoom,
   hotelRoomBoardStage,
   hotelRoomBoardUnassigned,
+  HotelRoomBoard,
   isHotelRoomBoardDragGesture,
+  sharedRoomCardStage,
   SharedRoomCard,
 } from "./HotelRoomBoard";
 
@@ -84,6 +87,41 @@ const stay = (overrides: Partial<HotelStay> = {}): HotelStay => ({
   ...overrides,
 });
 
+const room: HotelRoomSnapshot = {
+  id: "deluxe-2",
+  name: "DELUXE 2",
+  roomTypeId: "deluxe",
+  roomTypeCode: "DELUXE",
+  roomTypeName: "DELUXE",
+  isActive: true,
+  sortOrder: 2,
+};
+
+const snapshot = (stays: HotelStay[] = []): HotelOperationsSnapshot => ({
+  date: "2026-08-13",
+  roomTypes: [{ id: "deluxe", code: "DELUXE", name: "DELUXE", activeRooms: 1, reservedPeak: 1, checkedInNow: 1, allocatedNow: 1, reservedNow: 1, unassignedNow: 0, physicallyEmpty: 0 }],
+  rooms: [room],
+  settings: null,
+  stays,
+  unassignedFuture: [],
+});
+
+const allocatedStay = (overrides: Partial<HotelStay> = {}) => stay({
+  capacityReservation: { ...stay().capacityReservation!, roomTypeId: "deluxe", roomTypeCode: "DELUXE", roomTypeName: "DELUXE" },
+  roomAllocations: [{ id: "allocation-1", roomId: room.id, roomName: room.name, roomTypeId: room.roomTypeId, allocatedFrom: "2026-08-13T06:00:00Z", allocatedUntil: "2026-08-15T02:00:00Z", assignmentReason: null, version: 1 }],
+  scheduleEvents: stay().scheduleEvents.map((event) => ({ ...event, schedule: { ...event.schedule, startsAt: event.eventKind === "check_in" ? "2026-08-13T06:00:00Z" : "2026-08-15T02:00:00Z" } })),
+  ...overrides,
+});
+
+const renderBoard = (selectedDate: string, stays: HotelStay[], sharedOccupancies: SharedHotelOccupancy[] = [], sharedMemberStays: HotelStay[] = []) =>
+  renderToStaticMarkup(createElement(HotelRoomBoard, {
+    snapshot: snapshot(stays), sharedOccupancies, sharedMemberStays, selectedDate,
+    selectedDateIsToday: false, processing: false, processingStayId: null,
+    allowCrossTypeChange: true, onOpenStay: () => undefined,
+    onOpenSharedOccupancy: () => undefined, onDropStay: () => undefined,
+    onUnassignStay: () => undefined,
+  }));
+
 describe("Hotel Room Board", () => {
   it("uses the selected-date day phase even after check-in or checkout processing", () => {
     expect(hotelRoomBoardDogStatus(stay(), "2026-08-05")).toEqual({ label: "입실", stage: "check_in" });
@@ -101,6 +139,24 @@ describe("Hotel Room Board", () => {
 
     const sameDay = stay({ scheduleEvents: stay().scheduleEvents.map((event) => ({ ...event, schedule: { ...event.schedule, startsAt: "2026-08-05T06:00:00Z" } })) });
     expect(hotelRoomBoardDogStatus(sameDay, "2026-08-05")).toEqual({ label: "입실·퇴실", stage: "check_out" });
+  });
+
+  it("renders the selected date through the actual Room Board card path with canonical colors", () => {
+    const hotelStay = allocatedStay({ checkedInAt: "2026-08-13T06:05:00Z" });
+    const checkIn = renderBoard("2026-08-13", [hotelStay]);
+    expect(checkIn).toContain("data-room-phase=\"check_in\"");
+    expect(checkIn).toContain("border-blue-300 bg-blue-50 text-blue-950");
+    expect(checkIn).toMatch(/토리[\s\S]*입실/);
+
+    const middle = renderBoard("2026-08-14", [hotelStay]);
+    expect(middle).toContain("data-room-phase=\"in_house\"");
+    expect(middle).toContain("border-emerald-300 bg-emerald-50 text-emerald-950");
+    expect(middle).toMatch(/토리[\s\S]*이용중/);
+
+    const checkOut = renderBoard("2026-08-15", [hotelStay]);
+    expect(checkOut).toContain("data-room-phase=\"check_out\"");
+    expect(checkOut).toContain("border-orange-300 bg-orange-50 text-orange-950");
+    expect(checkOut).toMatch(/토리[\s\S]*퇴실/);
   });
 
   it("renders each active Shared Room Dog with its own mixed lifecycle badge", () => {
@@ -137,10 +193,57 @@ describe("Hotel Room Board", () => {
     expect(august14).toContain("아주긴이름의반려견세번째");
     expect(august14).toContain("Shared Room · 3마리");
     expect(august14).toContain("truncate");
+    expect(august14).not.toMatch(/violet|purple|fuchsia/);
+    expect(august14).toContain("border-emerald-300 bg-emerald-50 text-emerald-950");
 
     const august15 = renderToStaticMarkup(createElement(SharedRoomCard, { occupancy, staysById, selectedDate: "2026-08-15", onOpen: () => undefined }));
     expect(august15).toMatch(/망치[\s\S]*퇴실/);
     expect(august15).toMatch(/몽치[\s\S]*이용중/);
+  });
+
+  it("loads Shared Room member Stay models into the actual board and rerenders aggregate colors by date", () => {
+    const member = (id: string, dogName: string, checkIn: string, checkOut: string) => allocatedStay({
+      id, dogName, checkedInAt: `${checkIn}T06:05:00Z`,
+      scheduleEvents: allocatedStay().scheduleEvents.map((event) => ({ ...event, schedule: { ...event.schedule, startsAt: `${event.eventKind === "check_in" ? checkIn : checkOut}T06:00:00Z` } })),
+    });
+    const dogA = member("stay-a", "망치", "2026-08-13", "2026-08-15");
+    const dogB = member("stay-b", "몽치", "2026-08-14", "2026-08-16");
+    const occupancy: SharedHotelOccupancy = {
+      id: "shared-render", familyBookingId: "family-1", sharedRoomGroupId: "group-1", customerId: "customer-1",
+      roomTypeId: "deluxe", roomTypeCode: "DELUXE", roomId: room.id, roomName: room.name,
+      occupiedFrom: "2026-08-13T06:00:00Z", occupiedUntil: "2026-08-16T06:00:00Z", status: "active", version: 1,
+      capacityReservationId: "capacity-1", roomAllocationId: "allocation-1", capacityUsed: 1, dogCount: 2,
+      members: [
+        { id: "member-a", familyBookingMemberId: "family-a", hotelStayId: dogA.id, dogId: "dog-a", dogName: dogA.dogName, status: "active", joinedAt: "2026-08-13T06:00:00Z", leftAt: null },
+        { id: "member-b", familyBookingMemberId: "family-b", hotelStayId: dogB.id, dogId: "dog-b", dogName: dogB.dogName, status: "active", joinedAt: "2026-08-14T06:00:00Z", leftAt: null },
+      ],
+    };
+    expect(sharedRoomCardStage(occupancy, new Map([[dogA.id, dogA], [dogB.id, dogB]]), "2026-08-14")).toBe("in_house");
+    const august14 = renderBoard("2026-08-14", [], [occupancy], [dogA, dogB]);
+    expect(august14).toMatch(/망치[\s\S]*이용중/);
+    expect(august14).toMatch(/몽치[\s\S]*입실/);
+    expect(august14).toContain("data-room-phase=\"in_house\"");
+
+    const august15 = renderBoard("2026-08-15", [], [occupancy], [dogA, dogB]);
+    expect(august15).toMatch(/망치[\s\S]*퇴실/);
+    expect(august15).toMatch(/몽치[\s\S]*이용중/);
+    expect(august15).not.toContain("data-room-phase=\"check_in\"");
+  });
+
+  it("reuses single-Dog visual tokens for all-check-in, all-in-house, and all-checkout Shared Rooms", () => {
+    const occupancy: SharedHotelOccupancy = {
+      id: "shared-colors", familyBookingId: "family-1", sharedRoomGroupId: "group-1", customerId: "customer-1",
+      roomTypeId: "deluxe", roomTypeCode: "DELUXE", roomId: room.id, roomName: room.name,
+      occupiedFrom: "2026-08-13T06:00:00Z", occupiedUntil: "2026-08-15T06:00:00Z", status: "active", version: 1,
+      capacityReservationId: "capacity-1", roomAllocationId: "allocation-1", capacityUsed: 1, dogCount: 2,
+      members: ["a", "b"].map((suffix) => ({ id: `member-${suffix}`, familyBookingMemberId: `family-${suffix}`, hotelStayId: `stay-${suffix}`, dogId: `dog-${suffix}`, dogName: `Dog ${suffix}`, status: "active" as const, joinedAt: "2026-08-13T06:00:00Z", leftAt: null })),
+    };
+    const members = (checkedInAt: string | null, checkedOutAt: string | null = null) => new Map(
+      occupancy.members.map((member) => [member.hotelStayId, allocatedStay({ id: member.hotelStayId, dogName: member.dogName, checkedInAt, checkedOutAt })]),
+    );
+    expect(sharedRoomCardStage(occupancy, members(null), "2026-08-13")).toBe("check_in");
+    expect(sharedRoomCardStage(occupancy, members("2026-08-13T06:05:00Z"), "2026-08-14")).toBe("in_house");
+    expect(sharedRoomCardStage(occupancy, members("2026-08-13T06:05:00Z"), "2026-08-15")).toBe("check_out");
   });
 
   it("keeps a partial-checkout member out while preserving the remaining Dog status", () => {
