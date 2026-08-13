@@ -85,11 +85,22 @@ const stay = (overrides: Partial<HotelStay> = {}): HotelStay => ({
 });
 
 describe("Hotel Room Board", () => {
-  it("uses compact canonical labels for single-Dog lifecycle states", () => {
+  it("uses the selected-date day phase even after check-in or checkout processing", () => {
     expect(hotelRoomBoardDogStatus(stay(), "2026-08-05")).toEqual({ label: "입실", stage: "check_in" });
+    expect(hotelRoomBoardDogStatus(stay({ checkedInAt: "2026-08-05T06:05:00Z" }), "2026-08-05")).toEqual({ label: "입실", stage: "check_in" });
     expect(hotelRoomBoardDogStatus(stay({ checkedInAt: "2026-08-05T06:05:00Z" }), "2026-08-06")).toEqual({ label: "이용중", stage: "in_house" });
     expect(hotelRoomBoardDogStatus(stay({ checkedInAt: "2026-08-05T06:05:00Z" }), "2026-08-08")).toEqual({ label: "퇴실", stage: "check_out" });
-    expect(hotelRoomBoardDogStatus(stay({ checkedInAt: "2026-08-05T06:05:00Z", checkedOutAt: "2026-08-08T02:05:00Z" }), "2026-08-08")).toEqual({ label: "완료", stage: "check_out" });
+    expect(hotelRoomBoardDogStatus(stay({ checkedInAt: "2026-08-05T06:05:00Z", checkedOutAt: "2026-08-08T02:05:00Z" }), "2026-08-08")).toEqual({ label: "퇴실", stage: "check_out" });
+    expect(hotelRoomBoardDogStatus(stay({ checkedInAt: "2026-08-05T06:05:00Z", checkedOutAt: "2026-08-08T02:05:00Z" }), "2026-08-09")).toEqual({ label: "완료", stage: "check_out" });
+  });
+
+  it("keeps date-only schedules and the canonical same-day label", () => {
+    const unspecified = stay({ scheduleEvents: stay().scheduleEvents.map((event) => ({ ...event, schedule: { ...event.schedule, timeUnspecified: true } })) });
+    expect(hotelRoomBoardDogStatus(unspecified, "2026-08-05")).toEqual({ label: "입실", stage: "check_in" });
+    expect(hotelRoomBoardDogStatus(unspecified, "2026-08-08")).toEqual({ label: "퇴실", stage: "check_out" });
+
+    const sameDay = stay({ scheduleEvents: stay().scheduleEvents.map((event) => ({ ...event, schedule: { ...event.schedule, startsAt: "2026-08-05T06:00:00Z" } })) });
+    expect(hotelRoomBoardDogStatus(sameDay, "2026-08-05")).toEqual({ label: "입실·퇴실", stage: "check_out" });
   });
 
   it("renders each active Shared Room Dog with its own mixed lifecycle badge", () => {
@@ -106,19 +117,30 @@ describe("Hotel Room Board", () => {
         { id: "member-c", familyBookingMemberId: "family-c", hotelStayId: "stay-c", dogId: "dog-c", dogName: "아주긴이름의반려견세번째", status: "active", joinedAt: "2026-08-05T06:00:00Z", leftAt: null },
       ],
     };
+    const withDates = (id: string, dogName: string, checkIn: string, checkOut: string) => stay({
+      id,
+      dogName,
+      checkedInAt: `${checkIn}T06:05:00Z`,
+      scheduleEvents: stay().scheduleEvents.map((event) => ({
+        ...event,
+        schedule: { ...event.schedule, startsAt: `${event.eventKind === "check_in" ? checkIn : checkOut}T06:00:00Z` },
+      })),
+    });
     const staysById = new Map([
-      ["stay-a", stay({ id: "stay-a", dogName: "망치", checkedInAt: "2026-08-05T06:05:00Z" })],
-      ["stay-b", stay({ id: "stay-b", dogName: "몽치", scheduleEvents: stay().scheduleEvents.map((event) => event.eventKind === "check_in" ? { ...event, schedule: { ...event.schedule, startsAt: "2026-08-06T06:00:00Z" } } : event) })],
+      ["stay-a", withDates("stay-a", "망치", "2026-08-13", "2026-08-15")],
+      ["stay-b", withDates("stay-b", "몽치", "2026-08-14", "2026-08-16")],
       ["stay-c", stay({ id: "stay-c", dogName: "아주긴이름의반려견세번째", checkedInAt: "2026-08-05T06:05:00Z" })],
     ]);
-    const markup = renderToStaticMarkup(createElement(SharedRoomCard, { occupancy, staysById, selectedDate: "2026-08-06", onOpen: () => undefined }));
-    expect(markup).toContain("망치");
-    expect(markup).toContain("몽치");
-    expect(markup).toContain("아주긴이름의반려견세번째");
-    expect(markup).toContain("이용중");
-    expect(markup).toContain("입실");
-    expect(markup).toContain("Shared Room · 3마리");
-    expect(markup).toContain("truncate");
+    const august14 = renderToStaticMarkup(createElement(SharedRoomCard, { occupancy, staysById, selectedDate: "2026-08-14", onOpen: () => undefined }));
+    expect(august14).toMatch(/망치[\s\S]*이용중/);
+    expect(august14).toMatch(/몽치[\s\S]*입실/);
+    expect(august14).toContain("아주긴이름의반려견세번째");
+    expect(august14).toContain("Shared Room · 3마리");
+    expect(august14).toContain("truncate");
+
+    const august15 = renderToStaticMarkup(createElement(SharedRoomCard, { occupancy, staysById, selectedDate: "2026-08-15", onOpen: () => undefined }));
+    expect(august15).toMatch(/망치[\s\S]*퇴실/);
+    expect(august15).toMatch(/몽치[\s\S]*이용중/);
   });
 
   it("keeps a partial-checkout member out while preserving the remaining Dog status", () => {

@@ -18,6 +18,7 @@ import {
   activeHotelAllocation,
   formatHotelScheduleTime,
   hotelStayDayPhase,
+  hotelStayScheduleDate,
   hotelStayScheduleEvent,
   hotelStayUnspecifiedState,
   seoulInputParts,
@@ -162,14 +163,17 @@ function stageBadgeClass(stage: RoomBoardStage, waiting: boolean) {
 }
 
 export function hotelRoomBoardDogStatus(stay: HotelStay, selectedDate: string) {
+  const checkInDate = hotelStayScheduleDate(stay, "check_in");
+  const checkOutDate = hotelStayScheduleDate(stay, "check_out");
+  if (checkInDate === selectedDate && checkOutDate === selectedDate) {
+    return { label: "입실·퇴실", stage: "check_out" as const };
+  }
+  if (checkInDate === selectedDate) return { label: "입실", stage: "check_in" as const };
+  if (checkOutDate === selectedDate) return { label: "퇴실", stage: "check_out" as const };
+
   const phase = hotelStayDayPhase(stay, selectedDate) as string | null;
   if (stay.checkedOutAt || phase === "완료") return { label: "완료", stage: "check_out" as const };
-  if (stay.checkedInAt) {
-    if (phase === "퇴실" || phase === "오늘 퇴실" || phase === "입실·퇴실") {
-      return { label: "퇴실", stage: "check_out" as const };
-    }
-    return { label: "이용중", stage: "in_house" as const };
-  }
+  if (phase === "이용중" || stay.checkedInAt) return { label: "이용중", stage: "in_house" as const };
   return { label: "입실", stage: "check_in" as const };
 }
 
