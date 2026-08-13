@@ -383,7 +383,11 @@ export type LongStayRoomConflictSource =
   | "daycare"
   | "other";
 
-export type LongStayRoomConflictPhase = "current" | "future" | "past_overlap";
+export type LongStayRoomConflictPhase =
+  | "current"
+  | "future"
+  | "effective_start_overlap"
+  | "effective_period_history";
 
 export interface LongStayRoomAvailability {
   roomId: string;

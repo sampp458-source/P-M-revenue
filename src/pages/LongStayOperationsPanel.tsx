@@ -91,12 +91,29 @@ const kstIso = (value: string) => new Date(`${value}:00+09:00`).toISOString();
 const kstDateKey = (value: string) =>
   new Date(value).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 
-const roomAvailabilityLabel = (room: LongStayRoomAvailability) => {
+const conflictSourceLabel: Partial<Record<
+  NonNullable<LongStayRoomAvailability["conflictSource"]>,
+  string
+>> = {
+  hotel: "일반 호텔 예약",
+  shared_room: "같은 방 투숙",
+  long_stay: "장기호텔",
+};
+
+export const roomAvailabilityLabel = (room: LongStayRoomAvailability) => {
   if (room.assignable) return "사용 가능";
+  const sourceLabel = room.conflictSource ? conflictSourceLabel[room.conflictSource] : null;
+  let reason: string;
   if (room.conflictPhase === "future" && room.nextConflictFrom) {
-    return `${koDate(kstDateKey(room.nextConflictFrom))}부터 예약 있음`;
+    reason = `${koDate(kstDateKey(room.nextConflictFrom))}부터 예약 있음`;
+  } else if (room.conflictPhase === "effective_start_overlap") {
+    reason = "배정 시작 구간과 겹침";
+  } else if (room.conflictPhase === "effective_period_history") {
+    reason = "배정 대상 기간의 종료 이력과 겹침";
+  } else {
+    reason = room.reason || "사용 불가";
   }
-  return room.reason || "사용 불가";
+  return sourceLabel ? `${reason} · ${sourceLabel}` : reason;
 };
 
 const statusPresentation = (contract: LongStayMonthContractProjection) => {
