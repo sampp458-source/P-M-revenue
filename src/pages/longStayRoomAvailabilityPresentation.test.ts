@@ -37,8 +37,8 @@ describe("Long Stay room availability presentation", () => {
     expect(roomAvailabilityLabel(room({
       conflictPhase: "effective_start_overlap",
       conflictSource: "long_stay",
-      reason: "배정 시작 구간과 겹침",
-    }))).toBe("배정 시작 구간과 겹침 · 장기호텔");
+      reason: "객실 사용 시작 시점에 사용 중",
+    }))).toBe("객실 사용 시작 시점에 사용 중 · 장기호텔");
   });
 
   it("keeps assignable rooms concise", () => {

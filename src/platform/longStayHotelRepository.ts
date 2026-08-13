@@ -143,10 +143,11 @@ export function confirmLongStayMonth(
   input: ConfirmLongStayMonthInput,
   requestId = newLongStayRequestId(),
 ) {
-  return rpc<LongStayContractProjection>("confirm_long_stay_month", {
+  return rpc<LongStayContractProjection>("confirm_long_stay_month_v2", {
     p_contract_id: input.contractId,
     p_expected_contract_version: input.expectedContractVersion,
     p_service_month: input.serviceMonth,
+    p_physical_start_date: input.physicalStartDate,
     p_calendar_id: input.calendarId,
     p_schedule_type_id: input.scheduleTypeId,
     p_check_in_time: input.checkInTime,
@@ -268,9 +269,10 @@ export function getLongStayMonth(serviceMonth: string) {
 export function getLongStayRoomAvailability(
   input: GetLongStayRoomAvailabilityInput,
 ) {
-  return rpc<LongStayRoomAvailabilityProjection>("get_long_stay_room_availability", {
+  return rpc<LongStayRoomAvailabilityProjection>("get_long_stay_room_availability_v2", {
     p_contract_id: input.contractId,
     p_service_month: input.serviceMonth,
+    p_physical_start_date: input.physicalStartDate,
     p_check_in_time: input.checkInTime,
     p_check_in_time_unspecified: input.checkInTimeUnspecified,
   });

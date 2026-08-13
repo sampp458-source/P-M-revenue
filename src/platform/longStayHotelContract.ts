@@ -414,6 +414,7 @@ export interface LongStayRoomAvailabilityProjection {
 export interface GetLongStayRoomAvailabilityInput {
   contractId: string;
   serviceMonth: string;
+  physicalStartDate: string | null;
   checkInTime: string | null;
   checkInTimeUnspecified: boolean;
 }
@@ -434,6 +435,7 @@ export interface ConfirmLongStayMonthInput {
   contractId: string;
   expectedContractVersion: number;
   serviceMonth: string;
+  physicalStartDate: string | null;
   calendarId: string;
   scheduleTypeId: string;
   checkInTime: string | null;

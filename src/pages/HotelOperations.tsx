@@ -989,6 +989,7 @@ export function HotelOperationsPage() {
         snapshot={snapshot}
         options={options}
         operationRole={operationRole}
+        selectedBusinessDate={selectedDate}
         onHotelSnapshotRefresh={() => loadSnapshot(selectedDate)}
       />
 

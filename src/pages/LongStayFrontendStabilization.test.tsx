@@ -321,7 +321,8 @@ describe("Long Stay frontend production stabilization", () => {
     await waitFor(() => expect(repositoryMocks.getLongStayRoomAvailability).toHaveBeenCalledWith({
       contractId: "contract-1",
       serviceMonth: "2026-09-01",
-      checkInTime: "15:00:00",
+      physicalStartDate: "2026-09-15",
+      checkInTime: "15:00",
       checkInTimeUnspecified: false,
     }));
     expect(await screen.findByText(/현재 계약 기간으로 장기호텔에 배정 가능한 객실이 없습니다/)).not.toBeNull();

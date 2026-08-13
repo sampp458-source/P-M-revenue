@@ -10,7 +10,7 @@ describe("Long Stay public application contract", () => {
     const repository = source("./longStayHotelRepository.ts");
     const rpcNames = [
       "create_long_stay_contract",
-      "confirm_long_stay_month",
+      "confirm_long_stay_month_v2",
       "complete_long_stay_check_in",
       "start_long_stay_absence",
       "complete_long_stay_absence",
@@ -20,7 +20,7 @@ describe("Long Stay public application contract", () => {
       "get_long_stay_contract",
       "get_customer_long_stays",
       "get_long_stay_month",
-      "get_long_stay_room_availability",
+      "get_long_stay_room_availability_v2",
     ];
     rpcNames.forEach((name) => expect(repository).toContain(`"${name}"`));
     expect(repository).not.toMatch(/\.from\(["']long_stay_/);
@@ -52,6 +52,7 @@ describe("Long Stay public application contract", () => {
     expect(operations).toContain("onHotelSnapshotRefresh");
     expect(operations).toContain("Promise.all([load(), onHotelSnapshotRefresh()])");
     expect(hotel).toContain("<LongStayOperationsPanel");
+    expect(hotel).toContain("selectedBusinessDate={selectedDate}");
     expect(hotel).toContain("onHotelSnapshotRefresh={() => loadSnapshot(selectedDate)}");
     expect(operations).toMatch(/const openAction[\s\S]*setToast\(null\)[\s\S]*setAction/);
     expect(operations).toContain("getLongStayContract(action.contract.id)");

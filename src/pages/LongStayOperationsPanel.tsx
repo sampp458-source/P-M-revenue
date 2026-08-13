@@ -72,6 +72,23 @@ const shiftMonth = (value: string, delta: number) => {
   return monthStart(new Date(year, month - 1 + delta, 1));
 };
 
+const monthEnd = (serviceMonth: string) => {
+  const [year, month] = serviceMonth.split("-").map(Number);
+  return new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10);
+};
+
+export const firstPhysicalStartDateDefault = (
+  selectedBusinessDate: string,
+  serviceMonth: string,
+  contractStartedOn: string,
+) => {
+  const serviceMonthEnd = monthEnd(serviceMonth);
+  const businessDateIsInMonth = selectedBusinessDate >= serviceMonth
+    && selectedBusinessDate <= serviceMonthEnd;
+  const candidate = businessDateIsInMonth ? selectedBusinessDate : serviceMonth;
+  return candidate < contractStartedOn ? contractStartedOn : candidate;
+};
+
 export const isServiceMonthBeforeLongStayStart = (
   serviceMonth: string,
   startedOn: string,
@@ -107,7 +124,7 @@ export const roomAvailabilityLabel = (room: LongStayRoomAvailability) => {
   if (room.conflictPhase === "future" && room.nextConflictFrom) {
     reason = `${koDate(kstDateKey(room.nextConflictFrom))}부터 예약 있음`;
   } else if (room.conflictPhase === "effective_start_overlap") {
-    reason = "배정 시작 구간과 겹침";
+    reason = "객실 사용 시작 시점에 사용 중";
   } else if (room.conflictPhase === "effective_period_history") {
     reason = "배정 대상 기간의 종료 이력과 겹침";
   } else {
@@ -139,11 +156,13 @@ export function LongStayOperationsPanel({
   snapshot,
   options,
   operationRole,
+  selectedBusinessDate = snapshot.date,
   onHotelSnapshotRefresh,
 }: {
   snapshot: HotelOperationsSnapshot;
   options: OperationScheduleOptions;
   operationRole: OperationRole | null;
+  selectedBusinessDate?: string;
   onHotelSnapshotRefresh: () => Promise<unknown>;
 }) {
   const [serviceMonth, setServiceMonth] = useState(() => monthStart(new Date()));
@@ -158,6 +177,8 @@ export function LongStayOperationsPanel({
   const [expectedReturnAt, setExpectedReturnAt] = useState("");
   const [plannedDate, setPlannedDate] = useState("");
   const [timeUnspecified, setTimeUnspecified] = useState(false);
+  const [physicalStartDate, setPhysicalStartDate] = useState("");
+  const [physicalStartTime, setPhysicalStartTime] = useState("");
   const [memo, setMemo] = useState("");
   const [reason, setReason] = useState("");
   const [roomAvailability, setRoomAvailability] = useState<LongStayRoomAvailability[]>([]);
@@ -215,6 +236,10 @@ export function LongStayOperationsPanel({
     setExpectedReturnAt("");
     setPlannedDate(contract.plannedCheckOutDate ?? "");
     setTimeUnspecified(false);
+    setPhysicalStartDate(kind === "confirm" && !contract.hotelStayId
+      ? firstPhysicalStartDateDefault(selectedBusinessDate, serviceMonth, contract.startedOn)
+      : "");
+    setPhysicalStartTime(snapshot.settings?.defaultCheckInTime?.slice(0, 5) ?? "15:00");
     setMemo("");
     setReason("");
     setRoomAvailability([]);
@@ -230,7 +255,8 @@ export function LongStayOperationsPanel({
     void getLongStayRoomAvailability({
       contractId: action.contract.id,
       serviceMonth,
-      checkInTime: timeUnspecified ? null : snapshot.settings?.defaultCheckInTime ?? "15:00",
+      physicalStartDate: action.contract.hotelStayId ? null : physicalStartDate,
+      checkInTime: timeUnspecified ? null : physicalStartTime,
       checkInTimeUnspecified: timeUnspecified,
     }).then((result) => {
       if (cancelled) return;
@@ -250,7 +276,7 @@ export function LongStayOperationsPanel({
       if (!cancelled) setAvailabilityLoading(false);
     });
     return () => { cancelled = true; };
-  }, [action, selectableRooms, serviceMonth, snapshot.settings?.defaultCheckInTime, timeUnspecified]);
+  }, [action, physicalStartDate, physicalStartTime, selectableRooms, serviceMonth, timeUnspecified]);
 
   const finishMutation = async (result: LongStayContractProjection) => {
     await Promise.all([load(), onHotelSnapshotRefresh()]);
@@ -273,9 +299,10 @@ export function LongStayOperationsPanel({
           contractId: contract.id,
           expectedContractVersion: contract.version,
           serviceMonth,
+          physicalStartDate: contract.hotelStayId ? null : physicalStartDate,
           calendarId: hotelCalendar.id,
           scheduleTypeId: hotelScheduleType.id,
-          checkInTime: timeUnspecified ? null : snapshot.settings?.defaultCheckInTime ?? "15:00",
+          checkInTime: timeUnspecified ? null : physicalStartTime,
           checkInTimeUnspecified: timeUnspecified,
           roomTypeId: selectedRoom.roomTypeId,
           roomId: selectedRoom.id,
@@ -439,6 +466,27 @@ export function LongStayOperationsPanel({
             <div className="rounded-2xl bg-primary-subtle p-4"><b>{action.contract.dogName || "반려견"}</b><span className="ml-2 text-sm text-text-secondary">{action.contract.currentRoom?.name || "호실 미배정"}</span></div>
             {action.kind === "confirm" ? (
               <>
+                {!action.contract.hotelStayId ? (
+                  <Field label="객실 사용 시작" required>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input
+                        aria-label="객실 사용 시작 날짜"
+                        type="date"
+                        min={action.contract.startedOn > serviceMonth ? action.contract.startedOn : serviceMonth}
+                        max={monthEnd(serviceMonth)}
+                        value={physicalStartDate}
+                        onChange={(event) => setPhysicalStartDate(event.target.value)}
+                      />
+                      <Input
+                        aria-label="객실 사용 시작 시간"
+                        type="time"
+                        value={physicalStartTime}
+                        disabled={timeUnspecified}
+                        onChange={(event) => setPhysicalStartTime(event.target.value)}
+                      />
+                    </div>
+                  </Field>
+                ) : null}
                 <Field label="이번 달 호실" required>
                   <Select value={roomId} disabled={availabilityLoading || Boolean(availabilityError)} onChange={(event) => setRoomId(event.target.value)}>
                     {availabilityLoading ? <option value="">객실 가용성 확인 중...</option> : null}
@@ -459,7 +507,7 @@ export function LongStayOperationsPanel({
                     선택 객실: <b className="text-text-primary">{roomAvailabilityLabel(selectedAvailability)}</b>
                   </p>
                 ) : null}
-                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={timeUnspecified} onChange={(event) => setTimeUnspecified(event.target.checked)} /> 입실 시간 미정</label>
+                {!action.contract.hotelStayId ? <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={timeUnspecified} onChange={(event) => setTimeUnspecified(event.target.checked)} /> 시간 미정</label> : null}
               </>
             ) : null}
             {["checkin", "leave", "return", "checkout"].includes(action.kind) ? <Field label={action.kind === "leave" ? "외출 시각" : action.kind === "return" ? "복귀 시각" : action.kind === "checkout" ? "실제 퇴실 시각" : "입실 시각"} required><Input type="datetime-local" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} /></Field> : null}
@@ -467,7 +515,7 @@ export function LongStayOperationsPanel({
             {action.kind === "planned_checkout" ? <><Field label="퇴실 예정일"><Input type="date" value={plannedDate} onChange={(event) => setPlannedDate(event.target.value)} /></Field><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={timeUnspecified} onChange={(event) => setTimeUnspecified(event.target.checked)} /> 퇴실 시간 미정</label></> : null}
             {["leave", "return"].includes(action.kind) ? <Field label="메모"><Textarea value={memo} onChange={(event) => setMemo(event.target.value)} /></Field> : null}
             <Field label="처리 사유"><Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="비워두면 기본 사유가 기록됩니다." /></Field>
-            <div className="flex justify-end gap-2"><Button variant="secondary" disabled={processing} onClick={() => setAction(null)}>취소</Button><Button disabled={processing || (action.kind === "confirm" && (!roomId || availabilityLoading || !selectedAvailability?.assignable))} onClick={() => void submit()}>{processing ? "처리 중..." : "확인"}</Button></div>
+            <div className="flex justify-end gap-2"><Button variant="secondary" disabled={processing} onClick={() => setAction(null)}>취소</Button><Button disabled={processing || (action.kind === "confirm" && (!roomId || availabilityLoading || !selectedAvailability?.assignable || (!action.contract.hotelStayId && (!physicalStartDate || (!timeUnspecified && !physicalStartTime)))))} onClick={() => void submit()}>{processing ? "처리 중..." : "확인"}</Button></div>
           </div>
         ) : null}
       </Modal>
