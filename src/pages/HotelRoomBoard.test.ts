@@ -159,6 +159,37 @@ describe("Hotel Room Board", () => {
     expect(checkOut).toMatch(/토리[\s\S]*퇴실/);
   });
 
+  it("uses the canonical active color for an open-ended checked-in Long Stay", () => {
+    const longStay = allocatedStay({
+      dogName: "감자",
+      checkedInAt: "2026-08-13T06:05:00Z",
+      capacityReservation: {
+        ...allocatedStay().capacityReservation!,
+        reservedUntil: "infinity",
+      },
+      roomAllocations: allocatedStay().roomAllocations.map((allocation) => ({
+        ...allocation,
+        allocatedUntil: "infinity",
+      })),
+      scheduleEvents: allocatedStay().scheduleEvents.filter(
+        (event) => event.eventKind === "check_in",
+      ),
+    });
+
+    const board = renderBoard("2026-08-14", [longStay]);
+
+    expect(board).toContain(
+      'data-testid="hotel-room-board-room-deluxe-2" data-room-phase="in_house"',
+    );
+    expect(board).toContain(
+      'data-testid="hotel-room-board-stay-stay-1" data-room-phase="in_house"',
+    );
+    expect(board).toContain(
+      "border-emerald-300 bg-emerald-50 text-emerald-950",
+    );
+    expect(board).toMatch(/감자[\s\S]*이용중/);
+  });
+
   it("renders each active Shared Room Dog with its own mixed lifecycle badge", () => {
     const occupancy: SharedHotelOccupancy = {
       id: "shared-1", familyBookingId: "family-1", sharedRoomGroupId: "group-1",

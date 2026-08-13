@@ -246,7 +246,8 @@ function DraggableStayCard({
     }, 0);
     return () => window.clearTimeout(timer);
   }, [dragging]);
-  const stage = hotelRoomBoardStage(stay, selectedDate);
+  const dogStatus = hotelRoomBoardDogStatus(stay, selectedDate);
+  const stage = dogStatus.stage;
   const unspecified = hotelStayUnspecifiedState(stay);
   const draggable = !disabled && hotelRoomBoardDropAction(stay) !== null;
   const roomType =
@@ -254,8 +255,6 @@ function DraggableStayCard({
     stay.capacityReservation?.roomTypeName ??
     "객실 미정";
   const checkInTime = hotelRoomBoardCheckInTime(stay);
-  const dogStatus = hotelRoomBoardDogStatus(stay, selectedDate);
-
   return (
     <div
       draggable={draggable}
@@ -482,7 +481,7 @@ function RoomCell({
   const roomStage = sharedOccupancy
     ? sharedRoomCardStage(sharedOccupancy, staysById, selectedDate)
     : stays[0]
-      ? hotelRoomBoardStage(stays[0], selectedDate)
+      ? hotelRoomBoardDogStatus(stays[0], selectedDate).stage
       : null;
   return (
     <div
