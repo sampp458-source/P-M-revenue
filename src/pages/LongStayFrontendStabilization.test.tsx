@@ -318,6 +318,12 @@ describe("Long Stay frontend production stabilization", () => {
     renderOperations([projection()]);
 
     fireEvent.click(await screen.findByRole("button", { name: "객실 배정" }));
+    await waitFor(() => expect(repositoryMocks.getLongStayRoomAvailability).toHaveBeenCalledWith({
+      contractId: "contract-1",
+      serviceMonth: "2026-09-01",
+      checkInTime: "15:00:00",
+      checkInTimeUnspecified: false,
+    }));
     expect(await screen.findByText(/현재 계약 기간으로 장기호텔에 배정 가능한 객실이 없습니다/)).not.toBeNull();
     expect(screen.getByRole("option", { name: /현재 사용 중/ }).getAttribute("disabled")).not.toBeNull();
     expect(screen.getByRole("button", { name: "확인" }).getAttribute("disabled")).not.toBeNull();
@@ -348,8 +354,27 @@ describe("Long Stay frontend production stabilization", () => {
     renderOperations([projection()]);
 
     fireEvent.click(await screen.findByRole("button", { name: "객실 배정" }));
+    await waitFor(() => expect(repositoryMocks.getLongStayRoomAvailability).toHaveBeenCalledTimes(1));
     const futureOption = await screen.findByRole("option", { name: /예약 있음/ });
     expect(futureOption.getAttribute("disabled")).not.toBeNull();
     expect(futureOption.textContent).toContain("2026. 09. 21");
+  });
+
+  it("fails closed instead of rendering the legacy room catalog when availability loading fails", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-15T12:00:00+09:00"));
+    repositoryMocks.getLongStayRoomAvailability.mockRejectedValueOnce(
+      new Error("객실 가용성을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요."),
+    );
+    renderOperations([projection()]);
+
+    fireEvent.click(await screen.findByRole("button", { name: "객실 배정" }));
+
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "객실 가용성을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    );
+    expect(screen.getByRole("combobox", { name: "이번 달 호실" }).getAttribute("disabled")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "확인" }).getAttribute("disabled")).not.toBeNull();
+    expect(screen.queryByRole("option", { name: "STANDARD · STANDARD 1" })).toBeNull();
   });
 });
