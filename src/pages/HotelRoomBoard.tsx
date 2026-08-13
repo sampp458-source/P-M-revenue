@@ -141,6 +141,113 @@ export function hotelRoomBoardCheckInTime(stay: HotelStay) {
   return seoulInputParts(schedule.startsAt).time;
 }
 
+function roomBoardScheduleTime(
+  stay: HotelStay,
+  eventKind: "check_in" | "check_out",
+) {
+  const schedule = hotelStayScheduleEvent(stay, eventKind);
+  if (!schedule) return null;
+  if (schedule.timeUnspecified) return "시간 미정";
+  return seoulInputParts(schedule.startsAt).time;
+}
+
+export function hotelRoomBoardPhaseTime(
+  stay: HotelStay,
+  selectedDate: string,
+) {
+  const checkInDate = hotelStayScheduleDate(stay, "check_in");
+  const checkOutDate = hotelStayScheduleDate(stay, "check_out");
+  const checkInTime = roomBoardScheduleTime(stay, "check_in");
+  const checkOutTime = roomBoardScheduleTime(stay, "check_out");
+
+  if (checkInDate === selectedDate && checkOutDate === selectedDate) {
+    if (!checkInTime || !checkOutTime) return null;
+    return `${checkInTime === "시간 미정" ? "입실 시간 미정" : checkInTime} → ${
+      checkOutTime === "시간 미정" ? "퇴실 시간 미정" : checkOutTime
+    }`;
+  }
+  if (checkInDate === selectedDate) {
+    return checkInTime
+      ? `입실 ${checkInTime}`
+      : null;
+  }
+  if (checkOutDate === selectedDate) {
+    return checkOutTime
+      ? `퇴실 ${checkOutTime}`
+      : null;
+  }
+  if (checkInDate && checkInDate < selectedDate) {
+    return checkOutTime
+      ? `퇴실 ${checkOutTime}`
+      : null;
+  }
+  return checkInTime
+    ? `입실 ${checkInTime}`
+    : null;
+}
+
+export type HotelRoomBoardUnassignedGroup =
+  | "overdue"
+  | "today"
+  | "future";
+
+function compareUnassignedStay(left: HotelStay, right: HotelStay) {
+  const leftSchedule = hotelStayScheduleEvent(left, "check_in");
+  const rightSchedule = hotelStayScheduleEvent(right, "check_in");
+  const dateOrder = (leftSchedule
+    ? seoulInputParts(leftSchedule.startsAt).date
+    : "").localeCompare(
+    rightSchedule ? seoulInputParts(rightSchedule.startsAt).date : "",
+  );
+  if (dateOrder !== 0) return dateOrder;
+  const unknownOrder = Number(Boolean(leftSchedule?.timeUnspecified)) -
+    Number(Boolean(rightSchedule?.timeUnspecified));
+  if (unknownOrder !== 0) return unknownOrder;
+  const timeOrder = (leftSchedule?.startsAt ?? "").localeCompare(
+    rightSchedule?.startsAt ?? "",
+  );
+  return timeOrder || left.dogName.localeCompare(right.dogName);
+}
+
+export function hotelRoomBoardUnassignedGroups(
+  stays: HotelStay[],
+  selectedDate: string,
+) {
+  const groups: Record<HotelRoomBoardUnassignedGroup, HotelStay[]> = {
+    overdue: [],
+    today: [],
+    future: [],
+  };
+  hotelRoomBoardUnassigned(stays).forEach((stay) => {
+    const checkInDate = hotelStayScheduleDate(stay, "check_in");
+    const group = !checkInDate || checkInDate < selectedDate
+      ? "overdue"
+      : checkInDate === selectedDate
+        ? "today"
+        : "future";
+    groups[group].push(stay);
+  });
+  groups.overdue.sort(compareUnassignedStay);
+  groups.today.sort(compareUnassignedStay);
+  groups.future.sort(compareUnassignedStay);
+  return groups;
+}
+
+export function hotelRoomBoardCompletedCheckouts(
+  stays: HotelStay[],
+  selectedDate: string,
+) {
+  return stays
+    .filter(
+      (stay) =>
+        stay.checkedOutAt &&
+        seoulInputParts(stay.checkedOutAt).date === selectedDate,
+    )
+    .sort((left, right) =>
+      (left.checkedOutAt ?? "").localeCompare(right.checkedOutAt ?? ""),
+    );
+}
+
 function stageClass(stage: RoomBoardStage) {
   if (stage === "in_house") {
     return "border-emerald-300 bg-emerald-50 text-emerald-950";
@@ -254,7 +361,7 @@ function DraggableStayCard({
     stay.capacityReservation?.roomTypeCode ??
     stay.capacityReservation?.roomTypeName ??
     "객실 미정";
-  const checkInTime = hotelRoomBoardCheckInTime(stay);
+  const phaseTime = hotelRoomBoardPhaseTime(stay, selectedDate);
   return (
     <div
       draggable={draggable}
@@ -353,12 +460,14 @@ function DraggableStayCard({
                   : dogStatus.label}
               </span>
             </span>
-            <span className="mt-0.5 flex items-center gap-1 text-[11px] font-bold tabular-nums text-slate-800">
-              <Clock3 size={12} />
-              {variant === "waiting"
-                ? formatHotelScheduleTime(stay, "check_in")
-                : checkInTime}
-            </span>
+            {phaseTime ? (
+              <span className="mt-0.5 flex items-center gap-1 text-[11px] font-bold tabular-nums text-slate-800">
+                <Clock3 size={12} />
+                {variant === "waiting"
+                  ? formatHotelScheduleTime(stay, "check_in")
+                  : phaseTime}
+              </span>
+            ) : null}
             <span className="block truncate text-[10px] font-semibold text-slate-500">
               {unspecified.roomType ? "객실 유형 미정" : roomType}
             </span>
@@ -401,14 +510,16 @@ export function SharedRoomCard({
         {activeMembers.map((member) => {
           const stay = staysById.get(member.hotelStayId);
           const status = stay ? hotelRoomBoardDogStatus(stay, selectedDate) : null;
+          const phaseTime = stay ? hotelRoomBoardPhaseTime(stay, selectedDate) : null;
           return (
-            <span key={member.id} className="flex min-w-0 items-center justify-between gap-1.5">
+            <span key={member.id} className="grid min-w-0 grid-cols-[1fr_auto] items-center gap-x-1.5">
               <span className="truncate text-xs font-extrabold">{member.dogName}</span>
               {status ? (
                 <span className={cn("shrink-0 rounded-full px-1.5 py-px text-[9px] font-extrabold leading-[0.875rem] ring-1 ring-inset", stageBadgeClass(status.stage, false))}>
                   {status.label}
                 </span>
               ) : <span className="text-[9px] font-bold text-slate-500">일정 확인</span>}
+              {phaseTime ? <span className="col-span-2 truncate text-[9px] font-semibold tabular-nums text-slate-600">{phaseTime}</span> : null}
             </span>
           );
         })}
@@ -646,6 +757,7 @@ export function HotelRoomBoard({
   const [settlingRoomId, setSettlingRoomId] = useState<string | null>(null);
   const [settlingStayId, setSettlingStayId] = useState<string | null>(null);
   const [returningStayId, setReturningStayId] = useState<string | null>(null);
+  const [showFutureUnassigned, setShowFutureUnassigned] = useState(false);
   const draggedStayIdRef = useRef<string | null>(null);
   const dragModeRef = useRef<"pointer" | "selected" | null>(null);
   const dropCommittedRef = useRef(false);
@@ -659,6 +771,7 @@ export function HotelRoomBoard({
     },
     [],
   );
+  useEffect(() => setShowFutureUnassigned(false), [selectedDate]);
   const stays = snapshot.stays;
   const staysById = useMemo(
     () => new Map([...snapshot.stays, ...snapshot.unassignedFuture, ...sharedMemberStays].map((stay) => [stay.id, stay])),
@@ -679,6 +792,29 @@ export function HotelRoomBoard({
     () => hotelRoomBoardUnassigned(boardStays),
     [boardStays],
   );
+  const unassignedGroups = useMemo(
+    () => hotelRoomBoardUnassignedGroups(boardStays, selectedDate),
+    [boardStays, selectedDate],
+  );
+  const allKnownStays = useMemo(() => {
+    const byId = new Map<string, HotelStay>();
+    [...snapshot.stays, ...snapshot.unassignedFuture, ...sharedMemberStays]
+      .forEach((stay) => byId.set(stay.id, stay));
+    return [...byId.values()];
+  }, [sharedMemberStays, snapshot.stays, snapshot.unassignedFuture]);
+  const completedCheckouts = useMemo(
+    () => hotelRoomBoardCompletedCheckouts(allKnownStays, selectedDate),
+    [allKnownStays, selectedDate],
+  );
+  const sharedRoomNameByStayId = useMemo(() => {
+    const result = new Map<string, string>();
+    sharedOccupancies.forEach((occupancy) =>
+      occupancy.members.forEach((member) =>
+        result.set(member.hotelStayId, occupancy.roomName),
+      ),
+    );
+    return result;
+  }, [sharedOccupancies]);
   const draggedStay =
     boardStays.find((stay) => stay.id === draggedStayId) ?? null;
   const roomStays = useMemo(() => {
@@ -879,6 +1015,42 @@ export function HotelRoomBoard({
       );
     }
   };
+  const renderUnassignedCards = (items: HotelStay[]) => (
+    <div className="flex gap-3 overflow-x-auto overscroll-x-contain pb-1.5">
+      {items.map((stay) => {
+        const roomTypeReady = Boolean(stay.capacityReservation?.roomTypeId);
+        return (
+          <div
+            key={stay.id}
+            className="min-w-[240px] max-w-[280px] flex-[0_0_260px]"
+          >
+            <DraggableStayCard
+              stay={stay}
+              selectedDate={selectedDate}
+              disabled={
+                processing ||
+                processingStayId === stay.id ||
+                !roomTypeReady
+              }
+              dragging={draggedStayId === stay.id}
+              returning={returningStayId === stay.id}
+              settling={settlingStayId === stay.id}
+              variant="waiting"
+              onOpen={() => onOpenStay(stay.id)}
+              onSelectForDrop={selectForDrop}
+              onDragStart={beginNativeDrag}
+              onPointerStart={beginPointerDrag}
+            />
+            {!roomTypeReady ? (
+              <p className="mt-1 px-1 text-[11px] font-medium text-amber-700">
+                객실 유형을 먼저 확정해 주세요.
+              </p>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
 
   return (
     <Card
@@ -930,7 +1102,7 @@ export function HotelRoomBoard({
           </div>
         </div>
 
-        <div className="space-y-5 p-4 sm:p-5 lg:p-6">
+        <div className="flex flex-col gap-5 p-4 sm:p-5 lg:p-6">
           <div
             data-testid="hotel-room-board-unassigned-drop-zone"
             onDragEnter={(event) => {
@@ -950,7 +1122,7 @@ export function HotelRoomBoard({
             }}
             onPointerUp={commitUnassignDrop}
             className={cn(
-              "min-w-0 rounded-2xl border border-amber-200/80 bg-[#fbfaf7] px-4 shadow-[inset_3px_0_0_0_rgb(245_158_11_/_0.5)]",
+              "order-2 min-w-0 rounded-2xl border border-amber-200/80 bg-[#fbfaf7] px-4 shadow-[inset_3px_0_0_0_rgb(245_158_11_/_0.5)]",
               unassigned.length ? "py-3.5" : "py-2.5",
               Boolean(
                 draggedStay && canDropHotelStayToUnassigned(draggedStay),
@@ -978,47 +1150,33 @@ export function HotelRoomBoard({
                 {unassigned.length}건
               </Badge>
             </div>
-            {unassigned.length ? (
-              <div className="flex gap-3 overflow-x-auto overscroll-x-contain pb-1.5">
-                {unassigned.map((stay) => {
-                  const roomTypeReady = Boolean(
-                    stay.capacityReservation?.roomTypeId,
-                  );
-                  return (
-                    <div
-                      key={stay.id}
-                      className="min-w-[240px] max-w-[280px] flex-[0_0_260px]"
-                    >
-                      <DraggableStayCard
-                        stay={stay}
-                        selectedDate={selectedDate}
-                        disabled={
-                          processing ||
-                          processingStayId === stay.id ||
-                          !roomTypeReady
-                        }
-                        dragging={draggedStayId === stay.id}
-                        returning={returningStayId === stay.id}
-                        settling={settlingStayId === stay.id}
-                        variant="waiting"
-                        onOpen={() => onOpenStay(stay.id)}
-                        onSelectForDrop={selectForDrop}
-                        onDragStart={beginNativeDrag}
-                        onPointerStart={beginPointerDrag}
-                      />
-                      {!roomTypeReady ? (
-                        <p className="mt-1 px-1 text-[11px] font-medium text-amber-700">
-                          객실 유형을 먼저 확정해 주세요.
-                        </p>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
+            {unassignedGroups.today.length ? (
+              <section aria-label="오늘 입실 미배정">
+                <div className="mb-2 flex items-center gap-2">
+                  <strong className="text-sm text-blue-900">오늘 입실</strong>
+                  <Badge tone="blue">{unassignedGroups.today.length}</Badge>
+                </div>
+                {renderUnassignedCards(unassignedGroups.today)}
+              </section>
+            ) : null}
+            {unassignedGroups.overdue.length ? (
+              <section
+                aria-label="미처리 미배정"
+                className={unassignedGroups.today.length ? "mt-3 border-t border-amber-200 pt-3" : ""}
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <strong className="text-sm text-amber-900">미처리</strong>
+                  <Badge tone="amber">{unassignedGroups.overdue.length}</Badge>
+                </div>
+                {renderUnassignedCards(unassignedGroups.overdue)}
+              </section>
+            ) : null}
+            {unassigned.length && !unassignedGroups.today.length && !unassignedGroups.overdue.length ? (
+              <p className="text-xs font-medium text-text-muted">선택한 날짜에 처리할 미배정 예약은 없습니다.</p>
             ) : null}
           </div>
 
-          <div className="min-w-0 space-y-6 overflow-x-auto overscroll-x-contain pb-2">
+          <div className="order-1 min-w-0 space-y-6 overflow-x-auto overscroll-x-contain pb-2">
             {(["DELUXE", "STANDARD"] as const).map((roomTypeCode) => {
               const rooms = activeRooms.filter(
                 (room) => room.roomTypeCode === roomTypeCode,
@@ -1090,6 +1248,73 @@ export function HotelRoomBoard({
               );
             })}
           </div>
+
+          {completedCheckouts.length ? (
+            <section
+              aria-label="퇴실 완료 명단"
+              data-testid="hotel-room-board-completed-checkouts"
+              className="order-3 rounded-2xl border border-emerald-200 bg-emerald-50/45 px-4 py-3.5"
+            >
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-extrabold text-text-primary">퇴실 완료</h3>
+                  <p className="mt-0.5 text-xs text-text-secondary">선택한 날짜의 실제 퇴실 처리 명단입니다.</p>
+                </div>
+                <Badge tone="green">{completedCheckouts.length}건</Badge>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {completedCheckouts.map((stay) => {
+                  const allocation = [...stay.roomAllocations].sort((left, right) =>
+                    right.allocatedFrom.localeCompare(left.allocatedFrom),
+                  )[0];
+                  const roomName = sharedRoomNameByStayId.get(stay.id) ?? allocation?.roomName ?? "호실 확인";
+                  const roomType = stay.capacityReservation?.roomTypeCode ?? stay.capacityReservation?.roomTypeName;
+                  const checkedOutTime = stay.checkedOutAt
+                    ? seoulInputParts(stay.checkedOutAt).time
+                    : "-";
+                  return (
+                    <button
+                      key={stay.id}
+                      type="button"
+                      onClick={() => onOpenStay(stay.id)}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-left transition hover:border-emerald-300 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      <span className="min-w-0">
+                        <strong className="block truncate text-sm text-text-primary">{stay.dogName}</strong>
+                        <span className="block truncate text-[11px] font-medium text-text-secondary">
+                          {roomName}{roomType ? ` · ${roomType}` : ""}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-sm font-extrabold tabular-nums text-emerald-800">{checkedOutTime}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : null}
+
+          {unassignedGroups.future.length ? (
+            <section
+              aria-label="향후 입실 미배정"
+              className="order-4 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3"
+            >
+              <div className={cn("flex items-center justify-between gap-3", showFutureUnassigned && "mb-3")}>
+                <div>
+                  <h3 className="text-sm font-extrabold text-text-primary">향후 입실</h3>
+                  <p className="mt-0.5 text-xs text-text-muted">선택한 날짜 이후의 미배정 예약입니다.</p>
+                </div>
+                <button
+                  type="button"
+                  aria-expanded={showFutureUnassigned}
+                  onClick={() => setShowFutureUnassigned((current) => !current)}
+                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  {showFutureUnassigned ? "접기" : `${unassignedGroups.future.length}건 펼쳐보기`}
+                </button>
+              </div>
+              {showFutureUnassigned ? renderUnassignedCards(unassignedGroups.future) : null}
+            </section>
+          ) : null}
         </div>
       </div>
     </Card>
