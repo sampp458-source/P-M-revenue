@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { isOperationOptimisticConflictCode } from "./operationsScheduleRepository";
 
 export interface HotelRoomTypeSnapshot {
   id: string;
@@ -197,7 +198,10 @@ function throwHotelError(error: SupabaseErrorLike | null) {
       code,
     );
   }
-  if (code === "40001" || /version|concurrent|동시|충돌/i.test(raw)) {
+  if (code === "40001" ||
+    isOperationOptimisticConflictCode(code) ||
+    /version|concurrent|동시|충돌/i.test(raw)
+  ) {
     throw new HotelOperationsRepositoryError(
       "다른 사용자가 먼저 변경했습니다. 최신 정보를 다시 확인해 주세요.",
       "conflict",
@@ -303,6 +307,24 @@ export function updateHotelReservation(
     p_hotel_stay_id: hotelStayId,
     p_expected_version: expectedVersion,
     ...reservationArgs(input, requestId),
+  });
+}
+
+export function updateCheckedInHotelPlannedCheckout(
+  hotelStayId: string,
+  expectedVersion: number,
+  checkOutDate: string,
+  checkOutTime: string | null,
+  checkOutTimeUnspecified: boolean,
+  requestId: string,
+) {
+  return rpc<HotelStay>("update_checked_in_hotel_planned_checkout", {
+    p_hotel_stay_id: hotelStayId,
+    p_expected_version: expectedVersion,
+    p_check_out_date: checkOutDate,
+    p_check_out_time: checkOutTime,
+    p_check_out_time_unspecified: checkOutTimeUnspecified,
+    p_request_id: requestId,
   });
 }
 

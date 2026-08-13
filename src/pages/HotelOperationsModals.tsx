@@ -10,6 +10,8 @@ import type {
 } from "./hotelOperationsRepository";
 import {
   activeHotelAllocation,
+  formatHotelScheduleTime,
+  hotelStayScheduleEvent,
   hotelStayUnspecifiedState,
   seoulInputParts,
 } from "./hotelOperationsUi";
@@ -363,6 +365,99 @@ export function CompleteCheckInModal(props: CompletionModalProps) {
 
 export function CheckOutModal(props: CompletionModalProps) {
   return <CompletionModal {...props} title="퇴실 완료" label="퇴실 완료" />;
+}
+
+export function PlannedCheckoutChangeModal({
+  open,
+  stay,
+  processing,
+  onClose,
+  onSubmit,
+}: {
+  open: boolean;
+  stay: HotelStay;
+  processing: boolean;
+  onClose: () => void;
+  onSubmit: (
+    checkOutDate: string,
+    checkOutTime: string | null,
+    checkOutTimeUnspecified: boolean,
+  ) => void;
+}) {
+  const [checkOutDate, setCheckOutDate] = useState("");
+  const [checkOutTime, setCheckOutTime] = useState("");
+  const [timeUnspecified, setTimeUnspecified] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const event = hotelStayScheduleEvent(stay, "check_out");
+    const parts = event
+      ? seoulInputParts(event.startsAt)
+      : { date: "", time: "" };
+    setCheckOutDate(parts.date);
+    setCheckOutTime(event?.timeUnspecified ? "" : parts.time);
+    setTimeUnspecified(Boolean(event?.timeUnspecified));
+  }, [open, stay]);
+
+  return (
+    <Modal open={open} title="퇴실 예정 변경" onClose={onClose} resetKey={stay.id}>
+      <form
+        className="space-y-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!checkOutDate || (!timeUnspecified && !checkOutTime)) return;
+          onSubmit(
+            checkOutDate,
+            timeUnspecified ? null : checkOutTime,
+            timeUnspecified,
+          );
+        }}
+      >
+        <div className="rounded-2xl border border-border bg-surface-secondary p-4">
+          <span className="text-xs text-text-secondary">현재 퇴실 예정</span>
+          <b className="mt-1 block text-sm text-text-primary">
+            {formatHotelScheduleTime(stay, "check_out")}
+          </b>
+        </div>
+        <Field label="새 퇴실일" required>
+          <Input
+            type="date"
+            required
+            value={checkOutDate}
+            onChange={(event) => setCheckOutDate(event.target.value)}
+          />
+        </Field>
+        <Field label="새 퇴실 시간" required={!timeUnspecified}>
+          <Input
+            type="time"
+            required={!timeUnspecified}
+            disabled={timeUnspecified}
+            value={checkOutTime}
+            onChange={(event) => setCheckOutTime(event.target.value)}
+          />
+        </Field>
+        <label className="flex min-h-11 items-center gap-3 rounded-xl border border-border px-3.5 text-sm font-medium text-text-primary">
+          <input
+            type="checkbox"
+            checked={timeUnspecified}
+            onChange={(event) => setTimeUnspecified(event.target.checked)}
+          />
+          퇴실 시간 미정
+        </label>
+        <p className="text-xs leading-relaxed text-text-secondary">
+          연장 시 같은 호실의 다음 예약과 전체 Capacity를 다시 확인합니다.
+        </p>
+        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-surface-primary py-3">
+          <Button type="button" variant="secondary" onClick={onClose} disabled={processing}>
+            닫기
+          </Button>
+          <Button disabled={processing || !checkOutDate || (!timeUnspecified && !checkOutTime)}>
+            {processing ? "처리 중..." : "퇴실 예정 변경"}
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
 }
 
 export function SettingsModal({
