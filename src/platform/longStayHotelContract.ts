@@ -376,6 +376,44 @@ export interface LongStayMonthProjection {
   contracts: LongStayMonthContractProjection[];
 }
 
+export type LongStayRoomConflictSource =
+  | "hotel"
+  | "shared_room"
+  | "long_stay"
+  | "daycare"
+  | "other";
+
+export type LongStayRoomConflictPhase = "current" | "future" | "past_overlap";
+
+export interface LongStayRoomAvailability {
+  roomId: string;
+  roomName: string;
+  roomTypeId: string;
+  roomTypeCode: string;
+  roomTypeName: string;
+  assignable: boolean;
+  nextConflictFrom: string | null;
+  nextConflictUntil: string | null;
+  conflictSource: LongStayRoomConflictSource | null;
+  conflictPhase: LongStayRoomConflictPhase | null;
+  reason: string;
+}
+
+export interface LongStayRoomAvailabilityProjection {
+  contractId: string;
+  serviceMonth: string;
+  availabilityFrom: string;
+  isOpenEnded: true;
+  rooms: LongStayRoomAvailability[];
+}
+
+export interface GetLongStayRoomAvailabilityInput {
+  contractId: string;
+  serviceMonth: string;
+  checkInTime: string | null;
+  checkInTimeUnspecified: boolean;
+}
+
 export interface CreateLongStayContractInput {
   customerId: string;
   dogId: string;

@@ -25,6 +25,7 @@ const repositoryMocks = vi.hoisted(() => ({
   getLongStayContract: vi.fn(),
   getLongStayHotelVersion: vi.fn(),
   getLongStayMonth: vi.fn(),
+  getLongStayRoomAvailability: vi.fn(),
   reverseLongStayCompletion: vi.fn(),
   setLongStayPlannedCheckout: vi.fn(),
   startLongStayAbsence: vi.fn(),
@@ -133,6 +134,25 @@ const renderOperations = (contracts: LongStayMonthContractProjection[]) => {
   repositoryMocks.getLongStayMonth.mockResolvedValue({
     serviceMonth: "2026-09-01",
     contracts,
+  });
+  repositoryMocks.getLongStayRoomAvailability.mockResolvedValue({
+    contractId: contracts[0]?.id ?? "contract-1",
+    serviceMonth: "2026-09-01",
+    availabilityFrom: "2026-09-10T06:00:00Z",
+    isOpenEnded: true,
+    rooms: snapshot.rooms.map((room) => ({
+      roomId: room.id,
+      roomName: room.name,
+      roomTypeId: room.roomTypeId,
+      roomTypeCode: room.roomTypeCode,
+      roomTypeName: room.roomTypeName,
+      assignable: true,
+      nextConflictFrom: null,
+      nextConflictUntil: null,
+      conflictSource: null,
+      conflictPhase: null,
+      reason: "사용 가능",
+    })),
   });
 
   return render(
@@ -271,5 +291,65 @@ describe("Long Stay frontend production stabilization", () => {
     expect(isServiceMonthBeforeLongStayStart("2026-08-01", "2026-09-10")).toBe(true);
     expect(isServiceMonthBeforeLongStayStart("2026-09-01", "2026-09-10")).toBe(false);
     expect(isServiceMonthBeforeLongStayStart("2026-09-01", "2026-09-01")).toBe(false);
+  });
+
+  it("disables a currently occupied room and fails closed when no room is available", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-15T12:00:00+09:00"));
+    repositoryMocks.getLongStayRoomAvailability.mockResolvedValueOnce({
+      contractId: "contract-1",
+      serviceMonth: "2026-09-01",
+      availabilityFrom: "2026-09-10T06:00:00Z",
+      isOpenEnded: true,
+      rooms: [{
+        roomId: "standard-1",
+        roomName: "STANDARD 1",
+        roomTypeId: "standard",
+        roomTypeCode: "STANDARD",
+        roomTypeName: "STANDARD",
+        assignable: false,
+        nextConflictFrom: "2026-09-10T06:00:00Z",
+        nextConflictUntil: null,
+        conflictSource: "hotel",
+        conflictPhase: "current",
+        reason: "현재 사용 중",
+      }],
+    });
+    renderOperations([projection()]);
+
+    fireEvent.click(await screen.findByRole("button", { name: "객실 배정" }));
+    expect(await screen.findByText(/현재 계약 기간으로 장기호텔에 배정 가능한 객실이 없습니다/)).not.toBeNull();
+    expect(screen.getByRole("option", { name: /현재 사용 중/ }).getAttribute("disabled")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "확인" }).getAttribute("disabled")).not.toBeNull();
+  });
+
+  it("shows the next conflict date and disables a future-reserved room", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-15T12:00:00+09:00"));
+    repositoryMocks.getLongStayRoomAvailability.mockResolvedValueOnce({
+      contractId: "contract-1",
+      serviceMonth: "2026-09-01",
+      availabilityFrom: "2026-09-10T06:00:00Z",
+      isOpenEnded: true,
+      rooms: [{
+        roomId: "standard-1",
+        roomName: "STANDARD 1",
+        roomTypeId: "standard",
+        roomTypeCode: "STANDARD",
+        roomTypeName: "STANDARD",
+        assignable: false,
+        nextConflictFrom: "2026-09-20T15:30:00Z",
+        nextConflictUntil: "2026-09-21T02:00:00Z",
+        conflictSource: "shared_room",
+        conflictPhase: "future",
+        reason: "미래 예약 있음",
+      }],
+    });
+    renderOperations([projection()]);
+
+    fireEvent.click(await screen.findByRole("button", { name: "객실 배정" }));
+    const futureOption = await screen.findByRole("option", { name: /예약 있음/ });
+    expect(futureOption.getAttribute("disabled")).not.toBeNull();
+    expect(futureOption.textContent).toContain("2026. 09. 21");
   });
 });

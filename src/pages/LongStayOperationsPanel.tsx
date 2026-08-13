@@ -31,6 +31,7 @@ import {
   getLongStayHotelVersion,
   getLongStayContract,
   getLongStayMonth,
+  getLongStayRoomAvailability,
   LongStayRepositoryError,
   newLongStayRequestId,
   reverseLongStayCompletion,
@@ -40,6 +41,7 @@ import {
 import type {
   LongStayContractProjection,
   LongStayMonthContractProjection,
+  LongStayRoomAvailability,
 } from "../platform/longStayHotelContract";
 import type { HotelOperationsSnapshot } from "./hotelOperationsRepository";
 import type {
@@ -86,6 +88,16 @@ const nowLocalInput = () => {
   return value.slice(0, 16);
 };
 const kstIso = (value: string) => new Date(`${value}:00+09:00`).toISOString();
+const kstDateKey = (value: string) =>
+  new Date(value).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+
+const roomAvailabilityLabel = (room: LongStayRoomAvailability) => {
+  if (room.assignable) return "사용 가능";
+  if (room.conflictPhase === "future" && room.nextConflictFrom) {
+    return `${koDate(kstDateKey(room.nextConflictFrom))}부터 예약 있음`;
+  }
+  return room.reason || "사용 불가";
+};
 
 const statusPresentation = (contract: LongStayMonthContractProjection) => {
   if (contract.derivedStatus === "overstay") return { label: "초과체류", tone: "red" as const };
@@ -131,6 +143,9 @@ export function LongStayOperationsPanel({
   const [timeUnspecified, setTimeUnspecified] = useState(false);
   const [memo, setMemo] = useState("");
   const [reason, setReason] = useState("");
+  const [roomAvailability, setRoomAvailability] = useState<LongStayRoomAvailability[]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -156,9 +171,24 @@ export function LongStayOperationsPanel({
     [snapshot.rooms],
   );
   const selectedRoom = availableRooms.find((room) => room.id === roomId) ?? null;
-  const selectableRooms = action && operationRole === "staff" && action.contract.currentRoom
-    ? availableRooms.filter((room) => room.roomTypeId === action.contract.currentRoom?.roomTypeId)
-    : availableRooms;
+  const selectableRooms = useMemo(
+    () => action && operationRole === "staff" && action.contract.currentRoom
+      ? availableRooms.filter((room) => room.roomTypeId === action.contract.currentRoom?.roomTypeId)
+      : availableRooms,
+    [action, availableRooms, operationRole],
+  );
+  const availabilityByRoom = useMemo(
+    () => new Map(roomAvailability.map((room) => [room.roomId, room])),
+    [roomAvailability],
+  );
+  const selectableAvailability = selectableRooms.map((room) => ({
+    room,
+    availability: availabilityByRoom.get(room.id) ?? null,
+  }));
+  const availableRoomCount = selectableAvailability.filter(
+    ({ availability }) => availability?.assignable,
+  ).length;
+  const selectedAvailability = availabilityByRoom.get(roomId) ?? null;
 
   const openAction = (kind: ActionKind, contract: LongStayMonthContractProjection) => {
     setToast(null);
@@ -170,7 +200,40 @@ export function LongStayOperationsPanel({
     setTimeUnspecified(false);
     setMemo("");
     setReason("");
+    setRoomAvailability([]);
+    setAvailabilityError("");
   };
+
+  useEffect(() => {
+    if (!action || action.kind !== "confirm") return;
+    let cancelled = false;
+    setAvailabilityLoading(true);
+    setAvailabilityError("");
+    setRoomAvailability([]);
+    void getLongStayRoomAvailability({
+      contractId: action.contract.id,
+      serviceMonth,
+      checkInTime: timeUnspecified ? null : snapshot.settings?.defaultCheckInTime ?? "15:00",
+      checkInTimeUnspecified: timeUnspecified,
+    }).then((result) => {
+      if (cancelled) return;
+      setRoomAvailability(result.rooms);
+      const allowedIds = new Set(selectableRooms.map((room) => room.id));
+      setRoomId((currentRoomId) => {
+        const current = result.rooms.find((room) => room.roomId === currentRoomId);
+        return current?.assignable && allowedIds.has(current.roomId)
+          ? currentRoomId
+          : result.rooms.find((room) => room.assignable && allowedIds.has(room.roomId))?.roomId ?? "";
+      });
+    }).catch((loadError) => {
+      if (cancelled) return;
+      setRoomId("");
+      setAvailabilityError(loadError instanceof Error ? loadError.message : "객실 가용성을 확인하지 못했습니다.");
+    }).finally(() => {
+      if (!cancelled) setAvailabilityLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [action, selectableRooms, serviceMonth, snapshot.settings?.defaultCheckInTime, timeUnspecified]);
 
   const finishMutation = async (result: LongStayContractProjection) => {
     await Promise.all([load(), onHotelSnapshotRefresh()]);
@@ -359,7 +422,26 @@ export function LongStayOperationsPanel({
             <div className="rounded-2xl bg-primary-subtle p-4"><b>{action.contract.dogName || "반려견"}</b><span className="ml-2 text-sm text-text-secondary">{action.contract.currentRoom?.name || "호실 미배정"}</span></div>
             {action.kind === "confirm" ? (
               <>
-                <Field label="이번 달 호실" required><Select value={roomId} onChange={(event) => setRoomId(event.target.value)}>{selectableRooms.map((room) => <option key={room.id} value={room.id}>{room.roomTypeName} · {room.name}</option>)}</Select></Field>
+                <Field label="이번 달 호실" required>
+                  <Select value={roomId} disabled={availabilityLoading || Boolean(availabilityError)} onChange={(event) => setRoomId(event.target.value)}>
+                    {availabilityLoading ? <option value="">객실 가용성 확인 중...</option> : null}
+                    {!availabilityLoading && availableRoomCount === 0 ? <option value="">배정 가능한 객실 없음</option> : null}
+                    {!availabilityLoading ? selectableAvailability.map(({ room, availability }) => (
+                      <option key={room.id} value={room.id} disabled={!availability?.assignable}>
+                        {room.roomTypeName} · {room.name} · {availability ? roomAvailabilityLabel(availability) : "확인 불가"}
+                      </option>
+                    )) : null}
+                  </Select>
+                </Field>
+                {availabilityError ? <p role="alert" className="rounded-xl bg-error-soft p-3 text-sm text-error">{availabilityError}</p> : null}
+                {!availabilityLoading && !availabilityError && availableRoomCount === 0 ? (
+                  <p className="rounded-xl bg-warning-soft p-3 text-sm text-text-secondary">현재 계약 기간으로 장기호텔에 배정 가능한 객실이 없습니다. 미래 예약이 없는 다른 객실을 확인해 주세요.</p>
+                ) : null}
+                {!availabilityLoading && !availabilityError && selectedAvailability ? (
+                  <p className="rounded-xl bg-surface-secondary p-3 text-xs text-text-secondary">
+                    선택 객실: <b className="text-text-primary">{roomAvailabilityLabel(selectedAvailability)}</b>
+                  </p>
+                ) : null}
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={timeUnspecified} onChange={(event) => setTimeUnspecified(event.target.checked)} /> 입실 시간 미정</label>
               </>
             ) : null}
@@ -368,7 +450,7 @@ export function LongStayOperationsPanel({
             {action.kind === "planned_checkout" ? <><Field label="퇴실 예정일"><Input type="date" value={plannedDate} onChange={(event) => setPlannedDate(event.target.value)} /></Field><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={timeUnspecified} onChange={(event) => setTimeUnspecified(event.target.checked)} /> 퇴실 시간 미정</label></> : null}
             {["leave", "return"].includes(action.kind) ? <Field label="메모"><Textarea value={memo} onChange={(event) => setMemo(event.target.value)} /></Field> : null}
             <Field label="처리 사유"><Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="비워두면 기본 사유가 기록됩니다." /></Field>
-            <div className="flex justify-end gap-2"><Button variant="secondary" disabled={processing} onClick={() => setAction(null)}>취소</Button><Button disabled={processing || (action.kind === "confirm" && !roomId)} onClick={() => void submit()}>{processing ? "처리 중..." : "확인"}</Button></div>
+            <div className="flex justify-end gap-2"><Button variant="secondary" disabled={processing} onClick={() => setAction(null)}>취소</Button><Button disabled={processing || (action.kind === "confirm" && (!roomId || availabilityLoading || !selectedAvailability?.assignable))} onClick={() => void submit()}>{processing ? "처리 중..." : "확인"}</Button></div>
           </div>
         ) : null}
       </Modal>

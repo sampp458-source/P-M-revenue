@@ -6,7 +6,7 @@ const source = (path: string) =>
   readFileSync(resolve(import.meta.dirname, path), "utf8");
 
 describe("Long Stay public application contract", () => {
-  it("uses all eleven public RPCs and never selects Long Stay tables directly", () => {
+  it("uses the approved public RPCs and never selects Long Stay tables directly", () => {
     const repository = source("./longStayHotelRepository.ts");
     const rpcNames = [
       "create_long_stay_contract",
@@ -20,6 +20,7 @@ describe("Long Stay public application contract", () => {
       "get_long_stay_contract",
       "get_customer_long_stays",
       "get_long_stay_month",
+      "get_long_stay_room_availability",
     ];
     rpcNames.forEach((name) => expect(repository).toContain(`"${name}"`));
     expect(repository).not.toMatch(/\.from\(["']long_stay_/);

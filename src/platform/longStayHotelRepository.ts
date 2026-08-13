@@ -6,8 +6,10 @@ import type {
   CompleteLongStayCheckOutInput,
   ConfirmLongStayMonthInput,
   CreateLongStayContractInput,
+  GetLongStayRoomAvailabilityInput,
   LongStayContractProjection,
   LongStayMonthProjection,
+  LongStayRoomAvailabilityProjection,
   ReverseLongStayCompletionInput,
   SetLongStayPlannedCheckoutInput,
   StartLongStayAbsenceInput,
@@ -260,6 +262,17 @@ export function getCustomerLongStays(customerId: string) {
 export function getLongStayMonth(serviceMonth: string) {
   return rpc<LongStayMonthProjection>("get_long_stay_month", {
     p_service_month: serviceMonth,
+  });
+}
+
+export function getLongStayRoomAvailability(
+  input: GetLongStayRoomAvailabilityInput,
+) {
+  return rpc<LongStayRoomAvailabilityProjection>("get_long_stay_room_availability", {
+    p_contract_id: input.contractId,
+    p_service_month: input.serviceMonth,
+    p_check_in_time: input.checkInTime,
+    p_check_in_time_unspecified: input.checkInTimeUnspecified,
   });
 }
 
