@@ -10,8 +10,10 @@ import type {
   LongStayContractProjection,
   LongStayMonthProjection,
   LongStayRoomAvailabilityProjection,
+  LongStayReturnRoomAvailabilityProjection,
   ReverseLongStayCompletionInput,
   SetLongStayPlannedCheckoutInput,
+  SetLongStayAbsenceExpectedReturnInput,
   StartLongStayAbsenceInput,
 } from "./longStayHotelContract";
 
@@ -178,13 +180,14 @@ export function startLongStayAbsence(
   input: StartLongStayAbsenceInput,
   requestId = newLongStayRequestId(),
 ) {
-  return rpc<LongStayContractProjection>("start_long_stay_absence_v2", {
+  return rpc<LongStayContractProjection>("start_long_stay_absence_v3", {
     p_contract_id: input.contractId,
     p_expected_contract_version: input.expectedContractVersion,
     p_left_at: input.leftAt,
     p_expected_return_date: input.expectedReturnDate,
     p_expected_return_time: input.expectedReturnTime,
     p_expected_return_time_unspecified: input.expectedReturnTimeUnspecified,
+    p_inventory_mode: input.inventoryMode,
     p_memo: input.memo || null,
     p_reason: input.reason,
     p_request_id: requestId,
@@ -195,14 +198,43 @@ export function completeLongStayAbsence(
   input: CompleteLongStayAbsenceInput,
   requestId = newLongStayRequestId(),
 ) {
-  return rpc<LongStayContractProjection>("complete_long_stay_absence", {
+  return rpc<LongStayContractProjection>("complete_long_stay_absence_v2", {
     p_contract_id: input.contractId,
     p_expected_contract_version: input.expectedContractVersion,
     p_returned_at: input.returnedAt,
+    p_room_id: input.roomId,
     p_memo: input.memo || null,
     p_reason: input.reason,
     p_request_id: requestId,
   });
+}
+
+export function getLongStayReturnRoomAvailability(
+  contractId: string,
+  returnedAt: string,
+) {
+  return rpc<LongStayReturnRoomAvailabilityProjection>(
+    "get_long_stay_return_room_availability",
+    { p_contract_id: contractId, p_returned_at: returnedAt },
+  );
+}
+
+export function setLongStayAbsenceExpectedReturn(
+  input: SetLongStayAbsenceExpectedReturnInput,
+  requestId = newLongStayRequestId(),
+) {
+  return rpc<LongStayContractProjection>(
+    "set_long_stay_absence_expected_return_v2",
+    {
+      p_contract_id: input.contractId,
+      p_expected_contract_version: input.expectedContractVersion,
+      p_expected_return_date: input.expectedReturnDate,
+      p_expected_return_time: input.expectedReturnTime,
+      p_expected_return_time_unspecified: input.expectedReturnTimeUnspecified,
+      p_reason: input.reason,
+      p_request_id: requestId,
+    },
+  );
 }
 
 export function setLongStayPlannedCheckout(

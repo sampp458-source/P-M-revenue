@@ -62,12 +62,12 @@ export function hotelRoomBoardStage(
   return "check_in";
 }
 
-export function hotelRoomBoardUnassigned(stays: HotelStay[]) {
+export function hotelRoomBoardUnassigned(stays: HotelStay[], selectedInstant?: string) {
   return stays.filter(
     (stay) =>
       !stay.archivedAt &&
       !stay.checkedOutAt &&
-      !activeHotelAllocation(stay),
+      !activeHotelAllocation(stay, selectedInstant),
   );
 }
 
@@ -98,8 +98,8 @@ export function canDropHotelStayToUnassigned(stay: HotelStay) {
   );
 }
 
-export function hotelRoomBoardOccupiesRoom(stay: HotelStay) {
-  return !stay.checkedOutAt && activeHotelAllocation(stay) !== null;
+export function hotelRoomBoardOccupiesRoom(stay: HotelStay, selectedInstant?: string) {
+  return !stay.checkedOutAt && activeHotelAllocation(stay, selectedInstant) !== null;
 }
 
 export function hotelRoomBoardRecommendedRoom(
@@ -324,8 +324,8 @@ function roomStageClass(stage: RoomBoardStage | null) {
   return "border-slate-200/60 bg-transparent";
 }
 
-function stayRoomId(stay: HotelStay) {
-  return activeHotelAllocation(stay)?.roomId ?? null;
+function stayRoomId(stay: HotelStay, selectedInstant?: string) {
+  return activeHotelAllocation(stay, selectedInstant)?.roomId ?? null;
 }
 
 function DraggableStayCard({
@@ -786,6 +786,9 @@ export function HotelRoomBoard({
   const [settlingStayId, setSettlingStayId] = useState<string | null>(null);
   const [returningStayId, setReturningStayId] = useState<string | null>(null);
   const [showFutureUnassigned, setShowFutureUnassigned] = useState(false);
+  const boardInstant = selectedDateIsToday
+    ? new Date().toISOString()
+    : undefined;
   const draggedStayIdRef = useRef<string | null>(null);
   const dragModeRef = useRef<"pointer" | "selected" | null>(null);
   const dropCommittedRef = useRef(false);
@@ -817,8 +820,8 @@ export function HotelRoomBoard({
     return [...byId.values()];
   }, [sharedMemberStayIds, snapshot.unassignedFuture, stays]);
   const unassigned = useMemo(
-    () => hotelRoomBoardUnassigned(boardStays),
-    [boardStays],
+    () => hotelRoomBoardUnassigned(boardStays, boardInstant),
+    [boardInstant, boardStays],
   );
   const unassignedGroups = useMemo(
     () => hotelRoomBoardUnassignedGroups(boardStays, selectedDate),
@@ -849,13 +852,13 @@ export function HotelRoomBoard({
     const entries = new Map<string, HotelStay[]>();
     stays.forEach((stay) => {
       if (sharedMemberStayIds.has(stay.id)) return;
-      if (!hotelRoomBoardOccupiesRoom(stay)) return;
-      const roomId = stayRoomId(stay);
+      if (!hotelRoomBoardOccupiesRoom(stay, boardInstant)) return;
+      const roomId = stayRoomId(stay, boardInstant);
       if (!roomId) return;
       entries.set(roomId, [...(entries.get(roomId) ?? []), stay]);
     });
     return entries;
-  }, [sharedMemberStayIds, stays]);
+  }, [boardInstant, sharedMemberStayIds, stays]);
   const sharedByRoom = useMemo(
     () => new Map(sharedOccupancies.filter((occupancy) => occupancy.status === "active").map((occupancy) => [occupancy.roomId, occupancy])),
     [sharedOccupancies],
@@ -897,7 +900,7 @@ export function HotelRoomBoard({
   }, [activeRooms.length, boardStays, occupiedRoomIds.size, selectedDate, sharedOccupancies, unassigned.length]);
   useEffect(() => {
     const current = new Map(
-      stays.map((stay) => [stay.id, stayRoomId(stay)] as const),
+      stays.map((stay) => [stay.id, stayRoomId(stay, boardInstant)] as const),
     );
     const previous = previousRoomByStayRef.current;
     previousRoomByStayRef.current = current;
@@ -916,7 +919,7 @@ export function HotelRoomBoard({
       },
       240,
     );
-  }, [stays]);
+  }, [boardInstant, stays]);
   const recommendedRoomId = useMemo(
     () =>
       draggedStay

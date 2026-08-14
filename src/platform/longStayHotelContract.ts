@@ -15,7 +15,8 @@ export type LongStayContractStatus =
 
 export type LongStayRoomTypeCode = "STANDARD" | "DELUXE";
 export type LongStayTerminationKind = "scheduled" | "early_termination";
-export type LongStayAbsenceRoomPolicy = "retain";
+export type LongStayAbsenceRoomPolicy = "retain" | "release";
+export type LongStayOutingInventoryMode = "keep_room" | "release_room";
 export type LongStayProrationPolicy = "fixed_monthly" | "daily_prorated";
 export type LongStayPaymentMethod = "card" | "transfer" | "cash" | "other";
 export type LongStayMonthlyOccupancyStatus =
@@ -349,6 +350,23 @@ export interface LongStayContractProjection {
     expectedReturnAt: string | null;
     expectedReturnDate: string | null;
     expectedReturnTimeUnspecified: boolean;
+    inventoryMode?: LongStayOutingInventoryMode;
+    inventoryTransitionStatus?:
+      | "room_retained"
+      | "room_released"
+      | "room_returned";
+    guaranteeFrom?: string | null;
+    previousRoom?: {
+      id: string;
+      name: string;
+      roomTypeId: string;
+    } | null;
+    returnRoomTypeId?: string | null;
+    returnedRoom?: {
+      id: string;
+      name: string;
+      roomTypeId: string;
+    } | null;
   } | null;
   replayed?: boolean;
   monthlyOccupancyId?: string;
@@ -468,6 +486,7 @@ export interface StartLongStayAbsenceInput {
   expectedReturnDate: string | null;
   expectedReturnTime: string | null;
   expectedReturnTimeUnspecified: boolean;
+  inventoryMode: LongStayOutingInventoryMode;
   memo: string;
   reason: string;
 }
@@ -476,8 +495,34 @@ export interface CompleteLongStayAbsenceInput {
   contractId: string;
   expectedContractVersion: number;
   returnedAt: string;
+  roomId: string | null;
   memo: string;
   reason: string;
+}
+
+export interface SetLongStayAbsenceExpectedReturnInput {
+  contractId: string;
+  expectedContractVersion: number;
+  expectedReturnDate: string;
+  expectedReturnTime: string | null;
+  expectedReturnTimeUnspecified: boolean;
+  reason: string;
+}
+
+export interface LongStayReturnRoomAvailability {
+  roomId: string;
+  roomName: string;
+  roomTypeId: string;
+  isPreviousRoom: boolean;
+  available: boolean;
+}
+
+export interface LongStayReturnRoomAvailabilityProjection {
+  contractId: string;
+  roomTypeId: string;
+  previousRoomId: string | null;
+  returnedAt: string;
+  rooms: LongStayReturnRoomAvailability[];
 }
 
 export interface SetLongStayPlannedCheckoutInput {

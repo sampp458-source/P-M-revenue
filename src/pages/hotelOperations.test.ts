@@ -365,6 +365,18 @@ describe("Hotel Operations frontend", () => {
     ).toBe(true);
   });
 
+  it("does not treat an ended historical allocation as physically active at a selected instant", () => {
+    const allocation = {
+      id: "allocation-history", roomId: "room-1", roomName: "STANDARD-1",
+      roomTypeId: "standard", allocatedFrom: "2026-08-02T06:00:00Z",
+      allocatedUntil: "2026-08-03T02:00:00Z", assignmentReason: null, version: 1,
+    };
+    expect(activeHotelAllocation(stay({ roomAllocations: [allocation] }), "2026-08-02T07:00:00Z")?.id)
+      .toBe(allocation.id);
+    expect(activeHotelAllocation(stay({ roomAllocations: [allocation] }), allocation.allocatedUntil))
+      .toBeNull();
+  });
+
   it("converts stored instants to KST form values", () => {
     expect(seoulInputParts("2026-08-02T06:00:00Z")).toEqual({
       date: "2026-08-02",

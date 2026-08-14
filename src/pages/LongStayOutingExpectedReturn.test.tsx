@@ -10,6 +10,7 @@ const repositoryMocks = vi.hoisted(() => ({
   confirmLongStayMonth: vi.fn(), getLongStayContract: vi.fn(), getLongStayHotelVersion: vi.fn(),
   getLongStayMonth: vi.fn(), getLongStayRoomAvailability: vi.fn(), reverseLongStayCompletion: vi.fn(),
   setLongStayPlannedCheckout: vi.fn(), startLongStayAbsence: vi.fn(),
+  getLongStayReturnRoomAvailability: vi.fn(), setLongStayAbsenceExpectedReturn: vi.fn(),
 }));
 vi.mock("../platform/longStayHotelRepository", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../platform/longStayHotelRepository")>()), ...repositoryMocks,
@@ -38,6 +39,21 @@ const renderPanel = (value: LongStayMonthContractProjection) => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("Long Stay outing expected-return UI", () => {
+  it("defaults to KEEP_ROOM and requires a return date for explicit RELEASE_ROOM", async () => {
+    renderPanel(projection());
+    fireEvent.click(await screen.findByRole("button", { name: "외출" }));
+    expect((screen.getByRole("radio", { name: "객실 유지" }) as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(screen.getByRole("radio", { name: "객실 임시 해제" }));
+    expect(screen.getByText("객실 임시 해제에는 예상 복귀 날짜가 필요합니다.")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "확인" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("예상 복귀 날짜"), { target: { value: "2026-08-17" } });
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    await waitFor(() => expect(repositoryMocks.startLongStayAbsence).toHaveBeenCalledWith(
+      expect.objectContaining({ inventoryMode: "release_room", expectedReturnDate: "2026-08-17" }),
+      expect.any(String),
+    ));
+  });
+
   it("submits a date with explicitly unknown time using a fresh request id", async () => {
     renderPanel(projection());
     fireEvent.click(await screen.findByRole("button", { name: "외출" }));

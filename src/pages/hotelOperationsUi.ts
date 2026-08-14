@@ -12,8 +12,25 @@ export type HotelStayStatus =
 export type HotelStayDayPhase = "입실" | "이용중" | "퇴실" | "입실·퇴실";
 export type HotelQuickFilter = "all" | "check_in" | "in_house" | "check_out";
 
-export function activeHotelAllocation(stay: HotelStay) {
-  return [...stay.roomAllocations].sort(
+export function activeHotelAllocation(
+  stay: HotelStay,
+  selectedInstant?: string,
+) {
+  if (!selectedInstant) {
+    return [...stay.roomAllocations].sort(
+      (left, right) =>
+        new Date(right.allocatedFrom).getTime() -
+        new Date(left.allocatedFrom).getTime(),
+    )[0] ?? null;
+  }
+  const instant = new Date(selectedInstant).getTime();
+  return stay.roomAllocations.filter((allocation) => {
+    const from = new Date(allocation.allocatedFrom).getTime();
+    const until = allocation.allocatedUntil === "infinity"
+      ? Number.POSITIVE_INFINITY
+      : new Date(allocation.allocatedUntil).getTime();
+    return from <= instant && instant < until;
+  }).sort(
     (left, right) =>
       new Date(right.allocatedFrom).getTime() -
       new Date(left.allocatedFrom).getTime(),
