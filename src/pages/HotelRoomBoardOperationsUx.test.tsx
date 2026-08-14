@@ -132,7 +132,7 @@ describe("Hotel Room Board operations UX", () => {
   it("resolves phase-aware times without substituting the opposite schedule", () => {
     const hotelStay = stay();
     expect(hotelRoomBoardPhaseTime(hotelStay, "2026-08-13")).toBe("입실 15:00");
-    expect(hotelRoomBoardPhaseTime(hotelStay, "2026-08-14")).toBe("퇴실 11:00");
+    expect(hotelRoomBoardPhaseTime(hotelStay, "2026-08-14")).toBe("퇴실 8/15 11:00");
     expect(hotelRoomBoardPhaseTime(hotelStay, "2026-08-15")).toBe("퇴실 11:00");
 
     const checkInUnknown = stay({
@@ -150,6 +150,7 @@ describe("Hotel Room Board operations UX", () => {
       ],
     });
     expect(hotelRoomBoardPhaseTime(checkOutUnknown, "2026-08-15")).toBe("퇴실 시간 미정");
+    expect(hotelRoomBoardPhaseTime(checkOutUnknown, "2026-08-14")).toBe("퇴실 8/15 · 시간 미정");
   });
 
   it("uses the compact same-day contract and omits fabricated Long Stay checkout time", () => {
@@ -169,6 +170,17 @@ describe("Hotel Room Board operations UX", () => {
       scheduleEvents: [schedule("check_in", "2026-08-13T06:00:00Z")],
     });
     expect(hotelRoomBoardPhaseTime(openEnded, "2026-08-14")).toBeNull();
+
+    const plannedLongStay = allocatedStay({ dogName: "장기호텔견" });
+    expect(hotelRoomBoardPhaseTime(plannedLongStay, "2026-08-14")).toBe("퇴실 8/15 11:00");
+
+    const nextYear = stay({
+      scheduleEvents: [
+        schedule("check_in", "2026-12-30T06:00:00Z"),
+        schedule("check_out", "2027-01-02T02:00:00Z"),
+      ],
+    });
+    expect(hotelRoomBoardPhaseTime(nextYear, "2026-12-31")).toBe("퇴실 2027. 1. 2. 11:00");
   });
 
   it("renders the selected-date phase time through the actual room card", () => {
@@ -177,7 +189,7 @@ describe("Hotel Room Board operations UX", () => {
     expect(screen.getByTestId("hotel-room-board-stay-stay-1")).toHaveTextContent("입실 15:00");
 
     rerender(<HotelRoomBoard {...boardProps(snapshot([hotelStay]), "2026-08-14")} />);
-    expect(screen.getByTestId("hotel-room-board-stay-stay-1")).toHaveTextContent("퇴실 11:00");
+    expect(screen.getByTestId("hotel-room-board-stay-stay-1")).toHaveTextContent("퇴실 8/15 11:00");
 
     rerender(<HotelRoomBoard {...boardProps(snapshot([hotelStay]), "2026-08-15")} />);
     expect(screen.getByTestId("hotel-room-board-stay-stay-1")).toHaveTextContent("퇴실 11:00");
@@ -207,6 +219,20 @@ describe("Hotel Room Board operations UX", () => {
     expect(screen.queryByText("미래견")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "1건 펼쳐보기" }));
     expect(screen.getByText("미래견")).toBeInTheDocument();
+  });
+
+  it("renders every unassigned section before the DELUXE and STANDARD room grids", () => {
+    const today = stay({ id: "today", dogName: "오늘견" });
+    const future = stay({ id: "future", dogName: "미래견", scheduleEvents: [schedule("check_in", "2026-08-14T06:00:00Z"), schedule("check_out", "2026-08-16T02:00:00Z")] });
+    render(<HotelRoomBoard {...boardProps(snapshot([], [today, future]), "2026-08-13")} />);
+
+    const unassigned = screen.getByTestId("hotel-room-board-unassigned-drop-zone");
+    const futureSection = screen.getByRole("region", { name: "향후 입실 미배정" });
+    const deluxe = screen.getByRole("region", { name: "DELUXE Room Board" });
+    const standard = screen.getByRole("region", { name: "STANDARD Room Board" });
+    expect(unassigned.compareDocumentPosition(deluxe) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(futureSection.compareDocumentPosition(deluxe) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(unassigned.compareDocumentPosition(standard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("moves a future reservation into today when the selected date changes", () => {
@@ -268,6 +294,49 @@ describe("Hotel Room Board operations UX", () => {
     expect(screen.getByTestId("shared-room-card-occupancy-1")).not.toHaveTextContent("몽이");
     expect(screen.getByTestId("hotel-room-board-completed-checkouts")).toHaveTextContent("몽이");
     expect(screen.getByTestId("hotel-room-board-completed-checkouts")).not.toHaveTextContent("보리");
+  });
+
+  it("renders each dog-specific checkout date in a compact three-dog Shared Room card", () => {
+    const dogA = allocatedStay({ id: "stay-a", dogId: "dog-a", dogName: "아주긴이름의망치", scheduleEvents: [schedule("check_in", "2026-08-13T06:00:00Z"), schedule("check_out", "2026-08-15T10:00:00Z")] });
+    const dogB = allocatedStay({ id: "stay-b", dogId: "dog-b", dogName: "펀치", scheduleEvents: [schedule("check_in", "2026-08-13T06:00:00Z"), schedule("check_out", "2026-08-16T02:00:00Z")] });
+    const dogC = allocatedStay({ id: "stay-c", dogId: "dog-c", dogName: "콩이", capacityReservation: { ...allocatedStay().capacityReservation!, reservedUntil: "infinity" }, scheduleEvents: [schedule("check_in", "2026-08-13T06:00:00Z")] });
+    const members = [dogA, dogB, dogC].map((memberStay, index) => ({
+      id: `member-${index}`,
+      familyBookingMemberId: `family-member-${index}`,
+      hotelStayId: memberStay.id,
+      dogId: memberStay.dogId,
+      dogName: memberStay.dogName,
+      status: "active" as const,
+      joinedAt: "2026-08-13T06:00:00Z",
+      leftAt: null,
+    }));
+    const occupancy: SharedHotelOccupancy = {
+      id: "occupancy-three",
+      familyBookingId: "family-1",
+      sharedRoomGroupId: "group-1",
+      customerId: "customer-1",
+      roomTypeId: "deluxe",
+      roomTypeCode: "DELUXE",
+      roomId: "room-1",
+      roomName: "DELUXE 1",
+      occupiedFrom: "2026-08-13T06:00:00Z",
+      occupiedUntil: "infinity",
+      status: "active",
+      version: 1,
+      capacityReservationId: "shared-capacity",
+      roomAllocationId: "shared-allocation",
+      capacityUsed: 1,
+      dogCount: 3,
+      members,
+    };
+    render(<HotelRoomBoard {...boardProps(snapshot([]), "2026-08-14")} sharedOccupancies={[occupancy]} sharedMemberStays={[dogA, dogB, dogC]} />);
+
+    const card = screen.getByTestId("shared-room-card-occupancy-three");
+    expect(card).toHaveTextContent("퇴실 8/15 19:00");
+    expect(card).toHaveTextContent("퇴실 8/16 11:00");
+    expect(card).not.toHaveTextContent("infinity");
+    expect(screen.getByText("아주긴이름의망치")).toHaveClass("truncate");
+    expect(card).toHaveTextContent("Shared Room · 3마리");
   });
 
   it("includes a completed Long Stay naturally without inventing a separate color system", () => {

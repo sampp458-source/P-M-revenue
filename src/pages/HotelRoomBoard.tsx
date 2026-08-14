@@ -151,6 +151,14 @@ function roomBoardScheduleTime(
   return seoulInputParts(schedule.startsAt).time;
 }
 
+function roomBoardCompactDate(date: string, selectedDate: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  if (date.slice(0, 4) === selectedDate.slice(0, 4)) {
+    return `${month}/${day}`;
+  }
+  return `${year}. ${month}. ${day}.`;
+}
+
 export function hotelRoomBoardPhaseTime(
   stay: HotelStay,
   selectedDate: string,
@@ -177,9 +185,11 @@ export function hotelRoomBoardPhaseTime(
       : null;
   }
   if (checkInDate && checkInDate < selectedDate) {
-    return checkOutTime
-      ? `퇴실 ${checkOutTime}`
-      : null;
+    if (!checkOutDate || !checkOutTime) return null;
+    const checkoutDate = roomBoardCompactDate(checkOutDate, selectedDate);
+    return checkOutTime === "시간 미정"
+      ? `퇴실 ${checkoutDate} · 시간 미정`
+      : `퇴실 ${checkoutDate} ${checkOutTime}`;
   }
   return checkInTime
     ? `입실 ${checkInTime}`
@@ -461,8 +471,8 @@ function DraggableStayCard({
               </span>
             </span>
             {phaseTime ? (
-              <span className="mt-0.5 flex items-center gap-1 text-[11px] font-bold tabular-nums text-slate-800">
-                <Clock3 size={12} />
+              <span className="mt-0.5 flex min-w-0 items-center gap-1 truncate text-[11px] font-bold tabular-nums text-slate-800">
+                <Clock3 className="shrink-0" size={12} />
                 {variant === "waiting"
                   ? formatHotelScheduleTime(stay, "check_in")
                   : phaseTime}
@@ -1122,7 +1132,7 @@ export function HotelRoomBoard({
             }}
             onPointerUp={commitUnassignDrop}
             className={cn(
-              "order-2 min-w-0 rounded-2xl border border-amber-200/80 bg-[#fbfaf7] px-4 shadow-[inset_3px_0_0_0_rgb(245_158_11_/_0.5)]",
+              "min-w-0 rounded-2xl border border-amber-200/80 bg-[#fbfaf7] px-4 shadow-[inset_3px_0_0_0_rgb(245_158_11_/_0.5)]",
               unassigned.length ? "py-3.5" : "py-2.5",
               Boolean(
                 draggedStay && canDropHotelStayToUnassigned(draggedStay),
@@ -1176,7 +1186,30 @@ export function HotelRoomBoard({
             ) : null}
           </div>
 
-          <div className="order-1 min-w-0 space-y-6 overflow-x-auto overscroll-x-contain pb-2">
+          {unassignedGroups.future.length ? (
+            <section
+              aria-label="향후 입실 미배정"
+              className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3"
+            >
+              <div className={cn("flex items-center justify-between gap-3", showFutureUnassigned && "mb-3")}>
+                <div>
+                  <h3 className="text-sm font-extrabold text-text-primary">향후 입실</h3>
+                  <p className="mt-0.5 text-xs text-text-muted">선택한 날짜 이후의 미배정 예약입니다.</p>
+                </div>
+                <button
+                  type="button"
+                  aria-expanded={showFutureUnassigned}
+                  onClick={() => setShowFutureUnassigned((current) => !current)}
+                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  {showFutureUnassigned ? "접기" : `${unassignedGroups.future.length}건 펼쳐보기`}
+                </button>
+              </div>
+              {showFutureUnassigned ? renderUnassignedCards(unassignedGroups.future) : null}
+            </section>
+          ) : null}
+
+          <div className="min-w-0 space-y-6 overflow-x-auto overscroll-x-contain pb-2">
             {(["DELUXE", "STANDARD"] as const).map((roomTypeCode) => {
               const rooms = activeRooms.filter(
                 (room) => room.roomTypeCode === roomTypeCode,
@@ -1253,7 +1286,7 @@ export function HotelRoomBoard({
             <section
               aria-label="퇴실 완료 명단"
               data-testid="hotel-room-board-completed-checkouts"
-              className="order-3 rounded-2xl border border-emerald-200 bg-emerald-50/45 px-4 py-3.5"
+              className="rounded-2xl border border-emerald-200 bg-emerald-50/45 px-4 py-3.5"
             >
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div>
@@ -1293,28 +1326,6 @@ export function HotelRoomBoard({
             </section>
           ) : null}
 
-          {unassignedGroups.future.length ? (
-            <section
-              aria-label="향후 입실 미배정"
-              className="order-4 rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3"
-            >
-              <div className={cn("flex items-center justify-between gap-3", showFutureUnassigned && "mb-3")}>
-                <div>
-                  <h3 className="text-sm font-extrabold text-text-primary">향후 입실</h3>
-                  <p className="mt-0.5 text-xs text-text-muted">선택한 날짜 이후의 미배정 예약입니다.</p>
-                </div>
-                <button
-                  type="button"
-                  aria-expanded={showFutureUnassigned}
-                  onClick={() => setShowFutureUnassigned((current) => !current)}
-                  className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  {showFutureUnassigned ? "접기" : `${unassignedGroups.future.length}건 펼쳐보기`}
-                </button>
-              </div>
-              {showFutureUnassigned ? renderUnassignedCards(unassignedGroups.future) : null}
-            </section>
-          ) : null}
         </div>
       </div>
     </Card>
