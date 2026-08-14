@@ -1,4 +1,4 @@
-import { Clock3, GripVertical, Sparkles } from "lucide-react";
+import { ChevronDown, Clock3, GripVertical, Sparkles } from "lucide-react";
 import {
   type DragEvent,
   type PointerEvent as ReactPointerEvent,
@@ -26,6 +26,7 @@ import {
 } from "./hotelOperationsUi";
 
 type RoomBoardStage = "check_in" | "in_house" | "check_out";
+type MobileRoomFilter = "all" | RoomBoardStage | "empty";
 
 export type HotelRoomBoardDropAction = "assign" | "reassign" | "move";
 export type HotelRoomBoardRoomTarget =
@@ -34,6 +35,26 @@ export type HotelRoomBoardRoomTarget =
   | "blocked";
 
 const ROOM_BOARD_DRAG_THRESHOLD = 7;
+const MOBILE_ROOM_BOARD_QUERY = "(max-width: 767px)";
+
+function useMobileRoomBoardProjection() {
+  const [mobile, setMobile] = useState(() =>
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia(MOBILE_ROOM_BOARD_QUERY).matches
+      : false,
+  );
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia(MOBILE_ROOM_BOARD_QUERY);
+    const sync = () => setMobile(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  return mobile;
+}
 
 export function isHotelRoomBoardDragGesture(
   deltaX: number,
@@ -324,6 +345,26 @@ function roomStageClass(stage: RoomBoardStage | null) {
   return "border-slate-200/60 bg-transparent";
 }
 
+function daycareRoomStage(reservation: DaycareReservation): RoomBoardStage {
+  return reservation.lifecycleStatus === "checked_in" ? "in_house" : "check_in";
+}
+
+function roomBoardRoomStage(
+  stays: readonly HotelStay[],
+  sharedOccupancy: SharedHotelOccupancy | null,
+  daycareReservation: DaycareReservation | null,
+  staysById: ReadonlyMap<string, HotelStay>,
+  selectedDate: string,
+) {
+  if (daycareReservation) return daycareRoomStage(daycareReservation);
+  if (sharedOccupancy) {
+    return sharedRoomCardStage(sharedOccupancy, staysById, selectedDate);
+  }
+  return stays[0]
+    ? hotelRoomBoardDogStatus(stays[0], selectedDate).stage
+    : null;
+}
+
 function stayRoomId(stay: HotelStay, selectedInstant?: string) {
   return activeHotelAllocation(stay, selectedInstant)?.roomId ?? null;
 }
@@ -336,6 +377,7 @@ function DraggableStayCard({
   returning,
   settling,
   variant,
+  mobile = false,
   onOpen,
   onSelectForDrop,
   onDragStart,
@@ -348,6 +390,7 @@ function DraggableStayCard({
   returning: boolean;
   settling: boolean;
   variant: "waiting" | "room";
+  mobile?: boolean;
   onOpen: () => void;
   onSelectForDrop: (stayId: string) => void;
   onDragStart: (event: DragEvent<HTMLDivElement>, stayId: string) => void;
@@ -413,8 +456,11 @@ function DraggableStayCard({
       className={cn(
         "hotel-room-card-settle group relative select-none rounded-xl border shadow-sm transition-[transform,box-shadow,opacity] duration-200 ease-out will-change-transform",
         variant === "waiting"
-          ? "border-amber-300 bg-amber-50 px-2.5 py-1.5 text-amber-950"
-          : `px-2 py-1 ${stageClass(stage)}`,
+          ? cn(
+              "border-amber-300 bg-amber-50 text-amber-950",
+              mobile ? "px-3 py-2.5" : "px-2.5 py-1.5",
+            )
+          : cn(mobile ? "px-3 py-2.5" : "px-2 py-1", stageClass(stage)),
         draggable &&
           "cursor-grab hover:-translate-y-0.5 hover:shadow-lg active:cursor-grabbing",
         dragging &&
@@ -456,13 +502,14 @@ function DraggableStayCard({
           className="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[15px] font-extrabold leading-5 tracking-[-0.015em] text-slate-950">
+            <span className={cn("block truncate font-extrabold tracking-[-0.015em] text-slate-950", mobile ? "text-base leading-6" : "text-[15px] leading-5")}>
               {stay.dogName}
             </span>
             <span className="mt-0.5 block">
               <span
                 className={cn(
-                  "inline-flex rounded-full px-1.5 py-px text-[9px] font-extrabold leading-[0.875rem] ring-1 ring-inset",
+                  "inline-flex rounded-full px-1.5 py-px font-extrabold ring-1 ring-inset",
+                  mobile ? "text-xs leading-5" : "text-[9px] leading-[0.875rem]",
                   stageBadgeClass(stage, variant === "waiting"),
                 )}
               >
@@ -472,14 +519,14 @@ function DraggableStayCard({
               </span>
             </span>
             {phaseTime ? (
-              <span className="mt-0.5 flex min-w-0 items-center gap-1 truncate text-[11px] font-bold tabular-nums text-slate-800">
+              <span className={cn("mt-0.5 flex min-w-0 items-center gap-1 truncate font-bold tabular-nums text-slate-800", mobile ? "text-xs leading-5" : "text-[11px]")}>
                 <Clock3 className="shrink-0" size={12} />
                 {variant === "waiting"
                   ? formatHotelScheduleTime(stay, "check_in")
                   : phaseTime}
               </span>
             ) : null}
-            <span className="block truncate text-[10px] font-semibold text-slate-500">
+            <span className={cn("block truncate font-semibold text-slate-500", mobile ? "text-xs leading-5" : "text-[10px]")}>
               {unspecified.roomType ? "객실 유형 미정" : roomType}
             </span>
           </span>
@@ -494,11 +541,13 @@ export function SharedRoomCard({
   staysById,
   selectedDate,
   onOpen,
+  mobile = false,
 }: {
   occupancy: SharedHotelOccupancy;
   staysById: ReadonlyMap<string, HotelStay>;
   selectedDate: string;
   onOpen: () => void;
+  mobile?: boolean;
 }) {
   const activeMembers = occupancy.members.filter((member) => member.status === "active");
   const cardStage = sharedRoomCardStage(occupancy, staysById, selectedDate);
@@ -509,7 +558,8 @@ export function SharedRoomCard({
       data-room-phase={cardStage ?? "unknown"}
       onClick={onOpen}
       className={cn(
-        "w-full rounded-xl border px-2 py-2 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        "w-full rounded-xl border text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        mobile ? "px-3 py-3" : "px-2 py-2",
         cardStage ? stageClass(cardStage) : "border-slate-300 bg-slate-50 text-slate-950",
       )}
     >
@@ -524,19 +574,19 @@ export function SharedRoomCard({
           const phaseTime = stay ? hotelRoomBoardPhaseTime(stay, selectedDate) : null;
           return (
             <span key={member.id} className="grid min-w-0 grid-cols-[1fr_auto] items-center gap-x-1.5">
-              <span className="truncate text-xs font-extrabold">{member.dogName}</span>
+              <span className={cn("truncate font-extrabold", mobile ? "text-sm leading-5" : "text-xs")}>{member.dogName}</span>
               {status ? (
-                <span className={cn("shrink-0 rounded-full px-1.5 py-px text-[9px] font-extrabold leading-[0.875rem] ring-1 ring-inset", stageBadgeClass(status.stage, false))}>
+                <span className={cn("shrink-0 rounded-full px-1.5 py-px font-extrabold ring-1 ring-inset", mobile ? "text-xs leading-5" : "text-[9px] leading-[0.875rem]", stageBadgeClass(status.stage, false))}>
                   {status.label}
                 </span>
-              ) : <span className="text-[9px] font-bold text-slate-500">일정 확인</span>}
-              {phaseTime ? <span className="col-span-2 truncate text-[9px] font-semibold tabular-nums text-slate-600">{phaseTime}</span> : null}
+              ) : <span className={cn("font-bold text-slate-500", mobile ? "text-xs" : "text-[9px]")}>일정 확인</span>}
+              {phaseTime ? <span className={cn("col-span-2 truncate font-semibold tabular-nums text-slate-600", mobile ? "text-xs leading-5" : "text-[9px]")}>{phaseTime}</span> : null}
             </span>
           );
         })}
       </span>
-      <span className="mt-1 block text-[11px] font-semibold">Shared Room · {activeMembers.length}마리</span>
-      <span className="mt-0.5 block text-[10px] text-slate-600">객실 1 · Capacity {occupancy.capacityUsed}</span>
+      <span className={cn("mt-1 block font-semibold", mobile ? "text-xs" : "text-[11px]")}>Shared Room · {activeMembers.length}마리</span>
+      {!mobile ? <span className="mt-0.5 block text-[10px] text-slate-600">객실 1 · Capacity {occupancy.capacityUsed}</span> : null}
     </button>
   );
 }
@@ -565,6 +615,7 @@ function RoomCell({
   onPointerDrop,
   onPointerStart,
   onTargetHover,
+  mobile = false,
 }: {
   room: HotelRoomSnapshot;
   stays: HotelStay[];
@@ -593,6 +644,7 @@ function RoomCell({
   onPointerDrop: (roomId: string) => void;
   onPointerStart: (stayId: string) => void;
   onTargetHover: (roomId: string | null) => void;
+  mobile?: boolean;
 }) {
   const targetState = draggedStay
     ? hotelRoomBoardRoomTarget(draggedStay, room, stays.length > 0 || Boolean(sharedOccupancy) || Boolean(daycareReservation))
@@ -602,13 +654,15 @@ function RoomCell({
     (targetState !== "change_type" || allowCrossTypeChange);
   const requiresRoomTypeChange = targetState === "change_type";
   const isHoveredDropTarget = acceptsDraggedStay && hoveredRoomId === room.id;
-  const roomStage = daycareReservation
+  const roomStage = daycareReservation && !mobile
     ? null
-    : sharedOccupancy
-    ? sharedRoomCardStage(sharedOccupancy, staysById, selectedDate)
-    : stays[0]
-      ? hotelRoomBoardDogStatus(stays[0], selectedDate).stage
-      : null;
+    : roomBoardRoomStage(
+        stays,
+        sharedOccupancy,
+        daycareReservation,
+        staysById,
+        selectedDate,
+      );
   return (
     <div
       data-testid={`hotel-room-board-room-${room.id}`}
@@ -653,9 +707,10 @@ function RoomCell({
       }}
       onPointerUp={() => onPointerDrop(room.id)}
       className={cn(
-        "relative min-h-[5.5rem] overflow-visible rounded-xl border p-1.5 transition-[transform,box-shadow,border-color,background-color,opacity] duration-200 ease-out will-change-transform",
+        "relative overflow-visible rounded-xl border transition-[transform,box-shadow,border-color,background-color,opacity] duration-200 ease-out will-change-transform",
+        mobile ? "min-h-[4.5rem] p-2.5" : "min-h-[5.5rem] p-1.5",
         roomStageClass(roomStage),
-        Boolean(daycareReservation) && "border-cyan-200 bg-cyan-50/55",
+        Boolean(daycareReservation) && !mobile && "border-cyan-200 bg-cyan-50/55",
         acceptsDraggedStay &&
           (requiresRoomTypeChange
             ? "border-dashed border-amber-500/70 bg-amber-50/60"
@@ -678,7 +733,7 @@ function RoomCell({
           {room.name}
         </b>
         {recommended && acceptsDraggedStay ? (
-          <span className="group/reason relative flex items-center gap-1 rounded-full bg-emerald-100/70 px-1.5 py-0.5 text-[10px] font-extrabold text-emerald-800">
+          <span className={cn("group/reason relative flex items-center gap-1 rounded-full bg-emerald-100/70 px-1.5 py-0.5 font-extrabold text-emerald-800", mobile ? "text-xs" : "text-[10px]")}>
             <Sparkles size={10} /> 추천
             <span
               role="tooltip"
@@ -693,12 +748,12 @@ function RoomCell({
       {daycareReservation ? (
         <button
           type="button"
-          className="w-full rounded-lg border border-cyan-200 bg-white px-2.5 py-2 text-left shadow-sm"
+          className={cn("w-full rounded-lg border border-cyan-200 bg-white text-left shadow-sm", mobile ? "px-3 py-2.5" : "px-2.5 py-2")}
           aria-label={`${daycareReservation.dog.name} 데이케어`}
         >
-          <span className="block truncate text-xs font-extrabold text-cyan-950">{daycareReservation.dog.name}</span>
-          <span className="mt-1 block text-[10px] font-bold text-cyan-700">데이케어 · {daycareReservation.lifecycleStatus === "checked_in" ? "이용중" : "예약"}</span>
-          <span className="mt-0.5 block text-[10px] text-cyan-800">퇴실 {new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(daycareReservation.endsAt))}</span>
+          <span className={cn("block truncate font-extrabold text-cyan-950", mobile ? "text-sm leading-5" : "text-xs")}>{daycareReservation.dog.name}</span>
+          <span className={cn("mt-1 block font-bold text-cyan-700", mobile ? "text-xs leading-5" : "text-[10px]")}>데이케어 · {daycareReservation.lifecycleStatus === "checked_in" ? "이용중" : "예약"}</span>
+          <span className={cn("mt-0.5 block text-cyan-800", mobile ? "text-xs leading-5" : "text-[10px]")}>퇴실 {new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(daycareReservation.endsAt))}</span>
         </button>
       ) : sharedOccupancy ? (
         <SharedRoomCard
@@ -706,6 +761,7 @@ function RoomCell({
           staysById={staysById}
           selectedDate={selectedDate}
           onOpen={() => onOpenSharedOccupancy(sharedOccupancy.id)}
+          mobile={mobile}
         />
       ) : stays.length ? (
         <div className="space-y-2">
@@ -719,6 +775,7 @@ function RoomCell({
               returning={returningStayId === stay.id}
               settling={settlingStayId === stay.id}
               variant="room"
+              mobile={mobile}
               onOpen={() => onOpenStay(stay.id)}
               onSelectForDrop={onSelectForDrop}
               onDragStart={onDragStart}
@@ -727,7 +784,7 @@ function RoomCell({
           ))}
         </div>
       ) : (
-        <div className="flex min-h-8 items-center justify-center px-2 text-center text-[9px] font-medium text-slate-400/60">
+        <div className={cn("flex min-h-8 items-center justify-center px-2 text-center font-medium text-slate-400/70", mobile ? "text-xs" : "text-[9px]")}>
           빈 호실
         </div>
       )}
@@ -786,6 +843,12 @@ export function HotelRoomBoard({
   const [settlingStayId, setSettlingStayId] = useState<string | null>(null);
   const [returningStayId, setReturningStayId] = useState<string | null>(null);
   const [showFutureUnassigned, setShowFutureUnassigned] = useState(false);
+  const [showCompletedCheckouts, setShowCompletedCheckouts] = useState(false);
+  const [mobileFilter, setMobileFilter] = useState<MobileRoomFilter>("all");
+  const [mobileAccordionState, setMobileAccordionState] = useState<
+    Partial<Record<"DELUXE" | "STANDARD", boolean>>
+  >({});
+  const mobileProjection = useMobileRoomBoardProjection();
   const boardInstant = selectedDateIsToday
     ? new Date().toISOString()
     : undefined;
@@ -802,7 +865,12 @@ export function HotelRoomBoard({
     },
     [],
   );
-  useEffect(() => setShowFutureUnassigned(false), [selectedDate]);
+  useEffect(() => {
+    setShowFutureUnassigned(false);
+    setShowCompletedCheckouts(false);
+    setMobileFilter("all");
+    setMobileAccordionState({});
+  }, [selectedDate]);
   const stays = snapshot.stays;
   const staysById = useMemo(
     () => new Map([...snapshot.stays, ...snapshot.unassignedFuture, ...sharedMemberStays].map((stay) => [stay.id, stay])),
@@ -1053,13 +1121,17 @@ export function HotelRoomBoard({
     }
   };
   const renderUnassignedCards = (items: HotelStay[]) => (
-    <div className="flex gap-3 overflow-x-auto overscroll-x-contain pb-1.5">
+    <div className={cn(
+      mobileProjection
+        ? "grid grid-cols-1 gap-2"
+        : "flex gap-3 overflow-x-auto overscroll-x-contain pb-1.5",
+    )}>
       {items.map((stay) => {
         const roomTypeReady = Boolean(stay.capacityReservation?.roomTypeId);
         return (
           <div
             key={stay.id}
-            className="min-w-[240px] max-w-[280px] flex-[0_0_260px]"
+            className={cn(!mobileProjection && "min-w-[240px] max-w-[280px] flex-[0_0_260px]")}
           >
             <DraggableStayCard
               stay={stay}
@@ -1073,13 +1145,14 @@ export function HotelRoomBoard({
               returning={returningStayId === stay.id}
               settling={settlingStayId === stay.id}
               variant="waiting"
+              mobile={mobileProjection}
               onOpen={() => onOpenStay(stay.id)}
               onSelectForDrop={selectForDrop}
               onDragStart={beginNativeDrag}
               onPointerStart={beginPointerDrag}
             />
             {!roomTypeReady ? (
-              <p className="mt-1 px-1 text-[11px] font-medium text-amber-700">
+              <p className={cn("mt-1 px-1 font-medium text-amber-700", mobileProjection ? "text-xs" : "text-[11px]")}>
                 객실 유형을 먼저 확정해 주세요.
               </p>
             ) : null}
@@ -1087,6 +1160,38 @@ export function HotelRoomBoard({
         );
       })}
     </div>
+  );
+  const renderRoomCell = (room: HotelRoomSnapshot, mobile = false) => (
+    <RoomCell
+      key={room.id}
+      room={room}
+      stays={roomStays.get(room.id) ?? []}
+      sharedOccupancy={sharedByRoom.get(room.id) ?? null}
+      daycareReservation={daycareByRoom.get(room.id) ?? null}
+      staysById={staysById}
+      selectedDate={selectedDate}
+      draggedStay={draggedStay}
+      draggedStayId={draggedStayId}
+      returningStayId={returningStayId}
+      settlingStayId={settlingStayId}
+      hoveredRoomId={hoveredRoomId}
+      recommended={recommendedRoomId === room.id}
+      settling={settlingRoomId === room.id}
+      processing={
+        processing ||
+        (processingStayId !== null && processingStayId === draggedStayId)
+      }
+      allowCrossTypeChange={allowCrossTypeChange}
+      onOpenStay={onOpenStay}
+      onOpenSharedOccupancy={onOpenSharedOccupancy}
+      onDropStay={commitDrop}
+      onDragStart={beginNativeDrag}
+      onSelectForDrop={selectForDrop}
+      onPointerDrop={commitPointerDrop}
+      onPointerStart={beginPointerDrag}
+      onTargetHover={setHoveredRoomId}
+      mobile={mobile}
+    />
   );
 
   return (
@@ -1102,7 +1207,7 @@ export function HotelRoomBoard({
         <div className="border-b border-border px-4 py-4 sm:px-5 lg:px-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-primary">
+              <p className={cn("font-extrabold uppercase tracking-[0.16em] text-primary", mobileProjection ? "text-xs" : "text-[11px]")}>
                 Room Board
               </p>
               <h2 className="mt-1 text-xl font-extrabold text-text-primary">
@@ -1133,7 +1238,7 @@ export function HotelRoomBoard({
               </div>
             ))}
           </dl>
-          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-medium text-text-muted">
+          <div className={cn("mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-medium text-text-muted", mobileProjection ? "text-xs" : "text-[11px]")}>
             <span>카드를 눌러 상세 보기</span>
             <span className="sm:hidden">이동 아이콘을 누른 뒤 대상 호실을 누르세요</span>
             <span className="hidden sm:inline">끌어서 호실 배정·이동</span>
@@ -1180,7 +1285,9 @@ export function HotelRoomBoard({
                 </h3>
                 <p className="mt-0.5 text-xs text-text-secondary">
                   {unassigned.length
-                    ? "입실 대기 · 호실로 드래그하세요"
+                    ? mobileProjection
+                      ? "입실 대기 · 이동 아이콘을 누른 뒤 대상 호실을 선택하세요"
+                      : "입실 대기 · 호실로 드래그하세요"
                     : "현재 미배정 예약이 없습니다."}
                 </p>
               </div>
@@ -1237,79 +1344,135 @@ export function HotelRoomBoard({
             </section>
           ) : null}
 
-          <div className="min-w-0 space-y-6 overflow-x-auto overscroll-x-contain pb-2">
-            {(["DELUXE", "STANDARD"] as const).map((roomTypeCode) => {
-              const rooms = activeRooms.filter(
-                (room) => room.roomTypeCode === roomTypeCode,
-              );
-              const usedCount = rooms.filter(
-                (room) => (roomStays.get(room.id) ?? []).length > 0 || sharedByRoom.has(room.id) || daycareByRoom.has(room.id),
-              ).length;
-              const remainingCount = Math.max(rooms.length - usedCount, 0);
+          {mobileProjection ? (
+            <div className="min-w-0 space-y-4" data-testid="hotel-room-board-mobile-projection">
+              <section aria-label="현재 객실 상태 필터">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-base font-extrabold text-text-primary">현재 객실</h3>
+                    <p className="mt-0.5 text-xs font-medium text-text-secondary">선택한 날짜의 객실 상태</p>
+                  </div>
+                  {draggedStay ? <Badge tone="blue">이동할 호실 선택</Badge> : null}
+                </div>
+                <div className="grid grid-cols-5 gap-1.5" role="group" aria-label="객실 상태">
+                  {([
+                    ["all", "전체"],
+                    ["check_in", "입실"],
+                    ["in_house", "이용중"],
+                    ["check_out", "퇴실"],
+                    ["empty", "빈방"],
+                  ] as const).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={!draggedStay && mobileFilter === value}
+                      disabled={Boolean(draggedStay)}
+                      onClick={() => setMobileFilter(value)}
+                      className={cn(
+                        "min-h-11 rounded-xl border px-1.5 text-xs font-extrabold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                        !draggedStay && mobileFilter === value
+                          ? "border-primary bg-primary text-white"
+                          : "border-slate-200 bg-white text-slate-700",
+                        Boolean(draggedStay) && "opacity-50",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </section>
 
-              return (
-                <section
-                  key={roomTypeCode}
-                  aria-label={`${roomTypeCode} Room Board`}
-                >
-                  <div className="mb-3 flex items-end justify-between gap-3 border-b border-border pb-2">
-                    <div>
-                      <h3 className="text-base font-extrabold text-text-primary">
-                        {roomTypeCode}
-                      </h3>
-                      <p className="mt-0.5 text-xs font-semibold text-text-secondary">
-                        {usedCount} / {rooms.length} 사용
-                      </p>
-                    </div>
-                    <Badge tone={remainingCount ? "green" : "amber"}>
-                      {remainingCount}실 잔여
-                    </Badge>
-                  </div>
-                  <div
-                    className={cn(
-                      "grid gap-3",
-                      roomTypeCode === "DELUXE"
-                        ? "min-w-[720px] grid-cols-6"
-                        : "min-w-[600px] grid-cols-5",
-                    )}
+              {(["DELUXE", "STANDARD"] as const).map((roomTypeCode) => {
+                const rooms = activeRooms.filter((room) => room.roomTypeCode === roomTypeCode);
+                const occupied = rooms.filter((room) => occupiedRoomIds.has(room.id));
+                const empty = rooms.filter((room) => !occupiedRoomIds.has(room.id));
+                const defaultExpanded = occupied.length > 0;
+                const expanded = Boolean(draggedStay) ||
+                  (mobileAccordionState[roomTypeCode] ?? defaultExpanded);
+                const effectiveFilter = draggedStay ? "all" : mobileFilter;
+                const visibleOccupied = occupied.filter((room) => {
+                  if (effectiveFilter === "all") return true;
+                  if (effectiveFilter === "empty") return false;
+                  return roomBoardRoomStage(
+                    roomStays.get(room.id) ?? [],
+                    sharedByRoom.get(room.id) ?? null,
+                    daycareByRoom.get(room.id) ?? null,
+                    staysById,
+                    selectedDate,
+                  ) === effectiveFilter;
+                });
+                const visibleEmpty = effectiveFilter === "all" || effectiveFilter === "empty"
+                  ? empty
+                  : [];
+
+                return (
+                  <section
+                    key={roomTypeCode}
+                    aria-label={`${roomTypeCode} 모바일 Room Board`}
+                    className="overflow-hidden rounded-2xl border border-border bg-surface"
                   >
-                    {rooms.map((room) => (
-                      <RoomCell
-                        key={room.id}
-                        room={room}
-                        stays={roomStays.get(room.id) ?? []}
-                        sharedOccupancy={sharedByRoom.get(room.id) ?? null}
-                        daycareReservation={daycareByRoom.get(room.id) ?? null}
-                        staysById={staysById}
-                        selectedDate={selectedDate}
-                        draggedStay={draggedStay}
-                        draggedStayId={draggedStayId}
-                        returningStayId={returningStayId}
-                        settlingStayId={settlingStayId}
-                        hoveredRoomId={hoveredRoomId}
-                        recommended={recommendedRoomId === room.id}
-                        settling={settlingRoomId === room.id}
-                        processing={
-                          processing ||
-                          (processingStayId !== null &&
-                            processingStayId === draggedStayId)
-                        }
-                        allowCrossTypeChange={allowCrossTypeChange}
-                        onOpenStay={onOpenStay}
-                        onOpenSharedOccupancy={onOpenSharedOccupancy}
-                        onDropStay={commitDrop}
-                        onDragStart={beginNativeDrag}
-                        onSelectForDrop={selectForDrop}
-                        onPointerDrop={commitPointerDrop}
-                        onPointerStart={beginPointerDrag}
-                        onTargetHover={setHoveredRoomId}
-                      />
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
-          </div>
+                    <button
+                      type="button"
+                      aria-expanded={expanded}
+                      onClick={() => setMobileAccordionState((current) => ({
+                        ...current,
+                        [roomTypeCode]: !expanded,
+                      }))}
+                      className="flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                    >
+                      <span>
+                        <strong className="block text-base text-text-primary">{roomTypeCode}</strong>
+                        <span className="mt-0.5 block text-xs font-semibold text-text-secondary">
+                          {occupied.length} 사용 / {empty.length} 빈방
+                        </span>
+                      </span>
+                      <ChevronDown className={cn("shrink-0 transition-transform", expanded && "rotate-180")} size={20} />
+                    </button>
+                    {expanded ? (
+                      <div className="border-t border-border px-3 py-3">
+                        {visibleOccupied.length ? (
+                          <div className="grid grid-cols-1 gap-3" data-testid={`${roomTypeCode.toLowerCase()}-mobile-occupied`}>
+                            {visibleOccupied.map((room) => renderRoomCell(room, true))}
+                          </div>
+                        ) : null}
+                        {visibleEmpty.length ? (
+                          <div className={cn("grid grid-cols-2 gap-2", visibleOccupied.length > 0 && "mt-3")} data-testid={`${roomTypeCode.toLowerCase()}-mobile-empty`}>
+                            {visibleEmpty.map((room) => renderRoomCell(room, true))}
+                          </div>
+                        ) : null}
+                        {!visibleOccupied.length && !visibleEmpty.length ? (
+                          <p className="rounded-xl bg-slate-50 px-3 py-4 text-center text-xs font-medium text-text-muted">선택한 상태의 객실이 없습니다.</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </section>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="min-w-0 space-y-6 overflow-x-auto overscroll-x-contain pb-2" data-testid="hotel-room-board-desktop-projection">
+              {(["DELUXE", "STANDARD"] as const).map((roomTypeCode) => {
+                const rooms = activeRooms.filter((room) => room.roomTypeCode === roomTypeCode);
+                const usedCount = rooms.filter((room) => occupiedRoomIds.has(room.id)).length;
+                const remainingCount = Math.max(rooms.length - usedCount, 0);
+
+                return (
+                  <section key={roomTypeCode} aria-label={`${roomTypeCode} Room Board`}>
+                    <div className="mb-3 flex items-end justify-between gap-3 border-b border-border pb-2">
+                      <div>
+                        <h3 className="text-base font-extrabold text-text-primary">{roomTypeCode}</h3>
+                        <p className="mt-0.5 text-xs font-semibold text-text-secondary">{usedCount} / {rooms.length} 사용</p>
+                      </div>
+                      <Badge tone={remainingCount ? "green" : "amber"}>{remainingCount}실 잔여</Badge>
+                    </div>
+                    <div className={cn("grid gap-3", roomTypeCode === "DELUXE" ? "min-w-[720px] grid-cols-6" : "min-w-[600px] grid-cols-5")}>
+                      {rooms.map((room) => renderRoomCell(room))}
+                    </div>
+                  </section>
+                );
+              })}
+            </div>
+          )}
 
           {completedCheckouts.length ? (
             <section
@@ -1317,14 +1480,27 @@ export function HotelRoomBoard({
               data-testid="hotel-room-board-completed-checkouts"
               className="rounded-2xl border border-emerald-200 bg-emerald-50/45 px-4 py-3.5"
             >
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-base font-extrabold text-text-primary">퇴실 완료</h3>
-                  <p className="mt-0.5 text-xs text-text-secondary">선택한 날짜의 실제 퇴실 처리 명단입니다.</p>
-                </div>
-                <Badge tone="green">{completedCheckouts.length}건</Badge>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <button
+                type="button"
+                aria-expanded={!mobileProjection || showCompletedCheckouts}
+                disabled={!mobileProjection}
+                onClick={() => setShowCompletedCheckouts((current) => !current)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                  (!mobileProjection || showCompletedCheckouts) && "mb-3",
+                  mobileProjection && "min-h-11",
+                )}
+              >
+                <span>
+                  <span className="block text-base font-extrabold text-text-primary">퇴실 완료</span>
+                  <span className="mt-0.5 block text-xs text-text-secondary">선택한 날짜의 실제 퇴실 처리 명단입니다.</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <Badge tone="green">{completedCheckouts.length}건</Badge>
+                  {mobileProjection ? <ChevronDown className={cn("transition-transform", showCompletedCheckouts && "rotate-180")} size={20} /> : null}
+                </span>
+              </button>
+              {!mobileProjection || showCompletedCheckouts ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {completedCheckouts.map((stay) => {
                   const allocation = [...stay.roomAllocations].sort((left, right) =>
                     right.allocatedFrom.localeCompare(left.allocatedFrom),
@@ -1343,7 +1519,7 @@ export function HotelRoomBoard({
                     >
                       <span className="min-w-0">
                         <strong className="block truncate text-sm text-text-primary">{stay.dogName}</strong>
-                        <span className="block truncate text-[11px] font-medium text-text-secondary">
+                        <span className={cn("block truncate font-medium text-text-secondary", mobileProjection ? "text-xs" : "text-[11px]")}>
                           {roomName}{roomType ? ` · ${roomType}` : ""}
                         </span>
                       </span>
@@ -1351,7 +1527,7 @@ export function HotelRoomBoard({
                     </button>
                   );
                 })}
-              </div>
+              </div> : null}
             </section>
           ) : null}
 

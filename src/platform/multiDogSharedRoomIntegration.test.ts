@@ -37,7 +37,8 @@ describe("Multi-Dog Shared Room frontend contract", () => {
     expect(board).toContain("sharedMemberStayIds");
     expect(board).toContain("객실 1 · Capacity");
     expect(board).toContain("Shared Room · {activeMembers.length}마리");
-    expect(board).toContain("sharedByRoom.has(room.id)");
+    expect(board).toContain("...sharedByRoom.keys()");
+    expect(board).toContain("occupiedRoomIds.has(room.id)");
   });
 
   it("exposes existing-Stay merge and both-Dog reservation detail without internal terminology", () => {
