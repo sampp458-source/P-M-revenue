@@ -14,6 +14,7 @@ import type {
   HotelStay,
 } from "./hotelOperationsRepository";
 import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
+import type { DaycareReservation } from "./daycareOperationsRepository";
 import {
   activeHotelAllocation,
   formatHotelScheduleTime,
@@ -544,6 +545,7 @@ function RoomCell({
   room,
   stays,
   sharedOccupancy,
+  daycareReservation,
   staysById,
   selectedDate,
   draggedStay,
@@ -567,6 +569,7 @@ function RoomCell({
   room: HotelRoomSnapshot;
   stays: HotelStay[];
   sharedOccupancy: SharedHotelOccupancy | null;
+  daycareReservation: DaycareReservation | null;
   staysById: ReadonlyMap<string, HotelStay>;
   selectedDate: string;
   draggedStay: HotelStay | null;
@@ -592,14 +595,16 @@ function RoomCell({
   onTargetHover: (roomId: string | null) => void;
 }) {
   const targetState = draggedStay
-    ? hotelRoomBoardRoomTarget(draggedStay, room, stays.length > 0 || Boolean(sharedOccupancy))
+    ? hotelRoomBoardRoomTarget(draggedStay, room, stays.length > 0 || Boolean(sharedOccupancy) || Boolean(daycareReservation))
     : "blocked";
   const acceptsDraggedStay =
     targetState !== "blocked" &&
     (targetState !== "change_type" || allowCrossTypeChange);
   const requiresRoomTypeChange = targetState === "change_type";
   const isHoveredDropTarget = acceptsDraggedStay && hoveredRoomId === room.id;
-  const roomStage = sharedOccupancy
+  const roomStage = daycareReservation
+    ? null
+    : sharedOccupancy
     ? sharedRoomCardStage(sharedOccupancy, staysById, selectedDate)
     : stays[0]
       ? hotelRoomBoardDogStatus(stays[0], selectedDate).stage
@@ -650,6 +655,7 @@ function RoomCell({
       className={cn(
         "relative min-h-[5.5rem] overflow-visible rounded-xl border p-1.5 transition-[transform,box-shadow,border-color,background-color,opacity] duration-200 ease-out will-change-transform",
         roomStageClass(roomStage),
+        Boolean(daycareReservation) && "border-cyan-200 bg-cyan-50/55",
         acceptsDraggedStay &&
           (requiresRoomTypeChange
             ? "border-dashed border-amber-500/70 bg-amber-50/60"
@@ -684,7 +690,17 @@ function RoomCell({
         ) : null}
       </div>
 
-      {sharedOccupancy ? (
+      {daycareReservation ? (
+        <button
+          type="button"
+          className="w-full rounded-lg border border-cyan-200 bg-white px-2.5 py-2 text-left shadow-sm"
+          aria-label={`${daycareReservation.dog.name} 데이케어`}
+        >
+          <span className="block truncate text-xs font-extrabold text-cyan-950">{daycareReservation.dog.name}</span>
+          <span className="mt-1 block text-[10px] font-bold text-cyan-700">데이케어 · {daycareReservation.lifecycleStatus === "checked_in" ? "이용중" : "예약"}</span>
+          <span className="mt-0.5 block text-[10px] text-cyan-800">퇴실 {new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(daycareReservation.endsAt))}</span>
+        </button>
+      ) : sharedOccupancy ? (
         <SharedRoomCard
           occupancy={sharedOccupancy}
           staysById={staysById}
@@ -735,6 +751,7 @@ export function HotelRoomBoard({
   snapshot,
   sharedOccupancies = [],
   sharedMemberStays = [],
+  daycareReservations = [],
   selectedDate,
   selectedDateIsToday,
   processing,
@@ -748,6 +765,7 @@ export function HotelRoomBoard({
   snapshot: HotelOperationsSnapshot;
   sharedOccupancies?: readonly SharedHotelOccupancy[];
   sharedMemberStays?: readonly HotelStay[];
+  daycareReservations?: readonly DaycareReservation[];
   selectedDate: string;
   selectedDateIsToday: boolean;
   processing: boolean;
@@ -842,6 +860,12 @@ export function HotelRoomBoard({
     () => new Map(sharedOccupancies.filter((occupancy) => occupancy.status === "active").map((occupancy) => [occupancy.roomId, occupancy])),
     [sharedOccupancies],
   );
+  const daycareByRoom = useMemo(
+    () => new Map(daycareReservations
+      .filter((reservation) => reservation.roomAllocation && reservation.lifecycleStatus !== "completed" && reservation.lifecycleStatus !== "cancelled")
+      .map((reservation) => [reservation.roomAllocation!.roomId, reservation])),
+    [daycareReservations],
+  );
   const activeRooms = useMemo(
     () =>
       snapshot.rooms
@@ -854,8 +878,8 @@ export function HotelRoomBoard({
     [snapshot.rooms],
   );
   const occupiedRoomIds = useMemo(
-    () => new Set([...roomStays.keys(), ...sharedByRoom.keys()]),
-    [roomStays, sharedByRoom],
+    () => new Set([...roomStays.keys(), ...sharedByRoom.keys(), ...daycareByRoom.keys()]),
+    [daycareByRoom, roomStays, sharedByRoom],
   );
   const boardSummary = useMemo(() => {
     const phases = boardStays.map((stay) => hotelStayDayPhase(stay, selectedDate));
@@ -1215,7 +1239,7 @@ export function HotelRoomBoard({
                 (room) => room.roomTypeCode === roomTypeCode,
               );
               const usedCount = rooms.filter(
-                (room) => (roomStays.get(room.id) ?? []).length > 0 || sharedByRoom.has(room.id),
+                (room) => (roomStays.get(room.id) ?? []).length > 0 || sharedByRoom.has(room.id) || daycareByRoom.has(room.id),
               ).length;
               const remainingCount = Math.max(rooms.length - usedCount, 0);
 
@@ -1251,6 +1275,7 @@ export function HotelRoomBoard({
                         room={room}
                         stays={roomStays.get(room.id) ?? []}
                         sharedOccupancy={sharedByRoom.get(room.id) ?? null}
+                        daycareReservation={daycareByRoom.get(room.id) ?? null}
                         staysById={staysById}
                         selectedDate={selectedDate}
                         draggedStay={draggedStay}

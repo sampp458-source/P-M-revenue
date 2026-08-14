@@ -45,6 +45,11 @@ import {
   SettingsModal,
 } from "./HotelOperationsModals";
 import { HotelRoomBoard } from "./HotelRoomBoard";
+import { DaycareOperationsPanel } from "./DaycareOperationsPanel";
+import {
+  fetchDaycareOperationsForDate,
+  type DaycareReservation,
+} from "./daycareOperationsRepository";
 import {
   ExistingStaySharedRoomMergeModal,
   SharedHotelRoomModal,
@@ -306,6 +311,8 @@ export function HotelOperationsPage() {
   const [quickFilter, setQuickFilter] = useState<HotelQuickFilter>("all");
   const [showSupportDetails, setShowSupportDetails] = useState(false);
   const [snapshot, setSnapshot] = useState<HotelOperationsSnapshot | null>(null);
+  const [daycareReservations, setDaycareReservations] =
+    useState<DaycareReservation[]>([]);
   const [sharedOccupancies, setSharedOccupancies] = useState<readonly SharedHotelOccupancy[]>([]);
   const [sharedMemberStays, setSharedMemberStays] = useState<readonly HotelStay[]>([]);
   const [selectedSharedOccupancyId, setSelectedSharedOccupancyId] = useState<string | null>(null);
@@ -391,14 +398,16 @@ export function HotelOperationsPage() {
 
   const loadSnapshot = useCallback(async (date: string) => {
     if (!isValidHotelSnapshotDate(date)) return null;
-    const [value, shared] = await Promise.all([
+    const [value, shared, daycare] = await Promise.all([
       fetchHotelOperationsSnapshot(date),
       sharedHotelRoomRepository.listForDate(date),
+      fetchDaycareOperationsForDate(date),
     ]);
     const memberStays = await loadSharedMemberStays(shared);
     setSnapshot(value);
     setSharedOccupancies(shared);
     setSharedMemberStays(memberStays);
+    setDaycareReservations(daycare);
     return value;
   }, [loadSharedMemberStays]);
 
@@ -408,9 +417,10 @@ export function HotelOperationsPage() {
     setLoading(true);
     setLoadError("");
     try {
-      const [nextSnapshot, nextShared, nextOptions, nextRole] = await Promise.all([
+      const [nextSnapshot, nextShared, nextDaycare, nextOptions, nextRole] = await Promise.all([
         fetchHotelOperationsSnapshot(selectedDate),
         sharedHotelRoomRepository.listForDate(selectedDate),
+        fetchDaycareOperationsForDate(selectedDate),
         fetchOperationScheduleOptions(),
         fetchCurrentOperationRole(profile.id),
       ]);
@@ -419,6 +429,7 @@ export function HotelOperationsPage() {
       setSnapshot(nextSnapshot);
       setSharedOccupancies(nextShared);
       setSharedMemberStays(nextSharedMemberStays);
+      setDaycareReservations(nextDaycare);
       setOptions(nextOptions);
       setOperationRole(nextRole);
     } catch (error) {
@@ -1048,6 +1059,7 @@ export function HotelOperationsPage() {
         snapshot={snapshot}
         sharedOccupancies={sharedOccupancies}
         sharedMemberStays={sharedMemberStays}
+        daycareReservations={daycareReservations}
         selectedDate={selectedDate}
         selectedDateIsToday={selectedDateIsToday}
         processing={processing}
@@ -1057,6 +1069,14 @@ export function HotelOperationsPage() {
         onOpenSharedOccupancy={setSelectedSharedOccupancyId}
         onDropStay={dropStayOnRoom}
         onUnassignStay={requestUnassignRoom}
+      />
+
+      <DaycareOperationsPanel
+        reservations={daycareReservations}
+        snapshot={snapshot}
+        onChanged={async () => {
+          await loadSnapshot(selectedDate);
+        }}
       />
 
       <LongStayOperationsPanel

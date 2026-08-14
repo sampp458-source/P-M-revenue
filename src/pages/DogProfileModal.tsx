@@ -1,8 +1,10 @@
 import {
   Clock3,
+  CalendarDays,
   Pencil,
   UserRound,
 } from "lucide-react";
+import { useState } from "react";
 import {
   ProfileContent,
   ProfileField,
@@ -34,6 +36,7 @@ import {
   type DogProfileActivity,
 } from "./dogProfile";
 import { LongStayProfileSection } from "./LongStayProfileSection";
+import { DaycareReservationModal } from "./DaycareReservationModal";
 
 export interface DogProfileDog {
   id: string;
@@ -84,6 +87,7 @@ export function DogProfileModal({
   onEditOwner: () => void;
   onRetry: () => void;
 }) {
+  const [daycareOpen, setDaycareOpen] = useState(false);
   if (!dog) return null;
   const activeActivities = activeDogActivities(activities);
   const usage = summarizeDogUsage(activities);
@@ -117,13 +121,26 @@ export function DogProfileModal({
           }
           actions={
             canEditDog ? (
-            <Button variant="secondary" onClick={onEditDog}>
-              <Pencil size={16} />
-              반려견 정보 수정
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {owner ? <Button variant="secondary" onClick={() => setDaycareOpen(true)}>
+                <CalendarDays size={16} />
+                데이케어 예약
+              </Button> : null}
+              <Button variant="secondary" onClick={onEditDog}>
+                <Pencil size={16} />
+                반려견 정보 수정
+              </Button>
+            </div>
             ) : null
           }
         />
+
+        {owner ? <DaycareReservationModal
+          open={daycareOpen}
+          prefill={{ customerId: owner.id, dogId: dog.id }}
+          onClose={() => setDaycareOpen(false)}
+          onSaved={() => undefined}
+        /> : null}
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
           <button

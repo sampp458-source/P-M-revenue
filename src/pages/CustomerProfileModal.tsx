@@ -46,6 +46,7 @@ import {
 } from "../platform/familyBookingRepository";
 import type { FamilyBookingRecord } from "../platform/familyBookingRepositoryContract";
 import { LongStayProfileSection } from "./LongStayProfileSection";
+import { DaycareReservationModal } from "./DaycareReservationModal";
 
 export function CustomerProfileModal({
   customerId,
@@ -68,6 +69,7 @@ export function CustomerProfileModal({
   const [familyBookingDetailsOpen, setFamilyBookingDetailsOpen] = useState(false);
   const [familyBookingSubmitting, setFamilyBookingSubmitting] = useState(false);
   const [familyBookingError, setFamilyBookingError] = useState("");
+  const [daycareOpen, setDaycareOpen] = useState(false);
 
   useEffect(() => {
     if (!customerId) {
@@ -107,6 +109,7 @@ export function CustomerProfileModal({
     setFamilyBookingDetailsOpen(false);
     setFamilyBookingSubmitting(false);
     setFamilyBookingError("");
+    setDaycareOpen(false);
   }, [customerId]);
 
   const customer = data?.customers.find((row) => row.id === customerId) ?? null;
@@ -194,6 +197,10 @@ export function CustomerProfileModal({
                     <Plus size={16} />
                     반려견 추가
                   </Button>
+                  <Button variant="secondary" onClick={() => setDaycareOpen(true)} disabled={!dogs.length}>
+                    <CalendarDays size={16} />
+                    데이케어 예약
+                  </Button>
                   <Button onClick={() => setFamilyBookingOpen(true)} disabled={!dogs.length}>
                     <UsersRound size={16} />
                     예약 생성
@@ -201,6 +208,13 @@ export function CustomerProfileModal({
                 </div>
               ) : null
             }
+          />
+
+          <DaycareReservationModal
+            open={daycareOpen}
+            prefill={{ customerId: customer.id }}
+            onClose={() => setDaycareOpen(false)}
+            onSaved={() => setReloadKey((value) => value + 1)}
           />
 
           {selectedFamilyBooking ? (

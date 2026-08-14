@@ -72,6 +72,11 @@ import {
   type OperationRole,
 } from "./operationsScheduleRepository";
 import { LegacyHotelConversionModal } from "./LegacyHotelConversionModal";
+import { DaycareReservationModal } from "./DaycareReservationModal";
+import {
+  fetchDaycareReservation,
+  type DaycareReservation,
+} from "./daycareOperationsRepository";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -187,6 +192,9 @@ export function OperationsCalendarFoundationPage() {
   const [legacyConversionSchedule, setLegacyConversionSchedule] =
     useState<OperationSchedule | null>(null);
   const [notice, setNotice] = useState("");
+  const [daycareModalOpen, setDaycareModalOpen] = useState(false);
+  const [daycareEditing, setDaycareEditing] =
+    useState<DaycareReservation | null>(null);
   const [noticeTone, setNoticeTone] = useState<
     "success" | "warning" | "error"
   >("success");
@@ -312,6 +320,16 @@ export function OperationsCalendarFoundationPage() {
   };
 
   const openEdit = (schedule: OperationSchedule) => {
+    if (schedule.daycareReservation) {
+      setDetail(null);
+      void fetchDaycareReservation(schedule.id)
+        .then((reservation) => {
+          setDaycareEditing(reservation);
+          setDaycareModalOpen(true);
+        })
+        .catch(() => showNotice("Daycare 예약을 불러오지 못했습니다.", "error"));
+      return;
+    }
     if (isHotelReservationSchedule(schedule)) {
       setDetail(null);
       openHotelManagementGuide(schedule);
@@ -615,8 +633,26 @@ export function OperationsCalendarFoundationPage() {
           if (monthKey(next) !== visibleMonth) setVisibleMonth(monthKey(next));
         }}
         onAdd={() => void openNew()}
+        onAddDaycare={() => {
+          setDaycareEditing(null);
+          setDaycareModalOpen(true);
+        }}
         onOpen={setDetail}
         currentUserId={profile?.id}
+      />
+
+      <DaycareReservationModal
+        open={daycareModalOpen}
+        reservation={daycareEditing}
+        prefill={{ serviceDate: selectedDate }}
+        onClose={() => {
+          setDaycareModalOpen(false);
+          setDaycareEditing(null);
+        }}
+        onSaved={async () => {
+          await loadMonth();
+          showNotice(daycareEditing ? "Daycare 예약을 수정했습니다." : "Daycare 예약을 등록했습니다.");
+        }}
       />
 
       <ScheduleFormModal
@@ -644,8 +680,20 @@ export function OperationsCalendarFoundationPage() {
         processing={saving}
         onClose={() => setDetail(null)}
         onEdit={openEdit}
-        onComplete={(schedule) => void completeSchedule(schedule)}
+        onComplete={(schedule) => {
+          if (schedule.daycareReservation) {
+            showNotice("객실형 Daycare는 Hotel Operations에서 입실·퇴실 처리해 주세요.", "warning");
+            setDetail(null);
+            return;
+          }
+          void completeSchedule(schedule);
+        }}
         onCancel={(schedule) => {
+          if (schedule.daycareReservation) {
+            showNotice("객실형 Daycare는 전용 상세에서 취소해 주세요.", "warning");
+            setDetail(null);
+            return;
+          }
           if (isHotelReservationSchedule(schedule)) {
             setDetail(null);
             openHotelManagementGuide(schedule);
@@ -655,6 +703,11 @@ export function OperationsCalendarFoundationPage() {
           setDetail(null);
         }}
         onArchive={(schedule) => {
+          if (schedule.daycareReservation) {
+            showNotice("객실형 Daycare는 일반 일정으로 삭제할 수 없습니다.", "warning");
+            setDetail(null);
+            return;
+          }
           if (isHotelReservationSchedule(schedule)) {
             setDetail(null);
             openHotelManagementGuide(schedule);
@@ -929,6 +982,7 @@ function DayDrawer({
   onPrevious,
   onNext,
   onAdd,
+  onAddDaycare,
   onOpen,
   currentUserId,
 }: {
@@ -942,6 +996,7 @@ function DayDrawer({
   onPrevious: () => void;
   onNext: () => void;
   onAdd: () => void;
+  onAddDaycare: () => void;
   onOpen: (schedule: OperationSchedule) => void;
   currentUserId?: string | null;
 }) {
@@ -1021,10 +1076,16 @@ function DayDrawer({
                 <ChevronRight size={17} />
               </button>
             </div>
-            <Button onClick={onAdd}>
-              <Plus size={17} />
-              일정 추가
-            </Button>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" onClick={onAddDaycare}>
+                <CalendarDays size={17} />
+                데이케어 예약
+              </Button>
+              <Button onClick={onAdd}>
+                <Plus size={17} />
+                일정 추가
+              </Button>
+            </div>
           </div>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3.5 sm:px-6">

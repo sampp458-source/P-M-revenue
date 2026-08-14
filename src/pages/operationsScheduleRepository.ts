@@ -57,6 +57,7 @@ export interface OperationSchedule {
   hotelStayId?: string | null;
   hotelEventKind?: HotelScheduleEventKind | null;
   hotelRoomTypeName?: string | null;
+  daycareReservation?: boolean;
   assignees: OperationPerson[];
   dogs: OperationDog[];
   customers: OperationCustomer[];
@@ -349,6 +350,7 @@ interface ScheduleRpcRow {
   hotelStayId?: string | null;
   hotelEventKind?: HotelScheduleEventKind | null;
   hotelRoomTypeName?: string | null;
+  daycareReservation?: boolean;
   assignees?: OperationPerson[];
   dogs?: Array<{ id: string; name: string; customerId: string | null }>;
   customers?: OperationCustomer[];
@@ -360,6 +362,7 @@ const mapSchedule = (row: ScheduleRpcRow): OperationSchedule => ({
   hotelStayId: row.hotelStayId ?? null,
   hotelEventKind: row.hotelEventKind ?? null,
   hotelRoomTypeName: row.hotelRoomTypeName ?? null,
+  daycareReservation: row.daycareReservation ?? false,
   assignees: row.assignees ?? [],
   dogs: row.dogs ?? [],
   customers: row.customers ?? [],
@@ -552,6 +555,31 @@ async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
     .filter(shouldDisplayOperationSchedule);
 }
 
+async function attachDaycareReservationIdentity(
+  schedules: OperationSchedule[],
+) {
+  const scheduleIds = schedules.map((schedule) => schedule.id);
+  if (scheduleIds.length === 0) return schedules;
+  const result = await supabase
+    .from("daycare_operation_states")
+    .select("operation_schedule_id")
+    .in("operation_schedule_id", scheduleIds);
+  throwScheduleError(result.error);
+  const daycareIds = new Set(
+    (result.data ?? []).map((row) => row.operation_schedule_id),
+  );
+  return schedules.map((schedule) => ({
+    ...schedule,
+    daycareReservation: daycareIds.has(schedule.id),
+  }));
+}
+
+async function attachOperationDomainLinks(schedules: OperationSchedule[]) {
+  return attachDaycareReservationIdentity(
+    await attachHotelScheduleLinks(schedules),
+  );
+}
+
 export async function fetchLegacyHotelScheduleCandidates(
   anchor: OperationSchedule,
   options: OperationScheduleOptions,
@@ -638,7 +666,7 @@ export async function fetchLegacyHotelScheduleCandidates(
         .filter((item): item is OperationCustomer => Boolean(item)),
     };
   });
-  return (await attachHotelScheduleLinks(mapped)).filter(isLegacyHotelSchedule);
+  return (await attachOperationDomainLinks(mapped)).filter(isLegacyHotelSchedule);
 }
 
 export function sortLegacyHotelCounterparts(
@@ -674,7 +702,7 @@ export async function fetchOperationSchedulesForDay(localDate: string) {
     p_local_date: localDate,
   });
   throwScheduleError(result.error);
-  return attachHotelScheduleLinks(
+  return attachOperationDomainLinks(
     (((result.data ?? []) as ScheduleRpcRow[]) || []).map(mapSchedule),
   );
 }
@@ -817,7 +845,7 @@ export async function fetchOperationSchedulesForRange(
         ),
     };
   });
-  return (await attachHotelScheduleLinks(schedules)).sort(
+  return (await attachOperationDomainLinks(schedules)).sort(
     compareOperationScheduleChronology,
   );
 }
