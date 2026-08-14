@@ -33,6 +33,7 @@ import {
   createNewScheduleFromForm,
   emptyForm,
   formFromSchedule,
+  initializeHotelScheduleForm,
   scheduleInputFromForm,
   type ScheduleForm,
 } from "./OperationsToday";
@@ -77,6 +78,11 @@ import {
   fetchDaycareReservation,
   type DaycareReservation,
 } from "./daycareOperationsRepository";
+import {
+  UnifiedOperationCreateEntryModal,
+  type UnifiedOperationCreateType,
+} from "./UnifiedOperationCreateEntryModal";
+import { LongStayRegistrationForm } from "./LongStayRegistrationForm";
 
 const WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -193,6 +199,9 @@ export function OperationsCalendarFoundationPage() {
     useState<OperationSchedule | null>(null);
   const [notice, setNotice] = useState("");
   const [daycareModalOpen, setDaycareModalOpen] = useState(false);
+  const [createEntryOpen, setCreateEntryOpen] = useState(false);
+  const [createScheduleType, setCreateScheduleType] = useState<"hotel" | "general" | null>(null);
+  const [longStayModalOpen, setLongStayModalOpen] = useState(false);
   const [daycareEditing, setDaycareEditing] =
     useState<DaycareReservation | null>(null);
   const [noticeTone, setNoticeTone] = useState<
@@ -295,11 +304,16 @@ export function OperationsCalendarFoundationPage() {
     setDrawerOpen(true);
   };
 
-  const openNew = async () => {
+  const openNew = () => {
     if (!options) {
       showNotice("일정 등록 정보를 불러오는 중입니다.", "warning");
       return;
     }
+    setCreateEntryOpen(true);
+  };
+
+  const openScheduleCreate = async (type: "hotel" | "general") => {
+    if (!options) return;
     const initial = emptyForm();
     initial.date = selectedDate;
     initial.endDate = selectedDate;
@@ -310,13 +324,35 @@ export function OperationsCalendarFoundationPage() {
       ),
     );
     initial.assigneeIds = profile?.id ? [profile.id] : [];
-    setHotelSnapshot(
-      await fetchHotelOperationsSnapshot(initial.date).catch(() => null),
-    );
-    setForm(initial);
+    const nextSnapshot = await fetchHotelOperationsSnapshot(initial.date).catch(() => null);
+    setHotelSnapshot(nextSnapshot);
+    if (type === "hotel") {
+      if (!nextSnapshot) {
+        showNotice("호텔 예약 정보를 불러오지 못했습니다.", "error");
+        return;
+      }
+      setForm(initializeHotelScheduleForm(initial, options, nextSnapshot));
+    } else {
+      setForm(initial);
+    }
+    setCreateScheduleType(type);
     setTitleManuallyEdited(false);
     setFormError("");
     setEditing("new");
+  };
+
+  const selectCreateType = (type: UnifiedOperationCreateType) => {
+    setCreateEntryOpen(false);
+    if (type === "daycare") {
+      setDaycareEditing(null);
+      setDaycareModalOpen(true);
+      return;
+    }
+    if (type === "long-stay") {
+      setLongStayModalOpen(true);
+      return;
+    }
+    void openScheduleCreate(type);
   };
 
   const openEdit = (schedule: OperationSchedule) => {
@@ -368,6 +404,7 @@ export function OperationsCalendarFoundationPage() {
           showNotice("새 일정을 등록했습니다.");
         }
         setEditing(null);
+        setCreateScheduleType(null);
         setSelectedDate(form.date);
       } catch (error) {
         setFormError(
@@ -641,6 +678,33 @@ export function OperationsCalendarFoundationPage() {
         currentUserId={profile?.id}
       />
 
+      <UnifiedOperationCreateEntryModal
+        open={createEntryOpen}
+        longStayAllowed={currentOperationRole === "owner" || currentOperationRole === "manager"}
+        onSelect={selectCreateType}
+        onClose={() => setCreateEntryOpen(false)}
+      />
+
+      <Modal
+        open={longStayModalOpen}
+        title="장기호텔 등록"
+        onClose={() => setLongStayModalOpen(false)}
+        wide
+        resetKey={`calendar-long-stay:${selectedDate}`}
+      >
+        <LongStayRegistrationForm
+          customers={options?.customers ?? []}
+          dogs={options?.dogs ?? []}
+          prefill={{ startedOn: selectedDate }}
+          onCancel={() => setLongStayModalOpen(false)}
+          onSaved={async () => {
+            setLongStayModalOpen(false);
+            await loadMonth();
+            showNotice("장기호텔 계약을 등록했습니다. Hotel Operations에서 이번 달 객실을 배정하세요.");
+          }}
+        />
+      </Modal>
+
       <DaycareReservationModal
         open={daycareModalOpen}
         reservation={daycareEditing}
@@ -667,9 +731,15 @@ export function OperationsCalendarFoundationPage() {
         onTitleManuallyEdited={setTitleManuallyEdited}
         onChange={setForm}
         onSubmit={save}
-        onClose={() => setEditing(null)}
+        onClose={() => {
+          setEditing(null);
+          setCreateScheduleType(null);
+        }}
         currentUserName={profile?.name}
         hotelSnapshot={hotelSnapshot}
+        calendarLocked={createScheduleType === "hotel"}
+        registrationTypeLocked={createScheduleType !== null}
+        createProductMode={createScheduleType ?? undefined}
       />
       <ScheduleDetailModal
         schedule={

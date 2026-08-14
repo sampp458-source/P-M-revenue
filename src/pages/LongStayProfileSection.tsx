@@ -7,12 +7,9 @@ import {
   EmptyState,
   Field,
   Input,
-  Select,
-  Textarea,
 } from "../components/ui";
 import { koDate } from "../lib/format";
 import {
-  createLongStayContract,
   getCustomerLongStays,
   getLongStayHotelVersion,
   getLongStayMonth,
@@ -29,6 +26,7 @@ import {
   type HotelOperationsSnapshot,
 } from "./hotelOperationsRepository";
 import { seoulDateKey } from "./operationsScheduleRepository";
+import { LongStayRegistrationForm } from "./LongStayRegistrationForm";
 
 interface ProfileDogOption {
   id: string;
@@ -61,15 +59,6 @@ export function LongStayProfileSection({
   const [error, setError] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedDogId, setSelectedDogId] = useState(dogId ?? dogs[0]?.id ?? "");
-  const [startedOn, setStartedOn] = useState(seoulDateKey);
-  const [plannedDate, setPlannedDate] = useState("");
-  const [roomTypeId, setRoomTypeId] = useState("");
-  const [roomId, setRoomId] = useState("");
-  const [monthlyRate, setMonthlyRate] = useState("");
-  const [billingDay, setBillingDay] = useState("1");
-  const [memo, setMemo] = useState("");
-  const [createRequestId, setCreateRequestId] = useState(newLongStayRequestId);
   const [reverseTarget, setReverseTarget] = useState<LongStayContractProjection | null>(null);
   const [reverseReason, setReverseReason] = useState("");
   const [reverseRequestId, setReverseRequestId] = useState(newLongStayRequestId);
@@ -94,48 +83,10 @@ export function LongStayProfileSection({
   }, [customerId]);
 
   useEffect(() => void load(), [load]);
-  useEffect(() => setSelectedDogId(dogId ?? dogs[0]?.id ?? ""), [dogId, dogs]);
-
   const visibleContracts = useMemo(
     () => contracts.filter((contract) => !dogId || contract.dogId === dogId),
     [contracts, dogId],
   );
-  const roomTypes = snapshot?.roomTypes ?? [];
-  const rooms = (snapshot?.rooms ?? []).filter(
-    (room) => room.isActive && Boolean(roomTypeId) && room.roomTypeId === roomTypeId,
-  );
-
-  const submit = async () => {
-    if (!selectedDogId || !startedOn || !monthlyRate || submitting) return;
-    setSubmitting(true);
-    setError("");
-    try {
-      await createLongStayContract({
-        customerId,
-        dogId: selectedDogId,
-        startedOn,
-        plannedCheckOutDate: plannedDate || null,
-        preferredRoomTypeId: roomTypeId || null,
-        preferredRoomId: roomId || null,
-        monthlyRate: Number(monthlyRate),
-        billingAnchorDay: Number(billingDay),
-        memo,
-      }, createRequestId);
-      setCreateOpen(false);
-      setMonthlyRate("");
-      setMemo("");
-      await load();
-    } catch (createError) {
-      setError(
-        createError instanceof LongStayRepositoryError || createError instanceof Error
-          ? createError.message
-          : "장기호텔 계약을 등록하지 못했습니다.",
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const submitReverse = async () => {
     if (!reverseTarget || submitting) return;
     setSubmitting(true);
@@ -169,7 +120,7 @@ export function LongStayProfileSection({
       title="장기호텔"
       description="계약 상태와 이번 달 실제 객실 배정을 함께 확인합니다."
       action={
-        <Button type="button" variant="secondary" disabled={!dogs.length} onClick={() => { setError(""); setReverseTarget(null); setCreateRequestId(newLongStayRequestId()); setCreateOpen(true); }}>
+        <Button type="button" variant="secondary" disabled={!dogs.length} onClick={() => { setError(""); setReverseTarget(null); setCreateOpen(true); }}>
           <Plus size={15} /> 장기호텔 등록
         </Button>
       }
@@ -211,14 +162,17 @@ export function LongStayProfileSection({
 
       {createOpen ? (
         <div className="mt-4 space-y-4 rounded-2xl border border-primary/20 bg-primary-subtle/40 p-4 sm:p-5" aria-label="장기호텔 등록 양식">
-          <div><h3 className="font-bold text-text-primary">장기호텔 등록</h3><p className="mt-1 text-xs text-text-secondary">계약을 등록한 뒤 월별 객실은 Hotel Operations에서 확정합니다.</p></div>
-          <Field label="반려견" required><Select value={selectedDogId} disabled={Boolean(dogId)} onChange={(event) => setSelectedDogId(event.target.value)}>{dogs.map((dog) => <option key={dog.id} value={dog.id}>{dog.name}</option>)}</Select></Field>
-          <div className="grid gap-4 sm:grid-cols-2"><Field label="시작일" required><Input type="date" value={startedOn} onChange={(event) => setStartedOn(event.target.value)} /></Field><Field label="퇴실 예정일"><Input type="date" value={plannedDate} min={startedOn} onChange={(event) => setPlannedDate(event.target.value)} /></Field></div>
-          <div className="grid gap-4 sm:grid-cols-2"><Field label="선호 객실 유형"><Select value={roomTypeId} onChange={(event) => { setRoomTypeId(event.target.value); setRoomId(""); }}><option value="">미정</option>{roomTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</Select></Field><Field label="선호 호실"><Select value={roomId} onChange={(event) => setRoomId(event.target.value)}><option value="">미정</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}</Select></Field></div>
-          <div className="grid gap-4 sm:grid-cols-2"><Field label="월 금액" required><Input type="number" min="0" step="1000" value={monthlyRate} onChange={(event) => setMonthlyRate(event.target.value)} /></Field><Field label="결제 기준일" help="객실의 월별 배정 기준과는 독립적입니다."><Input type="number" min="1" max="31" value={billingDay} onChange={(event) => setBillingDay(event.target.value)} /></Field></div>
-          <Field label="메모"><Textarea value={memo} onChange={(event) => setMemo(event.target.value)} /></Field>
-          <p className="rounded-xl bg-primary-subtle p-3 text-xs leading-5 text-text-secondary">등록은 계약만 생성합니다. 이번 달 객실은 Hotel Operations에서 직원이 별도로 확정합니다.</p>
-          <div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={submitting} onClick={() => setCreateOpen(false)}>취소</Button><Button type="button" disabled={submitting || !selectedDogId || !startedOn || Number(monthlyRate) < 0 || !monthlyRate} onClick={() => void submit()}>{submitting ? "등록 중..." : "계약 등록"}</Button></div>
+          <LongStayRegistrationForm
+            customers={[{ id: customerId, name: "현재 보호자" }]}
+            dogs={dogs.map((dog) => ({ ...dog, customerId }))}
+            prefill={{ customerId, dogId }}
+            initialHotelSnapshot={snapshot}
+            onCancel={() => setCreateOpen(false)}
+            onSaved={async () => {
+              setCreateOpen(false);
+              await load();
+            }}
+          />
         </div>
       ) : null}
       {reverseTarget ? (

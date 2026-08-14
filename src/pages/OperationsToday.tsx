@@ -1326,6 +1326,8 @@ export function ScheduleFormModal({
   modalTitle,
   modalResetKey,
   calendarLocked = false,
+  registrationTypeLocked = false,
+  createProductMode,
 }: {
   open: boolean;
   editing: OperationSchedule | "new" | null;
@@ -1344,6 +1346,8 @@ export function ScheduleFormModal({
   modalTitle?: string;
   modalResetKey?: string;
   calendarLocked?: boolean;
+  registrationTypeLocked?: boolean;
+  createProductMode?: "hotel" | "general";
 }) {
   const patch = (values: Partial<ScheduleForm>) => onChange({ ...form, ...values });
   const selectedCalendar = selectedOperationCalendar(form.calendarId, options);
@@ -1418,7 +1422,21 @@ export function ScheduleFormModal({
                 <Select disabled={calendarLocked} value={form.calendarId} onChange={(event) => {
                   const calendarId = event.target.value;
                   const nextForm =
-                    editing === "new" && options
+                    editing === "new" && options && createProductMode === "general"
+                      ? {
+                          ...form,
+                          calendarId,
+                          scheduleTypeId: defaultOperationScheduleTypeId(
+                            options.scheduleTypes.filter(
+                              (item) =>
+                                item.calendarIds?.includes(calendarId) &&
+                                item.name.trim() !== HOTEL_SCHEDULE_TYPE_NAME,
+                            ),
+                          ),
+                          hotelScheduleMode: "operation" as const,
+                          hotelRoomTypeId: "",
+                        }
+                      : editing === "new" && options
                       ? transitionScheduleFormCalendar(
                           form,
                           calendarId,
@@ -1462,7 +1480,7 @@ export function ScheduleFormModal({
                 </Select>
               </Field>
           </div>
-          {editing === "new" && selectedCalendarIsHotel && !calendarLocked ? (
+          {editing === "new" && selectedCalendarIsHotel && !calendarLocked && !registrationTypeLocked ? (
             <fieldset>
               <legend className="mb-2 text-sm font-semibold text-text-primary">
                 등록 유형
