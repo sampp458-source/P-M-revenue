@@ -10,6 +10,7 @@ const repositoryMocks = vi.hoisted(() => ({
   confirmLongStayMonth: vi.fn(), getLongStayContract: vi.fn(), getLongStayHotelVersion: vi.fn(),
   getLongStayMonth: vi.fn(), getLongStayRoomAvailability: vi.fn(), reverseLongStayCompletion: vi.fn(),
   setLongStayPlannedCheckout: vi.fn(), startLongStayAbsence: vi.fn(),
+  releaseLongStayRoomDuringAbsence: vi.fn(),
   getLongStayReturnRoomAvailability: vi.fn(), setLongStayAbsenceExpectedReturn: vi.fn(),
 }));
 vi.mock("../platform/longStayHotelRepository", async (importOriginal) => ({
@@ -33,6 +34,14 @@ const renderPanel = (value: LongStayMonthContractProjection) => {
   repositoryMocks.getLongStayMonth.mockResolvedValue({ serviceMonth: "2026-08-01", contracts: [value] });
   repositoryMocks.startLongStayAbsence.mockResolvedValue({ ...value, storedStatus: "active", isAway: true });
   repositoryMocks.completeLongStayAbsence.mockResolvedValue({ ...value, storedStatus: "active", isAway: false });
+  repositoryMocks.releaseLongStayRoomDuringAbsence.mockResolvedValue({
+    ...value,
+    isAway: true,
+    currentRoom: null,
+    currentAbsence: value.currentAbsence
+      ? { ...value.currentAbsence, inventoryMode: "release_room", inventoryTransitionStatus: "room_released" }
+      : null,
+  });
   return render(<LongStayOperationsPanel snapshot={snapshot as never} options={options as never} operationRole="owner" selectedBusinessDate="2026-08-14" onHotelSnapshotRefresh={vi.fn().mockResolvedValue(undefined)} />);
 };
 
@@ -100,5 +109,56 @@ describe("Long Stay outing expected-return UI", () => {
     cleanup(); vi.clearAllMocks();
     renderPanel(projection({ isAway: true, currentAbsence: { id: "leave-3", leftAt: "2026-08-14T01:00:00Z", expectedReturnAt: null, expectedReturnDate: null, expectedReturnTimeUnspecified: true } }));
     expect((await screen.findAllByText("미정")).length).toBeGreaterThan(0);
+  });
+
+  it("confirms an existing KEEP_ROOM outing before releasing inventory", async () => {
+    renderPanel(projection({
+      isAway: true,
+      currentAbsence: {
+        id: "leave-keep",
+        leftAt: "2026-08-14T07:22:00Z",
+        expectedReturnAt: null,
+        expectedReturnDate: "2026-08-17",
+        expectedReturnTimeUnspecified: true,
+        inventoryMode: "keep_room",
+        inventoryTransitionStatus: "room_retained",
+      },
+    }));
+    fireEvent.click(await screen.findByRole("button", { name: "객실 임시 해제" }));
+    expect(screen.getByText("현재 객실").parentElement?.textContent).toContain("DELUXE 4");
+    expect(screen.getAllByText("복귀 예정").at(-1)?.parentElement?.textContent).toContain("8/17 · 시간 미정");
+    expect(screen.getByText(/현재 객실이 아닌 다른 호실/)).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: "객실 임시 해제" }).at(-1)!);
+    await waitFor(() => expect(repositoryMocks.releaseLongStayRoomDuringAbsence).toHaveBeenCalledWith(
+      expect.objectContaining({ contractId: "contract-1", expectedContractVersion: 3 }),
+      expect.any(String),
+    ));
+  });
+
+  it("does not offer the transition without a return date or after release", async () => {
+    const view = renderPanel(projection({
+      isAway: true,
+      currentAbsence: {
+        id: "leave-unknown", leftAt: "2026-08-14T07:22:00Z",
+        expectedReturnAt: null, expectedReturnDate: null,
+        expectedReturnTimeUnspecified: true, inventoryMode: "keep_room",
+        inventoryTransitionStatus: "room_retained",
+      },
+    }));
+    expect((await screen.findByRole("button", { name: "객실 임시 해제" }) as HTMLButtonElement).disabled).toBe(true);
+    view.unmount(); vi.clearAllMocks();
+    renderPanel(projection({
+      isAway: true,
+      currentRoom: null,
+      currentAbsence: {
+        id: "leave-released", leftAt: "2026-08-14T07:22:00Z",
+        expectedReturnAt: null, expectedReturnDate: "2026-08-17",
+        expectedReturnTimeUnspecified: true, inventoryMode: "release_room",
+        inventoryTransitionStatus: "room_released",
+        previousRoom: { id: "room-4", name: "DELUXE 4", roomTypeId: "deluxe" },
+      },
+    }));
+    await screen.findByText("객실 임시 해제");
+    expect(screen.queryByRole("button", { name: "객실 임시 해제" })).toBeNull();
   });
 });

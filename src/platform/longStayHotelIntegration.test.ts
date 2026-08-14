@@ -13,6 +13,7 @@ describe("Long Stay public application contract", () => {
       "confirm_long_stay_month_v2",
       "complete_long_stay_check_in",
       "start_long_stay_absence_v3",
+      "release_long_stay_room_during_absence",
       "complete_long_stay_absence_v2",
       "get_long_stay_return_room_availability",
       "set_long_stay_absence_expected_return_v2",

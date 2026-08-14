@@ -355,6 +355,7 @@ export interface LongStayContractProjection {
       | "room_retained"
       | "room_released"
       | "room_returned";
+    releasedAt?: string | null;
     guaranteeFrom?: string | null;
     previousRoom?: {
       id: string;
@@ -497,6 +498,12 @@ export interface CompleteLongStayAbsenceInput {
   returnedAt: string;
   roomId: string | null;
   memo: string;
+  reason: string;
+}
+
+export interface ReleaseLongStayRoomDuringAbsenceInput {
+  contractId: string;
+  expectedContractVersion: number;
   reason: string;
 }
 

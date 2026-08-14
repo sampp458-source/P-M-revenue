@@ -11,6 +11,7 @@ import type {
   LongStayMonthProjection,
   LongStayRoomAvailabilityProjection,
   LongStayReturnRoomAvailabilityProjection,
+  ReleaseLongStayRoomDuringAbsenceInput,
   ReverseLongStayCompletionInput,
   SetLongStayPlannedCheckoutInput,
   SetLongStayAbsenceExpectedReturnInput,
@@ -207,6 +208,21 @@ export function completeLongStayAbsence(
     p_reason: input.reason,
     p_request_id: requestId,
   });
+}
+
+export function releaseLongStayRoomDuringAbsence(
+  input: ReleaseLongStayRoomDuringAbsenceInput,
+  requestId = newLongStayRequestId(),
+) {
+  return rpc<LongStayContractProjection>(
+    "release_long_stay_room_during_absence",
+    {
+      p_contract_id: input.contractId,
+      p_expected_contract_version: input.expectedContractVersion,
+      p_reason: input.reason,
+      p_request_id: requestId,
+    },
+  );
 }
 
 export function getLongStayReturnRoomAvailability(

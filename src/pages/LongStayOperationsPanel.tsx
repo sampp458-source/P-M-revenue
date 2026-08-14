@@ -36,6 +36,7 @@ import {
   LongStayRepositoryError,
   newLongStayRequestId,
   reverseLongStayCompletion,
+  releaseLongStayRoomDuringAbsence,
   setLongStayAbsenceExpectedReturn,
   setLongStayPlannedCheckout,
   startLongStayAbsence,
@@ -57,6 +58,7 @@ type ActionKind =
   | "checkin"
   | "leave"
   | "return"
+  | "release_room"
   | "expected_return"
   | "planned_checkout"
   | "checkout"
@@ -170,6 +172,7 @@ const actionTitle: Record<ActionKind, string> = {
   checkin: "장기호텔 입실",
   leave: "외출 기록",
   return: "복귀 처리",
+  release_room: "객실 임시 해제",
   expected_return: "복귀 예정 변경",
   planned_checkout: "퇴실 예정 등록·수정",
   checkout: "실제 퇴실",
@@ -407,6 +410,12 @@ export function LongStayOperationsPanel({
           memo,
           reason: reason || "장기호텔 복귀",
         }, action.requestId);
+      } else if (kind === "release_room") {
+        result = await releaseLongStayRoomDuringAbsence({
+          contractId: contract.id,
+          expectedContractVersion: contract.version,
+          reason: reason || "외출 중 객실 임시 해제",
+        }, action.requestId);
       } else if (kind === "expected_return") {
         result = await setLongStayAbsenceExpectedReturn({
           contractId: contract.id,
@@ -541,6 +550,18 @@ export function LongStayOperationsPanel({
                     {contract.monthlyOccupancy && !contract.checkedInAt ? <Button onClick={() => openAction("checkin", contract)}><LogIn size={15} /> 입실</Button> : null}
                     {contract.checkedInAt && !contract.checkedOutAt && !contract.isAway ? <Button variant="secondary" onClick={() => openAction("leave", contract)}>외출</Button> : null}
                     {contract.isAway ? <Button onClick={() => openAction("return", contract)}>복귀 처리</Button> : null}
+                    {contract.isAway
+                      && contract.currentAbsence?.inventoryMode === "keep_room"
+                      && contract.currentAbsence.inventoryTransitionStatus === "room_retained" ? (
+                        <Button
+                          variant="secondary"
+                          disabled={!contract.currentAbsence.expectedReturnDate}
+                          title={contract.currentAbsence.expectedReturnDate
+                            ? undefined
+                            : "객실을 임시 해제하려면 복귀 예정 날짜가 필요합니다."}
+                          onClick={() => openAction("release_room", contract)}
+                        >객실 임시 해제</Button>
+                      ) : null}
                     {contract.currentAbsence?.inventoryMode === "release_room" ? <Button variant="secondary" onClick={() => {
                       openAction("expected_return", contract);
                       setExpectedReturnDate(contract.currentAbsence?.expectedReturnDate ?? "");
@@ -665,6 +686,23 @@ export function LongStayOperationsPanel({
                 <label className="flex items-center gap-2 text-sm"><input aria-label="새 예상 복귀 시간 미정" type="checkbox" checked={expectedReturnTimeUnknown} onChange={(event) => { setExpectedReturnTimeUnknown(event.target.checked); if (event.target.checked) setExpectedReturnTime(""); }} /> 시간 미정</label>
               </div>
             ) : null}
+            {action.kind === "release_room" ? (
+              <div className="space-y-3 rounded-2xl border border-border p-4">
+                <div className="grid gap-2 rounded-xl bg-surface-secondary p-3 text-sm text-text-secondary sm:grid-cols-2">
+                  <span>현재 객실 <b className="text-text-primary">{action.contract.currentRoom?.name ?? "확인 필요"}</b></span>
+                  <span>복귀 예정 <b className="text-text-primary">{action.contract.currentAbsence ? expectedReturnLabel(action.contract.currentAbsence) : "미정"}</b></span>
+                </div>
+                <p className="text-sm text-text-secondary">객실을 임시 해제하면 외출 기간 동안 다른 예약에 사용할 수 있습니다.</p>
+                <p className="text-sm text-text-secondary">복귀 시 같은 객실 유형은 보장되지만 현재 객실이 아닌 다른 호실로 배정될 수 있습니다.</p>
+                {action.contract.currentAbsence?.expectedReturnDate ? (
+                  <p className="rounded-xl bg-primary-subtle p-3 text-sm text-text-secondary">
+                    사용 가능 기간: 지금부터 <b className="text-text-primary">{expectedReturnLabel(action.contract.currentAbsence)}</b> 이전
+                  </p>
+                ) : (
+                  <p role="alert" className="rounded-xl bg-error-soft p-3 text-sm text-error">객실을 임시 해제하려면 복귀 예정 날짜가 필요합니다.</p>
+                )}
+              </div>
+            ) : null}
             {action.kind === "return" && action.contract.currentAbsence?.inventoryMode === "release_room" ? (
               <Field label="복귀 객실" required>
                 <Select aria-label="복귀 객실" value={roomId} disabled={availabilityLoading || Boolean(availabilityError)} onChange={(event) => setRoomId(event.target.value)}>
@@ -678,7 +716,7 @@ export function LongStayOperationsPanel({
             {action.kind === "planned_checkout" ? <><Field label="퇴실 예정일"><Input type="date" value={plannedDate} onChange={(event) => setPlannedDate(event.target.value)} /></Field><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={timeUnspecified} onChange={(event) => setTimeUnspecified(event.target.checked)} /> 퇴실 시간 미정</label></> : null}
             {["leave", "return"].includes(action.kind) ? <Field label="메모"><Textarea value={memo} onChange={(event) => setMemo(event.target.value)} /></Field> : null}
             <Field label="처리 사유"><Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="비워두면 기본 사유가 기록됩니다." /></Field>
-            <div className="flex justify-end gap-2"><Button variant="secondary" disabled={processing} onClick={() => setAction(null)}>취소</Button><Button disabled={processing || (action.kind === "confirm" && (!roomId || availabilityLoading || !selectedAvailability?.assignable || (!action.contract.hotelStayId && (!physicalStartDate || (!timeUnspecified && !physicalStartTime))))) || (action.kind === "leave" && ((inventoryMode === "release_room" && !expectedReturnDate) || (!expectedReturnDateUnknown && (!expectedReturnDate || (!expectedReturnTimeUnknown && !expectedReturnTime))))) || (action.kind === "return" && action.contract.currentAbsence?.inventoryMode === "release_room" && (!roomId || availabilityLoading || Boolean(availabilityError))) || (action.kind === "expected_return" && (!expectedReturnDate || (!expectedReturnTimeUnknown && !expectedReturnTime)))} onClick={() => void submit()}>{processing ? "처리 중..." : "확인"}</Button></div>
+            <div className="flex justify-end gap-2"><Button variant="secondary" disabled={processing} onClick={() => setAction(null)}>취소</Button><Button disabled={processing || (action.kind === "confirm" && (!roomId || availabilityLoading || !selectedAvailability?.assignable || (!action.contract.hotelStayId && (!physicalStartDate || (!timeUnspecified && !physicalStartTime))))) || (action.kind === "leave" && ((inventoryMode === "release_room" && !expectedReturnDate) || (!expectedReturnDateUnknown && (!expectedReturnDate || (!expectedReturnTimeUnknown && !expectedReturnTime))))) || (action.kind === "return" && action.contract.currentAbsence?.inventoryMode === "release_room" && (!roomId || availabilityLoading || Boolean(availabilityError))) || (action.kind === "expected_return" && (!expectedReturnDate || (!expectedReturnTimeUnknown && !expectedReturnTime))) || (action.kind === "release_room" && !action.contract.currentAbsence?.expectedReturnDate)} onClick={() => void submit()}>{processing ? "처리 중..." : action.kind === "release_room" ? "객실 임시 해제" : "확인"}</Button></div>
           </div>
         ) : null}
       </Modal>
