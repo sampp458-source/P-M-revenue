@@ -43,6 +43,7 @@ import {
   RoomAssignModal,
   RoomReassignModal,
   SettingsModal,
+  canChangeCheckedInHotelPlannedCheckout,
 } from "./HotelOperationsModals";
 import { HotelRoomBoard } from "./HotelRoomBoard";
 import { DaycareOperationsPanel } from "./DaycareOperationsPanel";
@@ -248,14 +249,6 @@ function plannedCheckoutErrorToast(error: unknown): HotelToast {
 
 function requestId() {
   return crypto.randomUUID();
-}
-
-export function canChangeCheckedInHotelPlannedCheckout(stay: HotelStay) {
-  return Boolean(
-    stay.checkedInAt &&
-      !stay.checkedOutAt &&
-      stay.capacityReservation?.reservedUntil !== "infinity",
-  );
 }
 
 function statusTone(status: ReturnType<typeof hotelStayStatus>) {
@@ -568,6 +561,7 @@ export function HotelOperationsPage() {
         requestId(),
       );
       await refreshAfterMutation(result.id, "퇴실 예정일을 변경했습니다.");
+      return true;
     } catch (error) {
       if (
         error instanceof HotelOperationsRepositoryError &&
@@ -578,6 +572,7 @@ export function HotelOperationsPage() {
         await loadSnapshot(selectedDate).catch(() => null);
       }
       setToast(plannedCheckoutErrorToast(error));
+      return false;
     } finally {
       setProcessing(false);
     }
@@ -1092,6 +1087,7 @@ export function HotelOperationsPage() {
         snapshot={snapshot}
         selectedDate={selectedDate}
         operationRole={operationRole}
+        onChangePlannedCheckout={changePlannedCheckout}
         onClose={() => setSelectedSharedOccupancyId(null)}
         onChanged={async (next) => {
           await loadSnapshot(selectedDate);

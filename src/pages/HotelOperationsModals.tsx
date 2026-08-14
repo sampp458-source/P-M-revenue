@@ -460,6 +460,14 @@ export function PlannedCheckoutChangeModal({
   );
 }
 
+export function canChangeCheckedInHotelPlannedCheckout(stay: HotelStay) {
+  return Boolean(
+    stay.checkedInAt &&
+      !stay.checkedOutAt &&
+      stay.capacityReservation?.reservedUntil !== "infinity",
+  );
+}
+
 export function SettingsModal({
   open,
   settings,

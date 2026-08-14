@@ -3,7 +3,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PlannedCheckoutChangeModal } from "./HotelOperationsModals";
-import { canChangeCheckedInHotelPlannedCheckout } from "./HotelOperations";
+import { canChangeCheckedInHotelPlannedCheckout } from "./HotelOperationsModals";
 import type { HotelStay } from "./hotelOperationsRepository";
 
 const checkedInStay = (reservedUntil = "2026-08-15T02:00:00Z"): HotelStay => ({

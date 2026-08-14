@@ -12,7 +12,11 @@ import {
   type HotelOperationsSnapshot,
   type HotelStay,
 } from "./hotelOperationsRepository";
-import { activeHotelAllocation } from "./hotelOperationsUi";
+import {
+  PlannedCheckoutChangeModal,
+  canChangeCheckedInHotelPlannedCheckout,
+} from "./HotelOperationsModals";
+import { activeHotelAllocation, formatHotelScheduleTime } from "./hotelOperationsUi";
 import { hotelRoomBoardDogStatus } from "./HotelRoomBoard";
 
 export interface ExistingStaySharedRoomCandidate {
@@ -134,6 +138,7 @@ export function SharedHotelRoomModal({
   operationRole,
   onClose,
   onChanged,
+  onChangePlannedCheckout,
 }: {
   occupancy: SharedHotelOccupancy | null;
   snapshot: HotelOperationsSnapshot;
@@ -141,6 +146,12 @@ export function SharedHotelRoomModal({
   operationRole: OperationRole | null;
   onClose: () => void;
   onChanged: (occupancy: SharedHotelOccupancy) => void | Promise<void>;
+  onChangePlannedCheckout: (
+    stay: HotelStay,
+    checkOutDate: string,
+    checkOutTime: string | null,
+    timeUnspecified: boolean,
+  ) => Promise<boolean>;
 }) {
   const [stays, setStays] = useState<Record<string, HotelStay>>({});
   const [loading, setLoading] = useState(false);
@@ -149,10 +160,13 @@ export function SharedHotelRoomModal({
   const [moveRoomId, setMoveRoomId] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
+  const [plannedCheckoutStayId, setPlannedCheckoutStayId] = useState<string | null>(null);
+  const [changingPlannedCheckout, setChangingPlannedCheckout] = useState(false);
 
   useEffect(() => {
     if (!occupancy) {
       setStays({});
+      setPlannedCheckoutStayId(null);
       return;
     }
     let active = true;
@@ -177,6 +191,32 @@ export function SharedHotelRoomModal({
   );
 
   if (!occupancy) return null;
+
+  const plannedCheckoutStay = plannedCheckoutStayId
+    ? stays[plannedCheckoutStayId] ?? null
+    : null;
+
+  if (plannedCheckoutStay) {
+    return (
+      <PlannedCheckoutChangeModal
+        open
+        stay={plannedCheckoutStay}
+        processing={changingPlannedCheckout}
+        onClose={() => setPlannedCheckoutStayId(null)}
+        onSubmit={(checkOutDate, checkOutTime, timeUnspecified) => {
+          setChangingPlannedCheckout(true);
+          void onChangePlannedCheckout(
+            plannedCheckoutStay,
+            checkOutDate,
+            checkOutTime,
+            timeUnspecified,
+          ).then((changed) => {
+            if (changed) setPlannedCheckoutStayId(null);
+          }).finally(() => setChangingPlannedCheckout(false));
+        }}
+      />
+    );
+  }
 
   const refresh = async (next: SharedHotelOccupancy) => {
     await onChanged(next);
@@ -229,12 +269,20 @@ export function SharedHotelRoomModal({
                 </span>
               </div>
               <p className="mt-1 text-xs text-text-muted">{stay?.checkedInAt ? "입실 완료" : "입실 전"}</p>
+              <p className="mt-1 text-xs font-medium text-text-secondary">
+                퇴실 예정 {stay ? formatHotelScheduleTime(stay, "check_out") : "확인 중"}
+              </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 {member.status === "active" && !stay?.checkedInAt ? (
                   <Button disabled={busy} onClick={() => void memberAction(member.id, (current) => sharedHotelRoomRepository.checkIn(occupancy.id, current.id, occupancy.version, current.version, new Date(completedAt).toISOString(), crypto.randomUUID()))}><LogIn size={15} />입실</Button>
                 ) : null}
                 {member.status === "active" && stay?.checkedInAt ? (
-                  <Button disabled={busy} onClick={() => void memberAction(member.id, (current) => sharedHotelRoomRepository.checkOut(occupancy.id, current.id, occupancy.version, current.version, new Date(completedAt).toISOString(), crypto.randomUUID()))}><LogOut size={15} />Dog별 퇴실</Button>
+                  <>
+                    {canChangeCheckedInHotelPlannedCheckout(stay) ? (
+                      <Button variant="secondary" disabled={busy} onClick={() => setPlannedCheckoutStayId(stay.id)}>퇴실 예정 변경</Button>
+                    ) : null}
+                    <Button disabled={busy} onClick={() => void memberAction(member.id, (current) => sharedHotelRoomRepository.checkOut(occupancy.id, current.id, occupancy.version, current.version, new Date(completedAt).toISOString(), crypto.randomUUID()))}><LogOut size={15} />Dog별 퇴실</Button>
+                  </>
                 ) : null}
                 {member.status === "completed" && (operationRole === "owner" || operationRole === "manager") ? (
                   <Button variant="secondary" disabled={busy || !reason.trim()} onClick={() => void memberAction(member.id, (current) => sharedHotelRoomRepository.reverseCompletion(occupancy.id, current.id, occupancy.version, current.version, reason, crypto.randomUUID()))}><RotateCcw size={15} />완료 취소</Button>
