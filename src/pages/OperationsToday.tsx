@@ -15,6 +15,7 @@ import {
   useMemo,
   useState,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -106,6 +107,8 @@ export interface ScheduleForm {
   hotelCheckOutTime: string;
   hotelCheckOutTimeUnspecified: boolean;
 }
+
+export type CalendarCreateProduct = "hotel" | "daycare" | "long-stay" | "general";
 
 interface PendingAction {
   type: "cancel" | "archive";
@@ -1308,6 +1311,22 @@ function QuickTimeInput({
   );
 }
 
+function ScheduleFormContainer({
+  embedded,
+  onSubmit,
+  children,
+}: {
+  embedded: boolean;
+  onSubmit: (event: FormEvent) => void;
+  children: ReactNode;
+}) {
+  return embedded ? (
+    <div className="space-y-5">{children}</div>
+  ) : (
+    <form onSubmit={onSubmit} className="space-y-5">{children}</form>
+  );
+}
+
 export function ScheduleFormModal({
   open,
   editing,
@@ -1326,8 +1345,10 @@ export function ScheduleFormModal({
   modalTitle,
   modalResetKey,
   calendarLocked = false,
-  registrationTypeLocked = false,
-  createProductMode,
+  calendarCreateProduct,
+  onCalendarCreateProductChange,
+  createProductContent,
+  longStayAllowed = true,
 }: {
   open: boolean;
   editing: OperationSchedule | "new" | null;
@@ -1346,8 +1367,10 @@ export function ScheduleFormModal({
   modalTitle?: string;
   modalResetKey?: string;
   calendarLocked?: boolean;
-  registrationTypeLocked?: boolean;
-  createProductMode?: "hotel" | "general";
+  calendarCreateProduct?: CalendarCreateProduct | null;
+  onCalendarCreateProductChange?: (value: CalendarCreateProduct | null) => void;
+  createProductContent?: ReactNode;
+  longStayAllowed?: boolean;
 }) {
   const patch = (values: Partial<ScheduleForm>) => onChange({ ...form, ...values });
   const selectedCalendar = selectedOperationCalendar(form.calendarId, options);
@@ -1407,6 +1430,26 @@ export function ScheduleFormModal({
       : editing
         ? editing.createdByName
         : null;
+  const selectCalendarProduct = (product: CalendarCreateProduct) => {
+    if (product === "hotel") {
+      if (options && hotelSnapshot) {
+        onChange(initializeHotelScheduleForm(form, options, hotelSnapshot, form.calendarId));
+      }
+    } else if (product === "general") {
+      const generalTypes =
+        options?.scheduleTypes.filter(
+          (scheduleType) =>
+            scheduleType.name.trim() !== HOTEL_SCHEDULE_TYPE_NAME &&
+            scheduleType.calendarIds?.includes(form.calendarId),
+        ) ?? [];
+      patchWithAutoTitle({
+        hotelScheduleMode: "operation",
+        scheduleTypeId: defaultOperationScheduleTypeId(generalTypes),
+        hotelRoomTypeId: "",
+      });
+    }
+    onCalendarCreateProductChange?.(product);
+  };
   return (
     <Modal
       open={open}
@@ -1415,28 +1458,14 @@ export function ScheduleFormModal({
       wide
       resetKey={modalResetKey ?? (editing === "new" ? "new" : editing?.id)}
     >
-      <form onSubmit={onSubmit} className="space-y-5">
+      <ScheduleFormContainer embedded={Boolean(createProductContent)} onSubmit={onSubmit}>
         <>
           <div className="grid gap-4 sm:grid-cols-2">
               <Field label="캘린더" required>
-                <Select disabled={calendarLocked} value={form.calendarId} onChange={(event) => {
+                <Select aria-label="캘린더" disabled={calendarLocked} value={form.calendarId} onChange={(event) => {
                   const calendarId = event.target.value;
                   const nextForm =
-                    editing === "new" && options && createProductMode === "general"
-                      ? {
-                          ...form,
-                          calendarId,
-                          scheduleTypeId: defaultOperationScheduleTypeId(
-                            options.scheduleTypes.filter(
-                              (item) =>
-                                item.calendarIds?.includes(calendarId) &&
-                                item.name.trim() !== HOTEL_SCHEDULE_TYPE_NAME,
-                            ),
-                          ),
-                          hotelScheduleMode: "operation" as const,
-                          hotelRoomTypeId: "",
-                        }
-                      : editing === "new" && options
+                    editing === "new" && options
                       ? transitionScheduleFormCalendar(
                           form,
                           calendarId,
@@ -1445,12 +1474,31 @@ export function ScheduleFormModal({
                         )
                       : { ...form, calendarId, scheduleTypeId: "" };
                   patchWithAutoTitle(nextForm);
+                  if (editing === "new" && onCalendarCreateProductChange) {
+                    onCalendarCreateProductChange(
+                      options?.calendars.find((item) => item.id === calendarId)?.businessUnitCode === "hotel"
+                        ? "hotel"
+                        : null,
+                    );
+                  }
                 }}>
                   <option value="">캘린더 선택</option>
                   {options?.calendars.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
                 </Select>
               </Field>
               <Field label="일정 유형" required={hotelMode}>
+                {editing === "new" && selectedCalendarIsHotel && onCalendarCreateProductChange ? (
+                  <Select
+                    aria-label="일정 유형"
+                    value={calendarCreateProduct ?? "hotel"}
+                    onChange={(event) => selectCalendarProduct(event.target.value as CalendarCreateProduct)}
+                  >
+                    <option value="hotel">호텔 예약</option>
+                    <option value="daycare">데이케어 예약</option>
+                    <option value="long-stay" disabled={!longStayAllowed}>장기호텔</option>
+                    <option value="general">상담·일반 일정</option>
+                  </Select>
+                ) : (
                 <Select
                   value={form.scheduleTypeId}
                   disabled={!form.calendarId || hotelMode}
@@ -1478,9 +1526,11 @@ export function ScheduleFormModal({
                     </option>
                   ))}
                 </Select>
+                )}
               </Field>
           </div>
-          {editing === "new" && selectedCalendarIsHotel && !calendarLocked && !registrationTypeLocked ? (
+        </>
+          {editing === "new" && selectedCalendarIsHotel && !calendarLocked && !onCalendarCreateProductChange ? (
             <fieldset>
               <legend className="mb-2 text-sm font-semibold text-text-primary">
                 등록 유형
@@ -1542,8 +1592,18 @@ export function ScheduleFormModal({
               </p>
             </fieldset>
           ) : null}
+          {createProductContent ? createProductContent : <>
+          {calendarCreateProduct === "general" && selectedCalendarIsHotel ? (
+            <Field label="세부 일정 유형">
+              <Select value={form.scheduleTypeId} onChange={(event) => patchWithAutoTitle({ scheduleTypeId: event.target.value })}>
+                <option value="">선택 안 함 · 기타로 저장</option>
+                {options?.scheduleTypes.filter((row) => row.calendarIds?.includes(form.calendarId) && row.name.trim() !== HOTEL_SCHEDULE_TYPE_NAME).map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}
+              </Select>
+            </Field>
+          ) : null}
           {!hotelMode ? <Field label="제목" required>
               <Input
+                aria-label="제목"
                 required
                 value={form.title}
                 onChange={(event) => {
@@ -1553,7 +1613,6 @@ export function ScheduleFormModal({
                 placeholder="반려견과 일정 유형을 선택하면 자동 입력됩니다"
               />
           </Field> : null}
-        </>
         {hotelMode ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="입실 날짜" required>
@@ -1936,7 +1995,8 @@ export function ScheduleFormModal({
           <Button type="button" variant="secondary" disabled={saving} onClick={onClose}>닫기</Button>
           <Button type="submit" disabled={saving || (hotelMode && !hotelScheduleType)}>{saving ? "저장 중..." : "저장"}</Button>
         </div>
-      </form>
+        </>}
+      </ScheduleFormContainer>
     </Modal>
   );
 }

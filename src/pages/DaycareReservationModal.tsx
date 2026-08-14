@@ -73,14 +73,12 @@ function inputFromReservation(reservation: DaycareReservation): DaycareReservati
   };
 }
 
-export function DaycareReservationModal({
-  open,
+export function DaycareReservationForm({
   onClose,
   onSaved,
   prefill,
   reservation = null,
 }: {
-  open: boolean;
   onClose: () => void;
   onSaved: (reservation: DaycareReservation) => void | Promise<void>;
   prefill?: DaycareReservationPrefill;
@@ -97,7 +95,6 @@ export function DaycareReservationModal({
   const prefillServiceDate = prefill?.serviceDate;
 
   useEffect(() => {
-    if (!open) return;
     setInput(reservation ? inputFromReservation(reservation) : initialInput({
       customerId: prefillCustomerId,
       dogId: prefillDogId,
@@ -125,12 +122,12 @@ export function DaycareReservationModal({
       })
       .catch(() => setError("Daycare 예약 정보를 불러오지 못했습니다."))
       .finally(() => setLoading(false));
-  }, [open, prefillCustomerId, prefillDogId, prefillServiceDate, reservation]);
+  }, [prefillCustomerId, prefillDogId, prefillServiceDate, reservation]);
 
   useEffect(() => {
-    if (!open || !input.serviceDate) return;
+    if (!input.serviceDate) return;
     void fetchHotelOperationsSnapshot(input.serviceDate).then(setSnapshot).catch(() => setSnapshot(null));
-  }, [input.serviceDate, open]);
+  }, [input.serviceDate]);
 
   const dogs = useMemo(
     () => (options?.dogs ?? []).filter((dog) => !input.customerId || dog.customerId === input.customerId),
@@ -162,8 +159,7 @@ export function DaycareReservationModal({
   };
 
   return (
-    <Modal open={open} title={reservation ? "데이케어 예약 수정" : "데이케어 예약"} onClose={onClose} wide resetKey={reservation?.operationScheduleId ?? `${prefill?.customerId ?? "new"}:${prefill?.dogId ?? ""}`}>
-      <form className="space-y-5" onSubmit={submit}>
+      <form className="space-y-5" aria-label="데이케어 예약 양식" onSubmit={submit}>
         <div className="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-950">
           <strong className="flex items-center gap-2"><CalendarDays size={17} /> 같은 날짜 안에서 객실 Capacity를 확보합니다.</strong>
         </div>
@@ -217,6 +213,30 @@ export function DaycareReservationModal({
         </div>
         <p className="flex items-center gap-1.5 text-xs text-text-muted"><DoorOpen size={14} /> 호실은 예약 후 Hotel Operations에서도 배정할 수 있습니다.</p>
       </form>
+  );
+}
+
+export function DaycareReservationModal({
+  open,
+  onClose,
+  onSaved,
+  prefill,
+  reservation = null,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onSaved: (reservation: DaycareReservation) => void | Promise<void>;
+  prefill?: DaycareReservationPrefill;
+  reservation?: DaycareReservation | null;
+}) {
+  return (
+    <Modal open={open} title={reservation ? "데이케어 예약 수정" : "데이케어 예약"} onClose={onClose} wide resetKey={reservation?.operationScheduleId ?? `${prefill?.customerId ?? "new"}:${prefill?.dogId ?? ""}`}>
+      <DaycareReservationForm
+        prefill={prefill}
+        reservation={reservation}
+        onClose={onClose}
+        onSaved={onSaved}
+      />
     </Modal>
   );
 }
