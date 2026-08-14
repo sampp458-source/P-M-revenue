@@ -157,6 +157,11 @@ describe("Shared Room Dog planned checkout UI", () => {
     expect(screen.getAllByRole("button", { name: /Dog별 퇴실/ })).toHaveLength(2);
     expect(screen.getByRole("button", { name: /DELUXE로 전체 이동/ })).not.toBeNull();
 
+    fireEvent.click(screen.getAllByRole("button", { name: /Dog별 퇴실/ })[0]);
+    expect(screen.getByRole("dialog", { name: "반려견 퇴실을 완료할까요?" })).not.toBeNull();
+    expect(screen.getByText(/같은 방의 다른 반려견은 그대로 유지/)).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "돌아가기" }));
+
     fireEvent.click(screen.getAllByRole("button", { name: "퇴실 예정 변경" })[0]);
     expect(screen.getByRole("dialog", { name: "퇴실 예정 변경" })).not.toBeNull();
     expect(screen.getByTestId("modal-actions")).not.toBeNull();

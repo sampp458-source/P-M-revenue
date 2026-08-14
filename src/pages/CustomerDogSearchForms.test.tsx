@@ -75,6 +75,9 @@ describe("canonical customer and dog search forms", () => {
     render(<DaycareReservationForm onClose={vi.fn()} onSaved={vi.fn()} />);
 
     await waitFor(() => expect(screen.getByRole("combobox", { name: "반려견" })).not.toBeNull());
+    for (const section of ["예약 대상", "이용 정보", "운영 정보", "메모"]) {
+      expect(screen.getByRole("heading", { name: section })).not.toBeNull();
+    }
     expect(screen.getByPlaceholderText("반려견, 보호자 또는 전화번호 검색")).not.toBeNull();
     expect(screen.getByPlaceholderText("보호자, 전화번호 또는 반려견 검색")).not.toBeNull();
     await choose("반려견", "0101111", /감자/);
@@ -115,6 +118,9 @@ describe("canonical customer and dog search forms", () => {
         onSaved={vi.fn()}
       />,
     );
+    for (const section of ["예약 대상", "이용 정보", "운영 정보", "계약 정보", "메모"]) {
+      expect(screen.getByRole("heading", { name: section })).not.toBeNull();
+    }
     expect(screen.getByTestId("modal-actions")).not.toBeNull();
     await choose("반려견", "감자", /감자/);
     expect(screen.getByLabelText("보호자 선택됨").textContent).toContain("감자 보호자");

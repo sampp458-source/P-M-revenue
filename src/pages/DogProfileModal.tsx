@@ -20,6 +20,7 @@ import {
   ErrorState,
   LoadingState,
   Modal,
+  ResponsiveActionGroup,
   StatusBadge,
 } from "../components/ui";
 import { koDate } from "../lib/format";
@@ -121,16 +122,16 @@ export function DogProfileModal({
           }
           actions={
             canEditDog ? (
-            <div className="flex flex-wrap gap-2">
-              {owner ? <Button variant="secondary" onClick={() => setDaycareOpen(true)}>
+            <ResponsiveActionGroup
+              primary={owner ? <Button onClick={() => setDaycareOpen(true)}>
                 <CalendarDays size={16} />
                 데이케어 예약
-              </Button> : null}
-              <Button variant="secondary" onClick={onEditDog}>
+              </Button> : undefined}
+              secondary={<Button variant="secondary" onClick={onEditDog}>
                 <Pencil size={16} />
                 반려견 정보 수정
-              </Button>
-            </div>
+              </Button>}
+            />
             ) : null
           }
         />

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { CalendarDays, Check, DoorOpen } from "lucide-react";
+import { CalendarDays, Check } from "lucide-react";
 import { CustomerDogSearchFields } from "../components/CustomerDogSearchFields";
-import { Button, Field, Input, Modal, ModalActions, Select, Textarea } from "../components/ui";
+import { Button, Field, FormAlert, FormSection, Input, Modal, ModalActions, Select, Textarea } from "../components/ui";
 import { fetchHotelOperationsSnapshot, type HotelOperationsSnapshot } from "./hotelOperationsRepository";
 import { fetchOperationScheduleOptions, seoulDateKey, type OperationScheduleOptions } from "./operationsScheduleRepository";
 import {
@@ -170,11 +170,10 @@ export function DaycareReservationForm({
   };
 
   return (
-      <form className="space-y-5" aria-label="데이케어 예약 양식" onSubmit={submit}>
-        <div className="rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm text-cyan-950">
-          <strong className="flex items-center gap-2"><CalendarDays size={17} /> 같은 날짜 안에서 객실 Capacity를 확보합니다.</strong>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+      <form className="space-y-7" aria-label="데이케어 예약 양식" onSubmit={submit}>
+        <FormAlert tone="info"><span className="flex items-center gap-2"><CalendarDays size={17} /> 같은 날짜 안에서 이용할 객실을 확보합니다.</span></FormAlert>
+        <FormSection title="예약 대상" description="보호자와 반려견을 검색해 선택합니다.">
+          <div className="grid gap-4 sm:grid-cols-2">
           <CustomerDogSearchFields
             customers={options?.customers ?? []}
             dogs={dogs}
@@ -196,6 +195,10 @@ export function DaycareReservationForm({
               });
             }}
           />
+          </div>
+        </FormSection>
+        <FormSection title="이용 정보">
+          <div className="grid gap-4 sm:grid-cols-2">
           <Field label="데이케어 날짜" required>
             <Input aria-label="데이케어 날짜" type="date" value={input.serviceDate} onChange={(event) => patch({ serviceDate: event.target.value })} />
           </Field>
@@ -212,6 +215,10 @@ export function DaycareReservationForm({
               {snapshot?.roomTypes.map((roomType) => <option key={roomType.id} value={roomType.id}>{roomType.name}</option>)}
             </Select>
           </Field>
+          </div>
+        </FormSection>
+        <FormSection title="운영 정보" description="호실은 예약 후 Hotel Operations에서도 배정할 수 있습니다.">
+          <div className="grid gap-4 sm:grid-cols-2">
           <Field label="호실 (선택)">
             <Select aria-label="호실 (선택)" value={input.roomId ?? ""} onChange={(event) => patch({ roomId: event.target.value || null })}>
               <option value="">나중에 배정</option>
@@ -224,14 +231,14 @@ export function DaycareReservationForm({
               {options?.assignees.map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name ?? "이름 미등록"}</option>)}
             </Select>
           </Field>
-          <div className="sm:col-span-2"><Field label="메모"><Textarea value={input.memo} onChange={(event) => patch({ memo: event.target.value })} /></Field></div>
-        </div>
-        {error ? <p role="alert" className="rounded-xl bg-error-soft px-3 py-2 text-sm font-medium text-error">{error}</p> : null}
+          </div>
+        </FormSection>
+        <FormSection title="메모"><Field label="메모"><Textarea value={input.memo} onChange={(event) => patch({ memo: event.target.value })} /></Field></FormSection>
+        {error ? <FormAlert>{error}</FormAlert> : null}
         <ModalActions>
           <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>취소</Button>
           <Button type="submit" disabled={loading || saving}><Check size={16} />{saving ? "저장 중…" : "예약 저장"}</Button>
         </ModalActions>
-        <p className="flex items-center gap-1.5 text-xs text-text-muted"><DoorOpen size={14} /> 호실은 예약 후 Hotel Operations에서도 배정할 수 있습니다.</p>
       </form>
   );
 }
@@ -250,7 +257,7 @@ export function DaycareReservationModal({
   reservation?: DaycareReservation | null;
 }) {
   return (
-    <Modal open={open} title={reservation ? "데이케어 예약 수정" : "데이케어 예약"} onClose={onClose} wide resetKey={reservation?.operationScheduleId ?? `${prefill?.customerId ?? "new"}:${prefill?.dogId ?? ""}`}>
+    <Modal open={open} title={reservation ? "데이케어 예약 수정" : "데이케어 예약"} description={reservation?.dog.name ?? "보호자와 반려견을 선택해 주세요."} onClose={onClose} size="large" resetKey={reservation?.operationScheduleId ?? `${prefill?.customerId ?? "new"}:${prefill?.dogId ?? ""}`}>
       <DaycareReservationForm
         prefill={prefill}
         reservation={reservation}

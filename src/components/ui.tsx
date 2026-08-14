@@ -10,6 +10,7 @@ import {
   useEffect,
   useId,
   useRef,
+  useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
@@ -119,6 +120,49 @@ export function Field({
         <span className="mt-1.5 block text-xs leading-5 text-text-secondary">{help}</span>
       )}
     </label>
+  );
+}
+export function FormSection({
+  title,
+  description,
+  children,
+  className = "",
+}: {
+  title: string;
+  description?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
+  const titleId = useId();
+  return (
+    <section aria-labelledby={titleId} className={cn("space-y-4", className)}>
+      <div>
+        <h3 id={titleId} className="text-sm font-bold text-text-primary">{title}</h3>
+        {description ? <div className="mt-1 text-xs leading-5 text-text-muted">{description}</div> : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+export function FormAlert({
+  children,
+  tone = "error",
+}: {
+  children: ReactNode;
+  tone?: "error" | "warning" | "info";
+}) {
+  return (
+    <div
+      role={tone === "error" ? "alert" : "status"}
+      className={cn(
+        "rounded-xl px-3.5 py-3 text-sm leading-6",
+        tone === "error" && "bg-error-soft font-medium text-error",
+        tone === "warning" && "bg-warning-soft text-warning",
+        tone === "info" && "bg-primary-subtle text-text-secondary",
+      )}
+    >
+      {children}
+    </div>
   );
 }
 export function Card({
@@ -243,16 +287,20 @@ export function StatusBadge({ status, tone }: { status: keyof typeof statusPrese
 export function Modal({
   open,
   title,
+  description,
   onClose,
   children,
+  size,
   wide = false,
   extraWide = false,
   resetKey,
 }: {
   open: boolean;
   title: string;
+  description?: ReactNode;
   onClose: () => void;
   children: ReactNode;
+  size?: "small" | "medium" | "large" | "extraLarge";
   wide?: boolean;
   extraWide?: boolean;
   resetKey?: string | number;
@@ -292,6 +340,7 @@ export function Modal({
     return () => { document.removeEventListener("keydown", keydown); openerRef.current?.focus(); };
   }, [open]);
   if (!open) return null;
+  const resolvedSize = size ?? (extraWide ? "extraLarge" : wide ? "large" : "medium");
   return (
     <div
       className="pm-modal-overlay fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4"
@@ -307,11 +356,17 @@ export function Modal({
         tabIndex={-1}
         className={cn(
           "pm-modal-panel flex max-h-[calc(100dvh-0.5rem)] w-full flex-col overflow-hidden rounded-t-[24px] bg-surface sm:max-h-[90vh] sm:rounded-[24px]",
-          extraWide ? "max-w-6xl" : wide ? "max-w-3xl" : "max-w-lg",
+          resolvedSize === "small" && "max-w-sm",
+          resolvedSize === "medium" && "max-w-lg",
+          resolvedSize === "large" && "max-w-3xl",
+          resolvedSize === "extraLarge" && "max-w-6xl",
         )}
       >
-        <div className="z-10 flex shrink-0 items-center justify-between border-b border-border bg-surface px-5 py-4 sm:px-6">
-          <h2 id={titleId} className="text-lg font-semibold text-text-primary">{title}</h2>
+        <div className="z-10 flex shrink-0 items-start justify-between gap-3 border-b border-border bg-surface px-5 py-4 sm:px-6">
+          <div className="min-w-0 py-1.5">
+            <h2 id={titleId} className="text-lg font-semibold text-text-primary">{title}</h2>
+            {description ? <div className="mt-1 text-sm leading-5 text-text-secondary">{description}</div> : null}
+          </div>
           <button
             type="button"
             aria-label="닫기"
@@ -328,6 +383,52 @@ export function Modal({
           {children}
         </div>
       </div>
+    </div>
+  );
+}
+export function ResponsiveActionGroup({
+  primary,
+  secondary,
+  destructive,
+  overflowLabel = "더보기",
+  className = "",
+}: {
+  primary?: ReactNode;
+  secondary?: ReactNode;
+  destructive?: ReactNode;
+  overflowLabel?: string;
+  className?: string;
+}) {
+  const hasOverflow = Boolean(secondary || destructive);
+  const [mobile, setMobile] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 640,
+  );
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") {
+      const update = () => setMobile(window.innerWidth < 640);
+      window.addEventListener("resize", update);
+      return () => window.removeEventListener("resize", update);
+    }
+    const media = window.matchMedia("(max-width: 639px)");
+    const update = () => setMobile(media.matches);
+    update();
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  return (
+    <div className={cn("flex flex-wrap items-center gap-2", className)} data-testid="responsive-action-group">
+      {primary ? <div className="flex flex-wrap gap-2">{primary}</div> : null}
+      {hasOverflow && mobile ? (
+        <details className="group relative">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center rounded-xl border border-border-strong bg-surface px-4 py-2.5 text-sm font-semibold text-text-primary shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden">
+            {overflowLabel} ···
+          </summary>
+          <div className="absolute right-0 top-[calc(100%+0.5rem)] z-30 grid min-w-52 gap-2 rounded-2xl border border-border bg-surface p-2 shadow-[var(--pm-shadow-modal)] [&>button]:w-full">
+            {secondary}
+            {destructive}
+          </div>
+        </details>
+      ) : hasOverflow ? <div className="flex flex-wrap gap-2">{secondary}{destructive}</div> : null}
     </div>
   );
 }

@@ -374,7 +374,7 @@ export function CustomerProfileModal({
             }
           >
             {timeline.length ? (
-              <div className="max-h-[28rem] overflow-y-auto pr-1 sm:max-h-none sm:overflow-visible sm:pr-0">
+              <div className="sm:max-h-[28rem] sm:overflow-y-auto sm:pr-1">
               <ProfileTimeline>
                 {timeline.map((entry, index) => (
                   <ProfileTimelineItem

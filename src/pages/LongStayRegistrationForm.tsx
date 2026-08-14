@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CustomerDogSearchFields } from "../components/CustomerDogSearchFields";
-import { Button, Field, Input, ModalActions, Select, Textarea } from "../components/ui";
+import { Button, Field, FormAlert, FormSection, Input, ModalActions, Select, Textarea } from "../components/ui";
 import {
   createLongStayContract,
   LongStayRepositoryError,
@@ -131,9 +131,9 @@ export function LongStayRegistrationForm({
   };
 
   return (
-    <div className="space-y-4" aria-label="장기호텔 등록 양식">
+    <div className="space-y-7" aria-label="장기호텔 등록 양식">
       <div><h3 className="font-bold text-text-primary">장기호텔 등록</h3><p className="mt-1 text-xs text-text-secondary">계약을 등록한 뒤 월별 객실은 Hotel Operations에서 확정합니다.</p></div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <FormSection title="예약 대상" description="보호자와 반려견을 검색해 선택합니다."><div className="grid gap-4 sm:grid-cols-2">
         <CustomerDogSearchFields
           customers={customers}
           dogs={availableDogs}
@@ -152,13 +152,13 @@ export function LongStayRegistrationForm({
             if (dogs.find((dog) => dog.id === dogId)?.customerId !== nextCustomerId) setDogId("");
           }}
         />
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2"><Field label="계약 시작일" required><Input aria-label="계약 시작일" type="date" value={startedOn} onChange={(event) => setStartedOn(event.target.value)} /></Field><Field label="퇴실 예정일"><Input type="date" value={plannedDate} min={startedOn} onChange={(event) => setPlannedDate(event.target.value)} /></Field></div>
-      <div className="grid gap-4 sm:grid-cols-2"><Field label="선호 객실 유형"><Select value={roomTypeId} disabled={loading} onChange={(event) => { setRoomTypeId(event.target.value); setRoomId(""); }}><option value="">미정</option>{roomTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</Select></Field><Field label="선호 호실"><Select value={roomId} disabled={loading} onChange={(event) => setRoomId(event.target.value)}><option value="">미정</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}</Select></Field></div>
-      <div className="grid gap-4 sm:grid-cols-2"><Field label="월 금액" required><Input aria-label="월 금액" type="number" min="0" step="1000" value={monthlyRate} onChange={(event) => setMonthlyRate(event.target.value)} /></Field><Field label="결제 기준일" help="객실의 월별 배정 기준과는 독립적입니다."><Input type="number" min="1" max="31" value={billingDay} onChange={(event) => setBillingDay(event.target.value)} /></Field></div>
-      <Field label="메모"><Textarea value={memo} onChange={(event) => setMemo(event.target.value)} /></Field>
-      <p className="rounded-xl bg-primary-subtle p-3 text-xs leading-5 text-text-secondary">등록은 계약만 생성합니다. 이번 달 객실은 Hotel Operations에서 직원이 별도로 확정합니다.</p>
-      {error ? <p role="alert" className="rounded-xl bg-error-soft p-3 text-sm text-error">{error}</p> : null}
+      </div></FormSection>
+      <FormSection title="이용 정보"><div className="grid gap-4 sm:grid-cols-2"><Field label="계약 시작일" required><Input aria-label="계약 시작일" type="date" value={startedOn} onChange={(event) => setStartedOn(event.target.value)} /></Field><Field label="퇴실 예정일"><Input type="date" value={plannedDate} min={startedOn} onChange={(event) => setPlannedDate(event.target.value)} /></Field></div></FormSection>
+      <FormSection title="운영 정보" description="선호 객실은 계약 등록 후 월별 운영에서 최종 확정합니다."><div className="grid gap-4 sm:grid-cols-2"><Field label="선호 객실 유형"><Select value={roomTypeId} disabled={loading} onChange={(event) => { setRoomTypeId(event.target.value); setRoomId(""); }}><option value="">미정</option>{roomTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</Select></Field><Field label="선호 호실"><Select value={roomId} disabled={loading} onChange={(event) => setRoomId(event.target.value)}><option value="">미정</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}</Select></Field></div></FormSection>
+      <FormSection title="계약 정보"><div className="grid gap-4 sm:grid-cols-2"><Field label="월 금액" required><Input aria-label="월 금액" type="number" min="0" step="1000" value={monthlyRate} onChange={(event) => setMonthlyRate(event.target.value)} /></Field><Field label="결제 기준일" help="객실의 월별 배정 기준과는 독립적입니다."><Input type="number" min="1" max="31" value={billingDay} onChange={(event) => setBillingDay(event.target.value)} /></Field></div></FormSection>
+      <FormSection title="메모"><Field label="메모"><Textarea value={memo} onChange={(event) => setMemo(event.target.value)} /></Field></FormSection>
+      <FormAlert tone="info">등록은 계약만 생성합니다. 이번 달 객실은 Hotel Operations에서 직원이 별도로 확정합니다.</FormAlert>
+      {error ? <FormAlert>{error}</FormAlert> : null}
       <ModalActions><Button type="button" variant="secondary" disabled={submitting} onClick={onCancel}>취소</Button><Button type="button" disabled={loading || submitting || !customerId || !dogId || !startedOn || Number(monthlyRate) < 0 || !monthlyRate} onClick={() => void submit()}>{submitting ? "등록 중..." : "계약 등록"}</Button></ModalActions>
     </div>
   );

@@ -95,7 +95,7 @@ function RoomSelectModal({
   }, [open]);
 
   return (
-    <Modal open={open} title={title} onClose={onClose} resetKey={stay.id}>
+    <Modal open={open} title={title} description={`${stay.dogName} · ${activeHotelAllocation(stay)?.roomName ?? "호실 미배정"}`} onClose={onClose} resetKey={stay.id} size="medium">
       <form
         className="space-y-5"
         onSubmit={(event) => {
@@ -233,7 +233,7 @@ function CompletionModal({
   }, [open]);
 
   return (
-    <Modal open={open} title={title} onClose={onClose} resetKey={stay.id}>
+    <Modal open={open} title={title} description={`${stay.dogName} · ${activeHotelAllocation(stay)?.roomName ?? "호실 미배정"}`} onClose={onClose} resetKey={stay.id} size="small">
       <form
         className="space-y-5"
         onSubmit={(event) => {
@@ -309,7 +309,7 @@ export function CheckInModal({
   }, [currentAllocation?.roomId, open, stay.capacityReservation?.roomTypeId]);
 
   return (
-    <Modal open={open} title="입실 확정 및 완료" onClose={onClose} resetKey={stay.id}>
+    <Modal open={open} title="입실 확정 및 완료" description={`${stay.dogName} · ${activeHotelAllocation(stay)?.roomName ?? "호실 미배정"}`} onClose={onClose} resetKey={stay.id} size="medium">
       <form
         className="space-y-5"
         onSubmit={(event) => {
@@ -400,7 +400,7 @@ export function PlannedCheckoutChangeModal({
   }, [open, stay]);
 
   return (
-    <Modal open={open} title="퇴실 예정 변경" onClose={onClose} resetKey={stay.id}>
+    <Modal open={open} title="퇴실 예정 변경" description={`${stay.dogName} · ${activeHotelAllocation(stay)?.roomName ?? "호실 미배정"}`} onClose={onClose} resetKey={stay.id} size="medium">
       <form
         className="space-y-5"
         onSubmit={(event) => {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CalendarDays, CheckCircle2, LogIn, LogOut, Pencil, X } from "lucide-react";
-import { Badge, Button, Card, EmptyState, Field, Input, Modal, ModalActions, Select } from "../components/ui";
+import { Badge, Button, Card, EmptyState, Field, Input, Modal, ModalActions, ResponsiveActionGroup, Select } from "../components/ui";
 import type { HotelOperationsSnapshot } from "./hotelOperationsRepository";
 import { DaycareReservationModal } from "./DaycareReservationModal";
 import {
@@ -82,23 +82,25 @@ export function DaycareOperationsPanel({
           const rooms = snapshot.rooms.filter((room) => room.isActive && room.roomTypeId === reservation.roomTypeId);
           const processing = processingId === reservation.operationScheduleId;
           return (
-            <article key={reservation.operationScheduleId} className="rounded-2xl border border-cyan-200 bg-cyan-50/45 p-4">
+            <article key={reservation.operationScheduleId} className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div><strong className="text-base text-text-primary">{reservation.dog.name} · 데이케어 · {reservation.roomTypeCode}</strong><p className="mt-1 text-sm text-text-secondary">{new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(reservation.startsAt))}–{new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(reservation.endsAt))} · {reservation.roomAllocation?.roomName ?? "호실 미배정"}</p></div>
-                <Badge tone={reservation.lifecycleStatus === "completed" ? "green" : reservation.lifecycleStatus === "cancelled" ? "gray" : "blue"}>{lifecycleLabel[reservation.lifecycleStatus]}</Badge>
+                <div><div className="flex flex-wrap items-center gap-2"><strong className="text-base text-text-primary">{reservation.dog.name}</strong><Badge tone="blue">데이케어</Badge></div><p className="mt-1 text-sm text-text-secondary">{reservation.roomTypeCode} · {new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(reservation.startsAt))}–{new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(reservation.endsAt))} · {reservation.roomAllocation?.roomName ?? "호실 미배정"}</p></div>
+                <Badge tone={reservation.lifecycleStatus === "completed" ? "gray" : reservation.lifecycleStatus === "cancelled" ? "red" : reservation.lifecycleStatus === "checked_in" ? "green" : "blue"}>{lifecycleLabel[reservation.lifecycleStatus]}</Badge>
               </div>
-              {reservation.lifecycleStatus === "scheduled" ? <div className="mt-4 flex flex-wrap items-end gap-2">
-                <Field label="호실"><Select aria-label={`${reservation.dog.name} Daycare 호실`} disabled={processing} value={reservation.roomAllocation?.roomId ?? ""} onChange={(event) => {
+              {reservation.lifecycleStatus === "scheduled" ? <div className="mt-4 space-y-3">
+                <div className="max-w-sm"><Field label="호실"><Select aria-label={`${reservation.dog.name} Daycare 호실`} disabled={processing} value={reservation.roomAllocation?.roomId ?? ""} onChange={(event) => {
                   const roomId = event.target.value;
                   void run(reservation, () => roomId
                     ? assignDaycareRoom(reservation.operationScheduleId, reservation.version, roomId)
                     : unassignDaycareRoom(reservation.operationScheduleId, reservation.version));
-                }}><option value="">미배정</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}</Select></Field>
-                <Button variant="secondary" disabled={processing} onClick={() => setEditing(reservation)}><Pencil size={15} /> 수정</Button>
-                <Button disabled={processing || !reservation.roomAllocation} onClick={() => void run(reservation, () => completeDaycareCheckIn(reservation.operationScheduleId, reservation.version, toIso(actionTime)))}><LogIn size={15} /> 입실 완료</Button>
-                <Button variant="danger" disabled={processing} onClick={() => { setCancelTarget(reservation); setCancelReason(""); }}><X size={15} /> 취소</Button>
+                }}><option value="">미배정</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}</Select></Field></div>
+                <ResponsiveActionGroup
+                  primary={reservation.roomAllocation ? <Button disabled={processing} onClick={() => void run(reservation, () => completeDaycareCheckIn(reservation.operationScheduleId, reservation.version, toIso(actionTime)))}><LogIn size={15} /> 입실 완료</Button> : undefined}
+                  secondary={<Button variant="secondary" disabled={processing} onClick={() => setEditing(reservation)}><Pencil size={15} /> 수정</Button>}
+                  destructive={<Button variant="danger" disabled={processing} onClick={() => { setCancelTarget(reservation); setCancelReason(""); }}><X size={15} /> 예약 취소</Button>}
+                />
               </div> : null}
-              {reservation.lifecycleStatus === "checked_in" ? <div className="mt-4 flex flex-wrap items-end gap-2"><Field label="실제 퇴실 시간"><Input type="datetime-local" value={actionTime} onChange={(event) => setActionTime(event.target.value)} /></Field><Button disabled={processing} onClick={() => void run(reservation, () => completeDaycareCheckOut(reservation.operationScheduleId, reservation.version, toIso(actionTime)))}><LogOut size={15} /> 퇴실 완료</Button></div> : null}
+              {reservation.lifecycleStatus === "checked_in" ? <div className="mt-4 space-y-3"><div className="max-w-sm"><Field label="실제 퇴실 시간"><Input type="datetime-local" value={actionTime} onChange={(event) => setActionTime(event.target.value)} /></Field></div><ResponsiveActionGroup primary={<Button disabled={processing} onClick={() => void run(reservation, () => completeDaycareCheckOut(reservation.operationScheduleId, reservation.version, toIso(actionTime)))}><LogOut size={15} /> 퇴실 완료</Button>} /></div> : null}
               {reservation.lifecycleStatus === "completed" ? <p className="mt-3 flex items-center gap-1.5 text-sm font-semibold text-success"><CheckCircle2 size={16} /> Daycare 이용을 완료했습니다.</p> : null}
             </article>
           );
@@ -106,7 +108,7 @@ export function DaycareOperationsPanel({
       </div>
 
       <DaycareReservationModal open={editing !== null} reservation={editing} onClose={() => setEditing(null)} onSaved={onChanged} />
-      <Modal open={cancelTarget !== null} title="Daycare 예약 취소" onClose={() => setCancelTarget(null)}>
+      <Modal open={cancelTarget !== null} title="데이케어 예약 취소" description={cancelTarget ? `${cancelTarget.dog.name} · 취소 후 일정은 기록에 남습니다.` : undefined} size="small" onClose={() => setCancelTarget(null)}>
         <Field label="취소 사유" required><Input value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></Field>
         <ModalActions><Button variant="secondary" onClick={() => setCancelTarget(null)}>돌아가기</Button><Button variant="danger" disabled={!cancelReason.trim() || processingId !== null} onClick={() => {
           if (!cancelTarget) return;

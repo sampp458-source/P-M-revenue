@@ -1,6 +1,6 @@
 import { BedDouble, LogIn, LogOut, MoveRight, RotateCcw, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Badge, Button, Field, Input, LoadingState, Modal, ModalActions, Select } from "../components/ui";
+import { Badge, Button, ConfirmModal, Field, Input, LoadingState, Modal, ModalActions, ResponsiveActionGroup, Select } from "../components/ui";
 import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
 import {
   sharedHotelRoomErrorMessage,
@@ -100,7 +100,7 @@ export function ExistingStaySharedRoomMergeModal({
           crypto.randomUUID(),
         ).then(onMerged).catch((mergeError) => setError(sharedHotelRoomErrorMessage(mergeError))).finally(() => setMerging(false));
       }}>
-        <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm text-violet-950">
+        <div className="rounded-2xl border border-border bg-primary-subtle p-4 text-sm text-text-primary">
           <strong>{joiningStay.dogName}</strong>의 기존 예약을 유지하면서 DELUXE 객실 하나를 함께 사용합니다.
         </div>
         <Field label="함께 투숙할 반려견">
@@ -114,7 +114,7 @@ export function ExistingStaySharedRoomMergeModal({
         </Field>
         <label className="flex items-start gap-3 rounded-2xl border border-border p-4 text-sm">
           <input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} />
-          <span><b>같은 방 투숙</b><br /><span className="text-text-secondary">두 예약의 입·퇴실 기간이 같으며 객실과 Capacity는 1실만 사용합니다.</span></span>
+          <span><b>같은 방 투숙</b><br /><span className="text-text-secondary">두 예약의 입·퇴실 기간이 같으며 객실은 1실만 사용합니다.</span></span>
         </label>
         {error ? <p role="alert" className="rounded-xl bg-error-soft px-3 py-2 text-sm font-medium text-error">{error}</p> : null}
         <ModalActions>
@@ -162,6 +162,7 @@ export function SharedHotelRoomModal({
   const [error, setError] = useState("");
   const [plannedCheckoutStayId, setPlannedCheckoutStayId] = useState<string | null>(null);
   const [changingPlannedCheckout, setChangingPlannedCheckout] = useState(false);
+  const [checkoutMemberId, setCheckoutMemberId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!occupancy) {
@@ -194,6 +195,9 @@ export function SharedHotelRoomModal({
 
   const plannedCheckoutStay = plannedCheckoutStayId
     ? stays[plannedCheckoutStayId] ?? null
+    : null;
+  const checkoutMember = checkoutMemberId
+    ? occupancy.members.find((member) => member.id === checkoutMemberId) ?? null
     : null;
 
   if (plannedCheckoutStay) {
@@ -246,14 +250,14 @@ export function SharedHotelRoomModal({
   };
 
   return (
-    <Modal open title={`${occupancy.roomName} · Shared Room`} onClose={onClose} resetKey={occupancy.id}>
+    <Modal open title="같은 방 투숙 상세" description={`${occupancy.roomName} · 반려견 ${occupancy.dogCount}마리`} onClose={onClose} resetKey={occupancy.id} size="medium">
       <div className="space-y-4">
-        <div className="rounded-2xl border border-violet-200 bg-violet-50 p-4">
+        <div className="rounded-2xl border border-border bg-surface-secondary p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="flex items-center gap-2"><UsersRound size={18} /><strong>다견 DELUXE 공유 객실</strong></span>
+            <span className="flex items-center gap-2"><UsersRound size={18} /><strong>DELUXE 객실</strong><Badge tone="blue">같은 방</Badge></span>
             <Badge tone={occupancy.status === "active" ? "green" : "gray"}>{occupancy.status === "active" ? "사용 중" : "완료"}</Badge>
           </div>
-          <p className="mt-2 text-sm text-violet-800">객실 1 · 반려견 {occupancy.dogCount}마리 · Capacity {occupancy.capacityUsed}</p>
+          <p className="mt-2 text-sm text-text-secondary">객실 1실 · 반려견 {occupancy.dogCount}마리</p>
         </div>
         {loading ? <LoadingState /> : occupancy.members.map((member) => {
           const stay = stays[member.hotelStayId];
@@ -272,22 +276,25 @@ export function SharedHotelRoomModal({
               <p className="mt-1 text-xs font-medium text-text-secondary">
                 퇴실 예정 {stay ? formatHotelScheduleTime(stay, "check_out") : "확인 중"}
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
+              <ResponsiveActionGroup
+                className="mt-3"
+                primary={<>
                 {member.status === "active" && !stay?.checkedInAt ? (
                   <Button disabled={busy} onClick={() => void memberAction(member.id, (current) => sharedHotelRoomRepository.checkIn(occupancy.id, current.id, occupancy.version, current.version, new Date(completedAt).toISOString(), crypto.randomUUID()))}><LogIn size={15} />입실</Button>
                 ) : null}
                 {member.status === "active" && stay?.checkedInAt ? (
-                  <>
-                    {canChangeCheckedInHotelPlannedCheckout(stay) ? (
-                      <Button variant="secondary" disabled={busy} onClick={() => setPlannedCheckoutStayId(stay.id)}>퇴실 예정 변경</Button>
-                    ) : null}
-                    <Button disabled={busy} onClick={() => void memberAction(member.id, (current) => sharedHotelRoomRepository.checkOut(occupancy.id, current.id, occupancy.version, current.version, new Date(completedAt).toISOString(), crypto.randomUUID()))}><LogOut size={15} />Dog별 퇴실</Button>
-                  </>
+                  <Button disabled={busy} onClick={() => setCheckoutMemberId(member.id)}><LogOut size={15} />Dog별 퇴실</Button>
+                ) : null}
+                </>}
+                secondary={<>
+                {member.status === "active" && stay?.checkedInAt && canChangeCheckedInHotelPlannedCheckout(stay) ? (
+                  <Button variant="secondary" disabled={busy} onClick={() => setPlannedCheckoutStayId(stay.id)}>퇴실 예정 변경</Button>
                 ) : null}
                 {member.status === "completed" && (operationRole === "owner" || operationRole === "manager") ? (
                   <Button variant="secondary" disabled={busy || !reason.trim()} onClick={() => void memberAction(member.id, (current) => sharedHotelRoomRepository.reverseCompletion(occupancy.id, current.id, occupancy.version, current.version, reason, crypto.randomUUID()))}><RotateCcw size={15} />완료 취소</Button>
                 ) : null}
-              </div>
+                </>}
+              />
             </article>
           );
         })}
@@ -314,6 +321,21 @@ export function SharedHotelRoomModal({
             </div>
           </div>
         ) : null}
+        <ConfirmModal
+          open={checkoutMember !== null}
+          title="반려견 퇴실을 완료할까요?"
+          description={`${checkoutMember?.dogName ?? "선택한 반려견"}의 객실 이용만 종료합니다. 같은 방의 다른 반려견은 그대로 유지됩니다.`}
+          confirmLabel="Dog별 퇴실"
+          cancelLabel="돌아가기"
+          processing={Boolean(processingMemberId)}
+          onClose={() => setCheckoutMemberId(null)}
+          onConfirm={() => {
+            if (!checkoutMember) return;
+            const memberId = checkoutMember.id;
+            setCheckoutMemberId(null);
+            void memberAction(memberId, (current) => sharedHotelRoomRepository.checkOut(occupancy.id, current.id, occupancy.version, current.version, new Date(completedAt).toISOString(), crypto.randomUUID()));
+          }}
+        />
         {error ? <p role="alert" className="rounded-xl bg-error-soft px-3 py-2 text-sm font-medium text-error">{error}</p> : null}
       </div>
     </Modal>
