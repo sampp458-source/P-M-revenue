@@ -4,7 +4,7 @@
 -- Production ref: zorvcuskzemehblqdbfj
 -- Clean QA ref: wxbvwixoeczfvbqurdse
 -- Approved migration SHA-256: 706bf28a5f497d41db065b73f033a0dfefc196cc13661fb889e51a5b52e4d731
--- Embedded source SHA-256: bd0c1ebc010bf32330534aa9d29fa589849ae18ae50edda5b44ccb8f6e1ad41d
+-- Embedded source SHA-256: 5137e5d8895312d4353035ed3c050a6b6a5cdc916fc67affa6e10f6efea289bd
 -- ISOLATED CLEAN QA ONLY. All fixture and ledger changes are rolled back.
 begin;
 -- CLEAN_QA_DASHBOARD_BINDING_BEGIN
@@ -151,6 +151,25 @@ begin
   perform public.set_long_stay_absence_expected_return_v2(contract_id,contract_version,return_date+1,null,true,'move boundary',gen_random_uuid());
   insert into long_stay_keep_to_release_qa_result values('N_EXPECTED_RETURN_CHANGE',exists(select 1 from public.hotel_capacity_reservations where id=future_capacity_id and reserved_from=(return_date+1)::timestamp at time zone 'Asia/Seoul'),null);
 
+  -- M: occupy the previous room while retaining one same-type alternative.
+  select dog.customer_id into customer_id from public.dogs dog where dog.id=dog_ids[2];
+  blocker_json:=public.create_flexible_hotel_reservation(hotel_calendar,hotel_schedule_type,
+    return_date+1,time '00:00',false,return_date+2,time '23:59',false,room_type_id,
+    dog_ids[2],customer_id,array[actor_id],'KEEP TO RELEASE RETURN ROOM BLOCKER',gen_random_uuid());
+  blocker_stay_id:=(blocker_json->>'id')::uuid;
+  select version into blocker_version from public.hotel_stays where id=blocker_stay_id;
+  perform public.assign_hotel_room(blocker_stay_id,blocker_version,room_1,'block previous room',gen_random_uuid());
+  rooms_json:=public.get_long_stay_return_room_availability(
+    contract_id,(return_date+1)::timestamp at time zone 'Asia/Seoul'+interval '2 hour'
+  );
+  insert into long_stay_keep_to_release_qa_result values(
+    'M_ALTERNATE_ROOM_CONTRACT',
+    exists(select 1 from jsonb_array_elements(rooms_json->'rooms') room
+      where room->>'roomId'=room_1::text and not (room->>'available')::boolean)
+    and exists(select 1 from jsonb_array_elements(rooms_json->'rooms') room
+      where room->>'roomId'=room_2::text and (room->>'available')::boolean),null
+  );
+
   result_json:=public.release_long_stay_room_during_absence(contract_id,contract_version,'operator release',request_id);
   insert into long_stay_keep_to_release_qa_result values('Q_REPLAY',coalesce((result_json->>'replayed')::boolean,false),null);
   failure_state:=null;
@@ -168,8 +187,7 @@ begin
   -- The canonical return RPC is shared by direct RELEASE_ROOM and transitioned outings.
   select version into contract_version from public.long_stay_contracts where id=contract_id;
   result_json:=public.complete_long_stay_absence_v2(contract_id,contract_version,
-    (return_date+1)::timestamp at time zone 'Asia/Seoul'+interval '2 hour',room_1,null,'late return',gen_random_uuid());
-  insert into long_stay_keep_to_release_qa_result values('M_ALTERNATE_ROOM_CONTRACT',result_json->'currentAbsence'='null'::jsonb,null);
+    (return_date+1)::timestamp at time zone 'Asia/Seoul'+interval '2 hour',room_2,null,'late return',gen_random_uuid());
   insert into long_stay_keep_to_release_qa_result values('O_EARLY_RETURN_CONTRACT',position('p_returned_at<capacity_row.reserved_from' in pg_get_functiondef('public.complete_long_stay_absence_v2(uuid,integer,timestamp with time zone,uuid,text,text,uuid)'::regprocedure))>0,null);
   insert into long_stay_keep_to_release_qa_result values('P_LATE_RETURN',not exists(select 1 from public.long_stay_absence_events where id=leave_id and is_open),null);
 end;
