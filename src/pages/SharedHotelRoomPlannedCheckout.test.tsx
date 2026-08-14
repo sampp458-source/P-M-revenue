@@ -159,6 +159,7 @@ describe("Shared Room Dog planned checkout UI", () => {
 
     fireEvent.click(screen.getAllByRole("button", { name: "퇴실 예정 변경" })[0]);
     expect(screen.getByRole("dialog", { name: "퇴실 예정 변경" })).not.toBeNull();
+    expect(screen.getByTestId("modal-actions")).not.toBeNull();
     fireEvent.change(screen.getByLabelText(/새 퇴실일/), { target: { value: "2026-08-17" } });
     fireEvent.change(screen.getByLabelText(/새 퇴실 시간/), { target: { value: "11:30" } });
     fireEvent.click(screen.getByRole("button", { name: "퇴실 예정 변경" }));

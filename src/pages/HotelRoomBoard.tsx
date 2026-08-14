@@ -437,7 +437,7 @@ function DraggableStayCard({
             event.stopPropagation();
             if (draggable) onSelectForDrop(stay.id);
           }}
-          className="-m-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg opacity-45 transition hover:bg-white/70 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed"
+          className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-xl opacity-70 transition hover:bg-white/70 hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed sm:-m-1 sm:h-8 sm:w-8 sm:rounded-lg sm:opacity-45"
         >
           <GripVertical size={17} />
         </button>
@@ -1135,7 +1135,8 @@ export function HotelRoomBoard({
           </dl>
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-medium text-text-muted">
             <span>카드를 눌러 상세 보기</span>
-            <span>끌어서 호실 배정·이동</span>
+            <span className="sm:hidden">이동 아이콘을 누른 뒤 대상 호실을 누르세요</span>
+            <span className="hidden sm:inline">끌어서 호실 배정·이동</span>
           </div>
         </div>
 

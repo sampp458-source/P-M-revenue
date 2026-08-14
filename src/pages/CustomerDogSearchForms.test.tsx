@@ -115,6 +115,7 @@ describe("canonical customer and dog search forms", () => {
         onSaved={vi.fn()}
       />,
     );
+    expect(screen.getByTestId("modal-actions")).not.toBeNull();
     await choose("반려견", "감자", /감자/);
     expect(screen.getByLabelText("보호자 선택됨").textContent).toContain("감자 보호자");
     fireEvent.change(screen.getByLabelText("월 금액"), { target: { value: "900000" } });

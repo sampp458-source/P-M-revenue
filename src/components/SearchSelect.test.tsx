@@ -8,7 +8,11 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SearchSelect } from "./SearchSelect";
+import {
+  SearchSelect,
+  searchSelectInputNeedsScroll,
+  searchSelectPanelLayout,
+} from "./SearchSelect";
 
 interface Item {
   id: string;
@@ -61,6 +65,27 @@ beforeEach(() => localStorage.clear());
 afterEach(cleanup);
 
 describe("SearchSelect", () => {
+  it("places mobile results inside the visible keyboard viewport", () => {
+    expect(searchSelectPanelLayout(
+      { top: 0, height: 420, width: 375 },
+      { top: 330, bottom: 374 },
+    )).toEqual({ placement: "above", maxHeight: 310 });
+    expect(searchSelectPanelLayout(
+      { top: 48, height: 500, width: 430 },
+      { top: 96, bottom: 140 },
+    )).toEqual({ placement: "below", maxHeight: 320 });
+    expect(searchSelectPanelLayout(
+      { top: 0, height: 700, width: 768 },
+      { top: 330, bottom: 374 },
+    )).toBeNull();
+  });
+
+  it("requests scrolling only when the input is outside the visible viewport", () => {
+    const viewport = { top: 60, height: 360, width: 375 };
+    expect(searchSelectInputNeedsScroll(viewport, { top: 80, bottom: 124 })).toBe(false);
+    expect(searchSelectInputNeedsScroll(viewport, { top: 390, bottom: 434 })).toBe(true);
+  });
+
   it("searches locally and selects a result with the keyboard", async () => {
     const onChange = vi.fn();
     renderSearchSelect({ onChange });
@@ -84,7 +109,9 @@ describe("SearchSelect", () => {
     await waitFor(() =>
       expect(screen.getByRole("option", { name: /토리/ })).toBeTruthy(),
     );
-    fireEvent.click(screen.getByRole("option", { name: /토리/ }));
+    const option = screen.getByRole("option", { name: /토리/ });
+    fireEvent.mouseDown(option);
+    fireEvent.click(option);
     first.unmount();
 
     renderSearchSelect();
@@ -117,12 +144,17 @@ describe("SearchSelect", () => {
   it("closes results after a single selection", async () => {
     renderSearchSelect({ multiple: false });
     const input = screen.getByRole("combobox", { name: "반려견" });
+    input.focus();
+    expect(document.activeElement).toBe(input);
     fireEvent.change(input, { target: { value: "토리" } });
     await waitFor(() =>
       expect(screen.getByRole("option", { name: /토리/ })).toBeTruthy(),
     );
-    fireEvent.click(screen.getByRole("option", { name: /토리/ }));
+    const option = screen.getByRole("option", { name: /토리/ });
+    fireEvent.mouseDown(option);
+    fireEvent.click(option);
     expect(input.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(input);
   });
 
   it("can expose every available option before typing", async () => {

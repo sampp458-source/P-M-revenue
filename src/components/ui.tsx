@@ -331,8 +331,27 @@ export function Modal({
     </div>
   );
 }
+export function ModalActions({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      data-testid="modal-actions"
+      className={cn(
+        "sticky -bottom-5 z-20 -mx-5 -mb-5 mt-6 grid grid-cols-2 gap-2 border-t border-border bg-surface/95 px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] backdrop-blur sm:static sm:mx-0 sm:mb-0 sm:flex sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
 export function ConfirmModal({ open, title, description, confirmLabel = "확인", cancelLabel = "취소", processing = false, tone = "danger", onConfirm, onClose }: { open: boolean; title: string; description: ReactNode; confirmLabel?: string; cancelLabel?: string; processing?: boolean; tone?: "primary" | "danger"; onConfirm: () => void; onClose: () => void }) {
-  return <Modal open={open} title={title} onClose={() => !processing && onClose()}><div className="text-sm leading-6 text-text-secondary">{description}</div><div className="mt-6 grid grid-cols-2 gap-2 sm:flex sm:justify-end"><Button type="button" variant="secondary" disabled={processing} onClick={onClose}>{cancelLabel}</Button><Button type="button" data-modal-initial variant={tone} disabled={processing} onClick={onConfirm}>{processing ? "처리 중..." : confirmLabel}</Button></div></Modal>;
+  return <Modal open={open} title={title} onClose={() => !processing && onClose()}><div className="text-sm leading-6 text-text-secondary">{description}</div><ModalActions><Button type="button" variant="secondary" disabled={processing} onClick={onClose}>{cancelLabel}</Button><Button type="button" data-modal-initial variant={tone} disabled={processing} onClick={onConfirm}>{processing ? "처리 중..." : confirmLabel}</Button></ModalActions></Modal>;
 }
 export function EmptyState({
   title = "표시할 데이터가 없습니다",

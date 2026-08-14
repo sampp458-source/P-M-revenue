@@ -73,6 +73,7 @@ describe("Daycare V1 common form", () => {
     expect(screen.getByLabelText("입실 시간")).not.toBeNull();
     expect(screen.getByLabelText("퇴실 시간")).not.toBeNull();
     expect(screen.getByText("호실 (선택)")).not.toBeNull();
+    expect(screen.getByTestId("modal-actions")).not.toBeNull();
   });
 
   it("submits the canonical single-block payload with optional room", async () => {

@@ -27,6 +27,7 @@ import {
   Input,
   LoadingState,
   Modal,
+  ModalActions,
   Select,
   Textarea,
   Toast,
@@ -1009,7 +1010,7 @@ export function OperationsTodayPage() {
             ? "취소된 일정은 기록에 남으며 필요하면 다시 상태를 변경할 수 있습니다."
             : "삭제된 일정은 오늘과 캘린더에서 표시되지 않습니다."}
         </p>
-        <div className="sticky -bottom-5 z-10 -mx-5 -mb-5 mt-6 grid grid-cols-2 gap-2 border-t border-border bg-surface px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] sm:static sm:mx-0 sm:mb-0 sm:flex sm:justify-end sm:border-0 sm:p-0 sm:shadow-none">
+        <ModalActions>
           <Button variant="secondary" disabled={saving} onClick={returnToScheduleDetail}>
             돌아가기
           </Button>
@@ -1024,7 +1025,7 @@ export function OperationsTodayPage() {
                 ? "일정 취소"
                 : "일정 삭제"}
           </Button>
-        </div>
+        </ModalActions>
       </Modal>
 
       <HotelScheduleManagementDialog
@@ -1910,10 +1911,10 @@ export function ScheduleFormModal({
             Hotel 캘린더에 입실·퇴실 일정 유형이 연결되어 있지 않습니다.
           </p>
         )}
-        <div className="sticky -bottom-5 z-20 -mx-5 -mb-5 flex justify-end gap-2 border-t border-border bg-surface px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(15,23,42,0.06)] sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:p-0 sm:shadow-none">
+        <ModalActions>
           <Button type="button" variant="secondary" disabled={saving} onClick={onClose}>닫기</Button>
           <Button type="submit" disabled={saving || (hotelMode && !hotelScheduleType)}>{saving ? "저장 중..." : "저장"}</Button>
-        </div>
+        </ModalActions>
         </>}
       </ScheduleFormContainer>
     </Modal>

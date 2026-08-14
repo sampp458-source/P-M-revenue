@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SearchSelect } from "../components/SearchSelect";
-import { Button, Field, Input, Modal, Select } from "../components/ui";
+import { Button, Field, Input, Modal, ModalActions, Select } from "../components/ui";
 import { toSeoulInstant } from "./operationsScheduleRepository";
 import type {
   HotelOperationSettingsSnapshot,
@@ -116,7 +116,7 @@ function RoomSelectModal({
             placeholder="선택 사항"
           />
         </Field>
-        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-surface-primary py-3">
+        <ModalActions>
           <Button
             type="button"
             variant="secondary"
@@ -128,7 +128,7 @@ function RoomSelectModal({
           <Button disabled={processing || !roomId}>
             {processing ? "처리 중..." : submitLabel}
           </Button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   );
@@ -250,7 +250,7 @@ function CompletionModal({
             onChange={(event) => setCompletedAt(event.target.value)}
           />
         </Field>
-        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-surface-primary py-3">
+        <ModalActions>
           <Button
             type="button"
             variant="secondary"
@@ -262,7 +262,7 @@ function CompletionModal({
           <Button disabled={processing || !completedAt}>
             {processing ? "처리 중..." : label}
           </Button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   );
@@ -348,12 +348,12 @@ export function CheckInModal({
           활성 호실과 선택한 객실 유형을 기준으로 표시합니다. 전체 예약 기간의
           최종 충돌 여부는 입실 완료 시 다시 확인합니다.
         </p>
-        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-surface-primary py-3">
+        <ModalActions>
           <Button type="button" variant="secondary" onClick={onClose} disabled={processing}>닫기</Button>
           <Button disabled={processing || !completedAt || !roomTypeId || !roomId}>
             {processing ? "처리 중..." : "입실 완료"}
           </Button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   );
@@ -447,14 +447,14 @@ export function PlannedCheckoutChangeModal({
         <p className="text-xs leading-relaxed text-text-secondary">
           연장 시 같은 호실의 다음 예약과 전체 Capacity를 다시 확인합니다.
         </p>
-        <div className="sticky bottom-0 flex justify-end gap-2 border-t border-border bg-surface-primary py-3">
+        <ModalActions>
           <Button type="button" variant="secondary" onClick={onClose} disabled={processing}>
             닫기
           </Button>
           <Button disabled={processing || !checkOutDate || (!timeUnspecified && !checkOutTime)}>
             {processing ? "처리 중..." : "퇴실 예정 변경"}
           </Button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   );
@@ -522,7 +522,7 @@ export function SettingsModal({
         <p className="text-xs text-text-secondary">
           시간대: {settings.timezone}
         </p>
-        <div className="flex justify-end gap-2">
+        <ModalActions>
           <Button
             type="button"
             variant="secondary"
@@ -534,7 +534,7 @@ export function SettingsModal({
           <Button disabled={processing}>
             {processing ? "저장 중..." : "설정 저장"}
           </Button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   );

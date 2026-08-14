@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { CalendarDays, Check, DoorOpen } from "lucide-react";
 import { CustomerDogSearchFields } from "../components/CustomerDogSearchFields";
-import { Button, Field, Input, Modal, Select, Textarea } from "../components/ui";
+import { Button, Field, Input, Modal, ModalActions, Select, Textarea } from "../components/ui";
 import { fetchHotelOperationsSnapshot, type HotelOperationsSnapshot } from "./hotelOperationsRepository";
 import { fetchOperationScheduleOptions, seoulDateKey, type OperationScheduleOptions } from "./operationsScheduleRepository";
 import {
@@ -227,10 +227,10 @@ export function DaycareReservationForm({
           <div className="sm:col-span-2"><Field label="메모"><Textarea value={input.memo} onChange={(event) => patch({ memo: event.target.value })} /></Field></div>
         </div>
         {error ? <p role="alert" className="rounded-xl bg-error-soft px-3 py-2 text-sm font-medium text-error">{error}</p> : null}
-        <div className="flex flex-wrap justify-end gap-2">
+        <ModalActions>
           <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>취소</Button>
           <Button type="submit" disabled={loading || saving}><Check size={16} />{saving ? "저장 중…" : "예약 저장"}</Button>
-        </div>
+        </ModalActions>
         <p className="flex items-center gap-1.5 text-xs text-text-muted"><DoorOpen size={14} /> 호실은 예약 후 Hotel Operations에서도 배정할 수 있습니다.</p>
       </form>
   );

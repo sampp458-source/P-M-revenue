@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { CustomerDogSearchFields } from "../components/CustomerDogSearchFields";
-import { Button, Field, Input, Select, Textarea } from "../components/ui";
+import { Button, Field, Input, ModalActions, Select, Textarea } from "../components/ui";
 import {
   createLongStayContract,
   LongStayRepositoryError,
@@ -159,7 +159,7 @@ export function LongStayRegistrationForm({
       <Field label="메모"><Textarea value={memo} onChange={(event) => setMemo(event.target.value)} /></Field>
       <p className="rounded-xl bg-primary-subtle p-3 text-xs leading-5 text-text-secondary">등록은 계약만 생성합니다. 이번 달 객실은 Hotel Operations에서 직원이 별도로 확정합니다.</p>
       {error ? <p role="alert" className="rounded-xl bg-error-soft p-3 text-sm text-error">{error}</p> : null}
-      <div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={submitting} onClick={onCancel}>취소</Button><Button type="button" disabled={loading || submitting || !customerId || !dogId || !startedOn || Number(monthlyRate) < 0 || !monthlyRate} onClick={() => void submit()}>{submitting ? "등록 중..." : "계약 등록"}</Button></div>
+      <ModalActions><Button type="button" variant="secondary" disabled={submitting} onClick={onCancel}>취소</Button><Button type="button" disabled={loading || submitting || !customerId || !dogId || !startedOn || Number(monthlyRate) < 0 || !monthlyRate} onClick={() => void submit()}>{submitting ? "등록 중..." : "계약 등록"}</Button></ModalActions>
     </div>
   );
 }

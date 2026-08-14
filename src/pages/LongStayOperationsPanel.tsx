@@ -18,6 +18,7 @@ import {
   Input,
   LoadingState,
   Modal,
+  ModalActions,
   Select,
   Textarea,
   Toast,
@@ -716,7 +717,7 @@ export function LongStayOperationsPanel({
             {action.kind === "planned_checkout" ? <><Field label="퇴실 예정일"><Input type="date" value={plannedDate} onChange={(event) => setPlannedDate(event.target.value)} /></Field><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={timeUnspecified} onChange={(event) => setTimeUnspecified(event.target.checked)} /> 퇴실 시간 미정</label></> : null}
             {["leave", "return"].includes(action.kind) ? <Field label="메모"><Textarea value={memo} onChange={(event) => setMemo(event.target.value)} /></Field> : null}
             <Field label="처리 사유"><Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="비워두면 기본 사유가 기록됩니다." /></Field>
-            <div className="flex justify-end gap-2"><Button variant="secondary" disabled={processing} onClick={() => setAction(null)}>취소</Button><Button disabled={processing || (action.kind === "confirm" && (!roomId || availabilityLoading || !selectedAvailability?.assignable || (!action.contract.hotelStayId && (!physicalStartDate || (!timeUnspecified && !physicalStartTime))))) || (action.kind === "leave" && ((inventoryMode === "release_room" && !expectedReturnDate) || (!expectedReturnDateUnknown && (!expectedReturnDate || (!expectedReturnTimeUnknown && !expectedReturnTime))))) || (action.kind === "return" && action.contract.currentAbsence?.inventoryMode === "release_room" && (!roomId || availabilityLoading || Boolean(availabilityError))) || (action.kind === "expected_return" && (!expectedReturnDate || (!expectedReturnTimeUnknown && !expectedReturnTime))) || (action.kind === "release_room" && !action.contract.currentAbsence?.expectedReturnDate)} onClick={() => void submit()}>{processing ? "처리 중..." : action.kind === "release_room" ? "객실 임시 해제" : "확인"}</Button></div>
+            <ModalActions><Button variant="secondary" disabled={processing} onClick={() => setAction(null)}>취소</Button><Button disabled={processing || (action.kind === "confirm" && (!roomId || availabilityLoading || !selectedAvailability?.assignable || (!action.contract.hotelStayId && (!physicalStartDate || (!timeUnspecified && !physicalStartTime))))) || (action.kind === "leave" && ((inventoryMode === "release_room" && !expectedReturnDate) || (!expectedReturnDateUnknown && (!expectedReturnDate || (!expectedReturnTimeUnknown && !expectedReturnTime))))) || (action.kind === "return" && action.contract.currentAbsence?.inventoryMode === "release_room" && (!roomId || availabilityLoading || Boolean(availabilityError))) || (action.kind === "expected_return" && (!expectedReturnDate || (!expectedReturnTimeUnknown && !expectedReturnTime))) || (action.kind === "release_room" && !action.contract.currentAbsence?.expectedReturnDate)} onClick={() => void submit()}>{processing ? "처리 중..." : action.kind === "release_room" ? "객실 임시 해제" : "확인"}</Button></ModalActions>
           </div>
         ) : null}
       </Modal>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CalendarDays, CheckCircle2, LogIn, LogOut, Pencil, X } from "lucide-react";
-import { Badge, Button, Card, EmptyState, Field, Input, Modal, Select } from "../components/ui";
+import { Badge, Button, Card, EmptyState, Field, Input, Modal, ModalActions, Select } from "../components/ui";
 import type { HotelOperationsSnapshot } from "./hotelOperationsRepository";
 import { DaycareReservationModal } from "./DaycareReservationModal";
 import {
@@ -108,10 +108,10 @@ export function DaycareOperationsPanel({
       <DaycareReservationModal open={editing !== null} reservation={editing} onClose={() => setEditing(null)} onSaved={onChanged} />
       <Modal open={cancelTarget !== null} title="Daycare 예약 취소" onClose={() => setCancelTarget(null)}>
         <Field label="취소 사유" required><Input value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} /></Field>
-        <div className="mt-5 flex justify-end gap-2"><Button variant="secondary" onClick={() => setCancelTarget(null)}>돌아가기</Button><Button variant="danger" disabled={!cancelReason.trim() || processingId !== null} onClick={() => {
+        <ModalActions><Button variant="secondary" onClick={() => setCancelTarget(null)}>돌아가기</Button><Button variant="danger" disabled={!cancelReason.trim() || processingId !== null} onClick={() => {
           if (!cancelTarget) return;
           void run(cancelTarget, () => cancelDaycareReservation(cancelTarget.operationScheduleId, cancelTarget.version, cancelReason)).then(() => setCancelTarget(null));
-        }}>예약 취소</Button></div>
+        }}>예약 취소</Button></ModalActions>
       </Modal>
     </Card>
   );

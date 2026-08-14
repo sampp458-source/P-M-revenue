@@ -1,5 +1,6 @@
 import { LoaderCircle, X } from "lucide-react";
 import {
+  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -36,6 +37,47 @@ const writeRecentIds = (storageKey: string | undefined, ids: string[]) => {
     // Storage can be unavailable in private or restricted browser contexts.
   }
 };
+
+export interface SearchSelectViewportBounds {
+  top: number;
+  height: number;
+  width: number;
+}
+
+export interface SearchSelectInputBounds {
+  top: number;
+  bottom: number;
+}
+
+export interface SearchSelectPanelLayout {
+  placement: "above" | "below";
+  maxHeight: number;
+}
+
+export function searchSelectPanelLayout(
+  viewport: SearchSelectViewportBounds,
+  input: SearchSelectInputBounds,
+): SearchSelectPanelLayout | null {
+  if (viewport.width >= 640) return null;
+  const edge = 12;
+  const gap = 8;
+  const viewportBottom = viewport.top + viewport.height;
+  const below = Math.max(0, viewportBottom - input.bottom - gap - edge);
+  const above = Math.max(0, input.top - viewport.top - gap - edge);
+  const placement = below >= Math.min(160, above) ? "below" : "above";
+  return {
+    placement,
+    maxHeight: Math.floor(Math.min(320, placement === "below" ? below : above)),
+  };
+}
+
+export function searchSelectInputNeedsScroll(
+  viewport: SearchSelectViewportBounds,
+  input: SearchSelectInputBounds,
+) {
+  const edge = 12;
+  return input.top < viewport.top + edge || input.bottom > viewport.top + viewport.height - edge;
+}
 
 export interface SearchSelectRenderState {
   selected: boolean;
@@ -96,6 +138,7 @@ export function SearchSelect<T>({
   const id = useId();
   const listboxId = `${id}-listbox`;
   const rootRef = useRef<HTMLFieldSetElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const requestSequence = useRef(0);
   const emptyItemsRef = useRef<readonly T[]>([]);
   const getItemIdRef = useRef(getItemId);
@@ -117,6 +160,57 @@ export function SearchSelect<T>({
   const [recentIds, setRecentIds] = useState<string[]>(() =>
     readRecentIds(recentStorageKey),
   );
+  const [panelLayout, setPanelLayout] = useState<SearchSelectPanelLayout | null>(null);
+
+  const updatePanelLayout = useCallback(() => {
+    const input = inputRef.current;
+    const viewport = window.visualViewport;
+    if (!input || !viewport) {
+      setPanelLayout(null);
+      return;
+    }
+    const rect = input.getBoundingClientRect();
+    setPanelLayout(searchSelectPanelLayout(
+      { top: viewport.offsetTop, height: viewport.height, width: viewport.width },
+      { top: rect.top, bottom: rect.bottom },
+    ));
+  }, []);
+
+  const keepInputVisible = useCallback(() => {
+    const input = inputRef.current;
+    const viewport = window.visualViewport;
+    if (!input || !viewport || viewport.width >= 640) return;
+    const rect = input.getBoundingClientRect();
+    if (searchSelectInputNeedsScroll(
+      { top: viewport.offsetTop, height: viewport.height, width: viewport.width },
+      { top: rect.top, bottom: rect.bottom },
+    )) {
+      input.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!open) {
+      setPanelLayout(null);
+      return;
+    }
+    const viewport = window.visualViewport;
+    const refresh = () => {
+      keepInputVisible();
+      window.requestAnimationFrame(updatePanelLayout);
+    };
+    refresh();
+    viewport?.addEventListener("resize", refresh);
+    viewport?.addEventListener("scroll", refresh);
+    window.addEventListener("resize", refresh);
+    window.addEventListener("scroll", refresh, true);
+    return () => {
+      viewport?.removeEventListener("resize", refresh);
+      viewport?.removeEventListener("scroll", refresh);
+      window.removeEventListener("resize", refresh);
+      window.removeEventListener("scroll", refresh, true);
+    };
+  }, [keepInputVisible, open, updatePanelLayout]);
 
   const itemById = useMemo(
     () =>
@@ -303,6 +397,7 @@ export function SearchSelect<T>({
 
       <div className="relative">
         <SearchBox
+          inputRef={inputRef}
           value={query}
           aria-label={label}
           role="combobox"
@@ -317,7 +412,13 @@ export function SearchSelect<T>({
           placeholder={placeholder}
           autoComplete="off"
           disabled={disabled}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true);
+            window.requestAnimationFrame(() => {
+              keepInputVisible();
+              updatePanelLayout();
+            });
+          }}
           onBlur={() =>
             window.setTimeout(() => {
               if (!rootRef.current?.contains(document.activeElement)) {
@@ -342,7 +443,12 @@ export function SearchSelect<T>({
             role="listbox"
             aria-label={`${label} 검색 결과`}
             aria-multiselectable={multiple}
-            className="absolute left-0 right-0 top-full z-40 mt-2 max-h-[min(20rem,48dvh)] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-surface p-1.5 shadow-[var(--pm-shadow-elevated)]"
+            data-viewport-placement={panelLayout?.placement ?? "fallback-below"}
+            style={panelLayout ? { maxHeight: `${panelLayout.maxHeight}px` } : undefined}
+            className={cn(
+              "absolute left-0 right-0 z-40 max-h-[min(20rem,48dvh)] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-surface p-1.5 shadow-[var(--pm-shadow-elevated)]",
+              panelLayout?.placement === "above" ? "bottom-full mb-2" : "top-full mt-2",
+            )}
           >
             {showRecent && !loading && !searchError && (
               <p className="px-3 pb-1.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-text-muted">

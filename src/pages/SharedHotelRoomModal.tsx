@@ -1,6 +1,6 @@
 import { BedDouble, LogIn, LogOut, MoveRight, RotateCcw, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Badge, Button, Field, Input, LoadingState, Modal, Select } from "../components/ui";
+import { Badge, Button, Field, Input, LoadingState, Modal, ModalActions, Select } from "../components/ui";
 import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
 import {
   sharedHotelRoomErrorMessage,
@@ -117,10 +117,10 @@ export function ExistingStaySharedRoomMergeModal({
           <span><b>같은 방 투숙</b><br /><span className="text-text-secondary">두 예약의 입·퇴실 기간이 같으며 객실과 Capacity는 1실만 사용합니다.</span></span>
         </label>
         {error ? <p role="alert" className="rounded-xl bg-error-soft px-3 py-2 text-sm font-medium text-error">{error}</p> : null}
-        <div className="flex justify-end gap-2">
+        <ModalActions>
           <Button type="button" variant="secondary" onClick={onClose} disabled={processing || merging}>닫기</Button>
           <Button disabled={processing || merging || !selected || !confirmed}>{processing || merging ? "처리 중…" : "같은 방으로 배정"}</Button>
-        </div>
+        </ModalActions>
       </form>
     </Modal>
   );

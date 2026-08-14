@@ -235,6 +235,31 @@ describe("Hotel Room Board operations UX", () => {
     expect(unassigned.compareDocumentPosition(standard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("provides a mobile-sized move handle and preserves the tap-select room target flow", () => {
+    const hotelStay = allocatedStay();
+    const value = snapshot([hotelStay]);
+    value.roomTypes[0] = { ...value.roomTypes[0], activeRooms: 2 };
+    value.rooms.push({
+      id: "room-2",
+      name: "DELUXE 2",
+      roomTypeId: "deluxe",
+      roomTypeCode: "DELUXE",
+      roomTypeName: "DELUXE",
+      isActive: true,
+      sortOrder: 2,
+    });
+    const onDropStay = vi.fn();
+    render(<HotelRoomBoard {...boardProps(value, "2026-08-14")} onDropStay={onDropStay} />);
+
+    const handle = screen.getByRole("button", { name: "감자 호실 이동 시작" });
+    expect(handle).toHaveClass("h-11", "w-11", "sm:h-8", "sm:w-8");
+    fireEvent.click(handle);
+    fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-room-2"));
+
+    expect(onDropStay).toHaveBeenCalledWith("stay-1", "room-2", false);
+    expect(screen.getByText("이동 아이콘을 누른 뒤 대상 호실을 누르세요")).toHaveClass("sm:hidden");
+  });
+
   it("moves a future reservation into today when the selected date changes", () => {
     const future = stay({ id: "future", dogName: "날짜이동견", scheduleEvents: [schedule("check_in", "2026-08-14T06:00:00Z"), schedule("check_out", "2026-08-16T02:00:00Z")] });
     const value = snapshot([], [future]);
