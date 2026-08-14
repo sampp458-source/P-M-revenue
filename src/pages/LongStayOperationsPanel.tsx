@@ -107,6 +107,26 @@ const nowLocalInput = () => {
 const kstIso = (value: string) => new Date(`${value}:00+09:00`).toISOString();
 const kstDateKey = (value: string) =>
   new Date(value).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+const shortDate = (value: string) => {
+  const [, month, day] = value.split("-").map(Number);
+  return `${month}/${day}`;
+};
+const expectedReturnLabel = (
+  absence: NonNullable<LongStayContractProjection["currentAbsence"]>,
+) => {
+  if (!absence.expectedReturnDate) return "미정";
+  if (absence.expectedReturnTimeUnspecified) {
+    return `${shortDate(absence.expectedReturnDate)} · 시간 미정`;
+  }
+  if (!absence.expectedReturnAt) return shortDate(absence.expectedReturnDate);
+  const time = new Intl.DateTimeFormat("ko-KR", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "Asia/Seoul",
+  }).format(new Date(absence.expectedReturnAt));
+  return `${shortDate(absence.expectedReturnDate)} ${time}`;
+};
 
 const conflictSourceLabel: Partial<Record<
   NonNullable<LongStayRoomAvailability["conflictSource"]>,
@@ -174,7 +194,10 @@ export function LongStayOperationsPanel({
   const [toast, setToast] = useState<{ message: string; tone: "success" | "error" } | null>(null);
   const [roomId, setRoomId] = useState("");
   const [occurredAt, setOccurredAt] = useState(nowLocalInput);
-  const [expectedReturnAt, setExpectedReturnAt] = useState("");
+  const [expectedReturnDate, setExpectedReturnDate] = useState("");
+  const [expectedReturnTime, setExpectedReturnTime] = useState("");
+  const [expectedReturnDateUnknown, setExpectedReturnDateUnknown] = useState(true);
+  const [expectedReturnTimeUnknown, setExpectedReturnTimeUnknown] = useState(true);
   const [plannedDate, setPlannedDate] = useState("");
   const [timeUnspecified, setTimeUnspecified] = useState(false);
   const [physicalStartDate, setPhysicalStartDate] = useState("");
@@ -233,7 +256,10 @@ export function LongStayOperationsPanel({
     setAction({ kind, contract, requestId: newLongStayRequestId() });
     setRoomId(contract.currentRoom?.id ?? availableRooms[0]?.id ?? "");
     setOccurredAt(nowLocalInput());
-    setExpectedReturnAt("");
+    setExpectedReturnDate("");
+    setExpectedReturnTime("");
+    setExpectedReturnDateUnknown(true);
+    setExpectedReturnTimeUnknown(true);
     setPlannedDate(contract.plannedCheckOutDate ?? "");
     setTimeUnspecified(false);
     setPhysicalStartDate(kind === "confirm" && !contract.hotelStayId
@@ -324,7 +350,9 @@ export function LongStayOperationsPanel({
           contractId: contract.id,
           expectedContractVersion: contract.version,
           leftAt: kstIso(occurredAt),
-          expectedReturnAt: expectedReturnAt ? kstIso(expectedReturnAt) : null,
+          expectedReturnDate: expectedReturnDateUnknown ? null : expectedReturnDate,
+          expectedReturnTime: expectedReturnDateUnknown || expectedReturnTimeUnknown ? null : expectedReturnTime,
+          expectedReturnTimeUnspecified: expectedReturnDateUnknown || expectedReturnTimeUnknown,
           memo,
           reason: reason || "장기호텔 외출",
         }, action.requestId);
@@ -443,6 +471,9 @@ export function LongStayOperationsPanel({
                     <span>퇴실 예정 <b className="text-text-primary">{contract.plannedCheckOutDate ? koDate(contract.plannedCheckOutDate) : "미정"}</b></span>
                     <span>월 점유 <b className="text-text-primary">{contract.monthlyOccupancy ? `${koDate(contract.monthlyOccupancy.plannedOccupiedFrom.slice(0, 10))}부터` : "미배정"}</b></span>
                     <span>객실 유지 <b className="text-text-primary">{contract.isOpenEnded ? "실제 퇴실까지" : "종료"}</b></span>
+                    {contract.isAway && contract.currentAbsence ? (
+                      <span className="col-span-2">복귀 예정 <b className="text-text-primary">{expectedReturnLabel(contract.currentAbsence)}</b></span>
+                    ) : null}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {!beforeContractStart && !contract.monthlyOccupancy && contract.storedStatus !== "completed" ? <Button onClick={() => openAction("confirm", contract)}><DoorOpen size={15} /> 객실 배정</Button> : null}
@@ -511,11 +542,49 @@ export function LongStayOperationsPanel({
               </>
             ) : null}
             {["checkin", "leave", "return", "checkout"].includes(action.kind) ? <Field label={action.kind === "leave" ? "외출 시각" : action.kind === "return" ? "복귀 시각" : action.kind === "checkout" ? "실제 퇴실 시각" : "입실 시각"} required><Input type="datetime-local" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} /></Field> : null}
-            {action.kind === "leave" ? <Field label="예상 복귀 시각"><Input type="datetime-local" value={expectedReturnAt} onChange={(event) => setExpectedReturnAt(event.target.value)} /></Field> : null}
+            {action.kind === "leave" ? (
+              <div className="space-y-3 rounded-2xl border border-border p-4">
+                <strong className="text-sm text-text-primary">예상 복귀</strong>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Field label="날짜">
+                    <Input
+                      aria-label="예상 복귀 날짜"
+                      type="date"
+                      value={expectedReturnDate}
+                      disabled={expectedReturnDateUnknown}
+                      onChange={(event) => setExpectedReturnDate(event.target.value)}
+                    />
+                  </Field>
+                  <Field label="시간">
+                    <Input
+                      aria-label="예상 복귀 시간"
+                      type="time"
+                      value={expectedReturnTime}
+                      disabled={expectedReturnDateUnknown || expectedReturnTimeUnknown}
+                      onChange={(event) => setExpectedReturnTime(event.target.value)}
+                    />
+                  </Field>
+                </div>
+                <div className="flex flex-wrap gap-4 text-sm text-text-secondary">
+                  <label className="flex items-center gap-2"><input aria-label="예상 복귀 날짜 미정" type="checkbox" checked={expectedReturnDateUnknown} onChange={(event) => {
+                    setExpectedReturnDateUnknown(event.target.checked);
+                    if (event.target.checked) {
+                      setExpectedReturnDate("");
+                      setExpectedReturnTime("");
+                      setExpectedReturnTimeUnknown(true);
+                    }
+                  }} /> 날짜 미정</label>
+                  <label className="flex items-center gap-2"><input aria-label="예상 복귀 시간 미정" type="checkbox" checked={expectedReturnTimeUnknown} disabled={expectedReturnDateUnknown} onChange={(event) => {
+                    setExpectedReturnTimeUnknown(event.target.checked);
+                    if (event.target.checked) setExpectedReturnTime("");
+                  }} /> 시간 미정</label>
+                </div>
+              </div>
+            ) : null}
             {action.kind === "planned_checkout" ? <><Field label="퇴실 예정일"><Input type="date" value={plannedDate} onChange={(event) => setPlannedDate(event.target.value)} /></Field><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={timeUnspecified} onChange={(event) => setTimeUnspecified(event.target.checked)} /> 퇴실 시간 미정</label></> : null}
             {["leave", "return"].includes(action.kind) ? <Field label="메모"><Textarea value={memo} onChange={(event) => setMemo(event.target.value)} /></Field> : null}
             <Field label="처리 사유"><Input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="비워두면 기본 사유가 기록됩니다." /></Field>
-            <div className="flex justify-end gap-2"><Button variant="secondary" disabled={processing} onClick={() => setAction(null)}>취소</Button><Button disabled={processing || (action.kind === "confirm" && (!roomId || availabilityLoading || !selectedAvailability?.assignable || (!action.contract.hotelStayId && (!physicalStartDate || (!timeUnspecified && !physicalStartTime)))))} onClick={() => void submit()}>{processing ? "처리 중..." : "확인"}</Button></div>
+            <div className="flex justify-end gap-2"><Button variant="secondary" disabled={processing} onClick={() => setAction(null)}>취소</Button><Button disabled={processing || (action.kind === "confirm" && (!roomId || availabilityLoading || !selectedAvailability?.assignable || (!action.contract.hotelStayId && (!physicalStartDate || (!timeUnspecified && !physicalStartTime))))) || (action.kind === "leave" && !expectedReturnDateUnknown && (!expectedReturnDate || (!expectedReturnTimeUnknown && !expectedReturnTime)))} onClick={() => void submit()}>{processing ? "처리 중..." : "확인"}</Button></div>
           </div>
         ) : null}
       </Modal>

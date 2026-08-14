@@ -178,11 +178,13 @@ export function startLongStayAbsence(
   input: StartLongStayAbsenceInput,
   requestId = newLongStayRequestId(),
 ) {
-  return rpc<LongStayContractProjection>("start_long_stay_absence", {
+  return rpc<LongStayContractProjection>("start_long_stay_absence_v2", {
     p_contract_id: input.contractId,
     p_expected_contract_version: input.expectedContractVersion,
     p_left_at: input.leftAt,
-    p_expected_return_at: input.expectedReturnAt,
+    p_expected_return_date: input.expectedReturnDate,
+    p_expected_return_time: input.expectedReturnTime,
+    p_expected_return_time_unspecified: input.expectedReturnTimeUnspecified,
     p_memo: input.memo || null,
     p_reason: input.reason,
     p_request_id: requestId,
@@ -261,7 +263,7 @@ export function getCustomerLongStays(customerId: string) {
 }
 
 export function getLongStayMonth(serviceMonth: string) {
-  return rpc<LongStayMonthProjection>("get_long_stay_month", {
+  return rpc<LongStayMonthProjection>("get_long_stay_month_v2", {
     p_service_month: serviceMonth,
   });
 }

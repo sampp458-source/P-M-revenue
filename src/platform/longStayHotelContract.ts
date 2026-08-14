@@ -343,6 +343,13 @@ export interface LongStayContractProjection {
     roomTypeId: string;
   } | null;
   isAway: boolean;
+  currentAbsence?: {
+    id: string;
+    leftAt: string;
+    expectedReturnAt: string | null;
+    expectedReturnDate: string | null;
+    expectedReturnTimeUnspecified: boolean;
+  } | null;
   replayed?: boolean;
   monthlyOccupancyId?: string;
 }
@@ -458,7 +465,9 @@ export interface StartLongStayAbsenceInput {
   contractId: string;
   expectedContractVersion: number;
   leftAt: string;
-  expectedReturnAt: string | null;
+  expectedReturnDate: string | null;
+  expectedReturnTime: string | null;
+  expectedReturnTimeUnspecified: boolean;
   memo: string;
   reason: string;
 }

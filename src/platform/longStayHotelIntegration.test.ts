@@ -12,14 +12,14 @@ describe("Long Stay public application contract", () => {
       "create_long_stay_contract",
       "confirm_long_stay_month_v2",
       "complete_long_stay_check_in",
-      "start_long_stay_absence",
+      "start_long_stay_absence_v2",
       "complete_long_stay_absence",
       "set_long_stay_planned_checkout",
       "complete_long_stay_check_out",
       "reverse_long_stay_completion",
       "get_long_stay_contract",
       "get_customer_long_stays",
-      "get_long_stay_month",
+      "get_long_stay_month_v2",
       "get_long_stay_room_availability_v2",
     ];
     rpcNames.forEach((name) => expect(repository).toContain(`"${name}"`));
