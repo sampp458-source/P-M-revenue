@@ -11,6 +11,10 @@ const todaySource = readFileSync(
   resolve(import.meta.dirname, "./OperationsToday.tsx"),
   "utf8",
 );
+const customerDogSearchSource = readFileSync(
+  resolve(import.meta.dirname, "../components/CustomerDogSearchFields.tsx"),
+  "utf8",
+);
 const scheduleRepositorySource = readFileSync(
   resolve(import.meta.dirname, "./operationsScheduleRepository.ts"),
   "utf8",
@@ -122,9 +126,10 @@ describe("Operations foundation UI", () => {
     expect(todaySource).toContain("· 자동 기록");
     expect(todaySource).toContain('Detail label="담당자"');
     expect(todaySource).toContain('Detail label="생성자"');
-    expect(todaySource).toContain('label="반려견"');
-    expect(todaySource).toContain('label="보호자"');
-    expect(todaySource).toContain("formatPhoneForDisplay(customer?.phone)");
+    expect(todaySource).toContain("<CustomerDogSearchFields");
+    expect(customerDogSearchSource).toContain('label="반려견"');
+    expect(customerDogSearchSource).toContain('label="보호자"');
+    expect(customerDogSearchSource).toContain("formatPhoneForDisplay(customer?.phone)");
     expect(todaySource).not.toContain("phoneLast4");
     expect(todaySource).toContain('<Field label="일정 유형" required={hotelMode}>');
     expect(todaySource).toContain("선택 안 함 · 기타로 저장");

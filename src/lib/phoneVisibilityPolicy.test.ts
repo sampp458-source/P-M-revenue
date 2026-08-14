@@ -9,6 +9,10 @@ const operationsToday = readFileSync(
   new URL("../pages/OperationsToday.tsx", import.meta.url),
   "utf8",
 );
+const customerDogSearchFields = readFileSync(
+  new URL("../components/CustomerDogSearchFields.tsx", import.meta.url),
+  "utf8",
+);
 const outstandingDrawer = readFileSync(
   new URL("../pages/dashboard/OutstandingPaymentsDrawer.tsx", import.meta.url),
   "utf8",
@@ -19,10 +23,11 @@ describe("전화번호 표시 정책", () => {
     expect(saleRegistration).toContain(
       "text={displayPhone(result.customerPhone)}",
     );
-    expect(operationsToday).toContain(
+    expect(customerDogSearchFields).toContain(
       "formatPhoneForDisplay(customer?.phone)",
     );
-    expect(operationsToday).toContain("formatPhoneForDisplay(row.phone)");
+    expect(customerDogSearchFields).toContain("formatPhoneForDisplay(row.phone)");
+    expect(operationsToday).toContain("<CustomerDogSearchFields");
     expect(operationsToday).not.toContain("phoneLast4");
   });
 

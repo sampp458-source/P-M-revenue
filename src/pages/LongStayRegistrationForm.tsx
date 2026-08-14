@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { CustomerDogSearchFields } from "../components/CustomerDogSearchFields";
 import { Button, Field, Input, Select, Textarea } from "../components/ui";
 import {
   createLongStayContract,
@@ -15,12 +16,15 @@ import { seoulDateKey } from "./operationsScheduleRepository";
 export interface LongStayRegistrationCustomerOption {
   id: string;
   name: string | null;
+  phone?: string | null;
 }
 
 export interface LongStayRegistrationDogOption {
   id: string;
   name: string;
   customerId?: string | null;
+  breed?: string | null;
+  sex?: "male" | "female" | null;
 }
 
 export interface LongStayRegistrationPrefill {
@@ -44,7 +48,9 @@ export function LongStayRegistrationForm({
   onSaved: (contract: LongStayContractProjection) => void | Promise<void>;
   onCancel: () => void;
 }) {
-  const [customerId, setCustomerId] = useState(prefill?.customerId ?? "");
+  const [customerId, setCustomerId] = useState(
+    prefill?.customerId ?? dogs.find((dog) => dog.id === prefill?.dogId)?.customerId ?? "",
+  );
   const [dogId, setDogId] = useState(prefill?.dogId ?? "");
   const [startedOn, setStartedOn] = useState(prefill?.startedOn ?? seoulDateKey());
   const [plannedDate, setPlannedDate] = useState("");
@@ -83,7 +89,7 @@ export function LongStayRegistrationForm({
   }, [initialHotelSnapshot, startedOn]);
 
   const availableDogs = useMemo(
-    () => dogs.filter((dog) => !customerId || !dog.customerId || dog.customerId === customerId),
+    () => dogs.filter((dog) => !customerId || dog.customerId === customerId),
     [customerId, dogs],
   );
   const roomTypes = snapshot?.roomTypes ?? [];
@@ -93,6 +99,11 @@ export function LongStayRegistrationForm({
 
   const submit = async () => {
     if (!customerId || !dogId || !startedOn || !monthlyRate || submitting) return;
+    const selectedDog = dogs.find((dog) => dog.id === dogId);
+    if (!selectedDog?.customerId || selectedDog.customerId !== customerId) {
+      setError("선택한 보호자와 반려견 정보가 일치하지 않습니다.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -123,18 +134,24 @@ export function LongStayRegistrationForm({
     <div className="space-y-4" aria-label="장기호텔 등록 양식">
       <div><h3 className="font-bold text-text-primary">장기호텔 등록</h3><p className="mt-1 text-xs text-text-secondary">계약을 등록한 뒤 월별 객실은 Hotel Operations에서 확정합니다.</p></div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="보호자" required>
-          <Select aria-label="보호자" value={customerId} disabled={Boolean(prefill?.customerId)} onChange={(event) => { setCustomerId(event.target.value); setDogId(""); }}>
-            <option value="">보호자 선택</option>
-            {customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name || "이름 미등록"}</option>)}
-          </Select>
-        </Field>
-        <Field label="반려견" required>
-          <Select aria-label="반려견" value={dogId} disabled={Boolean(prefill?.dogId)} onChange={(event) => setDogId(event.target.value)}>
-            <option value="">반려견 선택</option>
-            {availableDogs.map((dog) => <option key={dog.id} value={dog.id}>{dog.name}</option>)}
-          </Select>
-        </Field>
+        <CustomerDogSearchFields
+          customers={customers}
+          dogs={availableDogs}
+          customerIds={customerId ? [customerId] : []}
+          dogIds={dogId ? [dogId] : []}
+          recentScope="long-stay-registration"
+          onDogIdsChange={(dogIds) => {
+            const nextDogId = dogIds.at(-1) ?? "";
+            const nextCustomerId = dogs.find((dog) => dog.id === nextDogId)?.customerId ?? "";
+            setDogId(nextDogId);
+            if (nextDogId) setCustomerId(nextCustomerId);
+          }}
+          onCustomerIdsChange={(customerIds) => {
+            const nextCustomerId = customerIds.at(-1) ?? "";
+            setCustomerId(nextCustomerId);
+            if (dogs.find((dog) => dog.id === dogId)?.customerId !== nextCustomerId) setDogId("");
+          }}
+        />
       </div>
       <div className="grid gap-4 sm:grid-cols-2"><Field label="계약 시작일" required><Input aria-label="계약 시작일" type="date" value={startedOn} onChange={(event) => setStartedOn(event.target.value)} /></Field><Field label="퇴실 예정일"><Input type="date" value={plannedDate} min={startedOn} onChange={(event) => setPlannedDate(event.target.value)} /></Field></div>
       <div className="grid gap-4 sm:grid-cols-2"><Field label="선호 객실 유형"><Select value={roomTypeId} disabled={loading} onChange={(event) => { setRoomTypeId(event.target.value); setRoomId(""); }}><option value="">미정</option>{roomTypes.map((type) => <option key={type.id} value={type.id}>{type.name}</option>)}</Select></Field><Field label="선호 호실"><Select value={roomId} disabled={loading} onChange={(event) => setRoomId(event.target.value)}><option value="">미정</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}</Select></Field></div>

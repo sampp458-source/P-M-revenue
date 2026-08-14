@@ -31,7 +31,7 @@ vi.mock("./hotelOperationsRepository", async (importOriginal) => ({
 const options = {
   calendars: [{ id: "daycare-calendar", name: "Daycare", businessUnitCode: "daycare", businessUnitName: "데이케어", scopeType: "business_unit", color: "#06b6d4", sortOrder: 1 }],
   scheduleTypes: [{ id: "daycare-type", name: "데이케어", calendarIds: ["daycare-calendar"] }],
-  customers: [{ id: "customer-1", name: "보호자" }],
+  customers: [{ id: "customer-1", name: "보호자", phone: "01012345678" }],
   dogs: [{ id: "dog-1", customerId: "customer-1", name: "감자" }],
   assignees: [{ id: "staff-1", name: "담당자" }],
 };
@@ -64,8 +64,10 @@ describe("Daycare V1 common form", () => {
     render(<DaycareReservationModal open prefill={{ customerId: "customer-1", dogId: "dog-1", serviceDate: "2026-08-14" }} onClose={vi.fn()} onSaved={vi.fn()} />);
 
     expect(await screen.findByRole("dialog", { name: "데이케어 예약" })).not.toBeNull();
-    expect((screen.getByLabelText("보호자") as HTMLSelectElement).value).toBe("customer-1");
-    expect((screen.getByLabelText("반려견") as HTMLSelectElement).value).toBe("dog-1");
+    expect(screen.getByRole("combobox", { name: "보호자" })).not.toBeNull();
+    expect(screen.getByRole("combobox", { name: "반려견" })).not.toBeNull();
+    expect(screen.getByLabelText("보호자 선택됨").textContent).toContain("보호자");
+    expect(screen.getByLabelText("반려견 선택됨").textContent).toContain("감자");
     expect(screen.getByLabelText("데이케어 날짜")).not.toBeNull();
     expect(screen.queryByLabelText(/퇴실 날짜/)).toBeNull();
     expect(screen.getByLabelText("입실 시간")).not.toBeNull();

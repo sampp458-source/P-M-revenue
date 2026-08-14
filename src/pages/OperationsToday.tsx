@@ -3,11 +3,9 @@ import {
   ChevronRight,
   ClipboardCheck,
   Clock3,
-  Dog,
   MoreHorizontal,
   Pencil,
   Plus,
-  UserRound,
 } from "lucide-react";
 import {
   useCallback,
@@ -35,7 +33,7 @@ import {
   cn,
 } from "../components/ui";
 import { SearchSelect } from "../components/SearchSelect";
-import { formatPhoneForDisplay } from "../lib/phone";
+import { CustomerDogSearchFields } from "../components/CustomerDogSearchFields";
 import {
   createHotelReservation,
   fetchHotelOperationsSnapshot,
@@ -67,7 +65,6 @@ import {
   mergeOperationTodaySchedule,
   nextSeoulDate,
   oneHourScheduleEnd,
-  operationDogProfileLine,
   operationPersonColor,
   operationPersonDisplayName,
   operationScheduleDisplayTitle,
@@ -1399,18 +1396,6 @@ export function ScheduleFormModal({
     }
     onChange(nextForm);
   };
-  const customerById = new Map(
-    (options?.customers ?? []).map((customer) => [customer.id, customer]),
-  );
-  const dogsByCustomer = new Map<string, string[]>();
-  (options?.dogs ?? []).forEach((dog) => {
-    if (dog.customerId) {
-      dogsByCustomer.set(dog.customerId, [
-        ...(dogsByCustomer.get(dog.customerId) ?? []),
-        dog.name,
-      ]);
-    }
-  });
   const changeDogs = (dogIds: string[]) => {
     const normalizedDogIds = hotelMode ? dogIds.slice(-1) : dogIds;
     const customerIds = suggestOperationCustomerIds(
@@ -1880,96 +1865,30 @@ export function ScheduleFormModal({
           emptyMessage="활성 담당자가 없습니다."
           recentStorageKey={`pm-os:${recentScope}:schedule-staff`}
         />
-        <SearchSelect
-          label="반려견"
-          items={options?.dogs ?? []}
-          selectedIds={form.dogIds}
-          onChange={changeDogs}
+        <CustomerDogSearchFields
+          customers={options?.customers ?? []}
+          dogs={
+            hotelMode && form.customerIds[0]
+              ? (options?.dogs ?? []).filter((dog) => dog.customerId === form.customerIds[0])
+              : options?.dogs ?? []
+          }
+          customerIds={form.customerIds}
+          dogIds={form.dogIds}
+          onDogIdsChange={changeDogs}
+          onCustomerIdsChange={(customerIds) => {
+            const normalizedCustomerIds = hotelMode ? customerIds.slice(-1) : customerIds;
+            patch({
+              customerIds: normalizedCustomerIds,
+              dogIds:
+                hotelMode && normalizedCustomerIds[0]
+                  ? form.dogIds.filter(
+                      (dogId) => options?.dogs.find((dog) => dog.id === dogId)?.customerId === normalizedCustomerIds[0],
+                    )
+                  : form.dogIds,
+            });
+          }}
           multiple={!hotelMode}
-          getItemId={(row) => row.id}
-          getSearchText={(row) => {
-            const customer = customerById.get(row.customerId ?? "");
-            return `${row.name} ${customer?.name ?? ""} ${customer?.phone ?? ""}`;
-          }}
-          renderOption={(row) => {
-            const customer = customerById.get(row.customerId ?? "");
-            const profileLine = operationDogProfileLine(row);
-            const ownerLine = [
-              customer?.name?.trim() || "",
-              formatPhoneForDisplay(customer?.phone),
-            ]
-              .filter(Boolean)
-              .join(" · ");
-            return (
-              <span className="flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                  <Dog size={18} />
-                </span>
-                <span className="min-w-0">
-                  <strong className="block truncate text-sm text-text-primary">
-                    {row.name}
-                  </strong>
-                  {profileLine && (
-                    <span className="mt-0.5 block truncate text-xs text-text-secondary">
-                      {profileLine}
-                    </span>
-                  )}
-                  {ownerLine && (
-                    <span className="mt-0.5 block truncate text-xs text-text-muted">
-                      {ownerLine}
-                    </span>
-                  )}
-                </span>
-              </span>
-            );
-          }}
-          renderSelected={(row) => (
-            <span className="inline-flex items-center gap-1.5">
-              <Dog aria-hidden="true" size={14} />
-              {row.name}
-            </span>
-          )}
-          placeholder="반려견, 보호자 또는 전화번호 검색"
-          emptyMessage="최근 선택한 반려견이 없습니다."
-          recentStorageKey={`pm-os:${recentScope}:schedule-dogs`}
-        />
-        <SearchSelect
-            label="보호자"
-            items={options?.customers ?? []}
-            selectedIds={form.customerIds}
-            onChange={(customerIds) =>
-              patch({
-                customerIds: hotelMode
-                  ? customerIds.slice(-1)
-                  : customerIds,
-              })
-            }
-            multiple={!hotelMode}
-            getItemId={(row) => row.id}
-            getSearchText={(row) =>
-              `${row.name ?? ""} ${row.phone ?? ""} ${(dogsByCustomer.get(row.id) ?? []).join(" ")}`
-            }
-            renderOption={(row) => (
-              <span className="flex min-w-0 items-center gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
-                  <UserRound size={18} />
-                </span>
-                <span className="min-w-0">
-                  <strong className="block truncate text-sm text-text-primary">
-                    {row.name || "이름 미등록"}
-                  </strong>
-                  <span className="mt-0.5 block truncate text-xs text-text-muted">
-                    {(dogsByCustomer.get(row.id) ?? []).join(", ") ||
-                      "연결된 반려견 없음"}{" "}
-                    · {formatPhoneForDisplay(row.phone) || "전화번호 미등록"}
-                  </span>
-                </span>
-              </span>
-            )}
-            renderSelected={(row) => row.name || "이름 미등록"}
-            placeholder="보호자, 전화번호 또는 반려견 검색"
-            emptyMessage="최근 선택한 보호자가 없습니다."
-            recentStorageKey={`pm-os:${recentScope}:schedule-customers`}
+          recentScope={`${recentScope}:schedule`}
         />
         <Field label="메모">
           <Textarea

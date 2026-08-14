@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { CalendarDays, Check, DoorOpen } from "lucide-react";
+import { CustomerDogSearchFields } from "../components/CustomerDogSearchFields";
 import { Button, Field, Input, Modal, Select, Textarea } from "../components/ui";
 import { fetchHotelOperationsSnapshot, type HotelOperationsSnapshot } from "./hotelOperationsRepository";
 import { fetchOperationScheduleOptions, seoulDateKey, type OperationScheduleOptions } from "./operationsScheduleRepository";
@@ -16,8 +17,15 @@ export interface DaycareReservationPrefill {
   serviceDate?: string;
 }
 
-export function validateDaycareReservationInput(input: DaycareReservationInput) {
+export function validateDaycareReservationInput(
+  input: DaycareReservationInput,
+  dogs: OperationScheduleOptions["dogs"] = [],
+) {
   if (!input.customerId || !input.dogId) return "보호자와 반려견을 선택해 주세요.";
+  const selectedDog = dogs.find((dog) => dog.id === input.dogId);
+  if (selectedDog?.customerId && selectedDog.customerId !== input.customerId) {
+    return "선택한 보호자와 반려견 정보가 일치하지 않습니다.";
+  }
   if (!input.serviceDate) return "데이케어 날짜를 선택해 주세요.";
   if (!input.checkInTime || !input.checkOutTime) return "입실·퇴실 시간을 입력해 주세요.";
   if (input.checkOutTime <= input.checkInTime) return "퇴실 시간은 입실 시간보다 늦어야 합니다.";
@@ -114,6 +122,9 @@ export function DaycareReservationForm({
         const scheduleType = nextOptions.scheduleTypes.find((item) => item.calendarIds?.includes(calendar?.id ?? ""));
         setInput((current) => ({
           ...current,
+          customerId:
+            nextOptions.dogs.find((dog) => dog.id === current.dogId)?.customerId ??
+            current.customerId,
           calendarId: calendar?.id ?? "",
           scheduleTypeId: scheduleType?.id ?? "",
           roomTypeId: nextSnapshot.roomTypes[0]?.id ?? "",
@@ -141,7 +152,7 @@ export function DaycareReservationForm({
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const validation = validateDaycareReservationInput(input);
+    const validation = validateDaycareReservationInput(input, options?.dogs ?? []);
     if (validation) return setError(validation);
     setSaving(true);
     setError("");
@@ -164,18 +175,27 @@ export function DaycareReservationForm({
           <strong className="flex items-center gap-2"><CalendarDays size={17} /> 같은 날짜 안에서 객실 Capacity를 확보합니다.</strong>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="보호자" required>
-            <Select aria-label="보호자" disabled={Boolean(prefill?.customerId) || Boolean(reservation)} value={input.customerId} onChange={(event) => patch({ customerId: event.target.value, dogId: "" })}>
-              <option value="">보호자 선택</option>
-              {options?.customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name ?? "이름 미등록"}</option>)}
-            </Select>
-          </Field>
-          <Field label="반려견" required>
-            <Select aria-label="반려견" disabled={Boolean(prefill?.dogId) || Boolean(reservation)} value={input.dogId} onChange={(event) => patch({ dogId: event.target.value })}>
-              <option value="">반려견 선택</option>
-              {dogs.map((dog) => <option key={dog.id} value={dog.id}>{dog.name}</option>)}
-            </Select>
-          </Field>
+          <CustomerDogSearchFields
+            customers={options?.customers ?? []}
+            dogs={dogs}
+            customerIds={input.customerId ? [input.customerId] : []}
+            dogIds={input.dogId ? [input.dogId] : []}
+            disabled={Boolean(reservation)}
+            recentScope="daycare-reservation"
+            onDogIdsChange={(dogIds) => {
+              const dogId = dogIds.at(-1) ?? "";
+              const customerId = options?.dogs.find((dog) => dog.id === dogId)?.customerId ?? "";
+              patch({ dogId, customerId: dogId ? customerId : input.customerId });
+            }}
+            onCustomerIdsChange={(customerIds) => {
+              const customerId = customerIds.at(-1) ?? "";
+              const selectedDog = options?.dogs.find((dog) => dog.id === input.dogId);
+              patch({
+                customerId,
+                dogId: selectedDog?.customerId === customerId ? input.dogId : "",
+              });
+            }}
+          />
           <Field label="데이케어 날짜" required>
             <Input aria-label="데이케어 날짜" type="date" value={input.serviceDate} onChange={(event) => patch({ serviceDate: event.target.value })} />
           </Field>
