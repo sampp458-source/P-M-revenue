@@ -1,6 +1,29 @@
 import { supabase } from "../lib/supabase";
 
 export type JournalStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+export type JournalCondition = "active" | "calm" | "tired" | "sensitive";
+export type JournalStoolCondition = "good" | "very_loose" | "slightly_loose" | "poor";
+export type JournalMeal = "brought_food" | "daycare_food" | "brought_snack" | "daycare_snack";
+export type JournalTeacherRelationship = "loves_teacher" | "prefers_friends" | "uncomfortable_with_teacher";
+export type JournalFriendRelationship = "loves_friends" | "prefers_teacher" | "uncomfortable_with_friends";
+export type JournalMannersEvaluation = "excellent" | "can_improve" | "difficult";
+export type JournalPhysicalEvaluation = "champion" | "fun" | "rest";
+
+export interface JournalDraft {
+  conditionCodes: JournalCondition[];
+  urination: boolean | null;
+  defecation: boolean | null;
+  stoolCondition: JournalStoolCondition | null;
+  mealCodes: JournalMeal[];
+  teacherRelationship: JournalTeacherRelationship | null;
+  friendRelationship: JournalFriendRelationship | null;
+  bestFriendDogId: string | null;
+  mannersActivityName: string;
+  mannersEvaluation: JournalMannersEvaluation | null;
+  physicalActivityName: string;
+  physicalEvaluation: JournalPhysicalEvaluation | null;
+  teacherComment: string;
+}
 
 export interface JournalRosterEntry {
   id: string;
@@ -9,6 +32,19 @@ export interface JournalRosterEntry {
   dog: { id: string; name: string };
   customer: { id: string; name: string | null };
   status: JournalStatus;
+  conditionCodes: JournalCondition[];
+  urination: boolean | null;
+  defecation: boolean | null;
+  stoolCondition: JournalStoolCondition | null;
+  mealCodes: JournalMeal[];
+  teacherRelationship: JournalTeacherRelationship | null;
+  friendRelationship: JournalFriendRelationship | null;
+  bestFriendDogId: string | null;
+  mannersActivityName: string | null;
+  mannersEvaluation: JournalMannersEvaluation | null;
+  physicalActivityName: string | null;
+  physicalEvaluation: JournalPhysicalEvaluation | null;
+  teacherComment: string | null;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -76,6 +112,48 @@ export function registerJournalRoster(businessDate: string, dogIds: string[], re
 
 export function removeJournalRosterEntry(entryId: string, expectedVersion: number, requestId = crypto.randomUUID()) {
   return rpc<JournalRoster>("remove_journal_roster_entry", {
+    p_entry_id: entryId,
+    p_expected_version: expectedVersion,
+    p_request_id: requestId,
+  });
+}
+
+export function fetchJournalEntry(entryId: string) {
+  return rpc<JournalRosterEntry>("get_journal_entry", { p_entry_id: entryId });
+}
+
+export function updateJournalEntryDraft(
+  entryId: string,
+  expectedVersion: number,
+  draft: JournalDraft,
+  requestId = crypto.randomUUID(),
+) {
+  return rpc<JournalRosterEntry>("update_journal_entry_draft", {
+    p_entry_id: entryId,
+    p_expected_version: expectedVersion,
+    p_condition_codes: draft.conditionCodes,
+    p_urination: draft.urination,
+    p_defecation: draft.defecation,
+    p_stool_condition: draft.defecation ? draft.stoolCondition : null,
+    p_meal_codes: draft.mealCodes,
+    p_teacher_relationship: draft.teacherRelationship,
+    p_friend_relationship: draft.friendRelationship,
+    p_best_friend_dog_id: draft.bestFriendDogId,
+    p_manners_activity_name: draft.mannersActivityName || null,
+    p_manners_evaluation: draft.mannersEvaluation,
+    p_physical_activity_name: draft.physicalActivityName || null,
+    p_physical_evaluation: draft.physicalEvaluation,
+    p_teacher_comment: draft.teacherComment || null,
+    p_request_id: requestId,
+  });
+}
+
+export function completeJournalEntry(
+  entryId: string,
+  expectedVersion: number,
+  requestId = crypto.randomUUID(),
+) {
+  return rpc<JournalRosterEntry>("complete_journal_entry", {
     p_entry_id: entryId,
     p_expected_version: expectedVersion,
     p_request_id: requestId,

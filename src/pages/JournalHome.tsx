@@ -1,9 +1,10 @@
 import { BookOpenText, ChevronLeft, ChevronRight, Dog, LoaderCircle, Plus, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SearchSelect } from "../components/SearchSelect";
 import { Badge, Button, Card, FormAlert, Input, Modal, ModalActions } from "../components/ui";
 import { formatPhoneForDisplay } from "../lib/phone";
 import { seoulDateKey } from "./operationsScheduleRepository";
+import { JournalEditor } from "./JournalEditor";
 import {
   fetchJournalDogDirectory,
   fetchJournalRoster,
@@ -53,6 +54,7 @@ export function JournalHomePage() {
   const [selectedDogIds, setSelectedDogIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,6 +82,23 @@ export function JournalHomePage() {
     () => filter === "ALL" ? roster.entries : roster.entries.filter((entry) => entry.status === filter),
     [filter, roster.entries],
   );
+  const selectedEntry = roster.entries.find((entry) => entry.id === selectedEntryId) ?? null;
+
+  const applyEntryUpdate = useCallback((updated: JournalRosterEntry) => {
+    setRoster((current) => {
+      const entries = current.entries.map((entry) => entry.id === updated.id ? updated : entry);
+      return {
+        ...current,
+        entries,
+        summary: {
+          total: entries.length,
+          notStarted: entries.filter((entry) => entry.status === "NOT_STARTED").length,
+          inProgress: entries.filter((entry) => entry.status === "IN_PROGRESS").length,
+          completed: entries.filter((entry) => entry.status === "COMPLETED").length,
+        },
+      };
+    });
+  }, []);
 
   const openRegister = () => {
     setSelectedDogIds([]);
@@ -115,6 +134,19 @@ export function JournalHomePage() {
       setRemovingId(null);
     }
   };
+
+  if (selectedEntry) {
+    return (
+      <JournalEditor
+        key={selectedEntry.id}
+        entry={selectedEntry}
+        rosterEntries={roster.entries}
+        onEntryUpdate={applyEntryUpdate}
+        onNavigate={setSelectedEntryId}
+        onClose={() => setSelectedEntryId(null)}
+      />
+    );
+  }
 
   return (
     <section className="mx-auto max-w-5xl overflow-x-hidden" aria-label="유치원 하루 일지">
@@ -160,7 +192,7 @@ export function JournalHomePage() {
             {([['ALL','전체'],['NOT_STARTED','미작성'],['IN_PROGRESS','작성중'],['COMPLETED','완료']] as const).map(([value,label]) => <button key={value} type="button" aria-pressed={filter===value} onClick={() => setFilter(value)} className={`min-h-11 shrink-0 rounded-xl px-4 text-sm font-semibold ${filter===value?'bg-primary text-white':'border border-border bg-surface text-text-secondary hover:bg-primary-soft'}`}>{label}</button>)}
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="오늘의 일지 명단">
-            {visibleEntries.map((entry) => <JournalEntryCard key={entry.id} entry={entry} removing={removingId===entry.id} onRemove={() => void remove(entry)} />)}
+            {visibleEntries.map((entry) => <JournalEntryCard key={entry.id} entry={entry} removing={removingId===entry.id} onOpen={() => setSelectedEntryId(entry.id)} onRemove={() => void remove(entry)} />)}
             {!visibleEntries.length ? <Card className="p-8 text-center text-sm text-text-muted sm:col-span-2 xl:col-span-3">이 상태의 일지가 없습니다.</Card> : null}
           </div>
         </>
@@ -198,14 +230,14 @@ function Summary({ label, value, tone }: { label: string; value: number; tone: "
   return <div className={`rounded-2xl px-3 py-4 text-center ${colors}`}><strong className="block text-xl tabular-nums">{value}</strong><span className="mt-1 block text-xs font-semibold">{label}</span></div>;
 }
 
-function JournalEntryCard({ entry, removing, onRemove }: { entry: JournalRosterEntry; removing: boolean; onRemove: () => void }) {
+function JournalEntryCard({ entry, removing, onOpen, onRemove }: { entry: JournalRosterEntry; removing: boolean; onOpen: () => void; onRemove: () => void }) {
   const view = statusView[entry.status];
   return <Card variant="interactive" className="min-w-0 p-4">
     <div className="flex min-w-0 items-start justify-between gap-3">
-      <button type="button" className="min-h-11 min-w-0 flex-1 text-left" onClick={() => undefined} aria-label={`${entry.dog.name} 일지 작성기 준비 중`}>
+      <button type="button" className="min-h-11 min-w-0 flex-1 text-left" onClick={onOpen} aria-label={`${entry.dog.name} ${entry.status === "NOT_STARTED" ? "일지 작성" : entry.status === "IN_PROGRESS" ? "일지 이어서 작성" : "일지 보기 및 수정"}`}>
         <div className="flex items-center gap-2"><strong className="truncate text-base text-text-primary">{entry.dog.name}</strong><Badge tone={view.tone}>{view.label}</Badge></div>
         <p className="mt-1 truncate text-sm text-text-secondary">{entry.customer.name || "보호자 이름 미등록"}</p>
-        <p className="mt-2 text-xs text-text-muted">작성기 준비 중</p>
+        <p className="mt-2 text-xs font-semibold text-primary">{entry.status === "NOT_STARTED" ? "작성" : entry.status === "IN_PROGRESS" ? "이어서 작성" : "보기/수정"}</p>
       </button>
       {entry.status === "NOT_STARTED" ? <button type="button" aria-label={`${entry.dog.name} 명단에서 제거`} disabled={removing} onClick={onRemove} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-text-muted hover:bg-error-soft hover:text-error disabled:opacity-50">{removing?<LoaderCircle className="animate-spin" size={17}/>:<Trash2 size={17}/>}</button> : null}
     </div>
