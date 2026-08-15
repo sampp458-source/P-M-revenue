@@ -1,8 +1,9 @@
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, FileImage, LoaderCircle } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Eye, LoaderCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Button, Card, FormAlert, Input, Textarea } from "../components/ui";
+import { Button, Card, FormAlert, Input, Modal, Textarea } from "../components/ui";
 import { JournalAutosaveQueue, type JournalSaveState } from "./journalAutosave";
-import { buildJournalPreviewViewModel, type JournalPreviewViewModel } from "./journalPreviewViewModel";
+import { JournalReportPreview } from "./JournalReportTemplate";
+import { buildJournalPreviewViewModel } from "./journalPreviewViewModel";
 import {
   completeJournalEntry,
   fetchJournalEntry,
@@ -81,6 +82,7 @@ export function JournalEditor({
   const [saveState, setSaveState] = useState<JournalSaveState>("idle");
   const [error, setError] = useState("");
   const [completing, setCompleting] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const versionRef = useRef(rosterEntry.version);
   const queueRef = useRef<JournalAutosaveQueue<JournalDraft, JournalRosterEntry> | null>(null);
 
@@ -123,7 +125,7 @@ export function JournalEditor({
     [entry.id, rosterEntries],
   );
   const friendOptionsForDay = rosterEntries.filter((item) => item.dog.id !== entry.dog.id);
-  const previewViewModel = useMemo(() => buildJournalPreviewViewModel(entry, draft), [draft, entry]);
+  const previewViewModel = useMemo(() => buildJournalPreviewViewModel(entry, draft, rosterEntries), [draft, entry, rosterEntries]);
 
   const update = (change: (current: JournalDraft) => JournalDraft) => {
     setDraft((current) => {
@@ -238,17 +240,24 @@ export function JournalEditor({
           </div>
         </div>
 
-        <JournalPreviewPlaceholder viewModel={previewViewModel} />
+        <aside className="sticky top-6 hidden min-w-0 xl:block" aria-label={`${previewViewModel.dogName} 결과 미리보기`}>
+          <JournalReportPreview viewModel={previewViewModel} className="mx-auto max-w-[min(34rem,calc((100vh-3rem)*0.75))] rounded-2xl shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
+        </aside>
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:left-64">
         <div className="mx-auto max-w-[1480px] xl:grid xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)] xl:gap-6 2xl:gap-8">
           <div className="flex min-w-0 items-center gap-3">
             <span className="min-w-0 flex-1 text-xs text-text-secondary"><SaveState state={saveState} /></span>
+            <Button type="button" variant="secondary" className="min-h-11 px-3 xl:hidden" onClick={() => setPreviewOpen(true)}><Eye size={17} />미리보기</Button>
             <Button type="button" className="min-h-11 min-w-32" disabled={completing || saveState === "saving"} onClick={() => void complete()}>{completing ? <LoaderCircle className="animate-spin" size={17} /> : <Check size={17} />}작성 완료</Button>
           </div>
         </div>
       </div>
+
+      <Modal open={previewOpen} title="결과 미리보기" description={`${previewViewModel.dogName} · ${previewViewModel.displayDate}`} onClose={() => setPreviewOpen(false)} size="large" resetKey={entry.id}>
+        <JournalReportPreview viewModel={previewViewModel} className="mx-auto max-w-[calc((100dvh-10rem)*0.75)] rounded-xl shadow-[0_12px_36px_rgb(23_36_58_/_0.14)]" />
+      </Modal>
     </section>
   );
 }
@@ -288,17 +297,4 @@ function LabeledSingle<T extends string>({ label, options, value, onChange }: { 
 
 function ActivitySection<T extends string>({ title, activity, evaluation, options, onActivity, onEvaluation }: { title:string; activity:string; evaluation:T|null; options:Array<[T,string]>; onActivity:(value:string)=>void; onEvaluation:(value:T)=>void }) {
   return <EditorSection title={title} description="활동명과 평가는 함께 입력하거나 둘 다 비워둘 수 있습니다."><Input aria-label={`${title} 활동명`} maxLength={80} value={activity} onChange={(event) => onActivity(event.target.value)} placeholder="활동명 직접 입력" className="min-h-11" /><div className="mt-3"><SingleChips options={options} value={evaluation} onChange={onEvaluation} /></div></EditorSection>;
-}
-
-function JournalPreviewPlaceholder({ viewModel }: { viewModel: JournalPreviewViewModel }) {
-  return (
-    <aside className="sticky top-6 hidden min-w-0 xl:block" aria-label={`${viewModel.dog.name} 결과 미리보기`}>
-      <div className="mx-auto flex aspect-[3/4] w-full max-w-[34rem] flex-col items-center justify-center rounded-2xl border border-dashed border-border-strong bg-surface-secondary p-8 text-center" data-testid="journal-preview-placeholder">
-        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary"><FileImage size={22} /></span>
-        <h2 className="mt-4 text-base font-bold text-text-primary">결과 미리보기</h2>
-        <p className="mt-2 max-w-xs text-sm leading-6 text-text-secondary">작성한 내용이 보호자용 일지에 실시간으로 표시됩니다.</p>
-        <p className="mt-1 text-xs text-text-muted">다음 단계에서 연결됩니다.</p>
-      </div>
-    </aside>
-  );
 }

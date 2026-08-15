@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { JournalEditor } from "./JournalEditor";
 import { buildJournalPreviewViewModel } from "./journalPreviewViewModel";
@@ -75,7 +75,8 @@ describe("Journal Editor", () => {
     await screen.findByRole("heading", { name: "크리미" });
     vi.useFakeTimers();
     fireEvent.click(screen.getByRole("button", { name: "활발해요" }));
-    const defecationSection = screen.getByText("대변").parentElement!;
+    const toiletEditor = screen.getByRole("heading", { name: "배변" }).closest("section")!;
+    const defecationSection = within(toiletEditor).getByText("대변").parentElement!;
     fireEvent.click(defecationSection.querySelectorAll("button")[1]);
     expect(screen.getByRole("button", { name: "좋아요" }).hasAttribute("disabled")).toBe(true);
     await vi.advanceTimersByTimeAsync(800);
@@ -84,10 +85,11 @@ describe("Journal Editor", () => {
     expect(container.querySelector("[aria-label='크리미 일지 편집기']")?.className).toContain("overflow-x-hidden");
     expect(container.innerHTML).toContain("min-h-11");
     expect(container.querySelector("[aria-label='크리미 일지 편집기'] > div")?.className).toContain("xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]");
-    expect(screen.getByTestId("journal-preview-placeholder").className).toContain("aspect-[3/4]");
+    expect(screen.getByTestId("journal-report-preview").className).toContain("aspect-[3/4]");
+    expect(screen.getByTestId("journal-report-template").getAttribute("style")).toContain("width: 1080px");
     expect(screen.getByLabelText("크리미 결과 미리보기").className).toContain("hidden");
     expect(screen.getByLabelText("크리미 결과 미리보기").className).toContain("xl:block");
-    expect(screen.queryByRole("button", { name: "미리보기" })).toBeNull();
+    expect(screen.getByRole("button", { name: "미리보기" })).toBeTruthy();
   });
 
   it("uses a light selected state with a non-color check indicator", async () => {
@@ -101,6 +103,8 @@ describe("Journal Editor", () => {
     expect(condition.className).toContain("text-primary");
     expect(condition.className).not.toContain("bg-primary text-white");
     expect(condition.querySelector("svg")).toBeTruthy();
+    const report = screen.getByTestId("journal-report-template");
+    expect(within(report).getByText("활발해요").closest("[data-selected]")?.getAttribute("data-selected")).toBe("true");
   });
 
   it("flushes the final local snapshot before completion and uses its latest version", async () => {
@@ -164,8 +168,19 @@ describe("Journal Editor", () => {
       teacherComment: "아직 저장되지 않은 최신 입력",
     };
     const preview = buildJournalPreviewViewModel(initial, latestDraft);
-    expect(preview.draft.teacherComment).toBe("아직 저장되지 않은 최신 입력");
-    expect(preview.draft.conditionCodes).toEqual(["active"]);
+    expect(preview.teacherComment).toBe("아직 저장되지 않은 최신 입력");
+    expect(preview.conditionOptions.find((option) => option.code === "active")?.selected).toBe(true);
     expect(preview.entryId).toBe("entry-1");
+  });
+
+  it("opens the canonical report in the mobile and tablet preview modal", async () => {
+    mocks.fetch.mockResolvedValue(entry());
+    renderEditor();
+    await screen.findByRole("heading", { name: "크리미" });
+    fireEvent.click(screen.getByRole("button", { name: "미리보기" }));
+    expect(screen.getByRole("dialog", { name: "결과 미리보기" })).toBeTruthy();
+    expect(screen.getAllByTestId("journal-report-template")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "닫기" }));
+    expect(screen.queryByRole("dialog", { name: "결과 미리보기" })).toBeNull();
   });
 });
