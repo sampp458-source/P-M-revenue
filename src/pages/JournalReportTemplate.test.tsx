@@ -38,6 +38,8 @@ describe("Journal 1080x1440 report template", () => {
     expect(report.className).toContain("overflow-hidden");
     expect(report.querySelector("canvas")).toBeNull();
     expect(report.querySelector("[style*='background-image: url']")).toBeNull();
+    expect(report.querySelectorAll("[data-testid='journal-dog-hero']")).toHaveLength(3);
+    expect(new Set(Array.from(report.querySelectorAll("[data-journal-section]")).map((node) => node.getAttribute("data-journal-section"))).size).toBeGreaterThanOrEqual(7);
     for (const heading of ["오늘의 컨디션", "배변 상태", "유치원에서 먹은 것", "오늘의 관계", "예절교육", "체육 시간", "선생님의 한마디"]) {
       expect(within(report).getByRole("heading", { name: heading })).toBeTruthy();
     }
