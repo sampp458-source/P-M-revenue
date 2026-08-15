@@ -29,10 +29,23 @@ describe("AppSwitcher 접근성", () => {
     const finance = screen.getByRole("menuitemradio", {
       name: /매출·수납·미수·환불/,
     });
+    expect(
+      screen.getByRole("menuitemradio", { name: /유치원 하루 일지/ }),
+    ).toBeTruthy();
     finance.focus();
     fireEvent.keyDown(finance, { key: "Enter" });
     expect(onSwitch).toHaveBeenCalledWith("finance");
     await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
+
+  it("일지 관리 workspace를 선택한다", () => {
+    const onSwitch = vi.fn();
+    render(<AppSwitcher module="finance" onSwitch={onSwitch} />);
+    fireEvent.click(screen.getByRole("button", { name: /매출 관리/ }));
+    fireEvent.click(
+      screen.getByRole("menuitemradio", { name: /유치원 하루 일지/ }),
+    );
+    expect(onSwitch).toHaveBeenCalledWith("journal");
   });
 
   it("방향키로 이동하고 ESC로 닫은 뒤 Trigger에 Focus를 돌려준다", async () => {

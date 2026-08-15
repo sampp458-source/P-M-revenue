@@ -13,7 +13,6 @@ import {
   EyeOff,
   LayoutDashboard,
   ListChecks,
-  NotebookPen,
   LoaderCircle,
   LockKeyhole,
   LogOut,
@@ -46,6 +45,7 @@ import { useModule } from "./app/ModuleContext";
 import { AppSwitcher as AppSwitcherMenu } from "./app/AppSwitcher";
 import { operationsFeatures } from "./app/operationsFeatures";
 import type { AppModule } from "./app/moduleState";
+import { journalMenus, workspaceOptions } from "./app/workspaceNavigation";
 import { ReportsPage } from "./pages/ReportsDB";
 import { DashboardPage } from "./pages/DashboardDB";
 import { SaleFormPage as LegacySaleFormPage } from "./pages/Sales";
@@ -85,7 +85,6 @@ const operationsMenus: OperationsMenuItem[] = [
   { to: "/operations/today", label: "오늘", icon: Clock3 },
   { to: "/operations/calendar", label: "캘린더", icon: CalendarDays },
   { to: "/operations/hotel", label: "호텔 운영", icon: BedDouble },
-  { to: "/operations/journal", label: "일지", icon: NotebookPen },
   ...(operationsFeatures.scheduleDirectory
     ? [{ to: "/operations/schedules", label: "일정", icon: ListChecks }]
     : []),
@@ -154,6 +153,14 @@ export default function App() {
         <Route path="staff" element={<AdminOnly><StaffManagementPage /></AdminOnly>} />
       </Route>
       <Route
+        path="journal"
+        element={<ProtectedLayout loggedIn={loggedIn} module="journal" />}
+      >
+        <Route index element={<Navigate to="/journal/today" replace />} />
+        <Route path="today" element={<JournalHomePage />} />
+        <Route path="*" element={<Navigate to="/journal/today" replace />} />
+      </Route>
+      <Route
         path="operations"
         element={<ProtectedLayout loggedIn={loggedIn} module="operations" />}
       >
@@ -167,7 +174,7 @@ export default function App() {
           element={<OperationsCalendarFoundationPage />}
         />
         <Route path="hotel" element={<HotelOperationsPage />} />
-        <Route path="journal" element={<JournalHomePage />} />
+        <Route path="journal" element={<Navigate to="/journal/today" replace />} />
         <Route
           path="schedules"
           element={
@@ -257,7 +264,8 @@ function ProtectedLayout({
   const { gateCompleted } = useModule();
   if (!loggedIn) return <Navigate to="/login" replace state={{ returnTo }} />;
   if (!gateCompleted) return <ModuleGateRedirect returnTo={returnTo} />;
-  return module === "finance" ? <AppLayout /> : <OperationsAppLayout />;
+  if (module === "finance") return <AppLayout />;
+  return module === "operations" ? <OperationsAppLayout /> : <JournalAppLayout />;
 }
 
 function ModuleGateRedirect({ returnTo }: { returnTo: string }) {
@@ -601,24 +609,7 @@ function ModuleGatePage({
   pendingReturnTo?: unknown;
 }) {
   const { chooseModule } = useModule();
-  const modules = [
-    {
-      id: "operations" as const,
-      title: "스케줄 관리",
-      description: "수업과 회사 일정을 관리합니다",
-      icon: CalendarRange,
-      accent: "from-[#e9f5fb] to-[#f7fbfd]",
-      iconStyle: "bg-[#d9eef8] text-[#276d91]",
-    },
-    {
-      id: "finance" as const,
-      title: "매출 관리",
-      description: "매출·수납·미수·환불을 관리합니다",
-      icon: WalletCards,
-      accent: "from-[#edf3f8] to-[#fafcfd]",
-      iconStyle: "bg-[#dfeaf3] text-primary",
-    },
-  ];
+  const modules = workspaceOptions;
   return (
     <main className="module-gate-shell relative flex min-h-[100dvh] items-center justify-center overflow-x-hidden bg-app-background px-4 py-6 sm:px-7 sm:py-8 lg:px-10">
       <div className="module-gate-orb module-gate-orb-one" aria-hidden="true" />
@@ -636,10 +627,10 @@ function ModuleGatePage({
             어떤 업무를 시작할까요?
           </h1>
           <p className="mt-3 text-sm leading-6 text-text-secondary">
-            스케줄 관리와 매출 관리 중 필요한 업무를 선택하세요
+            스케줄, 매출, 일지 중 필요한 업무를 선택하세요
           </p>
         </div>
-        <div className="grid gap-5 md:grid-cols-2 lg:gap-6">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-3 lg:gap-6">
           {modules.map((module) => {
             const Icon = module.icon;
             return (
@@ -673,6 +664,116 @@ function ModuleGatePage({
         </div>
       </section>
     </main>
+  );
+}
+
+function JournalAppLayout() {
+  const { signOut, user, profile } = useAuth();
+  const [open, setOpen] = useState(false);
+  const location = useLocation();
+  const current =
+    journalMenus.find((item) => location.pathname.startsWith(item.to))?.label ??
+    "오늘의 일지";
+
+  return (
+    <div className="min-h-screen bg-app-background">
+      <aside
+        className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
+      >
+        <div className="flex h-[68px] shrink-0 items-center justify-start border-b border-white/[0.035]">
+          <BrandLogo className="h-[68px] w-[140px] translate-x-px" imageClassName="h-32 w-32" />
+          <button
+            className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-xl text-blue-100/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:hidden"
+            onClick={() => setOpen(false)}
+            aria-label="메뉴 닫기"
+          >
+            <X />
+          </button>
+        </div>
+        <div className="shrink-0 px-3 pb-2 pt-4">
+          <AppSwitcher module="journal" />
+        </div>
+        <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 pb-2 pt-0.5" aria-label="일지 관리">
+          <div className="mb-4">
+            <p className="mb-1.5 px-3 text-[9px] font-medium uppercase leading-none tracking-[0.16em] text-blue-100/55">
+              Journal
+            </p>
+            <div className="space-y-0.5">
+              {journalMenus.map(({ to, label, icon: Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={() => setOpen(false)}
+                  className={({ isActive }) =>
+                    `app-sidebar-link group relative flex min-h-9 items-center gap-3.5 rounded-[11px] px-3 py-1 text-sm font-medium transition-[color,background-color,transform] duration-150 ${
+                      isActive
+                        ? "is-active bg-white/[0.1] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]"
+                        : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-white"
+                    }`
+                  }
+                >
+                  {({ isActive }) => (
+                    <>
+                      <span className={`absolute inset-y-2.5 left-0 w-0.5 rounded-full ${isActive ? "bg-[#9bd0ec]" : "bg-transparent"}`} />
+                      <Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} />
+                      <span>{label}</span>
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        </nav>
+        <div className="shrink-0 border-t border-white/[0.055] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+          <div className="app-sidebar-profile mb-4 flex items-center gap-1.5 rounded-xl border border-white/[0.045] px-1.5 py-0.5">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-blue-50"><UserRound size={14} /></div>
+            <div className="min-w-0 flex-1">
+              <b className="block truncate text-xs text-white">{profile?.name || "이름 미등록"}</b>
+              <span className="mt-0.5 block truncate text-[10px] text-blue-100/52">{profile?.role === "admin" ? "관리자" : "직원"} · {user?.email}</span>
+            </div>
+          </div>
+          <button
+            onClick={() => void signOut()}
+            className="flex min-h-10 w-full items-center gap-3 rounded-[13px] px-2.5 py-2 text-sm text-blue-50/60 transition hover:bg-white/[0.055] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          >
+            <LogOut size={18} />
+            로그아웃
+          </button>
+        </div>
+      </aside>
+      {open && (
+        <button
+          className="pm-drawer-overlay fixed inset-0 z-30 bg-slate-950/45 backdrop-blur-[2px] lg:hidden"
+          onClick={() => setOpen(false)}
+          aria-label="메뉴 배경 닫기"
+        />
+      )}
+      <div className="lg:pl-64">
+        <header className="no-print sticky top-0 z-20 flex h-[46px] items-center justify-between border-b border-border/80 bg-white/95 px-4 backdrop-blur-md sm:px-6">
+          <div className="flex items-center gap-3">
+            <button
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-border-strong text-text-secondary transition hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary lg:hidden"
+              onClick={() => setOpen(true)}
+              aria-label="메뉴 열기"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="hidden text-slate-400 sm:inline">일지 관리</span>
+              <ChevronRight size={14} className="hidden text-slate-300 sm:inline" />
+              <b className="text-text-primary">{current}</b>
+            </div>
+          </div>
+          <div className="hidden items-center gap-2.5 sm:flex">
+            <b className="text-sm leading-none text-text-primary">{profile?.name || "이름 미등록"}</b>
+            <span className="rounded-full bg-surface-secondary px-2 py-1 text-[10px] font-medium leading-none text-text-muted">{profile?.role === "admin" ? "관리자" : "직원"}</span>
+          </div>
+        </header>
+        <main className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 }
 

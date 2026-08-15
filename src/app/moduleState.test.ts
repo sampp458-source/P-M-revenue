@@ -7,10 +7,11 @@ import {
 } from "./moduleState";
 
 describe("P&M OS module routing", () => {
-  it("Finance, Operations, Module Gate 경로를 구분한다", () => {
+  it("Finance, Operations, Journal, Module Gate 경로를 구분한다", () => {
     expect(getModuleFromPath("/dashboard")).toBe("finance");
     expect(getModuleFromPath("/sales/sale-1/edit")).toBe("finance");
     expect(getModuleFromPath("/operations/calendar")).toBe("operations");
+    expect(getModuleFromPath("/journal/today")).toBe("journal");
     expect(getModuleFromPath("/select-module")).toBe("gate");
     expect(getModuleFromPath("/unknown")).toBeNull();
   });
@@ -29,6 +30,9 @@ describe("P&M OS module routing", () => {
       ),
     ).toBe(true);
     expect(isSafeModulePath("/operations/staff", "operations")).toBe(true);
+    expect(isSafeModulePath("/operations/journal", "operations")).toBe(true);
+    expect(isSafeModulePath("/journal/today?day=2026-08-15", "journal")).toBe(true);
+    expect(isSafeModulePath("/journal/history", "journal")).toBe(false);
     expect(isSafeModulePath("/operations/unknown", "operations")).toBe(false);
     expect(isSafeModulePath("https://example.com", "finance")).toBe(false);
     expect(safePendingReturnTo("//example.com")).toBeNull();
@@ -49,6 +53,13 @@ describe("P&M OS module routing", () => {
         lastOperationsPath: "/operations/calendar",
       }),
     ).toBe("/operations/calendar");
+    expect(
+      resolveModuleDestination({
+        target: "journal",
+        pendingReturnTo: "/journal/today?day=2026-08-15",
+        lastJournalPath: "/journal/today",
+      }),
+    ).toBe("/journal/today?day=2026-08-15");
   });
 
   it("저장 경로가 없거나 안전하지 않으면 모듈 홈으로 이동한다", () => {
@@ -59,5 +70,8 @@ describe("P&M OS module routing", () => {
         lastOperationsPath: "/operations/not-found",
       }),
     ).toBe("/operations/today");
+    expect(resolveModuleDestination({ target: "journal" })).toBe(
+      "/journal/today",
+    );
   });
 });

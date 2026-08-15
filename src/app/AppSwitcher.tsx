@@ -1,26 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  CalendarDays,
   Check,
   ChevronsUpDown,
-  WalletCards,
 } from "lucide-react";
 import type { AppModule } from "./moduleState";
-
-const options = [
-  {
-    id: "operations" as const,
-    title: "스케줄 관리",
-    description: "수업과 회사 일정",
-    icon: CalendarDays,
-  },
-  {
-    id: "finance" as const,
-    title: "매출 관리",
-    description: "매출·수납·미수·환불",
-    icon: WalletCards,
-  },
-];
+import { workspaceOptions as options } from "./workspaceNavigation";
 
 export function AppSwitcher({
   module,
@@ -161,7 +145,7 @@ export function AppSwitcher({
                     {option.title}
                   </span>
                   <span className="mt-0.5 block truncate text-[10px] text-blue-100/45">
-                    {option.description}
+                    {option.switcherDescription}
                   </span>
                 </span>
                 {selected && (

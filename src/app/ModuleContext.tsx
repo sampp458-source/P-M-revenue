@@ -64,7 +64,11 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user || !gateCompleted) return;
-    if (currentModule !== "finance" && currentModule !== "operations") return;
+    if (
+      currentModule !== "finance" &&
+      currentModule !== "operations" &&
+      currentModule !== "journal"
+    ) return;
     writeLastModulePath(
       user.id,
       currentModule,
@@ -91,12 +95,16 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
 
   const destinationFor = useCallback(
     (target: AppModule, pendingOverride?: unknown) => {
-      if (!user) return target === "finance" ? "/dashboard" : "/operations/today";
+      if (!user) {
+        if (target === "finance") return "/dashboard";
+        return target === "operations" ? "/operations/today" : "/journal/today";
+      }
       return resolveModuleDestination({
         target,
         pendingReturnTo: safePendingReturnTo(pendingOverride) ?? pendingReturnTo,
         lastFinancePath: readLastModulePath(user.id, "finance"),
         lastOperationsPath: readLastModulePath(user.id, "operations"),
+        lastJournalPath: readLastModulePath(user.id, "journal"),
       });
     },
     [pendingReturnTo, user],

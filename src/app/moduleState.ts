@@ -1,9 +1,10 @@
-export type AppModule = "finance" | "operations";
+export type AppModule = "finance" | "operations" | "journal";
 export type ModuleLocation = AppModule | "gate" | null;
 
 export const moduleHome: Record<AppModule, string> = {
   finance: "/dashboard",
   operations: "/operations/today",
+  journal: "/journal/today",
 };
 
 const financePaths = new Set([
@@ -24,11 +25,14 @@ const operationsPaths = new Set([
   "/operations/today",
   "/operations/calendar",
   "/operations/hotel",
+  "/operations/journal",
   "/operations/schedules",
   "/operations/customers",
   "/operations/staff",
   "/operations/settings",
 ]);
+
+const journalPaths = new Set(["/journal", "/journal/today"]);
 
 function pathnameOf(value: string) {
   return value.split(/[?#]/, 1)[0].replace(/\/+$/, "") || "/";
@@ -48,6 +52,9 @@ export function getModuleFromPath(pathname: string): ModuleLocation {
   if (normalized === "/operations" || normalized.startsWith("/operations/")) {
     return "operations";
   }
+  if (normalized === "/journal" || normalized.startsWith("/journal/")) {
+    return "journal";
+  }
   if (
     financePaths.has(normalized) ||
     /^\/sales\/[^/]+\/edit$/.test(normalized)
@@ -66,13 +73,16 @@ export function isSafeModulePath(
   if (module === "finance") {
     return financePaths.has(pathname) || /^\/sales\/[^/]+\/edit$/.test(pathname);
   }
-  return operationsPaths.has(pathname);
+  if (module === "operations") return operationsPaths.has(pathname);
+  return journalPaths.has(pathname);
 }
 
 export function safePendingReturnTo(value: unknown) {
   if (!isInternalPath(value)) return null;
   const module = getModuleFromPath(value);
-  return module === "finance" || module === "operations" ? value : null;
+  return module === "finance" || module === "operations" || module === "journal"
+    ? value
+    : null;
 }
 
 export function resolveModuleDestination({
@@ -80,14 +90,21 @@ export function resolveModuleDestination({
   pendingReturnTo,
   lastFinancePath,
   lastOperationsPath,
+  lastJournalPath,
 }: {
   target: AppModule;
   pendingReturnTo?: unknown;
   lastFinancePath?: unknown;
   lastOperationsPath?: unknown;
+  lastJournalPath?: unknown;
 }) {
   if (isSafeModulePath(pendingReturnTo, target)) return pendingReturnTo;
-  const lastPath = target === "finance" ? lastFinancePath : lastOperationsPath;
+  const lastPath =
+    target === "finance"
+      ? lastFinancePath
+      : target === "operations"
+        ? lastOperationsPath
+        : lastJournalPath;
   return isSafeModulePath(lastPath, target) ? lastPath : moduleHome[target];
 }
 
