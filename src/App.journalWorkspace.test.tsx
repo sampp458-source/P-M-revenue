@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import App from "./App";
@@ -38,6 +38,10 @@ vi.mock("./pages/OperationsToday", () => ({
   OperationsTodayPage: () => <div>OPERATIONS_TODAY_RENDERED</div>,
 }));
 
+vi.mock("./pages/DashboardDB", () => ({
+  DashboardPage: () => <div>SALES_DASHBOARD_RENDERED</div>,
+}));
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -59,6 +63,13 @@ describe("Journal workspace IA", () => {
     expect(screen.getByRole("button", { name: /일지 관리/ })).toBeTruthy();
     expect(schedule.parentElement?.className).toContain("grid-cols-1");
     expect(schedule.parentElement?.className).toContain("md:grid-cols-3");
+
+    fireEvent.click(schedule);
+    expect(moduleMocks.chooseModule).toHaveBeenLastCalledWith("operations", undefined);
+    fireEvent.click(screen.getByRole("button", { name: /매출 관리/ }));
+    expect(moduleMocks.chooseModule).toHaveBeenLastCalledWith("finance", undefined);
+    fireEvent.click(screen.getByRole("button", { name: /일지 관리/ }));
+    expect(moduleMocks.chooseModule).toHaveBeenLastCalledWith("journal", undefined);
   });
 
   it("Journal 전용 sidebar와 breadcrumb에서 오늘의 일지를 렌더한다", () => {
@@ -82,5 +93,18 @@ describe("Journal workspace IA", () => {
     renderPath("/operations/today");
     expect(screen.getByText("OPERATIONS_TODAY_RENDERED")).toBeTruthy();
     expect(screen.queryByRole("link", { name: "일지" })).toBeNull();
+  });
+
+  it("Schedule, Sales, Journal canonical direct routes를 독립 렌더한다", () => {
+    const schedule = renderPath("/operations/today");
+    expect(screen.getByText("OPERATIONS_TODAY_RENDERED")).toBeTruthy();
+    schedule.unmount();
+
+    const sales = renderPath("/dashboard");
+    expect(screen.getByText("SALES_DASHBOARD_RENDERED")).toBeTruthy();
+    sales.unmount();
+
+    renderPath("/journal/today");
+    expect(screen.getByText("JOURNAL_HOME_RENDERED")).toBeTruthy();
   });
 });

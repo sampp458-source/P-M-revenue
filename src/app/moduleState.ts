@@ -25,14 +25,17 @@ const operationsPaths = new Set([
   "/operations/today",
   "/operations/calendar",
   "/operations/hotel",
-  "/operations/journal",
   "/operations/schedules",
   "/operations/customers",
   "/operations/staff",
   "/operations/settings",
 ]);
 
-const journalPaths = new Set(["/journal", "/journal/today"]);
+const journalPaths = new Set([
+  "/journal",
+  "/journal/today",
+  "/operations/journal",
+]);
 
 function pathnameOf(value: string) {
   return value.split(/[?#]/, 1)[0].replace(/\/+$/, "") || "/";
@@ -49,6 +52,7 @@ function isInternalPath(value: unknown): value is string {
 export function getModuleFromPath(pathname: string): ModuleLocation {
   const normalized = pathnameOf(pathname);
   if (normalized === "/select-module") return "gate";
+  if (normalized === "/operations/journal") return "journal";
   if (normalized === "/operations" || normalized.startsWith("/operations/")) {
     return "operations";
   }

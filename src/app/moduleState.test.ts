@@ -11,6 +11,7 @@ describe("P&M OS module routing", () => {
     expect(getModuleFromPath("/dashboard")).toBe("finance");
     expect(getModuleFromPath("/sales/sale-1/edit")).toBe("finance");
     expect(getModuleFromPath("/operations/calendar")).toBe("operations");
+    expect(getModuleFromPath("/operations/journal")).toBe("journal");
     expect(getModuleFromPath("/journal/today")).toBe("journal");
     expect(getModuleFromPath("/select-module")).toBe("gate");
     expect(getModuleFromPath("/unknown")).toBeNull();
@@ -30,7 +31,8 @@ describe("P&M OS module routing", () => {
       ),
     ).toBe(true);
     expect(isSafeModulePath("/operations/staff", "operations")).toBe(true);
-    expect(isSafeModulePath("/operations/journal", "operations")).toBe(true);
+    expect(isSafeModulePath("/operations/journal", "operations")).toBe(false);
+    expect(isSafeModulePath("/operations/journal", "journal")).toBe(true);
     expect(isSafeModulePath("/journal/today?day=2026-08-15", "journal")).toBe(true);
     expect(isSafeModulePath("/journal/history", "journal")).toBe(false);
     expect(isSafeModulePath("/operations/unknown", "operations")).toBe(false);
@@ -73,5 +75,11 @@ describe("P&M OS module routing", () => {
     expect(resolveModuleDestination({ target: "journal" })).toBe(
       "/journal/today",
     );
+    expect(
+      resolveModuleDestination({
+        target: "operations",
+        lastOperationsPath: "/operations/journal",
+      }),
+    ).toBe("/operations/today");
   });
 });
