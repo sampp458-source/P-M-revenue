@@ -1,0 +1,213 @@
+import { BookOpenText, ChevronLeft, ChevronRight, Dog, LoaderCircle, Plus, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { SearchSelect } from "../components/SearchSelect";
+import { Badge, Button, Card, FormAlert, Input, Modal, ModalActions } from "../components/ui";
+import { formatPhoneForDisplay } from "../lib/phone";
+import { seoulDateKey } from "./operationsScheduleRepository";
+import {
+  fetchJournalDogDirectory,
+  fetchJournalRoster,
+  registerJournalRoster,
+  removeJournalRosterEntry,
+  type JournalDirectoryDog,
+  type JournalRoster,
+  type JournalRosterEntry,
+  type JournalStatus,
+} from "./journalRepository";
+
+type Filter = "ALL" | JournalStatus;
+
+const emptyRoster = (businessDate: string): JournalRoster => ({
+  businessDate,
+  journalDayId: null,
+  summary: { total: 0, notStarted: 0, inProgress: 0, completed: 0 },
+  entries: [],
+});
+
+const statusView: Record<JournalStatus, { label: string; tone: "gray" | "blue" | "green" }> = {
+  NOT_STARTED: { label: "미작성", tone: "gray" },
+  IN_PROGRESS: { label: "작성중", tone: "blue" },
+  COMPLETED: { label: "완료", tone: "green" },
+};
+
+const dateOffset = (dateKey: string, offset: number) => {
+  const value = new Date(`${dateKey}T12:00:00+09:00`);
+  value.setUTCDate(value.getUTCDate() + offset);
+  return value.toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+};
+
+const displayDate = (value: string) =>
+  new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", weekday: "short" })
+    .format(new Date(`${value}T12:00:00+09:00`));
+
+export function JournalHomePage() {
+  const today = seoulDateKey();
+  const [businessDate, setBusinessDate] = useState(today);
+  const [roster, setRoster] = useState<JournalRoster>(() => emptyRoster(today));
+  const [filter, setFilter] = useState<Filter>("ALL");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [directory, setDirectory] = useState<JournalDirectoryDog[]>([]);
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [selectedDogIds, setSelectedDogIds] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+    void fetchJournalRoster(businessDate)
+      .then((value) => { if (!cancelled) setRoster(value ?? emptyRoster(businessDate)); })
+      .catch((caught) => { if (!cancelled) setError(caught instanceof Error ? caught.message : "일지 명단을 불러오지 못했습니다."); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [businessDate]);
+
+  useEffect(() => {
+    if (!registerOpen || directory.length || directoryLoading) return;
+    setDirectoryLoading(true);
+    void fetchJournalDogDirectory()
+      .then(setDirectory)
+      .catch((caught) => setError(caught instanceof Error ? caught.message : "반려견 목록을 불러오지 못했습니다."))
+      .finally(() => setDirectoryLoading(false));
+  }, [directory.length, directoryLoading, registerOpen]);
+
+  const existingDogIds = useMemo(() => new Set(roster.entries.map((entry) => entry.dog.id)), [roster.entries]);
+  const availableDogs = useMemo(() => directory.filter((dog) => !existingDogIds.has(dog.id)), [directory, existingDogIds]);
+  const visibleEntries = useMemo(
+    () => filter === "ALL" ? roster.entries : roster.entries.filter((entry) => entry.status === filter),
+    [filter, roster.entries],
+  );
+
+  const openRegister = () => {
+    setSelectedDogIds([]);
+    setError("");
+    setRegisterOpen(true);
+  };
+
+  const register = async () => {
+    if (!selectedDogIds.length || saving) return;
+    setSaving(true);
+    setError("");
+    try {
+      setRoster(await registerJournalRoster(businessDate, selectedDogIds));
+      setRegisterOpen(false);
+      setSelectedDogIds([]);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "오늘 명단을 등록하지 못했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async (entry: JournalRosterEntry) => {
+    if (entry.status !== "NOT_STARTED" || removingId) return;
+    setRemovingId(entry.id);
+    setError("");
+    try {
+      setRoster(await removeJournalRosterEntry(entry.id, entry.version));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "명단에서 제거하지 못했습니다.");
+      setRoster(await fetchJournalRoster(businessDate).catch(() => roster));
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  return (
+    <section className="mx-auto max-w-5xl overflow-x-hidden" aria-label="유치원 하루 일지">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[11px] font-bold tracking-[0.17em] text-primary">P&amp;M JOURNAL</p>
+          <h1 className="mt-1.5 text-2xl font-bold tracking-[-0.035em] text-text-primary sm:text-[1.75rem]">오늘의 일지</h1>
+          <p className="mt-1 text-sm text-text-secondary">유치원 하루 일지 작성 대상을 관리합니다.</p>
+        </div>
+        <div className="flex items-center gap-1 rounded-2xl border border-border bg-surface p-1 shadow-sm">
+          <button type="button" aria-label="이전 날짜" className="flex h-11 w-11 items-center justify-center rounded-xl text-text-secondary hover:bg-primary-soft hover:text-primary" onClick={() => setBusinessDate(dateOffset(businessDate, -1))}><ChevronLeft size={19} /></button>
+          <label className="min-w-0">
+            <span className="sr-only">일지 날짜</span>
+            <Input type="date" aria-label="일지 날짜" className="min-h-11 min-w-0 border-0 px-2 shadow-none" value={businessDate} max={today} onChange={(event) => event.target.value && setBusinessDate(event.target.value)} />
+          </label>
+          <button type="button" aria-label="다음 날짜" disabled={businessDate >= today} className="flex h-11 w-11 items-center justify-center rounded-xl text-text-secondary hover:bg-primary-soft hover:text-primary disabled:opacity-30" onClick={() => setBusinessDate(dateOffset(businessDate, 1))}><ChevronRight size={19} /></button>
+        </div>
+      </div>
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <div><strong className="text-base text-text-primary">{displayDate(businessDate)}</strong>{roster.summary.total ? <span className="ml-2 text-sm text-text-secondary">· {roster.summary.total}마리</span> : null}</div>
+        <Button type="button" onClick={openRegister}><Plus size={17} />{roster.summary.total ? "등원 추가" : "오늘 등원 등록"}</Button>
+      </div>
+
+      {error ? <div className="mt-4"><FormAlert>{error}</FormAlert></div> : null}
+      {loading ? (
+        <Card className="mt-5 flex min-h-64 items-center justify-center p-8"><div className="flex items-center gap-2 text-sm text-text-secondary"><LoaderCircle className="animate-spin" size={18} />명단 불러오는 중</div></Card>
+      ) : roster.summary.total === 0 ? (
+        <Card className="mt-5 px-5 py-14 text-center sm:py-20">
+          <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-soft text-primary"><BookOpenText size={26} /></span>
+          <h2 className="mt-5 text-lg font-bold text-text-primary">오늘 등원한 아이들을 등록해주세요.</h2>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">등록한 명단이 하루 일지의 canonical 작성 대상이 됩니다.</p>
+          <Button type="button" className="mt-6" onClick={openRegister}><Dog size={17} />오늘 등원 등록</Button>
+        </Card>
+      ) : (
+        <>
+          <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3" aria-label="일지 요약">
+            <Summary label="완료" value={roster.summary.completed} tone="green" />
+            <Summary label="작성중" value={roster.summary.inProgress} tone="blue" />
+            <Summary label="미작성" value={roster.summary.notStarted} tone="gray" />
+          </div>
+          <div className="mt-4 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="일지 상태 필터">
+            {([['ALL','전체'],['NOT_STARTED','미작성'],['IN_PROGRESS','작성중'],['COMPLETED','완료']] as const).map(([value,label]) => <button key={value} type="button" aria-pressed={filter===value} onClick={() => setFilter(value)} className={`min-h-11 shrink-0 rounded-xl px-4 text-sm font-semibold ${filter===value?'bg-primary text-white':'border border-border bg-surface text-text-secondary hover:bg-primary-soft'}`}>{label}</button>)}
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="오늘의 일지 명단">
+            {visibleEntries.map((entry) => <JournalEntryCard key={entry.id} entry={entry} removing={removingId===entry.id} onRemove={() => void remove(entry)} />)}
+            {!visibleEntries.length ? <Card className="p-8 text-center text-sm text-text-muted sm:col-span-2 xl:col-span-3">이 상태의 일지가 없습니다.</Card> : null}
+          </div>
+        </>
+      )}
+
+      <Modal open={registerOpen} title={roster.summary.total ? "등원 추가" : "오늘 등원 등록"} description={`${displayDate(businessDate)} · P&M 유치원`} onClose={() => !saving && setRegisterOpen(false)} resetKey={businessDate}>
+        {directoryLoading ? <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-text-secondary"><LoaderCircle className="animate-spin" size={18} />반려견 목록 불러오는 중</div> : (
+          <SearchSelect
+            label="반려견"
+            items={availableDogs}
+            selectedIds={selectedDogIds}
+            onChange={setSelectedDogIds}
+            getItemId={(dog) => dog.id}
+            getSearchText={(dog) => `${dog.name} ${dog.customerName ?? ""} ${dog.customerPhone ?? ""}`}
+            renderOption={(dog) => <span className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"><Dog size={18} /></span><span className="min-w-0"><strong className="block truncate text-sm text-text-primary">{dog.name}</strong><span className="mt-0.5 block truncate text-xs text-text-secondary">{dog.customerName || "보호자 이름 미등록"} · {formatPhoneForDisplay(dog.customerPhone) || "전화번호 미등록"}</span></span></span>}
+            renderSelected={(dog) => `${dog.name} · ${dog.customerName || "보호자 미등록"}`}
+            placeholder="반려견, 보호자 또는 전화번호 검색"
+            emptyMessage="검색어를 입력하거나 최근 반려견을 선택하세요."
+            noResultsMessage="등록 가능한 반려견이 없습니다."
+            multiple
+            showAllOnEmpty
+            disabled={saving}
+            recentStorageKey="pm-os:journal-roster:dogs"
+          />
+        )}
+        <p className="mt-3 text-sm text-text-secondary">선택 {selectedDogIds.length}마리</p>
+        <ModalActions><Button type="button" variant="secondary" disabled={saving} onClick={() => setRegisterOpen(false)}>취소</Button><Button type="button" disabled={!selectedDogIds.length || saving || directoryLoading} onClick={() => void register()}>{saving ? "등록 중..." : "오늘 등원 등록"}</Button></ModalActions>
+      </Modal>
+    </section>
+  );
+}
+
+function Summary({ label, value, tone }: { label: string; value: number; tone: "green" | "blue" | "gray" }) {
+  const colors = tone === "green" ? "bg-success-soft text-success" : tone === "blue" ? "bg-primary-soft text-primary" : "bg-surface-secondary text-text-secondary";
+  return <div className={`rounded-2xl px-3 py-4 text-center ${colors}`}><strong className="block text-xl tabular-nums">{value}</strong><span className="mt-1 block text-xs font-semibold">{label}</span></div>;
+}
+
+function JournalEntryCard({ entry, removing, onRemove }: { entry: JournalRosterEntry; removing: boolean; onRemove: () => void }) {
+  const view = statusView[entry.status];
+  return <Card variant="interactive" className="min-w-0 p-4">
+    <div className="flex min-w-0 items-start justify-between gap-3">
+      <button type="button" className="min-h-11 min-w-0 flex-1 text-left" onClick={() => undefined} aria-label={`${entry.dog.name} 일지 작성기 준비 중`}>
+        <div className="flex items-center gap-2"><strong className="truncate text-base text-text-primary">{entry.dog.name}</strong><Badge tone={view.tone}>{view.label}</Badge></div>
+        <p className="mt-1 truncate text-sm text-text-secondary">{entry.customer.name || "보호자 이름 미등록"}</p>
+        <p className="mt-2 text-xs text-text-muted">작성기 준비 중</p>
+      </button>
+      {entry.status === "NOT_STARTED" ? <button type="button" aria-label={`${entry.dog.name} 명단에서 제거`} disabled={removing} onClick={onRemove} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-text-muted hover:bg-error-soft hover:text-error disabled:opacity-50">{removing?<LoaderCircle className="animate-spin" size={17}/>:<Trash2 size={17}/>}</button> : null}
+    </div>
+  </Card>;
+}

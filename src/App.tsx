@@ -13,6 +13,7 @@ import {
   EyeOff,
   LayoutDashboard,
   ListChecks,
+  NotebookPen,
   LoaderCircle,
   LockKeyhole,
   LogOut,
@@ -61,6 +62,7 @@ import { OperationsCalendarFoundationPage } from "./pages/OperationsCalendarFoun
 import { OperationsTodayPage } from "./pages/OperationsToday";
 import { HotelOperationsPage } from "./pages/HotelOperations";
 import { CustomerManagementPage } from "./pages/CustomerManagement";
+import { JournalHomePage } from "./pages/JournalHome";
 import { CustomerDogHeaderSearch } from "./components/CustomerDogHeaderSearch";
 import { FindAccountPage, ForgotPasswordPage, ResetPasswordPage } from "./pages/AccountRecoveryPages";
 import pmLogo from "./assets/pm-logo.png";
@@ -83,6 +85,7 @@ const operationsMenus: OperationsMenuItem[] = [
   { to: "/operations/today", label: "오늘", icon: Clock3 },
   { to: "/operations/calendar", label: "캘린더", icon: CalendarDays },
   { to: "/operations/hotel", label: "호텔 운영", icon: BedDouble },
+  { to: "/operations/journal", label: "일지", icon: NotebookPen },
   ...(operationsFeatures.scheduleDirectory
     ? [{ to: "/operations/schedules", label: "일정", icon: ListChecks }]
     : []),
@@ -164,6 +167,7 @@ export default function App() {
           element={<OperationsCalendarFoundationPage />}
         />
         <Route path="hotel" element={<HotelOperationsPage />} />
+        <Route path="journal" element={<JournalHomePage />} />
         <Route
           path="schedules"
           element={
