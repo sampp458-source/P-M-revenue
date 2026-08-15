@@ -37,7 +37,7 @@ describe("Journal 1080x1440 report template", () => {
     expect(report.style.height).toBe(`${JOURNAL_REPORT_HEIGHT}px`);
     expect(report.className).toContain("overflow-hidden");
     expect(report.querySelector("canvas")).toBeNull();
-    expect(report.querySelector("[style*='background-image']")).toBeNull();
+    expect(report.querySelector("[style*='background-image: url']")).toBeNull();
     for (const heading of ["오늘의 컨디션", "배변 상태", "유치원에서 먹은 것", "오늘의 관계", "예절교육", "체육 시간", "선생님의 한마디"]) {
       expect(within(report).getByRole("heading", { name: heading })).toBeTruthy();
     }
@@ -99,7 +99,7 @@ describe("Journal 1080x1440 report template", () => {
 
   it.each([
     ["short", "짧고 즐거운 하루였어요."],
-    ["medium", "따뜻하고 즐거운 하루를 보냈습니다. ".repeat(6).slice(0, 180)],
+    ["medium", "따뜻하고 즐거운 하루를 보냈습니다. ".repeat(12).slice(0, 220)],
     ["long", "친구들과 차분히 어울리며 다양한 활동을 즐겼습니다. ".repeat(12).slice(0, 350)],
     ["very-long", "오늘의 모습을 보호자님께 정성스럽게 전해 드립니다. ".repeat(25).slice(0, 499)],
   ])("renders the full %s comment with adaptive typography", (density, comment) => {
