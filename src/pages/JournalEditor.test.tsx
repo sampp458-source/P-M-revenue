@@ -3,7 +3,8 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { JournalEditor } from "./JournalEditor";
-import type { JournalRosterEntry } from "./journalRepository";
+import { buildJournalPreviewViewModel } from "./journalPreviewViewModel";
+import type { JournalDraft, JournalRosterEntry } from "./journalRepository";
 
 const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
@@ -82,6 +83,24 @@ describe("Journal Editor", () => {
     expect(mocks.update.mock.calls[0][2]).toMatchObject({ conditionCodes: ["active"], defecation: false, stoolCondition: null });
     expect(container.querySelector("[aria-label='크리미 일지 편집기']")?.className).toContain("overflow-x-hidden");
     expect(container.innerHTML).toContain("min-h-11");
+    expect(container.querySelector("[aria-label='크리미 일지 편집기'] > div")?.className).toContain("xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]");
+    expect(screen.getByTestId("journal-preview-placeholder").className).toContain("aspect-[3/4]");
+    expect(screen.getByLabelText("크리미 결과 미리보기").className).toContain("hidden");
+    expect(screen.getByLabelText("크리미 결과 미리보기").className).toContain("xl:block");
+    expect(screen.queryByRole("button", { name: "미리보기" })).toBeNull();
+  });
+
+  it("uses a light selected state with a non-color check indicator", async () => {
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.update.mockImplementation(async (_id, version, draft) => entry({ ...draft, version: version + 1 }));
+    renderEditor();
+    const condition = await screen.findByRole("button", { name: "활발해요" });
+    fireEvent.click(condition);
+    expect(condition.getAttribute("aria-pressed")).toBe("true");
+    expect(condition.className).toContain("bg-primary-soft");
+    expect(condition.className).toContain("text-primary");
+    expect(condition.className).not.toContain("bg-primary text-white");
+    expect(condition.querySelector("svg")).toBeTruthy();
   });
 
   it("flushes the final local snapshot before completion and uses its latest version", async () => {
@@ -123,7 +142,30 @@ describe("Journal Editor", () => {
     mocks.fetch.mockResolvedValue(completed);
     renderEditor(completed);
     expect(await screen.findByText("크리미 일지 완료")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /몽이 작성하기/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /다음 미작성 · 몽이/ })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "선생님의 한마디" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("builds the future preview model from the latest local draft without waiting for persistence", () => {
+    const initial = entry({ teacherComment: "저장된 내용", conditionCodes: ["calm"] });
+    const latestDraft: JournalDraft = {
+      conditionCodes: ["active"],
+      urination: true,
+      defecation: false,
+      stoolCondition: null,
+      mealCodes: ["daycare_food"],
+      teacherRelationship: "loves_teacher",
+      friendRelationship: "loves_friends",
+      bestFriendDogId: null,
+      mannersActivityName: "기다려",
+      mannersEvaluation: "excellent",
+      physicalActivityName: "노즈워크",
+      physicalEvaluation: "fun",
+      teacherComment: "아직 저장되지 않은 최신 입력",
+    };
+    const preview = buildJournalPreviewViewModel(initial, latestDraft);
+    expect(preview.draft.teacherComment).toBe("아직 저장되지 않은 최신 입력");
+    expect(preview.draft.conditionCodes).toEqual(["active"]);
+    expect(preview.entryId).toBe("entry-1");
   });
 });
