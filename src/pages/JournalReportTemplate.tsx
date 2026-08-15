@@ -1,5 +1,6 @@
 import { Bone, Check, CircleUserRound, Dumbbell, Flower2, Heart, Medal, MessageCircleHeart, PawPrint, Salad, Sparkles, Star } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { journalCharacters, type JournalCharacterName } from "../assets/journal/journalAssets";
 import pmLogo from "../assets/pm-logo.png";
 import type { JournalPreviewActivity, JournalPreviewOption, JournalPreviewViewModel } from "./journalPreviewViewModel";
 
@@ -19,21 +20,21 @@ export function JournalReportTemplate({ viewModel }: { viewModel: JournalPreview
     <article
       data-testid="journal-report-template"
       aria-label={`${viewModel.dogName} 하루 일지 결과지`}
-      className="relative flex shrink-0 flex-col overflow-hidden bg-[#fff8e9] p-[46px] text-[#3d3a40]"
+      className="relative flex shrink-0 flex-col overflow-hidden bg-[#fff8ea] p-[46px] text-[#4f403b]"
       style={{
         width: JOURNAL_REPORT_WIDTH,
         height: JOURNAL_REPORT_HEIGHT,
         fontFamily: 'Pretendard, "Noto Sans KR", sans-serif',
-        backgroundImage: "radial-gradient(circle at 2px 2px, rgb(203 177 137 / 0.12) 1.5px, transparent 1.6px)",
-        backgroundSize: "28px 28px",
+        backgroundImage: "radial-gradient(circle at 2px 2px, rgb(197 151 117 / 0.085) 1.35px, transparent 1.45px)",
+        backgroundSize: "31px 31px",
       }}
     >
       <JournalDecoration />
-      <span className="pointer-events-none absolute inset-[17px] rounded-[52px] border-[3px] border-[#ead7b9]" />
+      <span className="pointer-events-none absolute inset-[17px] rounded-[52px] border-[3px] border-[#ead8bf]" />
       <ReportHeader viewModel={viewModel} />
 
-      <main className="relative z-10 mt-[14px] grid min-h-0 flex-1 grid-rows-[185px_220px_95px_190px_minmax(0,1fr)] gap-[12px]">
-        <div className="grid grid-cols-[0.9fr_1.1fr] gap-[12px]">
+      <main className="relative z-10 mt-[12px] grid min-h-0 flex-1 grid-rows-[175px_205px_115px_180px_minmax(0,1fr)] gap-[10px]">
+        <div className="grid grid-cols-[0.9fr_1.1fr] gap-[10px]">
           <JournalSection title="오늘의 컨디션" icon={<Sparkles size={24} />} paletteName="coral" shape="cloud">
             <Options options={viewModel.conditionOptions} columns={2} compact />
           </JournalSection>
@@ -46,7 +47,7 @@ export function JournalReportTemplate({ viewModel }: { viewModel: JournalPreview
           </JournalSection>
         </div>
 
-        <div className="grid grid-cols-[0.78fr_1.22fr] gap-[12px]">
+        <div className="grid grid-cols-[0.78fr_1.22fr] gap-[10px]">
           <JournalSection title="유치원에서 먹은 것" icon={<Salad size={24} />} paletteName="amber" shape="note">
             <Options options={viewModel.mealOptions} columns={2} />
             <Bone className="absolute bottom-[11px] right-[16px] -rotate-12 text-[#d9b76e]/55" size={34} />
@@ -56,7 +57,7 @@ export function JournalReportTemplate({ viewModel }: { viewModel: JournalPreview
 
         <BestFriendRibbon name={viewModel.bestFriendName ?? ""} />
 
-        <div className="grid grid-cols-2 gap-[12px]">
+        <div className="grid grid-cols-2 gap-[10px]">
           <ActivityCard activity={viewModel.manners} icon={<Medal size={25} />} paletteName="coral" motif="medal" />
           <ActivityCard activity={viewModel.physical} icon={<Dumbbell size={25} />} paletteName="green" motif="movement" />
         </div>
@@ -93,29 +94,28 @@ export function JournalReportPreview({ viewModel, className = "" }: { viewModel:
 
 function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
   return (
-    <header className="relative z-10 h-[215px] shrink-0 overflow-hidden rounded-[62px_62px_42px_42px] bg-[#d9edf2] px-[34px] py-[20px] shadow-[inset_0_-6px_0_rgb(255_255_255_/_0.35)]">
-      <span className="absolute -left-[18px] top-[52px] h-[64px] w-[64px] rounded-full bg-[#f7dfd4]" />
-      <span className="absolute -right-[14px] bottom-[26px] h-[76px] w-[76px] rounded-full bg-[#f8e8b9]" />
-      <JournalDogHero variant="coral" className="absolute left-[40px] top-[26px] h-[112px] w-[112px] -rotate-3" />
-      <JournalDogHero variant="blue" className="absolute right-[40px] top-[25px] h-[112px] w-[112px] rotate-3" />
+    <header className="relative z-10 h-[235px] shrink-0 overflow-hidden rounded-[52px_52px_38px_38px] border-[3px] border-[#ead4bf] bg-[#f8eadc] px-[34px] py-[17px] shadow-[inset_0_-5px_0_rgb(255_255_255_/_0.38)]">
+      <span className="absolute left-[26px] top-[24px] h-[150px] w-[150px] rounded-full bg-[#fff8ea]/80" />
+      <span className="absolute right-[24px] top-[28px] h-[144px] w-[174px] rounded-[48px] bg-[#ddebeb]/70" />
+      <JournalCharacter name="dogAWaving" className="absolute -left-[1px] top-[10px] h-[178px] w-[178px] object-contain" />
+      <JournalCharacter name="dogBPeeking" className="absolute right-[8px] top-[41px] h-[142px] w-[205px] object-contain" />
 
-      <div className="mx-auto flex w-[570px] flex-col items-center">
-        <div className="flex items-center gap-[10px]">
-          <img src={pmLogo} alt="P&M" className="h-[47px] w-[47px] rounded-[15px] bg-[#315f78] object-contain p-[3px] shadow-[0_5px_13px_rgb(49_95_120_/_0.18)]" />
-          <p className="text-[24px] font-black tracking-[0.16em] text-[#315f78]">P&amp;M</p>
+      <div className="mx-auto flex w-[590px] flex-col items-center">
+        <div className="flex items-center gap-[9px]">
+          <img src={pmLogo} alt="P&M" className="h-[42px] w-[42px] rounded-[13px] bg-[#315f78] object-contain p-[3px] shadow-[0_4px_11px_rgb(49_95_120_/_0.15)]" />
+          <p className="text-[22px] font-black tracking-[0.17em] text-[#315f78]">P&amp;M</p>
         </div>
-        <div className="relative mt-[5px] flex h-[70px] w-[520px] items-center justify-center bg-[#315f78] text-white shadow-[0_8px_18px_rgb(49_95_120_/_0.18)] [clip-path:polygon(0_0,7%_50%,0_100%,100%_100%,93%_50%,100%_0)]">
-          <Star className="mr-[14px] text-[#f5d786]" fill="#f5d786" size={21} />
-          <h1 className="text-[47px] font-black tracking-[-0.055em]">오늘의 하루 일지</h1>
-          <Star className="ml-[14px] text-[#f5d786]" fill="#f5d786" size={21} />
+        <div className="relative mt-[1px] px-[38px] pb-[10px]">
+          <span className="absolute inset-x-[18px] bottom-[5px] h-[15px] -rotate-1 rounded-full bg-[#efb2a8]/58" />
+          <h1 className="relative text-[49px] font-black tracking-[-0.055em] text-[#315f78]">오늘의 하루 일지</h1>
         </div>
+        <p className="mt-[-3px] text-[14px] font-extrabold tracking-[0.2em] text-[#9d776d]">P&amp;M CHARACTER DIARY</p>
       </div>
 
-      <div className="absolute inset-x-[52px] bottom-[17px] flex items-end gap-[18px]">
-        <Heart className="mb-[5px] shrink-0 text-[#cf7b78]" fill="#efbbb5" size={25} />
+      <div className="absolute inset-x-[48px] bottom-[14px] flex items-end gap-[16px] rounded-[22px] bg-white/46 px-[20px] py-[8px]">
         <p className={longTextClass(viewModel.dogName, "min-w-0 flex-1 break-words font-black tracking-[-0.045em] text-[#315f78]")}>{viewModel.dogName}</p>
-        <span className="mb-[8px] h-0 min-w-[100px] flex-1 border-b-[3px] border-dotted border-[#8fb4c1]" />
-        <p className="shrink-0 text-[23px] font-extrabold tabular-nums text-[#5d7781]">{viewModel.displayDate}</p>
+        <span className="mb-[7px] h-0 min-w-[80px] flex-1 border-b-[3px] border-dotted border-[#d1a79a]" />
+        <p className="shrink-0 text-[22px] font-extrabold tabular-nums text-[#6d5148]">{viewModel.displayDate}</p>
       </div>
     </header>
   );
@@ -159,15 +159,12 @@ function Relationship({ label, options, scene }: { label: string; options: Journ
 
 function BestFriendRibbon({ name }: { name: string }) {
   return (
-    <section data-journal-section="ribbon" className="relative flex min-w-0 items-center justify-center overflow-hidden px-[40px]" aria-label="오늘의 제일 친한 친구">
-      <span className="absolute left-[4px] top-[16px] h-[62px] w-[84px] bg-[#92c2ca] [clip-path:polygon(0_0,100%_0,82%_50%,100%_100%,0_100%,18%_50%)]" />
-      <span className="absolute right-[4px] top-[16px] h-[62px] w-[84px] bg-[#92c2ca] [clip-path:polygon(0_0,100%_0,82%_50%,100%_100%,0_100%,18%_50%)]" />
-      <div className="relative z-10 flex h-[82px] w-full items-center rounded-[24px_40px_24px_40px] bg-[#d9edf2] px-[28px] shadow-[0_6px_0_#b7d7dc]">
-        <Star className="shrink-0 text-[#e0ac48]" fill="#f5d586" size={25} />
-        <p className="ml-[14px] text-[22px] font-extrabold text-[#4a626b]">오늘의 제일 친한 친구는</p>
-        <strong className={longTextClass(name, "mx-[16px] min-w-0 flex-1 break-words text-center font-black tracking-[-0.04em] text-[#315f78]")}>{name || "\u00a0"}</strong>
-        <p className="text-[22px] font-extrabold text-[#4a626b]">예요</p>
-        <Heart className="ml-[13px] shrink-0 text-[#cf7b78]" fill="#efbbb5" size={26} />
+    <section data-journal-section="ribbon" className="relative grid min-w-0 grid-cols-[170px_1fr] items-center overflow-hidden border-y-[3px] border-dashed border-[#d7b49f] bg-[#fff1de]/76 px-[24px]" aria-label="오늘의 제일 친한 친구">
+      <JournalCharacter name="bestFriendDuo" className="h-[112px] w-[158px] self-end object-contain object-bottom" />
+      <div className="relative z-10 flex min-w-0 items-center justify-center gap-[13px]">
+        <p className="shrink-0 text-[21px] font-extrabold text-[#765d54]">오늘의 제일 친한 친구는</p>
+        <strong className={longTextClass(name, "min-w-0 break-words border-b-[6px] border-[#efb2a8]/65 px-[15px] pb-[1px] text-center font-black tracking-[-0.04em] text-[#315f78]")}>{name || "\u00a0"}</strong>
+        <p className="shrink-0 text-[21px] font-extrabold text-[#765d54]">예요</p>
       </div>
     </section>
   );
@@ -187,14 +184,16 @@ function ActivityCard({ activity, icon, paletteName, motif }: { activity: Journa
 }
 
 function TeacherComment({ comment }: { comment: string }) {
+  const density = commentDensity(comment);
+  const characterClass = density === "very-long" ? "h-[88px] w-[80px] opacity-70" : density === "long" ? "h-[118px] w-[108px] opacity-85" : "h-[166px] w-[150px]";
+  const textInset = density === "very-long" ? "pr-[86px]" : density === "long" ? "pr-[122px]" : "pr-[166px]";
   return (
-    <section data-journal-section="letter" aria-label="선생님의 한마디" className="relative min-h-0 overflow-hidden rounded-[34px_50px_38px_54px] bg-[#eee6f4] px-[36px] pb-[24px] pt-[18px] shadow-[inset_0_0_0_4px_rgb(255_255_255_/_0.34)]" style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0, transparent 41px, rgb(115 95 148 / 0.075) 42px)" }}>
-      <span className="absolute right-0 top-0 h-[98px] w-[150px] bg-[#f8e8c8]/60 [clip-path:polygon(100%_0,100%_100%,0_0)]" />
-      <JournalDogHero variant="coral" className="absolute bottom-[14px] right-[24px] h-[76px] w-[76px] rotate-6 opacity-90" />
-      <Heart className="absolute right-[94px] top-[22px] text-[#cc879e]" fill="#e9bac8" size={25} />
-      <h2 aria-label="선생님의 한마디" className="relative mb-[10px] flex items-center gap-[11px] text-[27px] font-black tracking-[-0.025em] text-[#725f91]"><span className="flex h-[42px] w-[42px] items-center justify-center rounded-[15px_22px_15px_22px] bg-white/65"><MessageCircleHeart size={28} /></span>선생님의 한마디 <span aria-hidden="true" className="text-[15px] font-extrabold tracking-[0.12em] text-[#a494b5]">WITH LOVE</span></h2>
-      <span className="absolute left-[32px] top-[67px] text-[54px] font-black leading-none text-[#c6b5d7]/70">“</span>
-      <p data-testid="journal-report-comment" data-comment-density={commentDensity(comment)} className={`${commentClass(comment)} relative h-[calc(100%-50px)] whitespace-pre-wrap break-words pl-[28px] pr-[72px] font-semibold text-[#4b4653]`}>{comment}</p>
+    <section data-journal-section="letter" aria-label="선생님의 한마디" className="relative min-h-0 overflow-hidden rounded-[30px_52px_34px_48px] border-[3px] border-[#d9c9e2] bg-[#f1eaf5] px-[34px] pb-[22px] pt-[16px] shadow-[inset_0_0_0_5px_rgb(255_255_255_/_0.35)]" style={{ backgroundImage: "repeating-linear-gradient(to bottom, transparent 0, transparent 40px, rgb(109 81 72 / 0.065) 41px)" }}>
+      <span className="absolute right-0 top-0 h-[88px] w-[132px] bg-[#fff1de]/65 [clip-path:polygon(100%_0,100%_100%,0_0)]" />
+      <JournalCharacter name="dogAHeartLetter" className={`absolute bottom-[7px] right-[11px] object-contain object-bottom ${characterClass}`} />
+      <h2 aria-label="선생님의 한마디" className="relative mb-[8px] flex items-center gap-[10px] text-[27px] font-black tracking-[-0.025em] text-[#725f91]"><span className="flex h-[40px] w-[40px] items-center justify-center rounded-[15px_20px_14px_21px] bg-white/62"><MessageCircleHeart size={27} /></span>선생님의 한마디 <span aria-hidden="true" className="text-[14px] font-extrabold tracking-[0.12em] text-[#a494b5]">WITH LOVE</span></h2>
+      <span className="absolute left-[30px] top-[61px] text-[50px] font-black leading-none text-[#c6b5d7]/62">“</span>
+      <p data-testid="journal-report-comment" data-comment-density={density} className={`${commentClass(comment)} ${textInset} relative h-[calc(100%-48px)] whitespace-pre-wrap break-words pl-[27px] font-semibold text-[#4b4653]`}>{comment}</p>
     </section>
   );
 }
@@ -210,8 +209,8 @@ function Options({ options, columns, compact = false }: { options: JournalPrevie
 
 function Option({ option, compact = false }: { option: JournalPreviewOption; compact?: boolean }) {
   return (
-    <div className={`relative flex min-w-0 items-center px-[6px] ${compact ? "min-h-[32px] text-[16px]" : "min-h-[41px] text-[18px]"} ${option.selected ? "rounded-[14px_20px_14px_20px] bg-white/75 font-black text-[#315f78] shadow-[0_3px_8px_rgb(75_70_73_/_0.055)]" : "font-semibold text-[#817d79]"}`} data-selected={option.selected ? "true" : "false"}>
-      <span className={`mr-[7px] flex h-[20px] w-[20px] shrink-0 items-center justify-center ${option.selected ? "rotate-[-4deg] rounded-[7px_10px_7px_10px] bg-[#4f7c90] text-white" : "rounded-full border-[2px] border-[#b7afa5] text-transparent"}`}><Check size={13} strokeWidth={3.6} /></span>
+    <div className={`relative flex min-w-0 items-center px-[5px] ${compact ? "min-h-[30px] text-[16px]" : "min-h-[38px] text-[18px]"} ${option.selected ? "font-black text-[#315f78] [background:linear-gradient(transparent_58%,rgb(239_178_168_/_0.42)_58%)]" : "font-semibold text-[#978b83]"}`} data-selected={option.selected ? "true" : "false"}>
+      <span className={`mr-[7px] flex h-[20px] w-[20px] shrink-0 rotate-[-7deg] items-center justify-center font-black ${option.selected ? "text-[#d06f67]" : "text-[#c8bcb2]"}`}>{option.selected ? <Check size={18} strokeWidth={3.5} /> : <span className="text-[19px] leading-none">·</span>}</span>
       <span className="min-w-0 break-keep leading-[1.16]">{option.label}</span>
     </div>
   );
@@ -225,27 +224,8 @@ function SmallLabel({ children }: { children: ReactNode }) {
   return <p className="mb-[3px] text-[15px] font-extrabold text-[#676b65]">{children}</p>;
 }
 
-function JournalDogHero({ variant, className = "" }: { variant: "coral" | "blue"; className?: string }) {
-  const fur = variant === "coral" ? "#d98a78" : "#6e9daf";
-  const ear = variant === "coral" ? "#aa6258" : "#477789";
-  const scarf = variant === "coral" ? "#315f78" : "#d47f78";
-  return (
-    <svg data-testid="journal-dog-hero" aria-hidden="true" viewBox="0 0 120 120" className={className}>
-      <circle cx="60" cy="61" r="52" fill="#fff8ed" />
-      <path d="M34 45C14 31 11 52 24 70c5 7 13 5 18-2z" fill={ear} />
-      <path d="M86 45c20-14 23 7 10 25-5 7-13 5-18-2z" fill={ear} />
-      <path d="M28 63c0-27 14-43 32-43s32 16 32 43c0 25-13 40-32 40S28 88 28 63z" fill={fur} />
-      <path d="M38 85c8 11 36 11 44 0l-5 21H43z" fill={scarf} />
-      <ellipse cx="60" cy="74" rx="22" ry="18" fill="#f8e1cf" />
-      <circle cx="46" cy="59" r="4" fill="#3f3b40" />
-      <circle cx="74" cy="59" r="4" fill="#3f3b40" />
-      <circle cx="60" cy="70" r="5" fill="#4b4141" />
-      <path d="M52 79c4 6 12 6 16 0" fill="none" stroke="#704f4c" strokeWidth="3" strokeLinecap="round" />
-      <circle cx="39" cy="72" r="5" fill="#efb2a9" opacity=".75" />
-      <circle cx="81" cy="72" r="5" fill="#efb2a9" opacity=".75" />
-      <path d="M60 20c-5 7-7 13-4 18 2-5 7-8 13-10-1-5-4-7-9-8z" fill="#f5dfbf" opacity=".9" />
-    </svg>
-  );
+function JournalCharacter({ name, className = "" }: { name: JournalCharacterName; className?: string }) {
+  return <img data-testid={`journal-character-${name}`} src={journalCharacters[name]} alt="" aria-hidden="true" draggable={false} className={className} />;
 }
 
 function commentDensity(comment: string) {
@@ -271,13 +251,9 @@ function longTextClass(value: string, base: string) {
 function JournalDecoration() {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-      <span className="absolute right-0 top-0 h-[175px] w-[175px] rounded-bl-full bg-[#f2d9c8]" />
-      <span className="absolute bottom-0 left-0 h-[165px] w-[165px] rounded-tr-full bg-[#dceade]" />
-      <Flower2 className="absolute bottom-[34px] left-[30px] text-[#cf8679]" size={43} />
-      <Star className="absolute bottom-[76px] left-[75px] text-[#d9ab4f]" fill="#f1d584" size={20} />
-      <Heart className="absolute right-[32px] top-[185px] text-[#ce8583]" fill="#efc0b9" size={25} />
-      <span className="absolute bottom-[40px] right-[45px] h-[18px] w-[18px] rounded-full bg-[#dfd4eb]" />
-      <span className="absolute bottom-[73px] right-[75px] h-[11px] w-[11px] rounded-full bg-[#d8e7d7]" />
+      <span className="absolute right-0 top-0 h-[158px] w-[158px] rounded-bl-full bg-[#f3dfce]/70" />
+      <span className="absolute bottom-0 left-0 h-[145px] w-[145px] rounded-tr-full bg-[#ddeadf]/70" />
+      <span className="absolute bottom-[40px] right-[45px] h-[15px] w-[15px] rounded-full bg-[#dfd4eb]/70" />
     </div>
   );
 }
