@@ -1,6 +1,6 @@
-import { Bone, Check, CircleUserRound, Dumbbell, Flower2, Heart, Medal, MessageCircleHeart, PawPrint, Salad, Sparkles, Star } from "lucide-react";
+import { Check, CircleUserRound, Dumbbell, Flower2, Heart, Medal, MessageCircleHeart, PawPrint, Salad, Sparkles } from "lucide-react";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { journalCharacters, type JournalCharacterName } from "../assets/journal/journalAssets";
+import { journalCharacters, journalSectionIllustrations, type JournalCharacterName, type JournalSectionIllustrationName } from "../assets/journal/journalAssets";
 import pmLogo from "../assets/pm-logo.png";
 import type { JournalPreviewActivity, JournalPreviewOption, JournalPreviewViewModel } from "./journalPreviewViewModel";
 
@@ -45,9 +45,8 @@ export function JournalReportTemplate({ viewModel }: { viewModel: JournalPreview
         </div>
 
         <div className="grid grid-cols-[0.78fr_1.22fr] gap-[10px]">
-          <JournalSection title="유치원에서 먹은 것" icon={<Salad size={24} />} paletteName="amber" shape="note">
+          <JournalSection title="유치원에서 먹은 것" icon={<Salad size={24} />} paletteName="amber" shape="note" illustration="meal">
             <Options options={viewModel.mealOptions} columns={2} />
-            <Bone className="absolute bottom-[11px] right-[16px] -rotate-12 text-[#e6b93f]/45" size={34} />
           </JournalSection>
           <RelationshipStory viewModel={viewModel} />
         </div>
@@ -117,7 +116,7 @@ function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
   );
 }
 
-function JournalSection({ title, icon, paletteName, shape, children }: { title: string; icon: ReactNode; paletteName: Palette; shape: "cloud" | "garden" | "note"; children: ReactNode }) {
+function JournalSection({ title, icon, paletteName, shape, illustration, children }: { title: string; icon: ReactNode; paletteName: Palette; shape: "cloud" | "garden" | "note"; illustration?: JournalSectionIllustrationName; children: ReactNode }) {
   const colors = palette[paletteName];
   const shapeClass = shape === "cloud" ? "rounded-[54px_30px_50px_34px]" : shape === "garden" ? "rounded-[28px_58px_32px_48px]" : "rounded-[30px_44px_38px_24px]";
   return (
@@ -125,6 +124,7 @@ function JournalSection({ title, icon, paletteName, shape, children }: { title: 
       {shape === "cloud" ? <><span className="absolute -left-[7px] -top-[9px] h-[52px] w-[70px] rounded-full bg-[#ffe9ed]/60" /><span className="absolute right-[22px] top-[8px] h-[32px] w-[46px] rounded-full bg-[#ffe9ed]/42" /></> : null}
       {shape === "garden" ? <><Flower2 className="absolute bottom-[8px] right-[12px] text-[#62b98a]/30" size={34} /><span className="absolute bottom-0 left-[58px] h-[18px] w-[95px] rounded-t-full bg-[#e6f7ef]/72" /></> : null}
       {shape === "note" ? <span className="absolute left-1/2 top-0 h-[12px] w-[92px] -translate-x-1/2 rounded-b-full bg-[#fff3bc]" /> : null}
+      {illustration ? <JournalSectionIllustration name={illustration} className="absolute right-[9px] top-[5px] h-[66px] w-[88px] rotate-[2deg] opacity-90" /> : null}
       <SectionHeading title={title} icon={icon} color={colors.accent} />
       <div className="relative" style={{ color: colors.ink }}>{children}</div>
     </section>
@@ -148,20 +148,23 @@ function Relationship({ label, options, scene }: { label: string; options: Journ
   return (
     <div className={`relative rounded-[28px_18px_26px_20px] border px-[9px] py-[5px] ${scene === "teacher" ? "border-[#ffe0e5] bg-[#fffafb]" : "border-[#d9ebf7] bg-[#fafdff]"}`}>
       <div className="mb-[1px] flex items-center justify-between"><SmallLabel>{label}</SmallLabel>{scene === "teacher" ? <Heart className="text-[#ff7f82]" fill="#ffe9ed" size={18} /> : <PawPrint className="text-[#5d9ac2]" size={20} />}</div>
-      <div className="grid gap-[1px]">{options.map((option) => <Option key={option.code} option={option} compact />)}</div>
+      <div className="grid gap-[1px]">{options.map((option, index) => <Option key={option.code} option={option} compact variant={index} />)}</div>
     </div>
   );
 }
 
 function BestFriendRibbon({ name }: { name: string }) {
   return (
-    <section data-journal-section="ribbon" className="relative grid min-w-0 grid-cols-[248px_1fr] items-center overflow-hidden border-y-[3px] border-dashed border-[#b9dced] bg-[#fbfdff] px-[28px]" aria-label="오늘의 제일 친한 친구">
-      <JournalCharacter name="bestFriendDuo" className="h-[108px] w-[232px] self-end object-contain object-bottom" />
-      <div className="relative z-10 flex min-w-0 flex-col items-center justify-center">
-        <p className="text-[17px] font-extrabold tracking-[-0.02em] text-[#607488]">오늘의 제일 친한 친구는</p>
-        <div className="mt-[-4px] flex min-w-0 items-end justify-center gap-[11px]">
-          <strong data-testid="journal-best-friend-name" className={bestFriendNameClass(name)}>{name || "\u00a0"}</strong>
-          <p className="mb-[5px] shrink-0 text-[20px] font-extrabold text-[#607488]">예요 <span className="text-[#ff7f82]">♡</span></p>
+    <section data-journal-section="ribbon" className="relative flex min-w-0 items-center justify-center overflow-hidden border-y-[3px] border-dashed border-[#b9dced] bg-[#fbfdff] px-[28px]" aria-label="오늘의 제일 친한 친구">
+      <div className="relative flex h-full w-[760px] items-center justify-center">
+        <span className="absolute left-[146px] top-[21px] h-[58px] w-[68px] rotate-[-8deg] rounded-[50%] bg-[#ffe9ed]/55" />
+        <JournalCharacter name="bestFriendDuo" className="relative z-10 mr-[-18px] h-[108px] w-[236px] self-end object-contain object-bottom" />
+        <div className="relative z-10 flex w-[500px] min-w-0 flex-col items-center justify-center">
+          <p className="text-[17px] font-extrabold tracking-[-0.02em] text-[#607488]">오늘의 제일 친한 친구는</p>
+          <div className="mt-[-4px] flex min-w-0 items-end justify-center gap-[11px]">
+            <strong data-testid="journal-best-friend-name" className={bestFriendNameClass(name)}>{name || "\u00a0"}</strong>
+            <p className="mb-[5px] shrink-0 text-[20px] font-extrabold text-[#607488]">예요 <span className="text-[#ff7f82]">♡</span></p>
+          </div>
         </div>
       </div>
     </section>
@@ -173,7 +176,7 @@ function ActivityCard({ activity, icon, paletteName, motif }: { activity: Journa
   const activityClass = activity.activityName.length > 50 ? "text-[17px] leading-[1.18]" : activity.activityName.length > 28 ? "text-[21px] leading-[1.2]" : "text-[28px] leading-[1.2]";
   return (
     <section data-journal-section={motif} aria-label={activity.title} className={`relative overflow-hidden border-[3px] px-[19px] py-[8px] shadow-[0_6px_18px_rgb(47_98_132_/_0.035)] ${motif === "medal" ? "rounded-[26px_48px_28px_42px]" : "rounded-[48px_26px_42px_28px]"}`} style={{ backgroundColor: colors.surface, borderColor: colors.border, "--journal-selected": colors.highlight } as React.CSSProperties}>
-      {motif === "medal" ? <Star className="absolute right-[19px] top-[16px] text-[#e6b93f]" fill="#fff3bc" size={22} /> : <><span className="absolute right-[17px] top-[17px] h-[12px] w-[42px] rounded-full bg-[#62b98a]/34" /><span className="absolute right-[24px] top-[37px] h-[9px] w-[28px] rounded-full bg-[#62b98a]/20" /></>}
+      <JournalSectionIllustration name={motif === "medal" ? "manners" : "physical"} className={`absolute right-[10px] top-[3px] object-contain opacity-88 ${motif === "medal" ? "h-[52px] w-[78px] rotate-[2deg]" : "h-[54px] w-[82px] rotate-[-2deg]"}`} />
       <SectionHeading title={activity.title} icon={icon} color={colors.accent} />
       <div className={`flex h-[47px] items-center justify-center border-b-[3px] border-dotted border-[#dbe7ef] px-[10px] pb-[3px] text-center font-black text-[#25384a] ${activityClass}`}><span className="max-w-full whitespace-normal break-words">{activity.activityName || "\u00a0"}</span></div>
       <div className="mt-[1px]"><Options options={activity.options} columns={3} compact /></div>
@@ -202,13 +205,26 @@ function SectionHeading({ title, icon, color }: { title: string; icon: ReactNode
 
 function Options({ options, columns, compact = false }: { options: JournalPreviewOption[]; columns: 2 | 3; compact?: boolean }) {
   const columnClass = columns === 3 ? "grid-cols-3" : "grid-cols-2";
-  return <div className={`grid gap-x-[6px] gap-y-[2px] ${columnClass}`}>{options.map((option) => <Option key={option.code} option={option} compact={compact} />)}</div>;
+  return <div className={`grid gap-x-[6px] gap-y-[2px] ${columnClass}`}>{options.map((option, index) => <Option key={option.code} option={option} compact={compact} variant={index} />)}</div>;
 }
 
-function Option({ option, compact = false }: { option: JournalPreviewOption; compact?: boolean }) {
+const markVariants = [
+  "rotate-[-7deg] rounded-[46%_54%_43%_57%]",
+  "rotate-[4deg] rounded-[54%_46%_58%_42%]",
+  "rotate-[-2deg] rounded-[43%_57%_52%_48%]",
+] as const;
+
+const highlightVariants = [
+  "linear-gradient(176deg, transparent 47%, var(--journal-selected, rgb(255 233 237 / 0.9)) 47%, var(--journal-selected, rgb(255 233 237 / 0.9)) 89%, transparent 89%)",
+  "linear-gradient(179deg, transparent 45%, var(--journal-selected, rgb(255 233 237 / 0.9)) 45%, var(--journal-selected, rgb(255 233 237 / 0.9)) 88%, transparent 88%)",
+  "linear-gradient(174deg, transparent 49%, var(--journal-selected, rgb(255 233 237 / 0.9)) 49%, var(--journal-selected, rgb(255 233 237 / 0.9)) 90%, transparent 90%)",
+] as const;
+
+function Option({ option, compact = false, variant = 0 }: { option: JournalPreviewOption; compact?: boolean; variant?: number }) {
+  const variantIndex = variant % markVariants.length;
   return (
-    <div className={`relative flex min-w-0 items-center px-[4px] ${compact ? "min-h-[31px] text-[19px]" : "min-h-[36px] text-[22px]"} ${option.selected ? "font-black text-[#25384a]" : "font-semibold text-[#667786]"}`} style={option.selected ? { background: "linear-gradient(177deg, transparent 47%, var(--journal-selected, rgb(255 233 237 / 0.9)) 47%, var(--journal-selected, rgb(255 233 237 / 0.9)) 89%, transparent 89%)" } : undefined} data-selected={option.selected ? "true" : "false"}>
-      <span className={`mr-[6px] flex h-[23px] w-[23px] shrink-0 rotate-[-7deg] items-center justify-center font-black ${option.selected ? "text-[#ff6f73]" : "rounded-[45%_55%_48%_52%] border-[1.5px] border-[#aebdc8] text-transparent"}`}>{option.selected ? <Check size={21} strokeWidth={3.5} /> : <span aria-hidden="true">·</span>}</span>
+    <div className={`relative flex min-w-0 items-center px-[4px] ${compact ? "min-h-[31px] text-[19px]" : "min-h-[36px] text-[22px]"} ${option.selected ? "font-black text-[#25384a]" : "font-semibold text-[#667786]"}`} style={option.selected ? { background: highlightVariants[variantIndex] } : undefined} data-selected={option.selected ? "true" : "false"} data-mark-variant={variantIndex}>
+      <span className={`mr-[6px] flex h-[23px] w-[23px] shrink-0 items-center justify-center border font-black ${markVariants[variantIndex]} ${option.selected ? "border-[2px] border-[#ff9da2]/75 text-[#ff646a]" : "border-[1.5px] border-[#aebdc8] text-transparent"}`}>{option.selected ? <Check className="rotate-[-4deg]" size={18} strokeWidth={3.4} /> : <span aria-hidden="true">·</span>}</span>
       <span className="min-w-0 break-keep leading-[1.14]">{option.label}</span>
     </div>
   );
@@ -224,6 +240,10 @@ function SmallLabel({ children }: { children: ReactNode }) {
 
 function JournalCharacter({ name, className = "" }: { name: JournalCharacterName; className?: string }) {
   return <img data-testid={`journal-character-${name}`} src={journalCharacters[name]} alt="" aria-hidden="true" draggable={false} className={className} />;
+}
+
+function JournalSectionIllustration({ name, className = "" }: { name: JournalSectionIllustrationName; className?: string }) {
+  return <img data-testid={`journal-section-illustration-${name}`} src={journalSectionIllustrations[name]} alt="" aria-hidden="true" draggable={false} className={`pointer-events-none object-contain ${className}`} />;
 }
 
 function commentDensity(comment: string) {

@@ -51,6 +51,9 @@ describe("Journal 1080x1440 report template", () => {
     expect(screen.getByTestId("journal-character-dogBPeeking").getAttribute("src")).toContain("journal-dog-b-peeking.png");
     expect(screen.getByTestId("journal-character-bestFriendDuo").getAttribute("src")).toContain("journal-dog-duo-best-friend.png");
     expect(screen.getByTestId("journal-character-dogAHeartLetter").getAttribute("src")).toContain("journal-dog-a-heart-letter.png");
+    expect(screen.getByTestId("journal-section-illustration-meal").getAttribute("src")).toContain("journal-meal-bowl.png");
+    expect(screen.getByTestId("journal-section-illustration-manners").getAttribute("src")).toContain("journal-manners-book-medal.png");
+    expect(screen.getByTestId("journal-section-illustration-physical").getAttribute("src")).toContain("journal-physical-ball-motion.png");
     expect(report.innerHTML).not.toContain("#fff8ea");
     expect(report.innerHTML).not.toContain("#f9e3df");
     expect(report.innerHTML).not.toContain("#e3f0df");
@@ -74,8 +77,11 @@ describe("Journal 1080x1440 report template", () => {
     expect(within(report).getByText("활발해요").closest("[data-selected]")?.getAttribute("data-selected")).toBe("true");
     expect(within(report).getByText("평온해요").closest("[data-selected]")?.getAttribute("data-selected")).toBe("true");
     expect(within(report).getByText("가져온 사료").closest("[data-selected]")?.getAttribute("data-selected")).toBe("false");
-    expect(within(report).getByText("활발해요").closest("[data-selected]")?.getAttribute("style")).toContain("linear-gradient(177deg");
+    expect(within(report).getByText("활발해요").closest("[data-selected]")?.getAttribute("style")).toContain("linear-gradient(176deg");
     expect(within(report).getByText("활발해요").closest("[data-selected]")?.className).toContain("text-[19px]");
+    expect(within(report).getByText("평온해요").closest("[data-selected]")?.getAttribute("data-mark-variant")).toBe("1");
+    expect(within(report).getByText("피곤해요").closest("[data-selected]")?.getAttribute("data-mark-variant")).toBe("2");
+    expect(report.innerHTML).not.toContain("Math.random");
     expect(within(report).getByText("가져온 사료").closest("[data-selected]")?.getAttribute("style")).toBeNull();
   });
 
