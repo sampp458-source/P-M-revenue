@@ -39,6 +39,10 @@ describe("Journal 1080x1440 report template", () => {
     expect(report.className).toContain("bg-[#fffcf8]");
     expect(report.className).toContain("text-[#25384a]");
     expect(report.style.backgroundImage).toBe("");
+    expect(within(report).getByRole("heading", { name: "하루 일지" })).toBeTruthy();
+    expect(within(report).queryByText("오늘의 하루 일지")).toBeNull();
+    expect(within(report).queryByText("P&M CHARACTER DIARY")).toBeNull();
+    expect(within(report).queryByText("WITH LOVE")).toBeNull();
     expect(report.querySelector("canvas")).toBeNull();
     expect(report.querySelector("[style*='background-image: url']")).toBeNull();
     expect(report.querySelectorAll("[data-testid='journal-dog-hero']")).toHaveLength(0);
@@ -69,6 +73,8 @@ describe("Journal 1080x1440 report template", () => {
     expect(within(report).getByText("활발해요").closest("[data-selected]")?.getAttribute("data-selected")).toBe("true");
     expect(within(report).getByText("평온해요").closest("[data-selected]")?.getAttribute("data-selected")).toBe("true");
     expect(within(report).getByText("가져온 사료").closest("[data-selected]")?.getAttribute("data-selected")).toBe("false");
+    expect(within(report).getByText("활발해요").closest("[data-selected]")?.getAttribute("style")).toContain("linear-gradient(178deg");
+    expect(within(report).getByText("가져온 사료").closest("[data-selected]")?.getAttribute("style")).toBeNull();
   });
 
   it("clears stool selection in the presentation adapter when defecation is NO", () => {

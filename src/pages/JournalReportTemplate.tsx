@@ -9,10 +9,10 @@ export const JOURNAL_REPORT_HEIGHT = 1440;
 
 type Palette = "coral" | "green" | "amber" | "lavender";
 const palette = {
-  coral: { surface: "#fffefe", accent: "#ff7f82", ink: "#25384a", border: "#ffd9df", highlight: "rgb(255 233 237 / 0.9)" },
-  green: { surface: "#ffffff", accent: "#62b98a", ink: "#25384a", border: "#cfeede", highlight: "rgb(230 247 239 / 0.95)" },
-  amber: { surface: "#ffffff", accent: "#d3a82f", ink: "#25384a", border: "#f5e39d", highlight: "rgb(255 243 188 / 0.9)" },
-  lavender: { surface: "#ffffff", accent: "#8a75bc", ink: "#25384a", border: "#ddd4fa", highlight: "rgb(241 235 255 / 0.95)" },
+  coral: { surface: "#fffafb", accent: "#ff7f82", ink: "#25384a", border: "#ffd9df", highlight: "rgb(255 233 237 / 0.9)" },
+  green: { surface: "#fbfffd", accent: "#62b98a", ink: "#25384a", border: "#cfeede", highlight: "rgb(230 247 239 / 0.95)" },
+  amber: { surface: "#fffef8", accent: "#d3a82f", ink: "#25384a", border: "#f5e39d", highlight: "rgb(255 243 188 / 0.9)" },
+  lavender: { surface: "#fdfcff", accent: "#8a75bc", ink: "#25384a", border: "#ddd4fa", highlight: "rgb(241 235 255 / 0.95)" },
 } as const;
 
 export function JournalReportTemplate({ viewModel }: { viewModel: JournalPreviewViewModel }) {
@@ -102,11 +102,10 @@ function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
           <img src={pmLogo} alt="P&M" className="h-[42px] w-[42px] rounded-[13px] bg-[#2f6284] object-contain p-[3px] shadow-[0_4px_11px_rgb(47_98_132_/_0.12)]" />
           <p className="text-[22px] font-black tracking-[0.17em] text-[#2f6284]">P&amp;M</p>
         </div>
-        <div className="relative mt-[1px] px-[38px] pb-[10px]">
+        <div className="relative mt-[7px] px-[42px] pb-[11px]">
           <span className="absolute inset-x-[18px] bottom-[5px] h-[15px] -rotate-1 rounded-full bg-[#ff7f82]/42" />
-          <h1 className="relative text-[49px] font-black tracking-[-0.055em] text-[#2f6284]">오늘의 하루 일지</h1>
+          <h1 className="relative text-[52px] font-black tracking-[-0.055em] text-[#2f6284]">하루 일지</h1>
         </div>
-        <p className="mt-[-3px] text-[14px] font-extrabold tracking-[0.2em] text-[#718697]">P&amp;M CHARACTER DIARY</p>
       </div>
 
       <div className="absolute inset-x-[48px] bottom-[14px] flex items-end gap-[16px] rounded-[22px] border border-[#e6eef4] bg-[#fffcf8]/94 px-[20px] py-[8px]">
@@ -134,7 +133,7 @@ function JournalSection({ title, icon, paletteName, shape, children }: { title: 
 
 function RelationshipStory({ viewModel }: { viewModel: JournalPreviewViewModel }) {
   return (
-    <section data-journal-section="story" aria-label="오늘의 관계" className="relative overflow-hidden rounded-[52px_30px_46px_28px] border-[3px] border-[#ddd4fa] bg-white px-[18px] py-[14px] shadow-[0_6px_18px_rgb(47_98_132_/_0.035)]" style={{ "--journal-selected": "rgb(241 235 255 / 0.95)" } as React.CSSProperties}>
+    <section data-journal-section="story" aria-label="오늘의 관계" className="relative overflow-hidden rounded-[52px_30px_46px_28px] border-[3px] border-[#ddd4fa] bg-[#fdfcff] px-[18px] py-[14px] shadow-[0_6px_18px_rgb(47_98_132_/_0.035)]" style={{ "--journal-selected": "rgb(241 235 255 / 0.95)" } as React.CSSProperties}>
       <Heart className="absolute left-1/2 top-[17px] -translate-x-1/2 text-[#ff7f82]" fill="#ffe9ed" size={24} />
       <SectionHeading title="오늘의 관계" icon={<CircleUserRound size={24} />} color="#8a75bc" />
       <div className="grid grid-cols-2 gap-[10px]">
@@ -156,12 +155,14 @@ function Relationship({ label, options, scene }: { label: string; options: Journ
 
 function BestFriendRibbon({ name }: { name: string }) {
   return (
-    <section data-journal-section="ribbon" className="relative grid min-w-0 grid-cols-[170px_1fr] items-center overflow-hidden border-y-[3px] border-dashed border-[#b9dced] bg-white px-[24px]" aria-label="오늘의 제일 친한 친구">
-      <JournalCharacter name="bestFriendDuo" className="h-[112px] w-[158px] self-end object-contain object-bottom" />
-      <div className="relative z-10 flex min-w-0 items-center justify-center gap-[13px]">
-        <p className="shrink-0 text-[21px] font-extrabold text-[#52697c]">오늘의 제일 친한 친구는</p>
-        <strong className={longTextClass(name, "min-w-0 break-words border-b-[6px] border-[#ff7f82]/42 px-[15px] pb-[1px] text-center font-black tracking-[-0.04em] text-[#2f6284]")}>{name || "\u00a0"}</strong>
-        <p className="shrink-0 text-[21px] font-extrabold text-[#52697c]">예요</p>
+    <section data-journal-section="ribbon" className="relative grid min-w-0 grid-cols-[230px_1fr] items-center overflow-hidden border-y-[3px] border-dashed border-[#b9dced] bg-[#fbfdff] px-[34px]" aria-label="오늘의 제일 친한 친구">
+      <JournalCharacter name="bestFriendDuo" className="h-[115px] w-[216px] self-end object-contain object-bottom" />
+      <div className="relative z-10 flex min-w-0 flex-col items-center justify-center">
+        <p className="text-[18px] font-extrabold tracking-[-0.02em] text-[#607488]">오늘의 제일 친한 친구는</p>
+        <div className="mt-[-1px] flex min-w-0 items-end justify-center gap-[12px]">
+          <strong className={longTextClass(name, "min-w-0 break-words border-b-[7px] border-[#ff7f82]/38 px-[20px] pb-[1px] text-center font-black tracking-[-0.045em] text-[#2f6284]")}>{name || "\u00a0"}</strong>
+          <p className="mb-[4px] shrink-0 text-[19px] font-extrabold text-[#607488]">예요</p>
+        </div>
       </div>
     </section>
   );
@@ -188,9 +189,9 @@ function TeacherComment({ comment }: { comment: string }) {
     <section data-journal-section="letter" aria-label="선생님의 한마디" className="relative min-h-0 overflow-hidden rounded-[30px_52px_34px_48px] border-[3px] border-[#ffd9df] bg-white px-[34px] pb-[22px] pt-[16px] shadow-[0_8px_22px_rgb(47_98_132_/_0.04)]">
       <span className="absolute right-0 top-0 h-[88px] w-[132px] bg-[#ffe9ed]/66 [clip-path:polygon(100%_0,100%_100%,0_0)]" />
       <JournalCharacter name="dogAHeartLetter" className={`absolute bottom-[7px] right-[11px] object-contain object-bottom ${characterClass}`} />
-      <h2 aria-label="선생님의 한마디" className="relative mb-[8px] flex items-center gap-[10px] text-[27px] font-black tracking-[-0.025em] text-[#2f6284]"><span className="flex h-[40px] w-[40px] items-center justify-center rounded-[15px_20px_14px_21px] bg-[#ffe9ed] text-[#ff7f82]"><MessageCircleHeart size={27} /></span>선생님의 한마디 <span aria-hidden="true" className="text-[14px] font-extrabold tracking-[0.12em] text-[#8a75bc]">WITH LOVE</span></h2>
+      <h2 aria-label="선생님의 한마디" className="relative mb-[8px] flex items-center gap-[10px] text-[27px] font-black tracking-[-0.025em] text-[#2f6284]"><span className="flex h-[40px] w-[40px] items-center justify-center rounded-[15px_20px_14px_21px] bg-[#ffe9ed] text-[#ff7f82]"><MessageCircleHeart size={27} /></span>선생님의 한마디</h2>
       <span className="absolute left-[30px] top-[61px] text-[50px] font-black leading-none text-[#ffb8bc]/58">“</span>
-      <p data-testid="journal-report-comment" data-comment-density={density} className={`${commentClass(comment)} ${textInset} relative h-[calc(100%-48px)] whitespace-pre-wrap break-words pl-[27px] font-semibold text-[#25384a]`}>{comment}</p>
+      <p data-testid="journal-report-comment" data-comment-density={density} className={`${commentClass(comment)} ${textInset} relative h-[calc(100%-48px)] whitespace-pre-wrap break-words pl-[27px] font-medium text-[#25384a]`}>{comment}</p>
     </section>
   );
 }
@@ -206,8 +207,8 @@ function Options({ options, columns, compact = false }: { options: JournalPrevie
 
 function Option({ option, compact = false }: { option: JournalPreviewOption; compact?: boolean }) {
   return (
-    <div className={`relative flex min-w-0 items-center rounded-[10px] px-[5px] ${compact ? "min-h-[30px] text-[16px]" : "min-h-[38px] text-[18px]"} ${option.selected ? "font-black text-[#25384a]" : "font-semibold text-[#667786]"}`} style={option.selected ? { background: "linear-gradient(transparent 52%, var(--journal-selected, rgb(255 233 237 / 0.9)) 52%)" } : undefined} data-selected={option.selected ? "true" : "false"}>
-      <span className={`mr-[7px] flex h-[20px] w-[20px] shrink-0 rotate-[-7deg] items-center justify-center font-black ${option.selected ? "text-[#ff6f73]" : "text-[#b8c4cd]"}`}>{option.selected ? <Check size={18} strokeWidth={3.5} /> : <span className="text-[19px] leading-none">·</span>}</span>
+    <div className={`relative flex min-w-0 items-center px-[5px] ${compact ? "min-h-[30px] text-[16px]" : "min-h-[38px] text-[18px]"} ${option.selected ? "font-black text-[#25384a]" : "font-semibold text-[#667786]"}`} style={option.selected ? { background: "linear-gradient(178deg, transparent 49%, var(--journal-selected, rgb(255 233 237 / 0.9)) 49%, var(--journal-selected, rgb(255 233 237 / 0.9)) 88%, transparent 88%)" } : undefined} data-selected={option.selected ? "true" : "false"}>
+      <span className={`mr-[7px] flex h-[20px] w-[20px] shrink-0 rotate-[-7deg] items-center justify-center font-black ${option.selected ? "text-[#ff6f73]" : "rounded-[45%_55%_48%_52%] border-[1.5px] border-[#b8c4cd] text-transparent"}`}>{option.selected ? <Check size={18} strokeWidth={3.5} /> : <span aria-hidden="true">·</span>}</span>
       <span className="min-w-0 break-keep leading-[1.16]">{option.label}</span>
     </div>
   );
