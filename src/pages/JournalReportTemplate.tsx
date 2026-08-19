@@ -30,15 +30,15 @@ export function JournalReportTemplate({ viewModel }: { viewModel: JournalPreview
       <span className="pointer-events-none absolute inset-[17px] rounded-[52px] border-[3px] border-[#e6eef4]" />
       <ReportHeader viewModel={viewModel} />
 
-      <main className="relative z-10 mt-[16px] grid min-h-0 flex-1 grid-rows-[170px_206px_120px_178px_minmax(0,1fr)] gap-0">
+      <main className="relative z-10 mt-[16px] grid min-h-0 flex-1 grid-rows-[170px_206px_120px_178px_minmax(0,1fr)] gap-[8px]">
         <DailyStatusComposition viewModel={viewModel} />
 
         <MealRelationshipComposition viewModel={viewModel} />
 
         <BestFriendRibbon name={viewModel.bestFriendName ?? ""} />
 
-        <div data-card-surface="activities" className="relative mb-[10px] mt-[4px] grid grid-cols-[0.94fr_1.06fr] gap-[22px] overflow-hidden rounded-[36px_20px_42px_24px] bg-[linear-gradient(104deg,#fffafb_0%,#fffafb_46%,#fbfffd_54%,#fbfffd_100%)] px-[8px]">
-          <span className="absolute left-[48%] top-[42px] h-[68px] border-l-2 border-dotted border-[#dbe7ef]/70" />
+        <div data-card-surface="activities" className="relative grid grid-cols-[0.96fr_1.04fr] gap-[20px] overflow-hidden rounded-[36px_20px_42px_24px] bg-[linear-gradient(104deg,#fffafb_0%,#fffafb_46%,#fbfffd_54%,#fbfffd_100%)] px-[8px]">
+          <span className="absolute left-1/2 top-[28px] h-[118px] border-l-2 border-dotted border-[#dbe7ef]/80" />
           <ActivityCard activity={viewModel.manners} icon={<Medal size={25} />} paletteName="coral" motif="medal" />
           <ActivityCard activity={viewModel.physical} icon={<Dumbbell size={25} />} paletteName="green" motif="movement" />
         </div>
@@ -51,20 +51,21 @@ export function JournalReportTemplate({ viewModel }: { viewModel: JournalPreview
 
 function DailyStatusComposition({ viewModel }: { viewModel: JournalPreviewViewModel }) {
   return (
-    <section data-journal-section="daily-status" data-card-surface="daily-status" aria-label="오늘의 상태" className="relative grid grid-cols-[1.18fr_0.82fr] overflow-hidden rounded-[46px_22px_38px_28px] bg-[linear-gradient(102deg,#fffafb_0%,#fffafb_56%,#fbfffd_56%,#fbfffd_100%)] px-[24px]">
+    <section data-journal-section="daily-status" data-card-surface="daily-status" aria-label="오늘의 상태" className="relative grid grid-cols-[1.08fr_0.92fr] overflow-hidden rounded-[46px_22px_38px_28px] bg-[linear-gradient(102deg,#fffafb_0%,#fffafb_51%,#fbfffd_51%,#fbfffd_100%)] px-[24px]">
       <span className="absolute -left-[10px] top-[8px] h-[58px] w-[96px] rotate-[-5deg] rounded-[50%] bg-[#ffe9ed]/62" />
       <span className="absolute right-[18px] bottom-[5px] h-[38px] w-[118px] rotate-[2deg] rounded-[50%] bg-[#e6f7ef]/72" />
-      <div className="relative py-[2px] pr-[28px]" style={{ "--journal-selected": palette.coral.highlight } as React.CSSProperties}>
-        <EditorialTitle ariaLabel="오늘의 컨디션" kicker="오늘의" title="컨디션" icon={<Sparkles size={24} />} color={palette.coral.accent} />
-        <Options options={viewModel.conditionOptions} columns={2} compact layout="flow" />
+      <div className="relative py-[4px] pr-[28px]" style={{ "--journal-selected": palette.coral.highlight } as React.CSSProperties}>
+        <SectionHeading title="오늘의 컨디션" icon={<Sparkles size={24} />} color={palette.coral.accent} />
+        <Options options={viewModel.conditionOptions} columns={2} compact />
+        <span className="absolute bottom-[8px] left-[42px] h-[5px] w-[144px] rotate-[-1deg] rounded-full bg-[#ffb8bc]/32" />
       </div>
-      <div className="relative py-[2px] pl-[30px]" style={{ "--journal-selected": palette.green.highlight } as React.CSSProperties}>
-        <span className="absolute left-0 top-[35px] h-[72px] border-l-2 border-dotted border-[#cfeede]" />
-        <CompactTitle title="배변 상태" icon={<Flower2 size={24} />} color={palette.green.accent} />
-        <div className="grid grid-cols-2 gap-x-[12px] gap-y-[1px]">
+      <div className="relative py-[4px] pl-[30px]" style={{ "--journal-selected": palette.green.highlight } as React.CSSProperties}>
+        <span className="absolute left-0 top-[22px] h-[104px] border-l-2 border-dotted border-[#cfeede]" />
+        <SectionHeading title="배변 상태" icon={<Flower2 size={24} />} color={palette.green.accent} />
+        <div className="grid grid-cols-[0.72fr_0.72fr_1.56fr] gap-[12px]">
           <Binary label="소변" options={viewModel.urinationOptions} />
           <Binary label="대변" options={viewModel.defecationOptions} />
-          <div className="col-span-2 mt-[1px] flex items-start gap-[8px]"><SmallLabel>상태</SmallLabel><Options options={viewModel.stoolOptions} columns={2} compact layout="toilet" /></div>
+          <div><SmallLabel>대변 상태</SmallLabel><Options options={viewModel.stoolOptions} columns={2} compact /></div>
         </div>
       </div>
     </section>
@@ -73,13 +74,13 @@ function DailyStatusComposition({ viewModel }: { viewModel: JournalPreviewViewMo
 
 function MealRelationshipComposition({ viewModel }: { viewModel: JournalPreviewViewModel }) {
   return (
-    <section data-journal-section="meal-relationship" data-card-surface="story" aria-label="식사와 관계 이야기" className="relative mb-[12px] mt-[4px] grid grid-cols-[0.74fr_1.26fr] gap-[22px] overflow-visible px-[9px]">
+    <section data-journal-section="meal-relationship" data-card-surface="story" aria-label="식사와 관계 이야기" className="relative grid grid-cols-[0.74fr_1.26fr] gap-[22px] overflow-visible px-[9px]">
       <div className="relative self-center rounded-[30px_48px_24px_38px] bg-[#fffef8] px-[17px] pb-[14px] pt-[20px]" style={{ "--journal-selected": palette.amber.highlight } as React.CSSProperties}>
         <span className="absolute -left-[8px] top-[17px] h-[132px] w-[116px] rotate-[-5deg] rounded-[48%] bg-[#fff3bc]/38" />
         <JournalSectionIllustration name="meal" className="absolute -right-[5px] -top-[13px] h-[90px] w-[120px] rotate-[3deg] opacity-90" />
-        <EditorialTitle ariaLabel="유치원에서 먹은 것" kicker="유치원에서" title="먹은 것" icon={<Salad size={24} />} color={palette.amber.accent} />
+        <SectionHeading title="유치원에서 먹은 것" icon={<Salad size={24} />} color={palette.amber.accent} />
         <span className="mb-[5px] ml-[42px] block h-[5px] w-[126px] rotate-[-1deg] rounded-full bg-[#f5e39d]/72" />
-        <Options options={viewModel.mealOptions} columns={2} layout="flow" />
+        <Options options={viewModel.mealOptions} columns={2} />
       </div>
       <RelationshipStory viewModel={viewModel} />
     </section>
@@ -143,9 +144,9 @@ function RelationshipStory({ viewModel }: { viewModel: JournalPreviewViewModel }
     <div aria-label="오늘의 관계" className="relative self-stretch overflow-hidden rounded-[52px_24px_46px_30px] bg-[#fdfcff] px-[19px] py-[12px]" style={{ "--journal-selected": "rgb(241 235 255 / 0.95)" } as React.CSSProperties}>
       <span className="absolute right-[34px] top-[8px] h-[50px] w-[92px] rotate-[4deg] rounded-[50%] bg-[#f1ebff]/72" />
       <Heart className="absolute right-[48px] top-[20px] text-[#ff7f82]" fill="#ffe9ed" size={22} />
-      <EditorialTitle ariaLabel="오늘의 관계" kicker="오늘의" title="관계" icon={<CircleUserRound size={24} />} color="#8a75bc" />
+      <SectionHeading title="오늘의 관계" icon={<CircleUserRound size={24} />} color="#8a75bc" />
       <div className="relative grid grid-cols-[0.96fr_1.04fr] gap-[18px]">
-        <span className="absolute left-[49%] top-[21px] h-[68px] border-l-2 border-dotted border-[#ddd4fa]/70" />
+        <span className="absolute left-1/2 top-[10px] h-[102px] border-l-2 border-dotted border-[#ddd4fa]/80" />
         <Relationship label="선생님과" options={viewModel.teacherRelationshipOptions} scene="teacher" />
         <Relationship label="친구들과" options={viewModel.friendRelationshipOptions} scene="friends" />
       </div>
@@ -155,7 +156,7 @@ function RelationshipStory({ viewModel }: { viewModel: JournalPreviewViewModel }
 
 function Relationship({ label, options, scene }: { label: string; options: JournalPreviewOption[]; scene: "teacher" | "friends" }) {
   return (
-    <div className={`relative px-[7px] py-[3px] ${scene === "teacher" ? "pr-[16px]" : "pl-[16px] pt-[9px]"}`}>
+    <div className={`relative px-[7px] py-[3px] ${scene === "teacher" ? "pr-[13px]" : "pl-[13px]"}`}>
       <div className="mb-[1px] flex items-center justify-between"><SmallLabel>{label}</SmallLabel>{scene === "teacher" ? <Heart className="text-[#ff7f82]" fill="#ffe9ed" size={18} /> : <PawPrint className="text-[#5d9ac2]" size={20} />}</div>
       <div className="grid gap-[1px]">{options.map((option, index) => <Option key={option.code} option={option} compact variant={index} />)}</div>
     </div>
@@ -164,8 +165,9 @@ function Relationship({ label, options, scene }: { label: string; options: Journ
 
 function BestFriendRibbon({ name }: { name: string }) {
   return (
-    <section data-journal-section="interlude" data-card-surface="best-friend" className="relative mb-[2px] flex min-w-0 items-center justify-center overflow-hidden px-[28px]" aria-label="오늘의 제일 친한 친구">
+    <section data-journal-section="interlude" data-card-surface="best-friend" className="relative flex min-w-0 items-center justify-center overflow-hidden px-[28px]" aria-label="오늘의 제일 친한 친구">
       <span className="absolute left-[183px] top-[15px] h-[90px] w-[610px] rotate-[-1deg] rounded-[48%] bg-[#f5fbff]/88" />
+      <span className="absolute left-[352px] bottom-[10px] h-[7px] w-[286px] rotate-[1deg] rounded-full bg-[#b9dced]/48" />
       <div className="relative flex h-full w-[720px] items-center justify-center">
         <span className="absolute left-[108px] top-[19px] h-[58px] w-[68px] rotate-[-8deg] rounded-[50%] bg-[#ffe9ed]/55" />
         <JournalCharacter name="bestFriendDuo" className="relative z-10 mr-[-34px] h-[116px] w-[244px] self-end object-contain object-bottom" />
@@ -190,10 +192,11 @@ function ActivityCard({ activity, icon, paletteName, motif }: { activity: Journa
       <JournalSectionIllustration name={motif === "medal" ? "manners" : "physical"} className={`absolute z-10 object-contain opacity-90 ${motif === "medal" ? "-left-[2px] -top-[5px] h-[52px] w-[76px] rotate-[-3deg]" : "-right-[1px] -top-[9px] h-[62px] w-[94px] rotate-[3deg]"}`} />
       <div className="relative">
       <div className={motif === "medal" ? "pl-[58px]" : "pr-[62px]"}>
-      <ActivityTitle ariaLabel={activity.title} kicker={motif === "medal" ? "예절" : "체육"} title={motif === "medal" ? "교육" : "시간"} icon={icon} color={colors.accent} align={motif === "medal" ? "start" : "end"} />
+      <SectionHeading title={activity.title} icon={icon} color={colors.accent} />
       </div>
       <div className={`flex h-[47px] items-center justify-center px-[10px] pb-[3px] text-center font-black text-[#25384a] ${activityClass}`}><span className="max-w-full whitespace-normal break-words">{activity.activityName || "\u00a0"}</span></div>
-      <div className="mt-[2px]"><Options options={activity.options} columns={3} compact layout="activity" /></div>
+      <span className={`mx-auto block h-[4px] w-[58%] rounded-full ${motif === "medal" ? "rotate-[-1deg] bg-[#ffd9df]/75" : "rotate-[1deg] bg-[#cfeede]/80"}`} />
+      <div className="mt-[1px]"><Options options={activity.options} columns={3} compact /></div>
       </div>
     </section>
   );
@@ -214,55 +217,13 @@ function TeacherComment({ comment }: { comment: string }) {
   );
 }
 
-function EditorialTitle({ ariaLabel, kicker, title, icon, color }: { ariaLabel: string; kicker: string; title: string; icon: ReactNode; color: string }) {
-  return (
-    <h2 aria-label={ariaLabel} data-title-family="editorial" className="relative mb-[5px] flex items-end gap-[8px] tracking-[-0.035em]" style={{ color }}>
-      <span className="mb-[1px] flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[13px_20px_14px_21px] bg-[#f6f9fb]">{icon}</span>
-      <span className="flex min-w-0 items-baseline gap-[5px]">
-        <span className="text-[15px] font-extrabold tracking-[-0.02em] opacity-80">{kicker}</span>
-        <strong className="text-[29px] font-black leading-none">{title}</strong>
-      </span>
-    </h2>
-  );
+function SectionHeading({ title, icon, color }: { title: string; icon: ReactNode; color: string }) {
+  return <h2 className="relative mb-[5px] flex items-center gap-[8px] text-[26px] font-black tracking-[-0.025em]" style={{ color }}><span className="flex h-[36px] w-[36px] items-center justify-center rounded-[13px_20px_14px_21px] bg-[#f6f9fb]">{icon}</span>{title}</h2>;
 }
 
-function CompactTitle({ title, icon, color }: { title: string; icon: ReactNode; color: string }) {
-  return (
-    <h2 data-title-family="compact" className="relative mb-[5px] flex items-center gap-[7px] text-[24px] font-black tracking-[-0.035em]" style={{ color }}>
-      <span className="flex h-[33px] w-[33px] shrink-0 items-center justify-center rounded-[18px_12px_19px_13px] bg-[#f6f9fb]">{icon}</span>
-      {title}
-    </h2>
-  );
-}
-
-function ActivityTitle({ ariaLabel, kicker, title, icon, color, align }: { ariaLabel: string; kicker: string; title: string; icon: ReactNode; color: string; align: "start" | "end" }) {
-  return (
-    <h2 aria-label={ariaLabel} data-title-family="activity" className={`relative mb-[1px] flex items-center gap-[7px] tracking-[-0.035em] ${align === "end" ? "justify-end text-right" : "justify-start"}`} style={{ color }}>
-      {align === "start" ? <span className="flex h-[31px] w-[31px] shrink-0 items-center justify-center rounded-[11px_18px_12px_17px] bg-[#f6f9fb]">{icon}</span> : null}
-      <span className={`flex items-baseline gap-[4px] ${align === "end" ? "flex-row-reverse" : ""}`}>
-        <span className="text-[14px] font-extrabold opacity-80">{kicker}</span>
-        <strong className="text-[27px] font-black leading-none">{title}</strong>
-      </span>
-      {align === "end" ? <span className="flex h-[31px] w-[31px] shrink-0 items-center justify-center rounded-[18px_11px_17px_12px] bg-[#f6f9fb]">{icon}</span> : null}
-    </h2>
-  );
-}
-
-type OptionLayout = "grid" | "flow" | "toilet" | "activity";
-
-function Options({ options, columns, compact = false, layout = "grid" }: { options: JournalPreviewOption[]; columns: 2 | 3; compact?: boolean; layout?: OptionLayout }) {
-  if (layout === "grid") {
-    const columnClass = columns === 3 ? "grid-cols-3" : "grid-cols-2";
-    return <div data-option-layout="grid" className={`grid gap-x-[6px] gap-y-[2px] ${columnClass}`}>{options.map((option, index) => <Option key={option.code} option={option} compact={compact} variant={index} />)}</div>;
-  }
-
-  const layoutClass = layout === "activity" ? "gap-x-[8px] gap-y-[1px] justify-center" : layout === "toilet" ? "gap-x-[5px] gap-y-0" : "gap-x-[9px] gap-y-[1px]";
-  const itemClass = (index: number) => {
-    if (layout === "activity") return index % 3 === 0 ? "basis-[29%]" : index % 3 === 1 ? "basis-[35%]" : "basis-[27%]";
-    if (layout === "toilet") return index % 2 === 0 ? "basis-[43%]" : "basis-[50%]";
-    return index % 2 === 0 ? "basis-[46%]" : "basis-[48%]";
-  };
-  return <div data-option-layout={layout} className={`flex min-w-0 flex-1 flex-wrap ${layoutClass}`}>{options.map((option, index) => <Option key={option.code} option={option} compact={compact} variant={index} className={itemClass(index)} />)}</div>;
+function Options({ options, columns, compact = false }: { options: JournalPreviewOption[]; columns: 2 | 3; compact?: boolean }) {
+  const columnClass = columns === 3 ? "grid-cols-3" : "grid-cols-2";
+  return <div className={`grid gap-x-[6px] gap-y-[2px] ${columnClass}`}>{options.map((option, index) => <Option key={option.code} option={option} compact={compact} variant={index} />)}</div>;
 }
 
 const markVariants = [
@@ -277,10 +238,10 @@ const highlightVariants = [
   "linear-gradient(174deg, transparent 49%, var(--journal-selected, rgb(255 233 237 / 0.9)) 49%, var(--journal-selected, rgb(255 233 237 / 0.9)) 90%, transparent 90%)",
 ] as const;
 
-function Option({ option, compact = false, variant = 0, className = "" }: { option: JournalPreviewOption; compact?: boolean; variant?: number; className?: string }) {
+function Option({ option, compact = false, variant = 0 }: { option: JournalPreviewOption; compact?: boolean; variant?: number }) {
   const variantIndex = variant % markVariants.length;
   return (
-    <div className={`relative flex min-w-0 items-center px-[4px] ${compact ? "min-h-[31px] text-[19px]" : "min-h-[36px] text-[22px]"} ${option.selected ? "font-black text-[#25384a]" : "font-semibold text-[#667786]"} ${className}`} style={option.selected ? { background: highlightVariants[variantIndex] } : undefined} data-selected={option.selected ? "true" : "false"} data-mark-variant={variantIndex}>
+    <div className={`relative flex min-w-0 items-center px-[4px] ${compact ? "min-h-[31px] text-[19px]" : "min-h-[36px] text-[22px]"} ${option.selected ? "font-black text-[#25384a]" : "font-semibold text-[#667786]"}`} style={option.selected ? { background: highlightVariants[variantIndex] } : undefined} data-selected={option.selected ? "true" : "false"} data-mark-variant={variantIndex}>
       <span className={`mr-[6px] flex h-[23px] w-[23px] shrink-0 items-center justify-center border font-black ${markVariants[variantIndex]} ${option.selected ? "border-[2px] border-[#ff9da2]/75 text-[#ff646a]" : "border-[1.5px] border-[#aebdc8] text-transparent"}`}>{option.selected ? <Check className="rotate-[-4deg]" size={18} strokeWidth={3.4} /> : <span aria-hidden="true">·</span>}</span>
       <span className="min-w-0 break-keep leading-[1.14]">{option.label}</span>
     </div>
@@ -288,7 +249,7 @@ function Option({ option, compact = false, variant = 0, className = "" }: { opti
 }
 
 function Binary({ label, options }: { label: string; options: JournalPreviewOption[] }) {
-  return <div><SmallLabel>{label}</SmallLabel><div data-option-layout="binary" className="flex items-center gap-[3px]">{options.map((option, index) => <Option key={option.code} option={option} compact variant={index} className="shrink-0" />)}</div></div>;
+  return <div><SmallLabel>{label}</SmallLabel><Options options={options} columns={2} compact /></div>;
 }
 
 function SmallLabel({ children }: { children: ReactNode }) {
