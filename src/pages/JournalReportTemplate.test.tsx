@@ -61,6 +61,7 @@ describe("Journal 1080x1440 report template", () => {
       expect(within(report).getByRole("heading", { name: heading })).toBeTruthy();
     }
     expect(within(report).getByText("몽이")).toBeTruthy();
+    expect(screen.getByTestId("journal-best-friend-name").className).toContain("text-[44px]");
     expect(within(report).getByText("오늘도 친구들과 즐겁게 지냈어요.")).toBeTruthy();
   });
 
@@ -73,7 +74,8 @@ describe("Journal 1080x1440 report template", () => {
     expect(within(report).getByText("활발해요").closest("[data-selected]")?.getAttribute("data-selected")).toBe("true");
     expect(within(report).getByText("평온해요").closest("[data-selected]")?.getAttribute("data-selected")).toBe("true");
     expect(within(report).getByText("가져온 사료").closest("[data-selected]")?.getAttribute("data-selected")).toBe("false");
-    expect(within(report).getByText("활발해요").closest("[data-selected]")?.getAttribute("style")).toContain("linear-gradient(178deg");
+    expect(within(report).getByText("활발해요").closest("[data-selected]")?.getAttribute("style")).toContain("linear-gradient(177deg");
+    expect(within(report).getByText("활발해요").closest("[data-selected]")?.className).toContain("text-[19px]");
     expect(within(report).getByText("가져온 사료").closest("[data-selected]")?.getAttribute("style")).toBeNull();
   });
 
@@ -119,10 +121,11 @@ describe("Journal 1080x1440 report template", () => {
   });
 
   it.each([
-    ["short", "짧고 즐거운 하루였어요."],
-    ["medium", "따뜻하고 즐거운 하루를 보냈습니다. ".repeat(12).slice(0, 220)],
-    ["long", "친구들과 차분히 어울리며 다양한 활동을 즐겼습니다. ".repeat(12).slice(0, 350)],
-    ["very-long", "오늘의 모습을 보호자님께 정성스럽게 전해 드립니다. ".repeat(25).slice(0, 499)],
+    ["hero", "따뜻하고 즐거운 하루를 보냈습니다. ".repeat(8).slice(0, 110)],
+    ["large", "따뜻하고 즐거운 하루를 보냈습니다. ".repeat(12).slice(0, 200)],
+    ["standard", "친구들과 차분히 어울리며 다양한 활동을 즐겼습니다. ".repeat(12).slice(0, 300)],
+    ["compact", "친구들과 차분히 어울리며 다양한 활동을 즐겼습니다. ".repeat(18).slice(0, 400)],
+    ["minimum-safe", "오늘의 모습을 보호자님께 정성스럽게 전해 드립니다. ".repeat(25).slice(0, 500)],
   ])("renders the full %s comment with adaptive typography", (density, comment) => {
     renderReport(draft({ teacherComment: comment }));
     const commentNode = screen.getByTestId("journal-report-comment");
