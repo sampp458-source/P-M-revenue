@@ -30,30 +30,15 @@ export function JournalReportTemplate({ viewModel }: { viewModel: JournalPreview
       <span className="pointer-events-none absolute inset-[17px] rounded-[52px] border-[3px] border-[#e6eef4]" />
       <ReportHeader viewModel={viewModel} />
 
-      <main className="relative z-10 mt-[12px] grid min-h-0 flex-1 grid-rows-[175px_205px_115px_180px_minmax(0,1fr)] gap-[10px]">
-        <div className="grid grid-cols-[0.9fr_1.1fr] gap-[10px]">
-          <JournalSection title="오늘의 컨디션" icon={<Sparkles size={24} />} paletteName="coral" shape="cloud">
-            <Options options={viewModel.conditionOptions} columns={2} compact />
-          </JournalSection>
-          <JournalSection title="배변 상태" icon={<Flower2 size={24} />} paletteName="green" shape="garden">
-            <div className="grid grid-cols-[0.58fr_0.58fr_1.84fr] gap-[8px]">
-              <Binary label="소변" options={viewModel.urinationOptions} />
-              <Binary label="대변" options={viewModel.defecationOptions} />
-              <div><SmallLabel>대변 상태</SmallLabel><Options options={viewModel.stoolOptions} columns={2} compact /></div>
-            </div>
-          </JournalSection>
-        </div>
+      <main className="relative z-10 mt-[16px] grid min-h-0 flex-1 grid-rows-[170px_206px_120px_178px_minmax(0,1fr)] gap-[8px]">
+        <DailyStatusComposition viewModel={viewModel} />
 
-        <div className="grid grid-cols-[0.78fr_1.22fr] gap-[10px]">
-          <JournalSection title="유치원에서 먹은 것" icon={<Salad size={24} />} paletteName="amber" shape="note" illustration="meal">
-            <Options options={viewModel.mealOptions} columns={2} />
-          </JournalSection>
-          <RelationshipStory viewModel={viewModel} />
-        </div>
+        <MealRelationshipComposition viewModel={viewModel} />
 
         <BestFriendRibbon name={viewModel.bestFriendName ?? ""} />
 
-        <div className="grid grid-cols-2 gap-[10px]">
+        <div data-card-surface="activities" className="relative grid grid-cols-[0.96fr_1.04fr] gap-[20px] overflow-hidden rounded-[36px_20px_42px_24px] bg-[linear-gradient(104deg,#fffafb_0%,#fffafb_46%,#fbfffd_54%,#fbfffd_100%)] px-[8px]">
+          <span className="absolute left-1/2 top-[28px] h-[118px] border-l-2 border-dotted border-[#dbe7ef]/80" />
           <ActivityCard activity={viewModel.manners} icon={<Medal size={25} />} paletteName="coral" motif="medal" />
           <ActivityCard activity={viewModel.physical} icon={<Dumbbell size={25} />} paletteName="green" motif="movement" />
         </div>
@@ -61,6 +46,44 @@ export function JournalReportTemplate({ viewModel }: { viewModel: JournalPreview
         <TeacherComment comment={viewModel.teacherComment} />
       </main>
     </article>
+  );
+}
+
+function DailyStatusComposition({ viewModel }: { viewModel: JournalPreviewViewModel }) {
+  return (
+    <section data-journal-section="daily-status" data-card-surface="daily-status" aria-label="오늘의 상태" className="relative grid grid-cols-[1.08fr_0.92fr] overflow-hidden rounded-[46px_22px_38px_28px] bg-[linear-gradient(102deg,#fffafb_0%,#fffafb_51%,#fbfffd_51%,#fbfffd_100%)] px-[24px]">
+      <span className="absolute -left-[10px] top-[8px] h-[58px] w-[96px] rotate-[-5deg] rounded-[50%] bg-[#ffe9ed]/62" />
+      <span className="absolute right-[18px] bottom-[5px] h-[38px] w-[118px] rotate-[2deg] rounded-[50%] bg-[#e6f7ef]/72" />
+      <div className="relative py-[4px] pr-[28px]" style={{ "--journal-selected": palette.coral.highlight } as React.CSSProperties}>
+        <SectionHeading title="오늘의 컨디션" icon={<Sparkles size={24} />} color={palette.coral.accent} />
+        <Options options={viewModel.conditionOptions} columns={2} compact />
+        <span className="absolute bottom-[8px] left-[42px] h-[5px] w-[144px] rotate-[-1deg] rounded-full bg-[#ffb8bc]/32" />
+      </div>
+      <div className="relative py-[4px] pl-[30px]" style={{ "--journal-selected": palette.green.highlight } as React.CSSProperties}>
+        <span className="absolute left-0 top-[22px] h-[104px] border-l-2 border-dotted border-[#cfeede]" />
+        <SectionHeading title="배변 상태" icon={<Flower2 size={24} />} color={palette.green.accent} />
+        <div className="grid grid-cols-[0.72fr_0.72fr_1.56fr] gap-[12px]">
+          <Binary label="소변" options={viewModel.urinationOptions} />
+          <Binary label="대변" options={viewModel.defecationOptions} />
+          <div><SmallLabel>대변 상태</SmallLabel><Options options={viewModel.stoolOptions} columns={2} compact /></div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MealRelationshipComposition({ viewModel }: { viewModel: JournalPreviewViewModel }) {
+  return (
+    <section data-journal-section="meal-relationship" data-card-surface="story" aria-label="식사와 관계 이야기" className="relative grid grid-cols-[0.74fr_1.26fr] gap-[22px] overflow-visible px-[9px]">
+      <div className="relative self-center rounded-[30px_48px_24px_38px] bg-[#fffef8] px-[17px] pb-[14px] pt-[20px]" style={{ "--journal-selected": palette.amber.highlight } as React.CSSProperties}>
+        <span className="absolute -left-[8px] top-[17px] h-[132px] w-[116px] rotate-[-5deg] rounded-[48%] bg-[#fff3bc]/38" />
+        <JournalSectionIllustration name="meal" className="absolute -right-[5px] -top-[13px] h-[90px] w-[120px] rotate-[3deg] opacity-90" />
+        <SectionHeading title="유치원에서 먹은 것" icon={<Salad size={24} />} color={palette.amber.accent} />
+        <span className="mb-[5px] ml-[42px] block h-[5px] w-[126px] rotate-[-1deg] rounded-full bg-[#f5e39d]/72" />
+        <Options options={viewModel.mealOptions} columns={2} />
+      </div>
+      <RelationshipStory viewModel={viewModel} />
+    </section>
   );
 }
 
@@ -90,7 +113,7 @@ export function JournalReportPreview({ viewModel, className = "" }: { viewModel:
 
 function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
   return (
-    <header className="relative z-10 h-[235px] shrink-0 overflow-hidden rounded-[52px_52px_38px_38px] border-[3px] border-[#dbeaf4] bg-white px-[34px] py-[17px] shadow-[0_8px_24px_rgb(47_98_132_/_0.055)]">
+    <header data-card-surface="header" className="relative z-10 h-[235px] shrink-0 overflow-hidden rounded-[52px_52px_38px_38px] border-[3px] border-[#dbeaf4] bg-white px-[34px] py-[17px] shadow-[0_8px_24px_rgb(47_98_132_/_0.055)]">
       <span className="absolute left-[26px] top-[24px] h-[150px] w-[150px] rounded-full bg-[#ffe9ed]/52" />
       <span className="absolute right-[24px] top-[28px] h-[144px] w-[174px] rounded-[48px] bg-[#e8f4fc]/78" />
       <JournalCharacter name="dogAWaving" className="absolute -left-[1px] top-[10px] h-[178px] w-[178px] object-contain" />
@@ -116,37 +139,24 @@ function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
   );
 }
 
-function JournalSection({ title, icon, paletteName, shape, illustration, children }: { title: string; icon: ReactNode; paletteName: Palette; shape: "cloud" | "garden" | "note"; illustration?: JournalSectionIllustrationName; children: ReactNode }) {
-  const colors = palette[paletteName];
-  const shapeClass = shape === "cloud" ? "rounded-[54px_30px_50px_34px]" : shape === "garden" ? "rounded-[28px_58px_32px_48px]" : "rounded-[30px_44px_38px_24px]";
-  return (
-    <section data-journal-section={shape} className={`relative overflow-hidden border-[3px] px-[20px] py-[12px] shadow-[0_6px_18px_rgb(47_98_132_/_0.035)] ${shapeClass}`} style={{ backgroundColor: colors.surface, borderColor: colors.border, "--journal-selected": colors.highlight } as React.CSSProperties} aria-label={title}>
-      {shape === "cloud" ? <><span className="absolute -left-[7px] -top-[9px] h-[52px] w-[70px] rounded-full bg-[#ffe9ed]/60" /><span className="absolute right-[22px] top-[8px] h-[32px] w-[46px] rounded-full bg-[#ffe9ed]/42" /></> : null}
-      {shape === "garden" ? <><Flower2 className="absolute bottom-[8px] right-[12px] text-[#62b98a]/30" size={34} /><span className="absolute bottom-0 left-[58px] h-[18px] w-[95px] rounded-t-full bg-[#e6f7ef]/72" /></> : null}
-      {shape === "note" ? <span className="absolute left-1/2 top-0 h-[12px] w-[92px] -translate-x-1/2 rounded-b-full bg-[#fff3bc]" /> : null}
-      {illustration ? <JournalSectionIllustration name={illustration} className="absolute right-[9px] top-[5px] h-[66px] w-[88px] rotate-[2deg] opacity-90" /> : null}
-      <SectionHeading title={title} icon={icon} color={colors.accent} />
-      <div className="relative" style={{ color: colors.ink }}>{children}</div>
-    </section>
-  );
-}
-
 function RelationshipStory({ viewModel }: { viewModel: JournalPreviewViewModel }) {
   return (
-    <section data-journal-section="story" aria-label="오늘의 관계" className="relative overflow-hidden rounded-[52px_30px_46px_28px] border-[3px] border-[#ddd4fa] bg-[#fdfcff] px-[16px] py-[11px] shadow-[0_6px_18px_rgb(47_98_132_/_0.035)]" style={{ "--journal-selected": "rgb(241 235 255 / 0.95)" } as React.CSSProperties}>
-      <Heart className="absolute left-1/2 top-[17px] -translate-x-1/2 text-[#ff7f82]" fill="#ffe9ed" size={24} />
+    <div aria-label="오늘의 관계" className="relative self-stretch overflow-hidden rounded-[52px_24px_46px_30px] bg-[#fdfcff] px-[19px] py-[12px]" style={{ "--journal-selected": "rgb(241 235 255 / 0.95)" } as React.CSSProperties}>
+      <span className="absolute right-[34px] top-[8px] h-[50px] w-[92px] rotate-[4deg] rounded-[50%] bg-[#f1ebff]/72" />
+      <Heart className="absolute right-[48px] top-[20px] text-[#ff7f82]" fill="#ffe9ed" size={22} />
       <SectionHeading title="오늘의 관계" icon={<CircleUserRound size={24} />} color="#8a75bc" />
-      <div className="grid grid-cols-2 gap-[8px]">
+      <div className="relative grid grid-cols-[0.96fr_1.04fr] gap-[18px]">
+        <span className="absolute left-1/2 top-[10px] h-[102px] border-l-2 border-dotted border-[#ddd4fa]/80" />
         <Relationship label="선생님과" options={viewModel.teacherRelationshipOptions} scene="teacher" />
         <Relationship label="친구들과" options={viewModel.friendRelationshipOptions} scene="friends" />
       </div>
-    </section>
+    </div>
   );
 }
 
 function Relationship({ label, options, scene }: { label: string; options: JournalPreviewOption[]; scene: "teacher" | "friends" }) {
   return (
-    <div className={`relative rounded-[28px_18px_26px_20px] border px-[9px] py-[5px] ${scene === "teacher" ? "border-[#ffe0e5] bg-[#fffafb]" : "border-[#d9ebf7] bg-[#fafdff]"}`}>
+    <div className={`relative px-[7px] py-[3px] ${scene === "teacher" ? "pr-[13px]" : "pl-[13px]"}`}>
       <div className="mb-[1px] flex items-center justify-between"><SmallLabel>{label}</SmallLabel>{scene === "teacher" ? <Heart className="text-[#ff7f82]" fill="#ffe9ed" size={18} /> : <PawPrint className="text-[#5d9ac2]" size={20} />}</div>
       <div className="grid gap-[1px]">{options.map((option, index) => <Option key={option.code} option={option} compact variant={index} />)}</div>
     </div>
@@ -155,11 +165,13 @@ function Relationship({ label, options, scene }: { label: string; options: Journ
 
 function BestFriendRibbon({ name }: { name: string }) {
   return (
-    <section data-journal-section="ribbon" className="relative flex min-w-0 items-center justify-center overflow-hidden border-y-[3px] border-dashed border-[#b9dced] bg-[#fbfdff] px-[28px]" aria-label="오늘의 제일 친한 친구">
-      <div className="relative flex h-full w-[760px] items-center justify-center">
-        <span className="absolute left-[146px] top-[21px] h-[58px] w-[68px] rotate-[-8deg] rounded-[50%] bg-[#ffe9ed]/55" />
-        <JournalCharacter name="bestFriendDuo" className="relative z-10 mr-[-18px] h-[108px] w-[236px] self-end object-contain object-bottom" />
-        <div className="relative z-10 flex w-[500px] min-w-0 flex-col items-center justify-center">
+    <section data-journal-section="interlude" data-card-surface="best-friend" className="relative flex min-w-0 items-center justify-center overflow-hidden px-[28px]" aria-label="오늘의 제일 친한 친구">
+      <span className="absolute left-[183px] top-[15px] h-[90px] w-[610px] rotate-[-1deg] rounded-[48%] bg-[#f5fbff]/88" />
+      <span className="absolute left-[352px] bottom-[10px] h-[7px] w-[286px] rotate-[1deg] rounded-full bg-[#b9dced]/48" />
+      <div className="relative flex h-full w-[720px] items-center justify-center">
+        <span className="absolute left-[108px] top-[19px] h-[58px] w-[68px] rotate-[-8deg] rounded-[50%] bg-[#ffe9ed]/55" />
+        <JournalCharacter name="bestFriendDuo" className="relative z-10 mr-[-34px] h-[116px] w-[244px] self-end object-contain object-bottom" />
+        <div className="relative z-10 flex w-[474px] min-w-0 flex-col items-center justify-center">
           <p className="text-[17px] font-extrabold tracking-[-0.02em] text-[#607488]">오늘의 제일 친한 친구는</p>
           <div className="mt-[-4px] flex min-w-0 items-end justify-center gap-[11px]">
             <strong data-testid="journal-best-friend-name" className={bestFriendNameClass(name)}>{name || "\u00a0"}</strong>
@@ -175,11 +187,17 @@ function ActivityCard({ activity, icon, paletteName, motif }: { activity: Journa
   const colors = palette[paletteName];
   const activityClass = activity.activityName.length > 50 ? "text-[17px] leading-[1.18]" : activity.activityName.length > 28 ? "text-[21px] leading-[1.2]" : "text-[28px] leading-[1.2]";
   return (
-    <section data-journal-section={motif} aria-label={activity.title} className={`relative overflow-hidden border-[3px] px-[19px] py-[8px] shadow-[0_6px_18px_rgb(47_98_132_/_0.035)] ${motif === "medal" ? "rounded-[26px_48px_28px_42px]" : "rounded-[48px_26px_42px_28px]"}`} style={{ backgroundColor: colors.surface, borderColor: colors.border, "--journal-selected": colors.highlight } as React.CSSProperties}>
-      <JournalSectionIllustration name={motif === "medal" ? "manners" : "physical"} className={`absolute right-[10px] top-[3px] object-contain opacity-88 ${motif === "medal" ? "h-[52px] w-[78px] rotate-[2deg]" : "h-[54px] w-[82px] rotate-[-2deg]"}`} />
+    <section data-journal-section={motif} aria-label={activity.title} className={`relative overflow-visible px-[17px] py-[8px] ${motif === "medal" ? "pr-[22px]" : "pl-[22px]"}`} style={{ color: colors.ink, "--journal-selected": colors.highlight } as React.CSSProperties}>
+      <span className={`absolute inset-x-[8px] bottom-[7px] top-[15px] rounded-[48%] ${motif === "medal" ? "rotate-[-1deg] bg-[#fffafb]" : "rotate-[1deg] bg-[#fbfffd]"}`} />
+      <JournalSectionIllustration name={motif === "medal" ? "manners" : "physical"} className={`absolute z-10 object-contain opacity-90 ${motif === "medal" ? "-left-[2px] -top-[5px] h-[52px] w-[76px] rotate-[-3deg]" : "-right-[1px] -top-[9px] h-[62px] w-[94px] rotate-[3deg]"}`} />
+      <div className="relative">
+      <div className={motif === "medal" ? "pl-[58px]" : "pr-[62px]"}>
       <SectionHeading title={activity.title} icon={icon} color={colors.accent} />
-      <div className={`flex h-[47px] items-center justify-center border-b-[3px] border-dotted border-[#dbe7ef] px-[10px] pb-[3px] text-center font-black text-[#25384a] ${activityClass}`}><span className="max-w-full whitespace-normal break-words">{activity.activityName || "\u00a0"}</span></div>
+      </div>
+      <div className={`flex h-[47px] items-center justify-center px-[10px] pb-[3px] text-center font-black text-[#25384a] ${activityClass}`}><span className="max-w-full whitespace-normal break-words">{activity.activityName || "\u00a0"}</span></div>
+      <span className={`mx-auto block h-[4px] w-[58%] rounded-full ${motif === "medal" ? "rotate-[-1deg] bg-[#ffd9df]/75" : "rotate-[1deg] bg-[#cfeede]/80"}`} />
       <div className="mt-[1px]"><Options options={activity.options} columns={3} compact /></div>
+      </div>
     </section>
   );
 }
@@ -189,7 +207,7 @@ function TeacherComment({ comment }: { comment: string }) {
   const characterClass = density === "minimum-safe" ? "h-[80px] w-[72px] opacity-70" : density === "compact" ? "h-[98px] w-[90px] opacity-80" : density === "standard" ? "h-[124px] w-[112px] opacity-90" : density === "large" ? "h-[160px] w-[145px]" : "h-[174px] w-[158px]";
   const textInset = density === "minimum-safe" ? "pr-[78px]" : density === "compact" ? "pr-[98px]" : density === "standard" ? "pr-[120px]" : density === "large" ? "pr-[154px]" : "pr-[166px]";
   return (
-    <section data-journal-section="letter" aria-label="선생님의 한마디" className="relative min-h-0 overflow-hidden rounded-[30px_52px_34px_48px] border-[3px] border-[#ffd9df] bg-white px-[34px] pb-[22px] pt-[16px] shadow-[0_8px_22px_rgb(47_98_132_/_0.04)]">
+    <section data-journal-section="letter" data-card-surface="teacher-comment" aria-label="선생님의 한마디" className="relative min-h-0 overflow-hidden rounded-[30px_52px_34px_48px] border-[3px] border-[#ffd9df] bg-white px-[34px] pb-[22px] pt-[16px] shadow-[0_8px_22px_rgb(47_98_132_/_0.04)]">
       <span className="absolute right-0 top-0 h-[88px] w-[132px] bg-[#ffe9ed]/66 [clip-path:polygon(100%_0,100%_100%,0_0)]" />
       <JournalCharacter name="dogAHeartLetter" className={`absolute bottom-[7px] right-[11px] object-contain object-bottom ${characterClass}`} />
       <h2 aria-label="선생님의 한마디" className="relative mb-[8px] flex items-center gap-[10px] text-[27px] font-black tracking-[-0.025em] text-[#2f6284]"><span className="flex h-[40px] w-[40px] items-center justify-center rounded-[15px_20px_14px_21px] bg-[#ffe9ed] text-[#ff7f82]"><MessageCircleHeart size={27} /></span>선생님의 한마디</h2>
