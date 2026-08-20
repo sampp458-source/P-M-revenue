@@ -1,5 +1,5 @@
 import { Check, CircleUserRound, Dumbbell, Flower2, Heart, Medal, MessageCircleHeart, PawPrint, Salad, Sparkles } from "lucide-react";
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { journalCharacters, journalSectionIllustrations, type JournalCharacterName, type JournalSectionIllustrationName } from "../assets/journal/journalAssets";
 import pmLogo from "../assets/pm-logo.png";
 import type { JournalPreviewActivity, JournalPreviewOption, JournalPreviewViewModel } from "./journalPreviewViewModel";
@@ -15,10 +15,19 @@ const palette = {
   lavender: { surface: "#fdfcff", accent: "#8a75bc", ink: "#25384a", border: "#ddd4fa", highlight: "rgb(241 235 255 / 0.95)" },
 } as const;
 
-export function JournalReportTemplate({ viewModel }: { viewModel: JournalPreviewViewModel }) {
+export function JournalReportTemplate({
+  viewModel,
+  reportRef,
+  testId = "journal-report-template",
+}: {
+  viewModel: JournalPreviewViewModel;
+  reportRef?: Ref<HTMLElement>;
+  testId?: string;
+}) {
   return (
     <article
-      data-testid="journal-report-template"
+      ref={reportRef}
+      data-testid={testId}
       aria-label={`${viewModel.dogName} 하루 일지 결과지`}
       className="relative flex shrink-0 flex-col overflow-hidden bg-[#fffcf8] p-[46px] text-[#25384a]"
       style={{

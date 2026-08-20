@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
   update: vi.fn(),
   complete: vi.fn(),
+  exportImage: vi.fn(),
 }));
 
 vi.mock("./journalRepository", async (importOriginal) => ({
@@ -17,6 +18,11 @@ vi.mock("./journalRepository", async (importOriginal) => ({
   fetchJournalEntry: mocks.fetch,
   updateJournalEntryDraft: mocks.update,
   completeJournalEntry: mocks.complete,
+}));
+
+vi.mock("./journalExport", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./journalExport")>()),
+  exportJournalImage: mocks.exportImage,
 }));
 
 const entry = (overrides: Partial<JournalRosterEntry> = {}): JournalRosterEntry => ({
@@ -182,5 +188,48 @@ describe("Journal Editor", () => {
     expect(screen.getAllByTestId("journal-report-template")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "닫기" }));
     expect(screen.queryByRole("dialog", { name: "결과 미리보기" })).toBeNull();
+  });
+
+  it("exports the latest local draft as PNG without waiting for autosave or changing status", async () => {
+    mocks.fetch.mockResolvedValue(entry({ teacherComment: "저장된 내용" }));
+    mocks.exportImage.mockResolvedValue(undefined);
+    renderEditor();
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+    fireEvent.change(comment, { target: { value: "아직 저장되지 않은 최신 내용" } });
+    fireEvent.click(screen.getByRole("button", { name: "PNG 저장" }));
+    await waitFor(() => expect(mocks.exportImage).toHaveBeenCalledTimes(1));
+    expect(mocks.exportImage.mock.calls[0][1]).toMatchObject({ teacherComment: "아직 저장되지 않은 최신 내용" });
+    expect(mocks.exportImage.mock.calls[0][2]).toBe("png");
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.complete).not.toHaveBeenCalled();
+  });
+
+  it("guards duplicate export clicks, exposes loading, and recovers after an error", async () => {
+    mocks.fetch.mockResolvedValue(entry());
+    let rejectExport!: (error: Error) => void;
+    mocks.exportImage.mockImplementation(() => new Promise((_resolve, reject) => { rejectExport = reject; }));
+    renderEditor();
+    await screen.findByRole("heading", { name: "크리미" });
+    const png = screen.getByRole("button", { name: "PNG 저장" });
+    fireEvent.click(png);
+    fireEvent.click(png);
+    expect(mocks.exportImage).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "이미지 만드는 중..." }).hasAttribute("disabled")).toBe(true);
+    rejectExport(new Error("raster failed"));
+    expect((await screen.findByRole("alert")).textContent).toBe("이미지를 저장하지 못했습니다. 다시 시도해 주세요.");
+    expect(screen.getByRole("button", { name: "PNG 저장" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("offers PNG and JPG export inside the mobile preview for completed journals", async () => {
+    mocks.fetch.mockResolvedValue(entry({ status: "COMPLETED" }));
+    mocks.exportImage.mockResolvedValue(undefined);
+    renderEditor(entry({ status: "COMPLETED" }));
+    await screen.findByRole("heading", { name: "크리미" });
+    fireEvent.click(screen.getByRole("button", { name: "미리보기" }));
+    const dialog = screen.getByRole("dialog", { name: "결과 미리보기" });
+    expect(within(dialog).getByRole("button", { name: "PNG 저장" })).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole("button", { name: "JPG 저장" }));
+    await waitFor(() => expect(mocks.exportImage).toHaveBeenCalledWith(expect.any(HTMLElement), expect.objectContaining({ status: "COMPLETED" }), "jpg"));
+    expect(mocks.complete).not.toHaveBeenCalled();
   });
 });

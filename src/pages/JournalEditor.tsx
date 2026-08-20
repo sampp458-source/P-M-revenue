@@ -1,8 +1,9 @@
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Eye, LoaderCircle } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, Eye, Image, LoaderCircle } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, Card, FormAlert, Input, Modal, Textarea } from "../components/ui";
 import { JournalAutosaveQueue, type JournalSaveState } from "./journalAutosave";
-import { JournalReportPreview } from "./JournalReportTemplate";
+import { exportJournalImage, type JournalExportFormat } from "./journalExport";
+import { JournalReportPreview, JournalReportTemplate } from "./JournalReportTemplate";
 import { buildJournalPreviewViewModel } from "./journalPreviewViewModel";
 import {
   completeJournalEntry,
@@ -83,8 +84,12 @@ export function JournalEditor({
   const [error, setError] = useState("");
   const [completing, setCompleting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [exporting, setExporting] = useState<JournalExportFormat | null>(null);
+  const [exportError, setExportError] = useState("");
   const versionRef = useRef(rosterEntry.version);
   const queueRef = useRef<JournalAutosaveQueue<JournalDraft, JournalRosterEntry> | null>(null);
+  const exportRootRef = useRef<HTMLElement>(null);
+  const exportInFlightRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -171,6 +176,26 @@ export function JournalEditor({
     }
   };
 
+  const exportImage = async (format: JournalExportFormat) => {
+    if (exportInFlightRef.current) return;
+    const root = exportRootRef.current;
+    if (!root) {
+      setExportError("이미지를 저장하지 못했습니다. 다시 시도해 주세요.");
+      return;
+    }
+    exportInFlightRef.current = true;
+    setExporting(format);
+    setExportError("");
+    try {
+      await exportJournalImage(root, previewViewModel, format);
+    } catch {
+      setExportError("이미지를 저장하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      exportInFlightRef.current = false;
+      setExporting(null);
+    }
+  };
+
   if (loading) return <Card className="flex min-h-72 items-center justify-center"><LoaderCircle className="animate-spin text-primary" /></Card>;
 
   return (
@@ -241,6 +266,7 @@ export function JournalEditor({
         </div>
 
         <aside className="sticky top-6 hidden min-w-0 xl:block" aria-label={`${previewViewModel.dogName} 결과 미리보기`}>
+          <JournalExportActions exporting={exporting} error={exportError} onExport={exportImage} />
           <JournalReportPreview viewModel={previewViewModel} className="mx-auto max-w-[min(34rem,calc((100vh-3rem)*0.75))] rounded-2xl shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
         </aside>
       </div>
@@ -256,9 +282,40 @@ export function JournalEditor({
       </div>
 
       <Modal open={previewOpen} title="결과 미리보기" description={`${previewViewModel.dogName} · ${previewViewModel.displayDate}`} onClose={() => setPreviewOpen(false)} size="large" resetKey={entry.id}>
+        <JournalExportActions exporting={exporting} error={exportError} onExport={exportImage} />
         <JournalReportPreview viewModel={previewViewModel} className="mx-auto max-w-[calc((100dvh-10rem)*0.75)] rounded-xl shadow-[0_12px_36px_rgb(23_36_58_/_0.14)]" />
       </Modal>
+
+      <div aria-hidden="true" className="pointer-events-none fixed left-[-12000px] top-0 h-[1440px] w-[1080px] overflow-hidden">
+        <JournalReportTemplate viewModel={previewViewModel} reportRef={exportRootRef} testId="journal-report-export-template" />
+      </div>
     </section>
+  );
+}
+
+function JournalExportActions({
+  exporting,
+  error,
+  onExport,
+}: {
+  exporting: JournalExportFormat | null;
+  error: string;
+  onExport: (format: JournalExportFormat) => Promise<void>;
+}) {
+  return (
+    <div className="mb-3 rounded-xl border border-border bg-surface p-2.5" aria-label="일지 이미지 저장">
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+        <Button type="button" className="min-h-11 min-w-32" disabled={exporting !== null} onClick={() => void onExport("png")}>
+          {exporting === "png" ? <LoaderCircle className="animate-spin" size={17} /> : <Download size={17} />}
+          {exporting === "png" ? "이미지 만드는 중..." : "PNG 저장"}
+        </Button>
+        <Button type="button" variant="secondary" className="min-h-11 min-w-28" disabled={exporting !== null} onClick={() => void onExport("jpg")}>
+          {exporting === "jpg" ? <LoaderCircle className="animate-spin" size={17} /> : <Image size={17} />}
+          {exporting === "jpg" ? "이미지 만드는 중..." : "JPG 저장"}
+        </Button>
+      </div>
+      {error ? <p role="alert" className="mt-2 text-sm text-error">{error}</p> : null}
+    </div>
   );
 }
 
