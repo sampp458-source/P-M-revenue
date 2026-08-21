@@ -1,4 +1,5 @@
 import { toCanvas } from "html-to-image";
+import { buildJournalPreviewRenderKey, isCurrentJournalRasterCacheEntry, isCurrentJournalTemplateRoot, type JournalRasterCacheEntry } from "./journalRenderContract";
 import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
 
 export type JournalExportFormat = "png" | "jpg";
@@ -157,6 +158,9 @@ function createCanonicalSnapshot(root: HTMLElement) {
 }
 
 async function rasterizeJournalSnapshot(root: HTMLElement, pipeline: JournalRasterPipeline) {
+  if (!isCurrentJournalTemplateRoot(root)) {
+    throw new Error("JOURNAL_RENDER_SOURCE_VERSION_MISMATCH");
+  }
   const { host, snapshot } = createCanonicalSnapshot(root);
   try {
     await new Promise<void>((resolve) => {
@@ -227,11 +231,14 @@ export async function exportJournalImage(
 }
 
 export async function exportJournalPreviewImage(
-  pngBlob: Blob,
+  raster: JournalRasterCacheEntry,
   viewModel: JournalPreviewViewModel,
   format: JournalExportFormat,
 ) {
-  const blob = await encodeJournalPreviewBlob(pngBlob, format);
+  if (!isCurrentJournalRasterCacheEntry(raster, buildJournalPreviewRenderKey(viewModel))) {
+    throw new Error("JOURNAL_PREVIEW_CACHE_VERSION_MISMATCH");
+  }
+  const blob = await encodeJournalPreviewBlob(raster.blob, format);
   const filename = buildJournalExportFilename(viewModel.dogName, viewModel.businessDate, format);
   downloadJournalBlob(blob, filename);
   return { blob, filename };

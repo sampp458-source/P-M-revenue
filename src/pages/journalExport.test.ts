@@ -11,6 +11,13 @@ import {
   renderJournalImageBlob,
   waitForJournalAssets,
 } from "./journalExport";
+import {
+  buildJournalPreviewRenderKey,
+  createCurrentJournalRasterCacheEntry,
+  JOURNAL_ASSET_VERSION,
+  JOURNAL_RENDERER_VERSION,
+  JOURNAL_TEMPLATE_VERSION,
+} from "./journalRenderContract";
 import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
 
 vi.mock("html-to-image", () => ({ toCanvas: vi.fn() }));
@@ -19,6 +26,23 @@ const viewModel = {
   dogName: "크리미",
   businessDate: "2026-08-20",
 } as JournalPreviewViewModel;
+
+function createCurrentTemplateRoot() {
+  const root = document.createElement("article");
+  root.dataset.journalSource = "typed-view-model";
+  root.dataset.journalRendererVersion = JOURNAL_RENDERER_VERSION;
+  root.dataset.journalTemplateVersion = JOURNAL_TEMPLATE_VERSION;
+  root.dataset.journalAssetVersion = JOURNAL_ASSET_VERSION;
+  return root;
+}
+
+function createCurrentRaster(blob: Blob) {
+  return createCurrentJournalRasterCacheEntry(
+    buildJournalPreviewRenderKey(viewModel),
+    blob,
+    "blob:canonical-preview",
+  );
+}
 
 describe("Journal image export", () => {
   beforeEach(() => {
@@ -122,7 +146,7 @@ describe("Journal image export", () => {
     ["png", "image/png", undefined, "P&M_하루일지_크리미_2026-08-20.png"],
     ["jpg", "image/jpeg", 0.95, "P&M_하루일지_크리미_2026-08-20.jpg"],
   ] as const)("exports %s at exactly 1080×1440 and downloads it", async (format, mimeType, quality, filename) => {
-    const root = document.createElement("article");
+    const root = createCurrentTemplateRoot();
     const toBlob = vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback: BlobCallback, type?: string, requestedQuality?: number) => {
       expect(type).toBe(mimeType);
       expect(requestedQuality).toBe(quality);
@@ -160,7 +184,7 @@ describe("Journal image export", () => {
   });
 
   it("keeps the supersampled candidate available for visual QA without selecting it for production", async () => {
-    const root = document.createElement("article");
+    const root = createCurrentTemplateRoot();
     const source = { width: 2160, height: 2880 } as HTMLCanvasElement;
     vi.mocked(toCanvas).mockResolvedValue(source);
     vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback: BlobCallback, type?: string) => {
@@ -179,7 +203,7 @@ describe("Journal image export", () => {
 
   it("downloads the exact PNG blob displayed by the live preview without rerasterizing", async () => {
     const previewBlob = new Blob(["canonical-preview"], { type: "image/png" });
-    const result = await exportJournalPreviewImage(previewBlob, viewModel, "png");
+    const result = await exportJournalPreviewImage(createCurrentRaster(previewBlob), viewModel, "png");
     expect(result.blob).toBe(previewBlob);
     expect(result.filename).toBe("P&M_하루일지_크리미_2026-08-20.png");
     expect(toCanvas).not.toHaveBeenCalled();
@@ -209,8 +233,27 @@ describe("Journal image export", () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:journal");
   });
 
+  it("rejects an unversioned or stale rendered preview instead of treating it as canonical", async () => {
+    const previewBlob = new Blob(["legacy-preview"], { type: "image/png" });
+    const staleRaster = {
+      ...createCurrentRaster(previewBlob),
+      templateVersion: "legacy-template",
+    };
+
+    await expect(exportJournalPreviewImage(staleRaster, viewModel, "png"))
+      .rejects.toThrow("JOURNAL_PREVIEW_CACHE_VERSION_MISMATCH");
+    expect(HTMLAnchorElement.prototype.click).not.toHaveBeenCalled();
+  });
+
+  it("rejects a rendered DOM snapshot without the current renderer contract", async () => {
+    const legacyRoot = document.createElement("article");
+    await expect(renderJournalImageBlob(legacyRoot, "png"))
+      .rejects.toThrow("JOURNAL_RENDER_SOURCE_VERSION_MISMATCH");
+    expect(toCanvas).not.toHaveBeenCalled();
+  });
+
   it("fails closed when the rasterizer returns the wrong dimensions", async () => {
-    const root = document.createElement("article");
+    const root = createCurrentTemplateRoot();
     vi.mocked(toCanvas).mockResolvedValue({ width: 2160, height: 2880 } as HTMLCanvasElement);
     await expect(exportJournalImage(root, viewModel, "png")).rejects.toThrow("JOURNAL_EXPORT_RASTER_SIZE_MISMATCH");
     expect(URL.createObjectURL).not.toHaveBeenCalled();

@@ -3,6 +3,12 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, Card, FormAlert, Input, Modal, Textarea } from "../components/ui";
 import { JournalAutosaveQueue, type JournalSaveState } from "./journalAutosave";
 import { exportJournalPreviewImage, renderJournalImageBlob, type JournalExportFormat } from "./journalExport";
+import {
+  buildJournalPreviewRenderKey,
+  createCurrentJournalRasterCacheEntry,
+  isCurrentJournalRasterCacheEntry,
+  type JournalRasterCacheEntry,
+} from "./journalRenderContract";
 import { JournalReportTemplate } from "./JournalReportTemplate";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import {
@@ -73,9 +79,9 @@ export function JournalEditor({
   const versionRef = useRef(rosterEntry.version);
   const queueRef = useRef<JournalAutosaveQueue<JournalDraft, JournalRosterEntry> | null>(null);
   const previewSourceRootRef = useRef<HTMLElement>(null);
-  const previewRasterRef = useRef<{ key: string; blob: Blob; url: string } | null>(null);
+  const previewRasterRef = useRef<JournalRasterCacheEntry | null>(null);
   const exportInFlightRef = useRef(false);
-  const [previewRaster, setPreviewRaster] = useState<{ key: string; blob: Blob; url: string } | null>(null);
+  const [previewRaster, setPreviewRaster] = useState<JournalRasterCacheEntry | null>(null);
   const [previewRendering, setPreviewRendering] = useState(true);
   const [previewError, setPreviewError] = useState("");
 
@@ -119,11 +125,17 @@ export function JournalEditor({
   );
   const friendOptionsForDay = rosterEntries.filter((item) => item.dog.id !== entry.dog.id);
   const previewViewModel = useMemo(() => buildJournalPreviewViewModel(entry, draft, rosterEntries), [draft, entry, rosterEntries]);
-  const previewKey = useMemo(() => JSON.stringify(previewViewModel), [previewViewModel]);
+  const previewKey = useMemo(() => buildJournalPreviewRenderKey(previewViewModel), [previewViewModel]);
 
   useEffect(() => {
     if (loading) return;
     let cancelled = false;
+    const staleRaster = previewRasterRef.current;
+    if (staleRaster && !isCurrentJournalRasterCacheEntry(staleRaster, previewKey)) {
+      previewRasterRef.current = null;
+      setPreviewRaster(null);
+      URL.revokeObjectURL(staleRaster.url);
+    }
     const timer = window.setTimeout(() => {
       const source = previewSourceRootRef.current;
       if (!source) return;
@@ -132,7 +144,7 @@ export function JournalEditor({
       void renderJournalImageBlob(source, "png")
         .then((blob) => {
           if (cancelled) return;
-          const next = { key: previewKey, blob, url: URL.createObjectURL(blob) };
+          const next = createCurrentJournalRasterCacheEntry(previewKey, blob, URL.createObjectURL(blob));
           const previousRaster = previewRasterRef.current;
           previewRasterRef.current = next;
           setPreviewRaster(next);
@@ -203,7 +215,7 @@ export function JournalEditor({
   const exportImage = async (format: JournalExportFormat) => {
     if (exportInFlightRef.current) return;
     const raster = previewRasterRef.current;
-    if (!raster || raster.key !== previewKey) {
+    if (!raster || !isCurrentJournalRasterCacheEntry(raster, previewKey)) {
       setExportError("이미지를 저장하지 못했습니다. 다시 시도해 주세요.");
       return;
     }
@@ -211,7 +223,7 @@ export function JournalEditor({
     setExporting(format);
     setExportError("");
     try {
-      await exportJournalPreviewImage(raster.blob, previewViewModel, format);
+      await exportJournalPreviewImage(raster, previewViewModel, format);
     } catch {
       setExportError("이미지를 저장하지 못했습니다. 다시 시도해 주세요.");
     } finally {
@@ -290,8 +302,8 @@ export function JournalEditor({
         </div>
 
         <aside className="sticky top-6 hidden min-w-0 xl:block" aria-label={`${previewViewModel.dogName} 결과 미리보기`}>
-          <JournalExportActions ready={previewRaster?.key === previewKey && !previewRendering} exporting={exporting} error={exportError || previewError} onExport={exportImage} />
-          <JournalRasterPreview viewModel={previewViewModel} rasterUrl={previewRaster?.key === previewKey ? previewRaster.url : null} rendering={previewRendering} className="mx-auto max-w-[min(34rem,calc((100vh-3rem)*0.75))] rounded-2xl shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
+          <JournalExportActions ready={isCurrentJournalRasterCacheEntry(previewRaster, previewKey) && !previewRendering} exporting={exporting} error={exportError || previewError} onExport={exportImage} />
+          <JournalRasterPreview viewModel={previewViewModel} rasterUrl={isCurrentJournalRasterCacheEntry(previewRaster, previewKey) ? previewRaster!.url : null} rendering={previewRendering} className="mx-auto max-w-[min(34rem,calc((100vh-3rem)*0.75))] rounded-2xl shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
         </aside>
       </div>
 
@@ -306,8 +318,8 @@ export function JournalEditor({
       </div>
 
       <Modal open={previewOpen} title="결과 미리보기" description={`${previewViewModel.dogName} · ${previewViewModel.displayDate}`} onClose={() => setPreviewOpen(false)} size="large" resetKey={entry.id}>
-        <JournalExportActions ready={previewRaster?.key === previewKey && !previewRendering} exporting={exporting} error={exportError || previewError} onExport={exportImage} />
-        <JournalRasterPreview viewModel={previewViewModel} rasterUrl={previewRaster?.key === previewKey ? previewRaster.url : null} rendering={previewRendering} className="mx-auto max-w-[calc((100dvh-10rem)*0.75)] rounded-xl shadow-[0_12px_36px_rgb(23_36_58_/_0.14)]" />
+        <JournalExportActions ready={isCurrentJournalRasterCacheEntry(previewRaster, previewKey) && !previewRendering} exporting={exporting} error={exportError || previewError} onExport={exportImage} />
+        <JournalRasterPreview viewModel={previewViewModel} rasterUrl={isCurrentJournalRasterCacheEntry(previewRaster, previewKey) ? previewRaster!.url : null} rendering={previewRendering} className="mx-auto max-w-[calc((100dvh-10rem)*0.75)] rounded-xl shadow-[0_12px_36px_rgb(23_36_58_/_0.14)]" />
       </Modal>
 
       <div aria-hidden="true" data-testid="journal-canonical-preview-source" className="pointer-events-none fixed left-[-12000px] top-0 h-[1440px] w-[1080px] overflow-hidden">

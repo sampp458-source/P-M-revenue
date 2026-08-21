@@ -2,6 +2,7 @@ import { Check, CircleUserRound, Dumbbell, Flower2, Heart, Medal, MessageCircleH
 import { useLayoutEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { journalCharacters, journalSectionIllustrations, type JournalCharacterName, type JournalSectionIllustrationName } from "../assets/journal/journalAssets";
 import pmLogo from "../assets/pm-logo.png";
+import { JOURNAL_ASSET_VERSION, JOURNAL_RENDERER_VERSION, JOURNAL_TEMPLATE_VERSION } from "./journalRenderContract";
 import type { JournalPreviewActivity, JournalPreviewOption, JournalPreviewViewModel } from "./journalPreviewViewModel";
 
 export const JOURNAL_REPORT_WIDTH = 1080;
@@ -28,6 +29,10 @@ export function JournalReportTemplate({
     <article
       ref={reportRef}
       data-testid={testId}
+      data-journal-source="typed-view-model"
+      data-journal-renderer-version={JOURNAL_RENDERER_VERSION}
+      data-journal-template-version={JOURNAL_TEMPLATE_VERSION}
+      data-journal-asset-version={JOURNAL_ASSET_VERSION}
       aria-label={`${viewModel.dogName} 하루 일지 결과지`}
       className="relative flex shrink-0 flex-col overflow-hidden bg-[#fffcf8] p-[46px] text-[#25384a]"
       style={{

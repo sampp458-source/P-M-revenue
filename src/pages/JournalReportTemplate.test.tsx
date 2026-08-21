@@ -4,6 +4,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { JournalReportTemplate, JOURNAL_REPORT_HEIGHT, JOURNAL_REPORT_WIDTH } from "./JournalReportTemplate";
 import { buildJournalPreviewViewModel } from "./journalPreviewViewModel";
+import { JOURNAL_ASSET_VERSION, JOURNAL_RENDERER_VERSION, JOURNAL_TEMPLATE_VERSION } from "./journalRenderContract";
 import type { JournalDraft, JournalRosterEntry } from "./journalRepository";
 
 const entry = (overrides: Partial<JournalRosterEntry> = {}): JournalRosterEntry => ({
@@ -35,6 +36,10 @@ describe("Journal 1080x1440 report template", () => {
     const report = screen.getByTestId("journal-report-template");
     expect(report.style.width).toBe(`${JOURNAL_REPORT_WIDTH}px`);
     expect(report.style.height).toBe(`${JOURNAL_REPORT_HEIGHT}px`);
+    expect(report.dataset.journalSource).toBe("typed-view-model");
+    expect(report.dataset.journalRendererVersion).toBe(JOURNAL_RENDERER_VERSION);
+    expect(report.dataset.journalTemplateVersion).toBe(JOURNAL_TEMPLATE_VERSION);
+    expect(report.dataset.journalAssetVersion).toBe(JOURNAL_ASSET_VERSION);
     expect(report.className).toContain("overflow-hidden");
     expect(report.className).toContain("bg-[#fffcf8]");
     expect(report.className).toContain("text-[#25384a]");

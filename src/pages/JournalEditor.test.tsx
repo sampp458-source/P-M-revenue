@@ -3,6 +3,11 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JournalEditor } from "./JournalEditor";
+import {
+  JOURNAL_ASSET_VERSION,
+  JOURNAL_RENDERER_VERSION,
+  JOURNAL_TEMPLATE_VERSION,
+} from "./journalRenderContract";
 import { buildJournalPreviewViewModel } from "./journalPreviewViewModel";
 import type { JournalDraft, JournalRosterEntry } from "./journalRepository";
 
@@ -214,7 +219,12 @@ describe("Journal Editor", () => {
     await waitFor(() => expect(save.hasAttribute("disabled")).toBe(false));
     fireEvent.click(save);
     await waitFor(() => expect(mocks.exportPreview).toHaveBeenCalledTimes(1));
-    expect(mocks.exportPreview.mock.calls[0][0]).toBe(previewBlob);
+    expect(mocks.exportPreview.mock.calls[0][0]).toMatchObject({
+      blob: previewBlob,
+      rendererVersion: JOURNAL_RENDERER_VERSION,
+      templateVersion: JOURNAL_TEMPLATE_VERSION,
+      assetVersion: JOURNAL_ASSET_VERSION,
+    });
     expect(mocks.exportPreview.mock.calls[0][1]).toMatchObject({ teacherComment: "아직 저장되지 않은 최신 내용" });
     expect(mocks.exportPreview.mock.calls[0][2]).toBe("png");
     expect(mocks.update).not.toHaveBeenCalled();
@@ -260,7 +270,11 @@ describe("Journal Editor", () => {
     const jpg = within(dialog).getByRole("button", { name: "JPG 저장" });
     await waitFor(() => expect(jpg.hasAttribute("disabled")).toBe(false));
     fireEvent.click(jpg);
-    await waitFor(() => expect(mocks.exportPreview).toHaveBeenCalledWith(previewBlob, expect.objectContaining({ status: "COMPLETED" }), "jpg"));
+    await waitFor(() => expect(mocks.exportPreview).toHaveBeenCalledWith(
+      expect.objectContaining({ blob: previewBlob }),
+      expect.objectContaining({ status: "COMPLETED" }),
+      "jpg",
+    ));
     expect(mocks.complete).not.toHaveBeenCalled();
   });
 });
