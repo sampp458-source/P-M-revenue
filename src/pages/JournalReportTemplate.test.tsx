@@ -41,10 +41,14 @@ describe("Journal 1080x1440 report template", () => {
     expect(report.style.backgroundImage).toBe("");
     expect(within(report).getByRole("heading", { name: "하루 일지" })).toBeTruthy();
     expect(screen.getByTestId("journal-official-logo").getAttribute("src")).toContain("pm-logo.png");
+    expect(screen.getByTestId("journal-official-logo").className).toContain("h-[86px]");
+    expect(screen.getByTestId("journal-official-logo").className).toContain("w-[220px]");
     expect(within(report).queryByText("P&M")).toBeNull();
     expect(screen.getByTestId("journal-official-logo").className).not.toContain("bg-[#2f6284]");
-    expect(screen.getByTestId("journal-dog-name").parentElement?.innerHTML).not.toContain("border-dotted");
-    expect(screen.getByTestId("journal-dog-name").parentElement?.className).toContain("left-[190px]");
+    expect(screen.getByTestId("journal-dog-name").className).toContain("left-[18px]");
+    expect(screen.getByTestId("journal-dog-name").className).not.toContain("border");
+    expect(screen.getByTestId("journal-report-date").className).toContain("right-[29px]");
+    expect(screen.getByTestId("journal-report-date").className).toContain("text-[24px]");
     expect(within(report).queryByText("오늘의 하루 일지")).toBeNull();
     expect(within(report).queryByText("P&M CHARACTER DIARY")).toBeNull();
     expect(within(report).queryByText("WITH LOVE")).toBeNull();
@@ -110,6 +114,12 @@ describe("Journal 1080x1440 report template", () => {
       expect(within(report).getByText(label).closest("[data-selected]")?.className).toContain("text-[19px]");
     }
     expect(screen.getByTestId("journal-stool-status").innerHTML).toContain("grid-cols-2");
+    const mannersLayout = within(report).getByText("아직은 어려워요").closest("[data-option-layout]");
+    const physicalLayout = within(report).getByText("오늘은 쉴래요").closest("[data-option-layout]");
+    expect(mannersLayout?.getAttribute("data-option-layout")).toBe("two-plus-one-left");
+    expect(physicalLayout?.getAttribute("data-option-layout")).toBe("two-plus-one-left");
+    expect(within(report).getByText("아직은 어려워요").closest("[data-selected]")?.className).toContain("justify-self-start");
+    expect(within(report).getByText("오늘은 쉴래요").closest("[data-selected]")?.className).toContain("justify-self-start");
   });
 
   it("aligns the adjacent story headings and strengthens the best-friend introduction", () => {

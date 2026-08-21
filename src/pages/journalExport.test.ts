@@ -4,7 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toCanvas } from "html-to-image";
 import {
   buildJournalExportFilename,
+  encodeJournalPreviewBlob,
   exportJournalImage,
+  exportJournalPreviewImage,
+  renderJournalImageBlob,
   waitForJournalAssets,
 } from "./journalExport";
 import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
@@ -31,7 +34,10 @@ describe("Journal image export", () => {
     } as unknown as CanvasRenderingContext2D);
   });
 
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
 
   it("keeps Korean names, uses the journal date, and sanitizes unsafe or long names", () => {
     expect(buildJournalExportFilename("크리미", "2026-08-20", "png"))
@@ -82,7 +88,9 @@ describe("Journal image export", () => {
       expect(requestedQuality).toBe(quality);
       callback(new Blob([format], { type }));
     });
-    const canvas = { width: 2160, height: 2880 } as unknown as HTMLCanvasElement;
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1440;
     vi.mocked(toCanvas).mockResolvedValue(canvas);
 
     let clickedFilename = "";
@@ -91,11 +99,14 @@ describe("Journal image export", () => {
     });
     const exported = await exportJournalImage(root, viewModel, format);
 
-    expect(toCanvas).toHaveBeenCalledWith(root, expect.objectContaining({
+    const rasterizedRoot = vi.mocked(toCanvas).mock.calls[0][0] as HTMLElement;
+    expect(rasterizedRoot).not.toBe(root);
+    expect(rasterizedRoot.dataset.journalCanonicalSnapshot).toBe("true");
+    expect(toCanvas).toHaveBeenCalledWith(rasterizedRoot, expect.objectContaining({
       width: 1080,
       height: 1440,
-      canvasWidth: 2160,
-      canvasHeight: 2880,
+      canvasWidth: 1080,
+      canvasHeight: 1440,
       pixelRatio: 1,
       backgroundColor: "#fffcf8",
     }));
@@ -105,15 +116,62 @@ describe("Journal image export", () => {
     expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1);
     expect(URL.createObjectURL).toHaveBeenCalledTimes(1);
     expect(toBlob).toHaveBeenCalledTimes(1);
+    expect(document.querySelector("[data-journal-export-snapshot='true']")).toBeNull();
+  });
+
+  it("keeps the supersampled candidate available for visual QA without selecting it for production", async () => {
+    const root = document.createElement("article");
+    const source = { width: 2160, height: 2880 } as HTMLCanvasElement;
+    vi.mocked(toCanvas).mockResolvedValue(source);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback: BlobCallback, type?: string) => {
+      callback(new Blob(["png"], { type }));
+    });
+    await renderJournalImageBlob(root, "png", "supersampled");
+    expect(toCanvas).toHaveBeenCalledWith(expect.any(HTMLElement), expect.objectContaining({
+      canvasWidth: 2160,
+      canvasHeight: 2880,
+    }));
     const context = vi.mocked(HTMLCanvasElement.prototype.getContext).mock.results[0]?.value as unknown as CanvasRenderingContext2D;
     expect(context.imageSmoothingEnabled).toBe(true);
     expect(context.imageSmoothingQuality).toBe("high");
     expect(context.drawImage).toHaveBeenCalled();
   });
 
+  it("downloads the exact PNG blob displayed by the live preview without rerasterizing", async () => {
+    const previewBlob = new Blob(["canonical-preview"], { type: "image/png" });
+    const result = await exportJournalPreviewImage(previewBlob, viewModel, "png");
+    expect(result.blob).toBe(previewBlob);
+    expect(result.filename).toBe("P&M_하루일지_크리미_2026-08-20.png");
+    expect(toCanvas).not.toHaveBeenCalled();
+    expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1);
+  });
+
+  it("encodes JPG from the same 1080×1440 preview bitmap without a resize pass", async () => {
+    class MockImage {
+      decoding = "async";
+      naturalWidth = 1080;
+      naturalHeight = 1440;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      set src(_value: string) { queueMicrotask(() => this.onload?.()); }
+      decode = vi.fn().mockResolvedValue(undefined);
+    }
+    vi.stubGlobal("Image", MockImage);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback: BlobCallback, type?: string) => {
+      callback(new Blob(["jpg"], { type }));
+    });
+    const previewBlob = new Blob(["canonical-preview"], { type: "image/png" });
+    const jpg = await encodeJournalPreviewBlob(previewBlob, "jpg");
+    const context = vi.mocked(HTMLCanvasElement.prototype.getContext).mock.results.at(-1)?.value as unknown as CanvasRenderingContext2D;
+    expect(jpg.type).toBe("image/jpeg");
+    expect(context.drawImage).toHaveBeenCalledWith(expect.any(MockImage), 0, 0);
+    expect(toCanvas).not.toHaveBeenCalled();
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:journal");
+  });
+
   it("fails closed when the rasterizer returns the wrong dimensions", async () => {
     const root = document.createElement("article");
-    vi.mocked(toCanvas).mockResolvedValue({ width: 1080, height: 1440 } as HTMLCanvasElement);
+    vi.mocked(toCanvas).mockResolvedValue({ width: 2160, height: 2880 } as HTMLCanvasElement);
     await expect(exportJournalImage(root, viewModel, "png")).rejects.toThrow("JOURNAL_EXPORT_RASTER_SIZE_MISMATCH");
     expect(URL.createObjectURL).not.toHaveBeenCalled();
   });

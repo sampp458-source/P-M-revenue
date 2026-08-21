@@ -33,7 +33,7 @@ export function JournalReportTemplate({
       style={{
         width: JOURNAL_REPORT_WIDTH,
         height: JOURNAL_REPORT_HEIGHT,
-        fontFamily: 'Pretendard, "Noto Sans KR", sans-serif',
+        fontFamily: 'Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
       <span className="pointer-events-none absolute inset-[17px] rounded-[52px] border-[3px] border-[#e6eef4]" />
@@ -125,7 +125,7 @@ function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
     <header data-card-surface="header" className="relative z-10 h-[235px] shrink-0 overflow-hidden rounded-[52px_52px_38px_38px] border-[3px] border-[#dbeaf4] bg-white px-[34px] py-[17px] shadow-[0_8px_24px_rgb(47_98_132_/_0.055)]">
       <span className="absolute left-[26px] top-[24px] h-[150px] w-[150px] rounded-full bg-[#ffe9ed]/52" />
       <span className="absolute right-[24px] top-[28px] h-[144px] w-[174px] rounded-[48px] bg-[#e8f4fc]/78" />
-      <JournalCharacter name="dogAWaving" className="absolute -left-[1px] top-[10px] h-[178px] w-[178px] object-contain" />
+      <JournalCharacter name="dogAWaving" className="absolute left-[5px] top-[5px] h-[164px] w-[164px] object-contain" />
       <JournalCharacter name="dogBPeeking" className="absolute right-[8px] top-[41px] h-[142px] w-[205px] object-contain" />
 
       <div className="mx-auto flex w-[590px] flex-col items-center">
@@ -133,19 +133,17 @@ function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
           src={pmLogo}
           alt="P&M"
           data-testid="journal-official-logo"
-          className="h-[52px] w-[132px] object-contain"
+          className="h-[86px] w-[220px] object-contain"
           style={{ filter: "brightness(0) saturate(100%) invert(32%) sepia(22%) saturate(1195%) hue-rotate(158deg) brightness(92%) contrast(90%)" }}
         />
-        <div className="relative mt-[3px] px-[42px] pb-[11px]">
+        <div className="relative mt-[-13px] px-[42px] pb-[11px]">
           <span className="absolute inset-x-[18px] bottom-[5px] h-[15px] -rotate-1 rounded-full bg-[#ff7f82]/42" />
           <h1 className="relative text-[52px] font-black tracking-[-0.055em] text-[#2f6284]">하루 일지</h1>
         </div>
       </div>
 
-      <div className="absolute bottom-[14px] left-[190px] right-[48px] flex min-h-[57px] items-center justify-between gap-[24px] px-[20px] py-[7px]">
-        <p data-testid="journal-dog-name" className={longTextClass(viewModel.dogName, "min-w-0 break-words font-black tracking-[-0.045em] text-[#2f6284]")}>{viewModel.dogName}</p>
-        <p className="shrink-0 text-[21px] font-bold tabular-nums text-[#718395]">{viewModel.displayDate}</p>
-      </div>
+      <p data-testid="journal-dog-name" className={longTextClass(viewModel.dogName, "absolute bottom-[11px] left-[18px] w-[252px] break-words text-center font-black tracking-[-0.045em] text-[#2f6284]")}>{viewModel.dogName}</p>
+      <p data-testid="journal-report-date" className="absolute bottom-[14px] right-[29px] w-[190px] text-center text-[24px] font-bold tabular-nums text-[#718395]">{viewModel.displayDate}</p>
     </header>
   );
 }
@@ -207,7 +205,7 @@ function ActivityCard({ activity, icon, paletteName, motif }: { activity: Journa
       </div>
       <div className={`flex h-[47px] items-center justify-center px-[10px] pb-[3px] text-center font-black text-[#25384a] ${activityClass}`}><span className="max-w-full whitespace-normal break-words">{activity.activityName || "\u00a0"}</span></div>
       <span className={`mx-auto block h-[4px] w-[58%] rounded-full ${motif === "medal" ? "rotate-[-1deg] bg-[#ffd9df]/75" : "rotate-[1deg] bg-[#cfeede]/80"}`} />
-      <div className="mt-[1px]"><Options options={activity.options} columns={3} compact singleLine layout={motif === "medal" ? "manners" : "physical"} /></div>
+      <div className="mt-[1px]"><Options options={activity.options} columns={3} compact singleLine layout="activity" /></div>
       </div>
     </section>
   );
@@ -243,14 +241,23 @@ function Options({
   columns: 2 | 3;
   compact?: boolean;
   singleLine?: boolean;
-  layout?: "equal" | "manners" | "physical";
+  layout?: "equal" | "activity";
 }) {
-  const columnClass = layout === "manners"
-    ? "grid-cols-[0.82fr_1.48fr]"
-    : layout === "physical"
-      ? "grid-cols-[0.92fr_1.28fr]"
-      : columns === 3 ? "grid-cols-3" : "grid-cols-2";
-  return <div className={`grid gap-x-[3px] gap-y-[2px] ${columnClass}`}>{options.map((option, index) => <Option key={option.code} option={option} compact={compact} variant={index} singleLine={singleLine} className={layout !== "equal" && index === 2 ? "col-span-2 justify-self-center" : ""} />)}</div>;
+  const columnClass = layout === "activity" ? "grid-cols-[0.9fr_1.55fr]" : columns === 3 ? "grid-cols-3" : "grid-cols-2";
+  return (
+    <div data-option-layout={layout === "activity" ? "two-plus-one-left" : "equal"} className={`grid gap-x-[3px] gap-y-[2px] ${columnClass}`}>
+      {options.map((option, index) => (
+        <Option
+          key={option.code}
+          option={option}
+          compact={compact}
+          variant={index}
+          singleLine={singleLine}
+          className={layout === "activity" && index === 2 ? "col-span-2 justify-self-start" : ""}
+        />
+      ))}
+    </div>
+  );
 }
 
 const markVariants = [

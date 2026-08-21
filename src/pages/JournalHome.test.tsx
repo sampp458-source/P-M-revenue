@@ -86,6 +86,8 @@ describe("Journal Home roster", () => {
     expect(mocks.fetchEntry).toHaveBeenCalledTimes(1);
     expect(mocks.fetchEntry).toHaveBeenCalledWith("entry-1");
     expect(mocks.renderImage).toHaveBeenCalledTimes(1);
+    expect((mocks.renderImage.mock.calls[0][0] as HTMLElement).dataset.testid).toBe("journal-batch-export-template");
+    expect(mocks.renderImage.mock.calls[0][1]).toBe("png");
     expect(mocks.downloadBatch.mock.calls[0][0]).toEqual([
       expect.objectContaining({ filename: "P&M_하루일지_크리미_2026-08-15.png", blob: expect.objectContaining({ type: "image/png" }) }),
     ]);
