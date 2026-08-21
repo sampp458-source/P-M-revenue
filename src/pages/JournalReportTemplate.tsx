@@ -125,7 +125,7 @@ function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
     <header data-card-surface="header" className="relative z-10 h-[235px] shrink-0 overflow-hidden rounded-[52px_52px_38px_38px] border-[3px] border-[#dbeaf4] bg-white px-[34px] py-[17px] shadow-[0_8px_24px_rgb(47_98_132_/_0.055)]">
       <span className="absolute left-[26px] top-[24px] h-[150px] w-[150px] rounded-full bg-[#ffe9ed]/52" />
       <span className="absolute right-[24px] top-[28px] h-[144px] w-[174px] rounded-[48px] bg-[#e8f4fc]/78" />
-      <JournalCharacter name="dogAWaving" className="absolute left-[5px] top-[5px] h-[164px] w-[164px] object-contain" />
+      <JournalCharacter name="dogAWaving" className="absolute left-[50px] top-[6px] h-[150px] w-[150px] object-contain" />
       <JournalCharacter name="dogBPeeking" className="absolute right-[8px] top-[41px] h-[142px] w-[205px] object-contain" />
 
       <div className="mx-auto flex w-[590px] flex-col items-center">
@@ -142,7 +142,7 @@ function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
         </div>
       </div>
 
-      <p data-testid="journal-dog-name" className={longTextClass(viewModel.dogName, "absolute bottom-[11px] left-[18px] w-[252px] break-words text-center font-black tracking-[-0.045em] text-[#2f6284]")}>{viewModel.dogName}</p>
+      <p data-testid="journal-dog-name" className={headerDogNameClass(viewModel.dogName)}>{viewModel.dogName}</p>
       <p data-testid="journal-report-date" className="absolute bottom-[14px] right-[29px] w-[190px] text-center text-[24px] font-bold tabular-nums text-[#718395]">{viewModel.displayDate}</p>
     </header>
   );
@@ -177,12 +177,12 @@ function BestFriendRibbon({ name }: { name: string }) {
     <section data-journal-section="interlude" data-card-surface="best-friend" className="relative flex min-w-0 items-center justify-center overflow-hidden px-[28px]" aria-label="오늘의 제일 친한 친구">
       <span className="absolute left-[183px] top-[15px] h-[90px] w-[610px] rotate-[-1deg] rounded-[48%] bg-[#f5fbff]/88" />
       <span className="absolute left-[352px] bottom-[10px] h-[7px] w-[286px] rotate-[1deg] rounded-full bg-[#b9dced]/48" />
-      <div className="relative flex h-full w-[720px] items-center justify-center">
+      <div className="relative flex h-full w-[720px] items-center justify-center gap-[8px]">
         <span className="absolute left-[108px] top-[19px] h-[58px] w-[68px] rotate-[-8deg] rounded-[50%] bg-[#ffe9ed]/55" />
-        <JournalCharacter name="bestFriendDuo" className="relative z-10 mr-[-34px] h-[116px] w-[244px] self-end object-contain object-bottom" />
-        <div className="relative z-10 flex w-[474px] min-w-0 flex-col items-center justify-center">
+        <JournalCharacter name="bestFriendDuo" className="relative z-10 h-[108px] w-[224px] shrink-0 self-end object-contain object-bottom" />
+        <div className="relative z-10 flex w-[480px] min-w-0 flex-col items-center justify-center">
           <p className="text-[20px] font-black tracking-[-0.02em] text-[#607488]">오늘의 제일 친한 친구는</p>
-          <div className="mt-[-4px] flex min-w-0 items-end justify-center gap-[11px]">
+          <div className="mt-[-2px] flex w-full min-w-0 items-end justify-center gap-[8px]">
             <strong data-testid="journal-best-friend-name" className={bestFriendNameClass(name)}>{name || "\u00a0"}</strong>
             <p className="mb-[5px] shrink-0 text-[20px] font-extrabold text-[#607488]">예요 <span className="text-[#ff7f82]">♡</span></p>
           </div>
@@ -316,11 +316,11 @@ function commentClass(comment: string) {
 }
 
 function bestFriendNameClass(name: string) {
-  const size = name.length > 24 ? "text-[22px] leading-[1.08]" : name.length > 14 ? "text-[30px] leading-[1.08]" : "text-[44px] leading-[1.04]";
-  return `min-w-0 break-words border-b-[8px] border-[#ff7f82]/38 px-[20px] pb-[1px] text-center font-black tracking-[-0.05em] text-[#2f6284] ${size}`;
+  const size = name.length > 18 ? "text-[22px] leading-[1.08]" : name.length > 10 ? "text-[30px] leading-[1.08]" : "text-[44px] leading-[1.04]";
+  return `min-w-0 break-words border-b-[8px] border-[#ff7f82]/38 px-[12px] pb-[1px] text-center font-black tracking-[-0.05em] text-[#2f6284] ${size}`;
 }
 
-function longTextClass(value: string, base: string) {
-  const size = value.length > 24 ? "text-[20px] leading-[1.18]" : value.length > 14 ? "text-[25px] leading-[1.18]" : "text-[32px] leading-[1.12]";
-  return `${base} ${size}`;
+function headerDogNameClass(name: string) {
+  const size = name.length > 20 ? "text-[17px] leading-[1.08]" : name.length > 8 ? "text-[20px] leading-[1.08]" : "text-[32px] leading-[1.12]";
+  return `absolute bottom-[10px] left-[8px] w-[270px] break-words text-center font-black tracking-[-0.045em] text-[#2f6284] ${size}`;
 }

@@ -45,7 +45,8 @@ describe("Journal 1080x1440 report template", () => {
     expect(screen.getByTestId("journal-official-logo").className).toContain("w-[220px]");
     expect(within(report).queryByText("P&M")).toBeNull();
     expect(screen.getByTestId("journal-official-logo").className).not.toContain("bg-[#2f6284]");
-    expect(screen.getByTestId("journal-dog-name").className).toContain("left-[18px]");
+    expect(screen.getByTestId("journal-dog-name").className).toContain("left-[8px]");
+    expect(screen.getByTestId("journal-dog-name").className).toContain("w-[270px]");
     expect(screen.getByTestId("journal-dog-name").className).not.toContain("border");
     expect(screen.getByTestId("journal-report-date").className).toContain("right-[29px]");
     expect(screen.getByTestId("journal-report-date").className).toContain("text-[24px]");
@@ -129,6 +130,33 @@ describe("Journal 1080x1440 report template", () => {
     expect(mealHeading.parentElement?.className).toContain("py-[12px]");
     expect(relationshipHeading.parentElement?.className).toContain("py-[12px]");
     expect(screen.getByText("오늘의 제일 친한 친구는").className).toContain("text-[20px]");
+    expect(screen.getByTestId("journal-character-bestFriendDuo").className).not.toContain("mr-[-34px]");
+    expect(screen.getByTestId("journal-character-bestFriendDuo").className).toContain("w-[224px]");
+  });
+
+  it("keeps normal and long header identities in deterministic non-title lanes", () => {
+    renderReport();
+    expect(screen.getByTestId("journal-character-dogAWaving").className).toContain("left-[50px]");
+    expect(screen.getByTestId("journal-character-dogAWaving").className).toContain("h-[150px]");
+    expect(screen.getByTestId("journal-dog-name").className).toContain("text-[32px]");
+    cleanup();
+
+    renderReport(draft(), entry({ dog: { id: "dog-1", name: "아주사랑스러운크리미공주님" } }));
+    const longName = screen.getByTestId("journal-dog-name");
+    expect(longName.textContent).toBe("아주사랑스러운크리미공주님");
+    expect(longName.className).toContain("text-[20px]");
+    expect(longName.className).toContain("bottom-[10px]");
+    expect(longName.className).not.toContain("truncate");
+  });
+
+  it("keeps a long best-friend name complete without the duo overlap offset", () => {
+    const longFriend = entry({ id: "entry-2", dog: { id: "dog-2", name: "세상에서제일친한몽이왕자님" } });
+    render(<JournalReportTemplate viewModel={buildJournalPreviewViewModel(entry(), draft(), [entry(), longFriend])} />);
+    const friendName = screen.getByTestId("journal-best-friend-name");
+    expect(friendName.textContent).toBe(longFriend.dog.name);
+    expect(friendName.className).toContain("text-[30px]");
+    expect(friendName.className).toContain("px-[12px]");
+    expect(friendName.className).not.toContain("truncate");
   });
 
   it.each([
