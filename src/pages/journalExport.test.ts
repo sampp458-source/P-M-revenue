@@ -7,6 +7,7 @@ import {
   encodeJournalPreviewBlob,
   exportJournalImage,
   exportJournalPreviewImage,
+  inlineJournalSnapshotImages,
   renderJournalImageBlob,
   waitForJournalAssets,
 } from "./journalExport";
@@ -75,6 +76,45 @@ describe("Journal image export", () => {
     await Promise.resolve();
     image.dispatchEvent(new Event("error"));
     await expect(readiness).rejects.toThrow("JOURNAL_EXPORT_ASSET_LOAD_FAILED");
+    expect(toCanvas).not.toHaveBeenCalled();
+  });
+
+  it("inlines every decoded illustration before the canonical snapshot is rasterized", async () => {
+    const root = document.createElement("div");
+    const image = document.createElement("img");
+    image.src = "/assets/journal-approved-illustration.png";
+    const decode = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperties(image, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 320 },
+      decode: { configurable: true, value: decode },
+    });
+    root.appendChild(image);
+    const originalSource = image.src;
+    const fetchAsset = vi.fn().mockResolvedValue({ ok: true, blob: async () => new Blob(["approved-image"], { type: "image/png" }) });
+    vi.stubGlobal("fetch", fetchAsset);
+
+    await inlineJournalSnapshotImages(root);
+
+    expect(fetchAsset).toHaveBeenCalledWith(originalSource, expect.anything());
+    expect(image.src).toMatch(/^data:image\/png;base64,/);
+    expect(image.dataset.journalAssetInlined).toBe("true");
+    expect(decode).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails closed instead of caching a snapshot when an approved asset cannot be embedded", async () => {
+    const root = document.createElement("div");
+    const image = document.createElement("img");
+    image.src = "/assets/missing-approved-illustration.png";
+    Object.defineProperties(image, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 320 },
+      decode: { configurable: true, value: vi.fn().mockResolvedValue(undefined) },
+    });
+    root.appendChild(image);
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
+
+    await expect(inlineJournalSnapshotImages(root)).rejects.toThrow("JOURNAL_EXPORT_ASSET_INLINE_FAILED");
     expect(toCanvas).not.toHaveBeenCalled();
   });
 

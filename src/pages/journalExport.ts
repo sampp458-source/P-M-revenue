@@ -54,6 +54,34 @@ export async function waitForJournalAssets(root: HTMLElement) {
   }
 }
 
+function blobToDataUrl(blob: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("JOURNAL_EXPORT_ASSET_INLINE_FAILED"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+export async function inlineJournalSnapshotImages(root: HTMLElement) {
+  await waitForJournalAssets(root);
+  const images = Array.from(root.querySelectorAll("img"));
+  await Promise.all(images.map(async (image) => {
+    const source = image.currentSrc || image.src;
+    if (!source || source.startsWith("data:")) return;
+    const response = await fetch(source, { cache: "force-cache", credentials: "same-origin" });
+    if (!response.ok) throw new Error("JOURNAL_EXPORT_ASSET_INLINE_FAILED");
+    const blob = await response.blob();
+    if (!blob.type.startsWith("image/")) throw new Error("JOURNAL_EXPORT_ASSET_INLINE_FAILED");
+    image.src = await blobToDataUrl(blob);
+    image.dataset.journalAssetInlined = "true";
+  }));
+  await waitForJournalAssets(root);
+  if (images.some((image) => !image.src.startsWith("data:"))) {
+    throw new Error("JOURNAL_EXPORT_ASSET_INLINE_FAILED");
+  }
+}
+
 function canvasToBlob(canvas: HTMLCanvasElement, format: JournalExportFormat) {
   const mimeType = format === "png" ? "image/png" : "image/jpeg";
   return new Promise<Blob>((resolve, reject) => {
@@ -135,7 +163,7 @@ async function rasterizeJournalSnapshot(root: HTMLElement, pipeline: JournalRast
       if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolve());
       else resolve();
     });
-    await waitForJournalAssets(snapshot);
+    await inlineJournalSnapshotImages(snapshot);
     const supersample = pipeline === "supersampled" ? JOURNAL_EXPORT_SUPERSAMPLE : 1;
     const rasterWidth = JOURNAL_EXPORT_WIDTH * supersample;
     const rasterHeight = JOURNAL_EXPORT_HEIGHT * supersample;

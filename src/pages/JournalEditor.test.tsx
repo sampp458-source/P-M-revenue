@@ -238,6 +238,18 @@ describe("Journal Editor", () => {
     expect(screen.getByRole("button", { name: "PNG 저장" }).hasAttribute("disabled")).toBe(false);
   });
 
+  it("does not cache or export an incomplete preview when an approved illustration cannot be embedded", async () => {
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.renderImage.mockRejectedValue(new Error("JOURNAL_EXPORT_ASSET_INLINE_FAILED"));
+    renderEditor();
+    await screen.findByRole("heading", { name: "크리미" });
+    expect((await screen.findByRole("alert")).textContent).toBe("미리보기를 만들지 못했습니다. 다시 시도해 주세요.");
+    expect(screen.queryByRole("img", { name: "크리미 하루일지 미리보기" })).toBeNull();
+    expect(screen.getByRole("button", { name: "PNG 저장" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("button", { name: "JPG 저장" }).hasAttribute("disabled")).toBe(true);
+    expect(mocks.exportPreview).not.toHaveBeenCalled();
+  });
+
   it("offers PNG and JPG export inside the mobile preview for completed journals", async () => {
     mocks.fetch.mockResolvedValue(entry({ status: "COMPLETED" }));
     mocks.exportPreview.mockResolvedValue(undefined);
