@@ -40,6 +40,11 @@ describe("Journal 1080x1440 report template", () => {
     expect(report.className).toContain("text-[#25384a]");
     expect(report.style.backgroundImage).toBe("");
     expect(within(report).getByRole("heading", { name: "하루 일지" })).toBeTruthy();
+    expect(screen.getByTestId("journal-official-logo").getAttribute("src")).toContain("pm-logo.png");
+    expect(within(report).queryByText("P&M")).toBeNull();
+    expect(screen.getByTestId("journal-official-logo").className).not.toContain("bg-[#2f6284]");
+    expect(screen.getByTestId("journal-dog-name").parentElement?.innerHTML).not.toContain("border-dotted");
+    expect(screen.getByTestId("journal-dog-name").parentElement?.className).toContain("left-[190px]");
     expect(within(report).queryByText("오늘의 하루 일지")).toBeNull();
     expect(within(report).queryByText("P&M CHARACTER DIARY")).toBeNull();
     expect(within(report).queryByText("WITH LOVE")).toBeNull();
@@ -95,6 +100,25 @@ describe("Journal 1080x1440 report template", () => {
     expect(within(report).getByText("좋아요").closest("[data-selected]")?.getAttribute("data-selected")).toBe("false");
     const xOptions = within(report).getAllByText("X").map((node) => node.closest("[data-selected]")?.getAttribute("data-selected"));
     expect(xOptions).toContain("true");
+  });
+
+  it("keeps every canonical stool and activity evaluation on a single line without shrinking body type", () => {
+    renderReport();
+    const report = screen.getByTestId("journal-report-template");
+    for (const label of ["좋아요", "아주 묽어요", "조금 묽어요", "상태 안 좋아요", "참 잘했어요", "다음엔 더 잘할 수 있어요", "아직은 어려워요", "나는야 체육왕", "너무 재미있었어요", "오늘은 쉴래요"]) {
+      expect(within(report).getByText(label).className).toContain("whitespace-nowrap");
+      expect(within(report).getByText(label).closest("[data-selected]")?.className).toContain("text-[19px]");
+    }
+    expect(screen.getByTestId("journal-stool-status").innerHTML).toContain("grid-cols-2");
+  });
+
+  it("aligns the adjacent story headings and strengthens the best-friend introduction", () => {
+    renderReport();
+    const mealHeading = screen.getByRole("heading", { name: "유치원에서 먹은 것" });
+    const relationshipHeading = screen.getByRole("heading", { name: "오늘의 관계" });
+    expect(mealHeading.parentElement?.className).toContain("py-[12px]");
+    expect(relationshipHeading.parentElement?.className).toContain("py-[12px]");
+    expect(screen.getByText("오늘의 제일 친한 친구는").className).toContain("text-[20px]");
   });
 
   it.each([

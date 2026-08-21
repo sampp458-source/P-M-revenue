@@ -3,8 +3,9 @@ import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
 
 export type JournalExportFormat = "png" | "jpg";
 
-const JOURNAL_EXPORT_WIDTH = 1080;
-const JOURNAL_EXPORT_HEIGHT = 1440;
+export const JOURNAL_EXPORT_WIDTH = 1080;
+export const JOURNAL_EXPORT_HEIGHT = 1440;
+export const JOURNAL_EXPORT_SUPERSAMPLE = 2;
 const JOURNAL_EXPORT_BACKGROUND = "#fffcf8";
 const JOURNAL_JPG_QUALITY = 0.95;
 
@@ -63,6 +64,50 @@ function canvasToBlob(canvas: HTMLCanvasElement, format: JournalExportFormat) {
   });
 }
 
+function createFinalCanvas(source: HTMLCanvasElement) {
+  const canvas = document.createElement("canvas");
+  canvas.width = JOURNAL_EXPORT_WIDTH;
+  canvas.height = JOURNAL_EXPORT_HEIGHT;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("JOURNAL_EXPORT_CANVAS_UNAVAILABLE");
+  context.fillStyle = JOURNAL_EXPORT_BACKGROUND;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.imageSmoothingEnabled = true;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(source, 0, 0, source.width, source.height, 0, 0, canvas.width, canvas.height);
+  return canvas;
+}
+
+export async function renderJournalImageBlob(
+  root: HTMLElement,
+  format: JournalExportFormat,
+  supersample = JOURNAL_EXPORT_SUPERSAMPLE,
+) {
+  await waitForJournalAssets(root);
+  const rasterWidth = JOURNAL_EXPORT_WIDTH * supersample;
+  const rasterHeight = JOURNAL_EXPORT_HEIGHT * supersample;
+  const sourceCanvas = await toCanvas(root, {
+    width: JOURNAL_EXPORT_WIDTH,
+    height: JOURNAL_EXPORT_HEIGHT,
+    canvasWidth: rasterWidth,
+    canvasHeight: rasterHeight,
+    pixelRatio: 1,
+    backgroundColor: JOURNAL_EXPORT_BACKGROUND,
+    cacheBust: true,
+    skipAutoScale: true,
+  });
+  if (sourceCanvas.width !== rasterWidth || sourceCanvas.height !== rasterHeight) {
+    throw new Error("JOURNAL_EXPORT_RASTER_SIZE_MISMATCH");
+  }
+  const finalCanvas = createFinalCanvas(sourceCanvas);
+  sourceCanvas.width = 1;
+  sourceCanvas.height = 1;
+  if (finalCanvas.width !== JOURNAL_EXPORT_WIDTH || finalCanvas.height !== JOURNAL_EXPORT_HEIGHT) {
+    throw new Error("JOURNAL_EXPORT_SIZE_MISMATCH");
+  }
+  return canvasToBlob(finalCanvas, format);
+}
+
 export function downloadJournalBlob(blob: Blob, filename: string) {
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -81,21 +126,7 @@ export async function exportJournalImage(
   viewModel: JournalPreviewViewModel,
   format: JournalExportFormat,
 ) {
-  await waitForJournalAssets(root);
-  const canvas = await toCanvas(root, {
-    width: JOURNAL_EXPORT_WIDTH,
-    height: JOURNAL_EXPORT_HEIGHT,
-    canvasWidth: JOURNAL_EXPORT_WIDTH,
-    canvasHeight: JOURNAL_EXPORT_HEIGHT,
-    pixelRatio: 1,
-    backgroundColor: JOURNAL_EXPORT_BACKGROUND,
-    cacheBust: true,
-    skipAutoScale: true,
-  });
-  if (canvas.width !== JOURNAL_EXPORT_WIDTH || canvas.height !== JOURNAL_EXPORT_HEIGHT) {
-    throw new Error("JOURNAL_EXPORT_SIZE_MISMATCH");
-  }
-  const blob = await canvasToBlob(canvas, format);
+  const blob = await renderJournalImageBlob(root, format);
   const filename = buildJournalExportFilename(viewModel.dogName, viewModel.businessDate, format);
   downloadJournalBlob(blob, filename);
   return { blob, filename };

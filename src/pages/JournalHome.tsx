@@ -1,11 +1,16 @@
-import { BookOpenText, ChevronLeft, ChevronRight, Dog, LoaderCircle, Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Archive, BookOpenText, ChevronLeft, ChevronRight, Dog, LoaderCircle, Plus, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Ref } from "react";
 import { SearchSelect } from "../components/SearchSelect";
 import { Badge, Button, Card, FormAlert, Input, Modal, ModalActions } from "../components/ui";
 import { formatPhoneForDisplay } from "../lib/phone";
 import { seoulDateKey } from "./operationsScheduleRepository";
 import { JournalEditor } from "./JournalEditor";
+import { buildUniqueJournalPngFilenames, downloadJournalBatchZip, type JournalBatchFile } from "./journalBatchExport";
+import { renderJournalImageBlob } from "./journalExport";
+import { buildJournalPreviewViewModel, journalEntryToDraft, type JournalPreviewViewModel } from "./journalPreviewViewModel";
+import { JournalReportTemplate } from "./JournalReportTemplate";
 import {
+  fetchJournalEntry,
   fetchJournalDogDirectory,
   fetchJournalRoster,
   registerJournalRoster,
@@ -55,6 +60,12 @@ export function JournalHomePage() {
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
+  const [batching, setBatching] = useState(false);
+  const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+  const [batchViewModel, setBatchViewModel] = useState<JournalPreviewViewModel | null>(null);
+  const batchRootRef = useRef<HTMLElement>(null);
+  const batchReadyRef = useRef<{ entryId: string; resolve: () => void } | null>(null);
+  const batchInFlightRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,6 +94,7 @@ export function JournalHomePage() {
     [filter, roster.entries],
   );
   const selectedEntry = roster.entries.find((entry) => entry.id === selectedEntryId) ?? null;
+  const completedEntries = useMemo(() => roster.entries.filter((entry) => entry.status === "COMPLETED"), [roster.entries]);
 
   const applyEntryUpdate = useCallback((updated: JournalRosterEntry) => {
     setRoster((current) => {
@@ -135,6 +147,50 @@ export function JournalHomePage() {
     }
   };
 
+  const waitForBatchRender = (viewModel: JournalPreviewViewModel) => new Promise<void>((resolve) => {
+    batchReadyRef.current = { entryId: viewModel.entryId, resolve };
+    setBatchViewModel(viewModel);
+  });
+
+  const batchExport = async () => {
+    if (batchInFlightRef.current || !completedEntries.length) return;
+    batchInFlightRef.current = true;
+    const rosterSnapshot = roster.entries.map((entry) => ({ ...entry }));
+    const targets = rosterSnapshot.filter((entry) => entry.status === "COMPLETED");
+    const filenames = buildUniqueJournalPngFilenames(targets.map((entry) => ({ dogName: entry.dog.name, businessDate })));
+    const files: JournalBatchFile[] = [];
+    let currentDogName = "";
+    setBatching(true);
+    setBatchProgress({ current: 0, total: targets.length });
+    setError("");
+    try {
+      for (let index = 0; index < targets.length; index += 1) {
+        const target = targets[index];
+        currentDogName = target.dog.name;
+        const persisted = await fetchJournalEntry(target.id);
+        if (persisted.status !== "COMPLETED" || persisted.businessDate !== businessDate) {
+          throw new Error("JOURNAL_BATCH_TARGET_CHANGED");
+        }
+        const viewModel = buildJournalPreviewViewModel(persisted, journalEntryToDraft(persisted), rosterSnapshot);
+        await waitForBatchRender(viewModel);
+        const root = batchRootRef.current;
+        if (!root) throw new Error("JOURNAL_BATCH_RENDER_UNAVAILABLE");
+        files.push({ filename: filenames[index], blob: await renderJournalImageBlob(root, "png") });
+        setBatchProgress({ current: index + 1, total: targets.length });
+      }
+      await downloadJournalBatchZip(files, businessDate);
+    } catch {
+      setError(currentDogName
+        ? `${currentDogName} 일지 이미지를 만들지 못했습니다. 전체 저장을 다시 시도해 주세요.`
+        : "완료 일지를 저장하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      batchReadyRef.current = null;
+      setBatchViewModel(null);
+      setBatching(false);
+      batchInFlightRef.current = false;
+    }
+  };
+
   if (selectedEntry) {
     return (
       <JournalEditor
@@ -168,7 +224,23 @@ export function JournalHomePage() {
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
         <div><strong className="text-base text-text-primary">{displayDate(businessDate)}</strong>{roster.summary.total ? <span className="ml-2 text-sm text-text-secondary">· {roster.summary.total}마리</span> : null}</div>
-        <Button type="button" onClick={openRegister}><Plus size={17} />{roster.summary.total ? "등원 추가" : "오늘 등원 등록"}</Button>
+        <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:justify-end">
+          <Button
+            type="button"
+            variant="secondary"
+            className="min-h-11 flex-1 sm:flex-none"
+            disabled={!completedEntries.length || batching}
+            aria-label={`${businessDate} 완료 일지 전체 저장`}
+            title={!completedEntries.length ? "저장할 완료 일지가 없습니다." : undefined}
+            onClick={() => void batchExport()}
+          >
+            {batching ? <LoaderCircle className="animate-spin" size={17} /> : <Archive size={17} />}
+            {batching
+              ? `일지 이미지 만드는 중 ${batchProgress.current} / ${batchProgress.total}`
+              : `완료 일지 전체 저장 · ${completedEntries.length}건`}
+          </Button>
+          <Button type="button" className="flex-1 sm:flex-none" onClick={openRegister}><Plus size={17} />{roster.summary.total ? "등원 추가" : "오늘 등원 등록"}</Button>
+        </div>
       </div>
 
       {error ? <div className="mt-4"><FormAlert>{error}</FormAlert></div> : null}
@@ -221,7 +293,37 @@ export function JournalHomePage() {
         <p className="mt-3 text-sm text-text-secondary">선택 {selectedDogIds.length}마리</p>
         <ModalActions><Button type="button" variant="secondary" disabled={saving} onClick={() => setRegisterOpen(false)}>취소</Button><Button type="button" disabled={!selectedDogIds.length || saving || directoryLoading} onClick={() => void register()}>{saving ? "등록 중..." : "오늘 등원 등록"}</Button></ModalActions>
       </Modal>
+
+      {batchViewModel ? (
+        <BatchJournalRenderer
+          viewModel={batchViewModel}
+          reportRef={batchRootRef}
+          onReady={(entryId) => {
+            if (batchReadyRef.current?.entryId !== entryId) return;
+            const ready = batchReadyRef.current;
+            batchReadyRef.current = null;
+            ready.resolve();
+          }}
+        />
+      ) : null}
     </section>
+  );
+}
+
+function BatchJournalRenderer({
+  viewModel,
+  reportRef,
+  onReady,
+}: {
+  viewModel: JournalPreviewViewModel;
+  reportRef: Ref<HTMLElement>;
+  onReady: (entryId: string) => void;
+}) {
+  useLayoutEffect(() => onReady(viewModel.entryId), [onReady, viewModel.entryId]);
+  return (
+    <div aria-hidden="true" className="pointer-events-none fixed left-[-12000px] top-0 h-[1440px] w-[1080px] overflow-hidden">
+      <JournalReportTemplate viewModel={viewModel} reportRef={reportRef} testId="journal-batch-export-template" />
+    </div>
   );
 }
 

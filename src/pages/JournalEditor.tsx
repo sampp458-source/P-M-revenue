@@ -4,7 +4,7 @@ import { Button, Card, FormAlert, Input, Modal, Textarea } from "../components/u
 import { JournalAutosaveQueue, type JournalSaveState } from "./journalAutosave";
 import { exportJournalImage, type JournalExportFormat } from "./journalExport";
 import { JournalReportPreview, JournalReportTemplate } from "./JournalReportTemplate";
-import { buildJournalPreviewViewModel } from "./journalPreviewViewModel";
+import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import {
   completeJournalEntry,
   fetchJournalEntry,
@@ -45,22 +45,6 @@ const physicalOptions: Array<[JournalPhysicalEvaluation, string]> = [
   ["champion", "나는야 체육왕"], ["fun", "너무 재미있었어요"], ["rest", "오늘은 쉴래요"],
 ];
 
-const toDraft = (entry: JournalRosterEntry): JournalDraft => ({
-  conditionCodes: entry.conditionCodes ?? [],
-  urination: entry.urination ?? null,
-  defecation: entry.defecation ?? null,
-  stoolCondition: entry.stoolCondition ?? null,
-  mealCodes: entry.mealCodes ?? [],
-  teacherRelationship: entry.teacherRelationship ?? null,
-  friendRelationship: entry.friendRelationship ?? null,
-  bestFriendDogId: entry.bestFriendDogId ?? null,
-  mannersActivityName: entry.mannersActivityName ?? "",
-  mannersEvaluation: entry.mannersEvaluation ?? null,
-  physicalActivityName: entry.physicalActivityName ?? "",
-  physicalEvaluation: entry.physicalEvaluation ?? null,
-  teacherComment: entry.teacherComment ?? "",
-});
-
 const displayDate = (date: string) =>
   new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(`${date}T12:00:00+09:00`));
 
@@ -78,7 +62,7 @@ export function JournalEditor({
   onClose: () => void;
 }) {
   const [entry, setEntry] = useState(rosterEntry);
-  const [draft, setDraft] = useState<JournalDraft>(() => toDraft(rosterEntry));
+  const [draft, setDraft] = useState<JournalDraft>(() => journalEntryToDraft(rosterEntry));
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<JournalSaveState>("idle");
   const [error, setError] = useState("");
@@ -99,7 +83,7 @@ export function JournalEditor({
       .then((loaded) => {
         if (cancelled) return;
         setEntry(loaded);
-        setDraft(toDraft(loaded));
+        setDraft(journalEntryToDraft(loaded));
         versionRef.current = loaded.version;
         queueRef.current = new JournalAutosaveQueue(
           loaded.version,

@@ -60,7 +60,7 @@ export function JournalReportTemplate({
 
 function DailyStatusComposition({ viewModel }: { viewModel: JournalPreviewViewModel }) {
   return (
-    <section data-journal-section="daily-status" data-card-surface="daily-status" aria-label="오늘의 상태" className="relative grid grid-cols-[1.08fr_0.92fr] overflow-hidden rounded-[46px_22px_38px_28px] bg-[linear-gradient(102deg,#fffafb_0%,#fffafb_51%,#fbfffd_51%,#fbfffd_100%)] px-[24px]">
+    <section data-journal-section="daily-status" data-card-surface="daily-status" aria-label="오늘의 상태" className="relative grid grid-cols-[0.9fr_1.1fr] overflow-hidden rounded-[46px_22px_38px_28px] bg-[linear-gradient(102deg,#fffafb_0%,#fffafb_45%,#fbfffd_45%,#fbfffd_100%)] px-[24px]">
       <span className="absolute -left-[10px] top-[8px] h-[58px] w-[96px] rotate-[-5deg] rounded-[50%] bg-[#ffe9ed]/62" />
       <span className="absolute right-[18px] bottom-[5px] h-[38px] w-[118px] rotate-[2deg] rounded-[50%] bg-[#e6f7ef]/72" />
       <div className="relative py-[4px] pr-[28px]" style={{ "--journal-selected": palette.coral.highlight } as React.CSSProperties}>
@@ -71,10 +71,10 @@ function DailyStatusComposition({ viewModel }: { viewModel: JournalPreviewViewMo
       <div className="relative py-[4px] pl-[30px]" style={{ "--journal-selected": palette.green.highlight } as React.CSSProperties}>
         <span className="absolute left-0 top-[22px] h-[104px] border-l-2 border-dotted border-[#cfeede]" />
         <SectionHeading title="배변 상태" icon={<Flower2 size={24} />} color={palette.green.accent} />
-        <div className="grid grid-cols-[0.72fr_0.72fr_1.56fr] gap-[12px]">
+        <div className="grid grid-cols-[0.55fr_0.55fr_1.9fr] gap-[8px]">
           <Binary label="소변" options={viewModel.urinationOptions} />
           <Binary label="대변" options={viewModel.defecationOptions} />
-          <div><SmallLabel>대변 상태</SmallLabel><Options options={viewModel.stoolOptions} columns={2} compact /></div>
+          <div data-testid="journal-stool-status"><SmallLabel>대변 상태</SmallLabel><Options options={viewModel.stoolOptions} columns={2} compact singleLine /></div>
         </div>
       </div>
     </section>
@@ -84,7 +84,7 @@ function DailyStatusComposition({ viewModel }: { viewModel: JournalPreviewViewMo
 function MealRelationshipComposition({ viewModel }: { viewModel: JournalPreviewViewModel }) {
   return (
     <section data-journal-section="meal-relationship" data-card-surface="story" aria-label="식사와 관계 이야기" className="relative grid grid-cols-[0.74fr_1.26fr] gap-[22px] overflow-visible px-[9px]">
-      <div className="relative self-center rounded-[30px_48px_24px_38px] bg-[#fffef8] px-[17px] pb-[14px] pt-[20px]" style={{ "--journal-selected": palette.amber.highlight } as React.CSSProperties}>
+      <div className="relative self-stretch rounded-[30px_48px_24px_38px] bg-[#fffef8] px-[17px] py-[12px]" style={{ "--journal-selected": palette.amber.highlight } as React.CSSProperties}>
         <span className="absolute -left-[8px] top-[17px] h-[132px] w-[116px] rotate-[-5deg] rounded-[48%] bg-[#fff3bc]/38" />
         <JournalSectionIllustration name="meal" className="absolute -right-[5px] -top-[13px] h-[90px] w-[120px] rotate-[3deg] opacity-90" />
         <SectionHeading title="유치원에서 먹은 것" icon={<Salad size={24} />} color={palette.amber.accent} />
@@ -129,20 +129,22 @@ function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
       <JournalCharacter name="dogBPeeking" className="absolute right-[8px] top-[41px] h-[142px] w-[205px] object-contain" />
 
       <div className="mx-auto flex w-[590px] flex-col items-center">
-        <div className="flex items-center gap-[9px]">
-          <img src={pmLogo} alt="P&M" className="h-[42px] w-[42px] rounded-[13px] bg-[#2f6284] object-contain p-[3px] shadow-[0_4px_11px_rgb(47_98_132_/_0.12)]" />
-          <p className="text-[22px] font-black tracking-[0.17em] text-[#2f6284]">P&amp;M</p>
-        </div>
-        <div className="relative mt-[7px] px-[42px] pb-[11px]">
+        <img
+          src={pmLogo}
+          alt="P&M"
+          data-testid="journal-official-logo"
+          className="h-[52px] w-[132px] object-contain"
+          style={{ filter: "brightness(0) saturate(100%) invert(32%) sepia(22%) saturate(1195%) hue-rotate(158deg) brightness(92%) contrast(90%)" }}
+        />
+        <div className="relative mt-[3px] px-[42px] pb-[11px]">
           <span className="absolute inset-x-[18px] bottom-[5px] h-[15px] -rotate-1 rounded-full bg-[#ff7f82]/42" />
           <h1 className="relative text-[52px] font-black tracking-[-0.055em] text-[#2f6284]">하루 일지</h1>
         </div>
       </div>
 
-      <div className="absolute inset-x-[48px] bottom-[14px] flex items-end gap-[16px] rounded-[22px] border border-[#e6eef4] bg-[#fffcf8]/94 px-[20px] py-[8px]">
-        <p className={longTextClass(viewModel.dogName, "min-w-0 flex-1 break-words font-black tracking-[-0.045em] text-[#2f6284]")}>{viewModel.dogName}</p>
-        <span className="mb-[7px] h-0 min-w-[80px] flex-1 border-b-[3px] border-dotted border-[#ffb8bc]" />
-        <p className="shrink-0 text-[22px] font-extrabold tabular-nums text-[#607488]">{viewModel.displayDate}</p>
+      <div className="absolute bottom-[14px] left-[190px] right-[48px] flex min-h-[57px] items-center justify-between gap-[24px] px-[20px] py-[7px]">
+        <p data-testid="journal-dog-name" className={longTextClass(viewModel.dogName, "min-w-0 break-words font-black tracking-[-0.045em] text-[#2f6284]")}>{viewModel.dogName}</p>
+        <p className="shrink-0 text-[21px] font-bold tabular-nums text-[#718395]">{viewModel.displayDate}</p>
       </div>
     </header>
   );
@@ -181,7 +183,7 @@ function BestFriendRibbon({ name }: { name: string }) {
         <span className="absolute left-[108px] top-[19px] h-[58px] w-[68px] rotate-[-8deg] rounded-[50%] bg-[#ffe9ed]/55" />
         <JournalCharacter name="bestFriendDuo" className="relative z-10 mr-[-34px] h-[116px] w-[244px] self-end object-contain object-bottom" />
         <div className="relative z-10 flex w-[474px] min-w-0 flex-col items-center justify-center">
-          <p className="text-[17px] font-extrabold tracking-[-0.02em] text-[#607488]">오늘의 제일 친한 친구는</p>
+          <p className="text-[20px] font-black tracking-[-0.02em] text-[#607488]">오늘의 제일 친한 친구는</p>
           <div className="mt-[-4px] flex min-w-0 items-end justify-center gap-[11px]">
             <strong data-testid="journal-best-friend-name" className={bestFriendNameClass(name)}>{name || "\u00a0"}</strong>
             <p className="mb-[5px] shrink-0 text-[20px] font-extrabold text-[#607488]">예요 <span className="text-[#ff7f82]">♡</span></p>
@@ -205,7 +207,7 @@ function ActivityCard({ activity, icon, paletteName, motif }: { activity: Journa
       </div>
       <div className={`flex h-[47px] items-center justify-center px-[10px] pb-[3px] text-center font-black text-[#25384a] ${activityClass}`}><span className="max-w-full whitespace-normal break-words">{activity.activityName || "\u00a0"}</span></div>
       <span className={`mx-auto block h-[4px] w-[58%] rounded-full ${motif === "medal" ? "rotate-[-1deg] bg-[#ffd9df]/75" : "rotate-[1deg] bg-[#cfeede]/80"}`} />
-      <div className="mt-[1px]"><Options options={activity.options} columns={3} compact /></div>
+      <div className="mt-[1px]"><Options options={activity.options} columns={3} compact singleLine layout={motif === "medal" ? "manners" : "physical"} /></div>
       </div>
     </section>
   );
@@ -230,9 +232,25 @@ function SectionHeading({ title, icon, color }: { title: string; icon: ReactNode
   return <h2 className="relative mb-[5px] flex items-center gap-[8px] text-[26px] font-black tracking-[-0.025em]" style={{ color }}><span className="flex h-[36px] w-[36px] items-center justify-center rounded-[13px_20px_14px_21px] bg-[#f6f9fb]">{icon}</span>{title}</h2>;
 }
 
-function Options({ options, columns, compact = false }: { options: JournalPreviewOption[]; columns: 2 | 3; compact?: boolean }) {
-  const columnClass = columns === 3 ? "grid-cols-3" : "grid-cols-2";
-  return <div className={`grid gap-x-[6px] gap-y-[2px] ${columnClass}`}>{options.map((option, index) => <Option key={option.code} option={option} compact={compact} variant={index} />)}</div>;
+function Options({
+  options,
+  columns,
+  compact = false,
+  singleLine = false,
+  layout = "equal",
+}: {
+  options: JournalPreviewOption[];
+  columns: 2 | 3;
+  compact?: boolean;
+  singleLine?: boolean;
+  layout?: "equal" | "manners" | "physical";
+}) {
+  const columnClass = layout === "manners"
+    ? "grid-cols-[0.82fr_1.48fr]"
+    : layout === "physical"
+      ? "grid-cols-[0.92fr_1.28fr]"
+      : columns === 3 ? "grid-cols-3" : "grid-cols-2";
+  return <div className={`grid gap-x-[3px] gap-y-[2px] ${columnClass}`}>{options.map((option, index) => <Option key={option.code} option={option} compact={compact} variant={index} singleLine={singleLine} className={layout !== "equal" && index === 2 ? "col-span-2 justify-self-center" : ""} />)}</div>;
 }
 
 const markVariants = [
@@ -247,12 +265,12 @@ const highlightVariants = [
   "linear-gradient(174deg, transparent 49%, var(--journal-selected, rgb(255 233 237 / 0.9)) 49%, var(--journal-selected, rgb(255 233 237 / 0.9)) 90%, transparent 90%)",
 ] as const;
 
-function Option({ option, compact = false, variant = 0 }: { option: JournalPreviewOption; compact?: boolean; variant?: number }) {
+function Option({ option, compact = false, variant = 0, singleLine = false, className = "" }: { option: JournalPreviewOption; compact?: boolean; variant?: number; singleLine?: boolean; className?: string }) {
   const variantIndex = variant % markVariants.length;
   return (
-    <div className={`relative flex min-w-0 items-center px-[4px] ${compact ? "min-h-[31px] text-[19px]" : "min-h-[36px] text-[22px]"} ${option.selected ? "font-black text-[#25384a]" : "font-semibold text-[#667786]"}`} style={option.selected ? { background: highlightVariants[variantIndex] } : undefined} data-selected={option.selected ? "true" : "false"} data-mark-variant={variantIndex}>
+    <div className={`relative flex min-w-0 items-center px-[4px] ${compact ? "min-h-[31px] text-[19px]" : "min-h-[36px] text-[22px]"} ${option.selected ? "font-black text-[#25384a]" : "font-semibold text-[#667786]"} ${className}`} style={option.selected ? { background: highlightVariants[variantIndex] } : undefined} data-selected={option.selected ? "true" : "false"} data-mark-variant={variantIndex}>
       <span className={`mr-[6px] flex h-[23px] w-[23px] shrink-0 items-center justify-center border font-black ${markVariants[variantIndex]} ${option.selected ? "border-[2px] border-[#ff9da2]/75 text-[#ff646a]" : "border-[1.5px] border-[#aebdc8] text-transparent"}`}>{option.selected ? <Check className="rotate-[-4deg]" size={18} strokeWidth={3.4} /> : <span aria-hidden="true">·</span>}</span>
-      <span className="min-w-0 break-keep leading-[1.14]">{option.label}</span>
+      <span className={`min-w-0 break-keep leading-[1.14] ${singleLine ? "whitespace-nowrap" : ""}`}>{option.label}</span>
     </div>
   );
 }

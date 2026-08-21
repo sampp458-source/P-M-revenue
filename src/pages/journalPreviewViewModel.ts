@@ -69,6 +69,22 @@ const binaryOptions = (selected: boolean | null): JournalPreviewOption[] => [
   { code: "no", label: "X", selected: selected === false },
 ];
 
+export const journalEntryToDraft = (entry: JournalRosterEntry): JournalDraft => ({
+  conditionCodes: entry.conditionCodes ?? [],
+  urination: entry.urination ?? null,
+  defecation: entry.defecation ?? null,
+  stoolCondition: entry.stoolCondition ?? null,
+  mealCodes: entry.mealCodes ?? [],
+  teacherRelationship: entry.teacherRelationship ?? null,
+  friendRelationship: entry.friendRelationship ?? null,
+  bestFriendDogId: entry.bestFriendDogId ?? null,
+  mannersActivityName: entry.mannersActivityName ?? "",
+  mannersEvaluation: entry.mannersEvaluation ?? null,
+  physicalActivityName: entry.physicalActivityName ?? "",
+  physicalEvaluation: entry.physicalEvaluation ?? null,
+  teacherComment: entry.teacherComment ?? "",
+});
+
 export function buildJournalPreviewViewModel(
   entry: JournalRosterEntry,
   draft: JournalDraft,

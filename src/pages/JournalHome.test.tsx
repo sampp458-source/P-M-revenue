@@ -7,8 +7,11 @@ import { JournalHomePage } from "./JournalHome";
 const mocks = vi.hoisted(() => ({
   fetchRoster: vi.fn(),
   fetchDirectory: vi.fn(),
+  fetchEntry: vi.fn(),
   register: vi.fn(),
   remove: vi.fn(),
+  renderImage: vi.fn(),
+  downloadBatch: vi.fn(),
 }));
 
 vi.mock("./operationsScheduleRepository", async (importOriginal) => ({
@@ -19,8 +22,17 @@ vi.mock("./journalRepository", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./journalRepository")>()),
   fetchJournalRoster: mocks.fetchRoster,
   fetchJournalDogDirectory: mocks.fetchDirectory,
+  fetchJournalEntry: mocks.fetchEntry,
   registerJournalRoster: mocks.register,
   removeJournalRosterEntry: mocks.remove,
+}));
+vi.mock("./journalExport", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./journalExport")>()),
+  renderJournalImageBlob: mocks.renderImage,
+}));
+vi.mock("./journalBatchExport", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./journalBatchExport")>()),
+  downloadJournalBatchZip: mocks.downloadBatch,
 }));
 
 const roster = {
@@ -57,6 +69,35 @@ describe("Journal Home roster", () => {
     fireEvent.click(screen.getByRole("button", { name: "미작성" }));
     expect(screen.getByText("초코")).not.toBeNull();
     expect(screen.queryByText("크리미")).toBeNull();
+  });
+
+  it("exports only the selected date's persisted COMPLETED entries as one PNG ZIP", async () => {
+    mocks.fetchRoster.mockResolvedValue(roster);
+    mocks.fetchEntry.mockResolvedValue(roster.entries[0]);
+    mocks.renderImage.mockResolvedValue(new Blob(["png"], { type: "image/png" }));
+    mocks.downloadBatch.mockResolvedValue({ blob: new Blob(), filename: "P&M_하루일지_2026-08-15.zip" });
+    render(<JournalHomePage />);
+    await screen.findByText("크리미");
+    const batch = screen.getByRole("button", { name: "2026-08-15 완료 일지 전체 저장" });
+    expect(batch.textContent).toContain("1건");
+    fireEvent.click(batch);
+    fireEvent.click(batch);
+    await waitFor(() => expect(mocks.downloadBatch).toHaveBeenCalledTimes(1));
+    expect(mocks.fetchEntry).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchEntry).toHaveBeenCalledWith("entry-1");
+    expect(mocks.renderImage).toHaveBeenCalledTimes(1);
+    expect(mocks.downloadBatch.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ filename: "P&M_하루일지_크리미_2026-08-15.png", blob: expect.objectContaining({ type: "image/png" }) }),
+    ]);
+    expect(mocks.downloadBatch.mock.calls[0][1]).toBe("2026-08-15");
+  });
+
+  it("disables batch export instead of creating an empty ZIP", async () => {
+    mocks.fetchRoster.mockResolvedValue({ ...roster, journalDayId: null, summary: { total: 0, notStarted: 0, inProgress: 0, completed: 0 }, entries: [] });
+    render(<JournalHomePage />);
+    await screen.findByText("오늘 등원한 아이들을 등록해주세요.");
+    expect(screen.getByRole("button", { name: "2026-08-15 완료 일지 전체 저장" }).hasAttribute("disabled")).toBe(true);
+    expect(mocks.downloadBatch).not.toHaveBeenCalled();
   });
 
   it("reuses multi-search by Dog, Customer, and phone and registers selected Dogs", async () => {
