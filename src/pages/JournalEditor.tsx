@@ -10,6 +10,7 @@ import {
   type JournalRasterCacheEntry,
 } from "./journalRenderContract";
 import { JournalReportTemplate } from "./JournalReportTemplate";
+import { JournalPreviewScheduler } from "./journalPreviewScheduler";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import {
   completeJournalEntry,
@@ -84,6 +85,10 @@ export function JournalEditor({
   const [previewRaster, setPreviewRaster] = useState<JournalRasterCacheEntry | null>(null);
   const [previewRendering, setPreviewRendering] = useState(true);
   const [previewError, setPreviewError] = useState("");
+  const [previewRetry, setPreviewRetry] = useState(0);
+  const [navigationIntent, setNavigationIntent] = useState<"list" | string | null>(null);
+  const navigationInFlightRef = useRef(false);
+  const previewSchedulerRef = useRef<JournalPreviewScheduler<Blob> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,40 +133,44 @@ export function JournalEditor({
   const previewKey = useMemo(() => buildJournalPreviewRenderKey(previewViewModel), [previewViewModel]);
 
   useEffect(() => {
-    if (loading) return;
-    let cancelled = false;
-    const staleRaster = previewRasterRef.current;
-    if (staleRaster && !isCurrentJournalRasterCacheEntry(staleRaster, previewKey)) {
-      previewRasterRef.current = null;
-      setPreviewRaster(null);
-      URL.revokeObjectURL(staleRaster.url);
-    }
-    const timer = window.setTimeout(() => {
-      const source = previewSourceRootRef.current;
-      if (!source) return;
-      setPreviewRendering(true);
-      setPreviewError("");
-      void renderJournalImageBlob(source, "png")
-        .then((blob) => {
-          if (cancelled) return;
-          const next = createCurrentJournalRasterCacheEntry(previewKey, blob, URL.createObjectURL(blob));
-          const previousRaster = previewRasterRef.current;
-          previewRasterRef.current = next;
-          setPreviewRaster(next);
-          if (previousRaster) URL.revokeObjectURL(previousRaster.url);
-        })
-        .catch(() => {
-          if (!cancelled) setPreviewError("미리보기를 만들지 못했습니다. 다시 시도해 주세요.");
-        })
-        .finally(() => {
-          if (!cancelled) setPreviewRendering(false);
-        });
-    }, 80);
+    const scheduler = new JournalPreviewScheduler<Blob>(
+      () => {
+        setPreviewRendering(true);
+        setPreviewError("");
+      },
+      (key, blob) => {
+        const nextRaster = createCurrentJournalRasterCacheEntry(key, blob, URL.createObjectURL(blob));
+        const previousRaster = previewRasterRef.current;
+        previewRasterRef.current = nextRaster;
+        setPreviewRaster(nextRaster);
+        if (previousRaster) URL.revokeObjectURL(previousRaster.url);
+        setPreviewRendering(false);
+      },
+      () => {
+        setPreviewError("미리보기를 만들지 못했습니다. 다시 시도해 주세요.");
+        setPreviewRendering(false);
+      },
+    );
+    previewSchedulerRef.current = scheduler;
     return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
+      scheduler.dispose();
+      previewSchedulerRef.current = null;
     };
-  }, [loading, previewKey]);
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    setPreviewRendering(true);
+    setPreviewError("");
+    previewSchedulerRef.current?.request({
+      key: previewKey,
+      run: () => {
+        const source = previewSourceRootRef.current;
+        if (!source) return Promise.reject(new Error("JOURNAL_PREVIEW_SOURCE_UNAVAILABLE"));
+        return renderJournalImageBlob(source, "png");
+      },
+    }, previewRetry > 0);
+  }, [loading, previewKey, previewRetry]);
 
   useEffect(() => () => {
     const current = previewRasterRef.current;
@@ -187,12 +196,23 @@ export function JournalEditor({
     }
   };
 
+  const navigateAfterSave = async (intent: "list" | string, navigate: () => void) => {
+    if (navigationInFlightRef.current) return;
+    navigationInFlightRef.current = true;
+    setNavigationIntent(intent);
+    if (await flush()) navigate();
+    else {
+      navigationInFlightRef.current = false;
+      setNavigationIntent(null);
+    }
+  };
+
   const move = async (targetId: string) => {
-    if (await flush()) onNavigate(targetId);
+    await navigateAfterSave(targetId, () => onNavigate(targetId));
   };
 
   const close = async () => {
-    if (await flush()) onClose();
+    await navigateAfterSave("list", onClose);
   };
 
   const complete = async () => {
@@ -240,16 +260,16 @@ export function JournalEditor({
         <div className="min-w-0">
           <header className="mb-3 rounded-2xl border border-border bg-surface p-3 shadow-sm sm:p-4">
             <div className="flex min-h-11 items-center gap-3">
-              <button type="button" onClick={() => void close()} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-text-secondary hover:bg-primary-soft hover:text-primary"><ArrowLeft size={18} />목록</button>
+              <button type="button" aria-busy={navigationIntent === "list"} onClick={() => void close()} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-text-secondary hover:bg-primary-soft hover:text-primary">{navigationIntent === "list" ? <LoaderCircle className="animate-spin" size={18} /> : <ArrowLeft size={18} />}목록</button>
               <div className="min-w-0 flex-1 border-l border-border pl-3">
                 <h1 className="truncate text-lg font-bold text-text-primary sm:text-xl">{entry.dog.name}</h1>
                 <p className="truncate text-xs text-text-secondary sm:text-sm">{displayDate(entry.businessDate)} · {entry.status === "COMPLETED" ? "완료" : entry.status === "IN_PROGRESS" ? "작성중" : "미작성"} · <SaveState state={saveState} /></p>
               </div>
             </div>
             <nav className="mt-2 grid grid-cols-3 items-center gap-2 border-t border-border pt-2" aria-label="일지 대상 이동">
-              <Button type="button" variant="ghost" className="px-2" disabled={!previous || saveState === "saving"} onClick={() => previous && void move(previous.id)}><ChevronLeft size={17} />이전</Button>
+              <Button type="button" variant="ghost" className="px-2" disabled={!previous} aria-busy={Boolean(previous && navigationIntent === previous.id)} onClick={() => previous && void move(previous.id)}>{previous && navigationIntent === previous.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronLeft size={17} />}이전</Button>
               <span className="text-center text-sm font-semibold tabular-nums text-text-secondary">{position + 1} / {rosterEntries.length}</span>
-              <Button type="button" variant="ghost" className="px-2" disabled={!next || saveState === "saving"} onClick={() => next && void move(next.id)}>다음<ChevronRight size={17} /></Button>
+              <Button type="button" variant="ghost" className="px-2" disabled={!next} aria-busy={Boolean(next && navigationIntent === next.id)} onClick={() => next && void move(next.id)}>다음{next && navigationIntent === next.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronRight size={17} />}</Button>
             </nav>
           </header>
 
@@ -303,7 +323,7 @@ export function JournalEditor({
 
         <aside className="sticky top-6 hidden min-w-0 xl:block" aria-label={`${previewViewModel.dogName} 결과 미리보기`}>
           <JournalExportActions ready={isCurrentJournalRasterCacheEntry(previewRaster, previewKey) && !previewRendering} exporting={exporting} error={exportError || previewError} onExport={exportImage} />
-          <JournalRasterPreview viewModel={previewViewModel} rasterUrl={isCurrentJournalRasterCacheEntry(previewRaster, previewKey) ? previewRaster!.url : null} rendering={previewRendering} className="mx-auto max-w-[min(34rem,calc((100vh-3rem)*0.75))] rounded-2xl shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
+          <JournalRasterPreview viewModel={previewViewModel} rasterUrl={previewRaster?.url ?? null} rendering={previewRendering} error={previewError} onRetry={() => setPreviewRetry((value) => value + 1)} className="mx-auto max-w-[min(34rem,calc((100vh-3rem)*0.75))] rounded-2xl shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
         </aside>
       </div>
 
@@ -319,7 +339,7 @@ export function JournalEditor({
 
       <Modal open={previewOpen} title="결과 미리보기" description={`${previewViewModel.dogName} · ${previewViewModel.displayDate}`} onClose={() => setPreviewOpen(false)} size="large" resetKey={entry.id}>
         <JournalExportActions ready={isCurrentJournalRasterCacheEntry(previewRaster, previewKey) && !previewRendering} exporting={exporting} error={exportError || previewError} onExport={exportImage} />
-        <JournalRasterPreview viewModel={previewViewModel} rasterUrl={isCurrentJournalRasterCacheEntry(previewRaster, previewKey) ? previewRaster!.url : null} rendering={previewRendering} className="mx-auto max-w-[calc((100dvh-10rem)*0.75)] rounded-xl shadow-[0_12px_36px_rgb(23_36_58_/_0.14)]" />
+        <JournalRasterPreview viewModel={previewViewModel} rasterUrl={previewRaster?.url ?? null} rendering={previewRendering} error={previewError} onRetry={() => setPreviewRetry((value) => value + 1)} className="mx-auto max-w-[calc((100dvh-10rem)*0.75)] rounded-xl shadow-[0_12px_36px_rgb(23_36_58_/_0.14)]" />
       </Modal>
 
       <div aria-hidden="true" data-testid="journal-canonical-preview-source" className="pointer-events-none fixed left-[-12000px] top-0 h-[1440px] w-[1080px] overflow-hidden">
@@ -333,17 +353,22 @@ function JournalRasterPreview({
   viewModel,
   rasterUrl,
   rendering,
+  error,
+  onRetry,
   className = "",
 }: {
   viewModel: ReturnType<typeof buildJournalPreviewViewModel>;
   rasterUrl: string | null;
   rendering: boolean;
+  error: string;
+  onRetry: () => void;
   className?: string;
 }) {
   return (
     <div data-testid="journal-raster-preview" className={`relative aspect-[3/4] overflow-hidden bg-[#fffcf8] ${className}`}>
       {rasterUrl ? <img src={rasterUrl} alt={`${viewModel.dogName} 하루일지 미리보기`} className="h-full w-full object-contain" /> : null}
-      {rendering || !rasterUrl ? <div className="absolute inset-0 flex items-center justify-center bg-[#fffcf8]/90 text-sm font-semibold text-text-secondary"><LoaderCircle className="mr-2 animate-spin" size={18} />미리보기 준비 중</div> : null}
+      {rendering ? <div className={`absolute inset-0 flex items-center justify-center text-sm font-semibold text-text-secondary ${rasterUrl ? "bg-[#fffcf8]/70" : "bg-[#fffcf8]/90"}`}><LoaderCircle className="mr-2 animate-spin" size={18} />{rasterUrl ? "미리보기 업데이트 중" : "미리보기 준비 중"}</div> : null}
+      {!rendering && error ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#fffcf8]/90 px-6 text-center text-sm font-semibold text-text-secondary"><span>미리보기를 만들지 못했습니다.</span><Button type="button" variant="secondary" onClick={onRetry}>재시도</Button></div> : null}
     </div>
   );
 }

@@ -126,6 +126,26 @@ describe("Journal image export", () => {
     expect(decode).toHaveBeenCalledTimes(2);
   });
 
+  it("reuses an approved asset payload across repeated preview snapshots", async () => {
+    const createRoot = () => {
+      const root = document.createElement("div");
+      const image = document.createElement("img");
+      image.src = "/assets/journal-preview-cache-contract.png";
+      Object.defineProperties(image, {
+        complete: { configurable: true, value: true },
+        naturalWidth: { configurable: true, value: 320 },
+        decode: { configurable: true, value: vi.fn().mockResolvedValue(undefined) },
+      });
+      root.appendChild(image);
+      return root;
+    };
+    const fetchAsset = vi.fn().mockResolvedValue({ ok: true, blob: async () => new Blob(["approved-image"], { type: "image/png" }) });
+    vi.stubGlobal("fetch", fetchAsset);
+    await inlineJournalSnapshotImages(createRoot());
+    await inlineJournalSnapshotImages(createRoot());
+    expect(fetchAsset).toHaveBeenCalledTimes(1);
+  });
+
   it("fails closed instead of caching a snapshot when an approved asset cannot be embedded", async () => {
     const root = document.createElement("div");
     const image = document.createElement("img");

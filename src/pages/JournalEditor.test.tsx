@@ -78,13 +78,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const renderEditor = (target = roster[0]) => render(
+const renderEditor = (
+  target = roster[0],
+  options: { onNavigate?: (entryId: string) => void; onClose?: () => void } = {},
+) => render(
   <JournalEditor
     entry={target}
     rosterEntries={roster}
     onEntryUpdate={vi.fn()}
-    onNavigate={vi.fn()}
-    onClose={vi.fn()}
+    onNavigate={options.onNavigate ?? vi.fn()}
+    onClose={options.onClose ?? vi.fn()}
   />,
 );
 
@@ -158,6 +161,65 @@ describe("Journal Editor", () => {
     fireEvent.click(screen.getByRole("button", { name: "다음" }));
     await waitFor(() => expect(onNavigate).toHaveBeenCalledWith("entry-2"));
     expect(mocks.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts next navigation without waiting for an in-flight preview raster", async () => {
+    const onNavigate = vi.fn();
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.renderImage.mockImplementation(() => new Promise(() => undefined));
+    renderEditor(roster[0], { onNavigate });
+    await screen.findByRole("heading", { name: "크리미" });
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    await waitFor(() => expect(onNavigate).toHaveBeenCalledWith("entry-2"));
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it("accepts navigation during an autosave, shows immediate feedback, and waits only for save integrity", async () => {
+    let finishSave!: (value: JournalRosterEntry) => void;
+    const saving = new Promise<JournalRosterEntry>((resolve) => { finishSave = resolve; });
+    const onNavigate = vi.fn();
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.update.mockReturnValue(saving);
+    renderEditor(roster[0], { onNavigate });
+    await screen.findByRole("heading", { name: "크리미" });
+    fireEvent.change(screen.getByRole("textbox", { name: "선생님의 한마디" }), { target: { value: "이동 직전 저장" } });
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    const nextButton = screen.getByRole("button", { name: "다음" });
+    expect(nextButton.getAttribute("aria-busy")).toBe("true");
+    expect(nextButton.hasAttribute("disabled")).toBe(false);
+    expect(onNavigate).not.toHaveBeenCalled();
+    finishSave(entry({ teacherComment: "이동 직전 저장", status: "IN_PROGRESS", version: 2 }));
+    await waitFor(() => expect(onNavigate).toHaveBeenCalledWith("entry-2"));
+    expect(mocks.update).toHaveBeenCalledWith("entry-1", 1, expect.objectContaining({ teacherComment: "이동 직전 저장" }));
+  });
+
+  it.each([
+    ["이전", roster[1], "entry-1"],
+    ["목록", roster[0], null],
+  ] as const)("flushes pending input before %s navigation", async (buttonName, target, destination) => {
+    const onNavigate = vi.fn();
+    const onClose = vi.fn();
+    mocks.fetch.mockResolvedValue(target);
+    mocks.update.mockImplementation(async (_id, version, draft) => entry({ ...target, ...draft, version: version + 1 }));
+    renderEditor(target, { onNavigate, onClose });
+    await screen.findByRole("heading", { name: target.dog.name });
+    fireEvent.change(screen.getByRole("textbox", { name: "선생님의 한마디" }), { target: { value: `${buttonName} 직전 저장` } });
+    fireEvent.click(screen.getByRole("button", { name: buttonName }));
+    if (destination) await waitFor(() => expect(onNavigate).toHaveBeenCalledWith(destination));
+    else await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps editor navigation available when preview generation fails", async () => {
+    const onClose = vi.fn();
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.renderImage.mockRejectedValue(new Error("preview failed"));
+    renderEditor(roster[0], { onClose });
+    await screen.findByRole("heading", { name: "크리미" });
+    expect((await screen.findByRole("alert")).textContent).toBe("미리보기를 만들지 못했습니다. 다시 시도해 주세요.");
+    expect(screen.getByRole("button", { name: "재시도" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "목록" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
   });
 
   it("reopens a completed entry for valid editing and offers the next unfinished Dog", async () => {

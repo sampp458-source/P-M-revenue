@@ -64,17 +64,33 @@ function blobToDataUrl(blob: Blob) {
   });
 }
 
+const journalAssetDataUrlCache = new Map<string, Promise<string>>();
+
+function loadJournalAssetDataUrl(source: string) {
+  const cached = journalAssetDataUrlCache.get(source);
+  if (cached) return cached;
+  const loading = fetch(source, { cache: "force-cache", credentials: "same-origin" })
+    .then(async (response) => {
+      if (!response.ok) throw new Error("JOURNAL_EXPORT_ASSET_INLINE_FAILED");
+      const blob = await response.blob();
+      if (!blob.type.startsWith("image/")) throw new Error("JOURNAL_EXPORT_ASSET_INLINE_FAILED");
+      return blobToDataUrl(blob);
+    })
+    .catch((error) => {
+      journalAssetDataUrlCache.delete(source);
+      throw error;
+    });
+  journalAssetDataUrlCache.set(source, loading);
+  return loading;
+}
+
 export async function inlineJournalSnapshotImages(root: HTMLElement) {
   await waitForJournalAssets(root);
   const images = Array.from(root.querySelectorAll("img"));
   await Promise.all(images.map(async (image) => {
     const source = image.currentSrc || image.src;
     if (!source || source.startsWith("data:")) return;
-    const response = await fetch(source, { cache: "force-cache", credentials: "same-origin" });
-    if (!response.ok) throw new Error("JOURNAL_EXPORT_ASSET_INLINE_FAILED");
-    const blob = await response.blob();
-    if (!blob.type.startsWith("image/")) throw new Error("JOURNAL_EXPORT_ASSET_INLINE_FAILED");
-    image.src = await blobToDataUrl(blob);
+    image.src = await loadJournalAssetDataUrl(source);
     image.dataset.journalAssetInlined = "true";
   }));
   await waitForJournalAssets(root);
