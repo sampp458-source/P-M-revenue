@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JournalEditor } from "./JournalEditor";
 import {
@@ -67,7 +68,7 @@ const roster = [
 ];
 
 beforeEach(() => {
-  mocks.renderImage.mockResolvedValue(previewBlob);
+  mocks.renderImage.mockReset().mockResolvedValue(previewBlob);
   Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:canonical-preview") });
   Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
 });
@@ -90,6 +91,21 @@ const renderEditor = (
     onClose={options.onClose ?? vi.fn()}
   />,
 );
+
+function JournalEditorNavigationHarness({ initialEntryId = "entry-1" }: { initialEntryId?: string }) {
+  const [activeEntryId, setActiveEntryId] = useState(initialEntryId);
+  const activeEntry = roster.find((item) => item.id === activeEntryId) ?? roster[0];
+  return (
+    <JournalEditor
+      key={activeEntry.id}
+      entry={activeEntry}
+      rosterEntries={roster}
+      onEntryUpdate={vi.fn()}
+      onNavigate={setActiveEntryId}
+      onClose={vi.fn()}
+    />
+  );
+}
 
 describe("Journal Editor", () => {
   it("renders the mobile-first typed controls and clears stool when defecation is NO", async () => {
@@ -220,6 +236,67 @@ describe("Journal Editor", () => {
     expect(screen.getByRole("button", { name: "재시도" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "목록" }));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+
+  it("returns every navigated entry from preparing to ready across A to B to A", async () => {
+    mocks.fetch.mockImplementation(async (id: string) => roster.find((item) => item.id === id)!);
+    render(<JournalEditorNavigationHarness />);
+    await screen.findByRole("img", { name: "크리미 하루일지 미리보기" });
+
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    await screen.findByRole("img", { name: "몽이 하루일지 미리보기" });
+
+    fireEvent.click(screen.getByRole("button", { name: "이전" }));
+    await screen.findByRole("img", { name: "크리미 하루일지 미리보기" });
+    expect(screen.queryByText("미리보기 준비 중")).toBeNull();
+  });
+
+  it("lets a newly active B entry reach ready while the unmounted A render is still pending", async () => {
+    mocks.fetch.mockImplementation(async (id: string) => roster.find((item) => item.id === id)!);
+    mocks.renderImage
+      .mockImplementationOnce(() => new Promise(() => undefined))
+      .mockResolvedValueOnce(previewBlob);
+    render(<JournalEditorNavigationHarness />);
+    await screen.findByRole("heading", { name: "크리미" });
+    expect(screen.getByText("미리보기 준비 중")).toBeTruthy();
+    await waitFor(() => expect(mocks.renderImage).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    await screen.findByRole("img", { name: "몽이 하루일지 미리보기" });
+    expect(screen.queryByText("미리보기 준비 중")).toBeNull();
+  });
+
+  it("moves from preview error through retry to ready", async () => {
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.renderImage.mockRejectedValueOnce(new Error("raster failed")).mockResolvedValueOnce(previewBlob);
+    renderEditor();
+    expect((await screen.findByRole("alert")).textContent).toBe("미리보기를 만들지 못했습니다. 다시 시도해 주세요.");
+    expect(screen.getByRole("button", { name: "PNG 저장" }).hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "재시도" }));
+    await screen.findByRole("img", { name: "크리미 하루일지 미리보기" });
+    expect(screen.getByRole("button", { name: "PNG 저장" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("settles delayed asset and raster work as ready", async () => {
+    let finishPreview!: (value: Blob) => void;
+    const delayedPreview = new Promise<Blob>((resolve) => { finishPreview = resolve; });
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.renderImage.mockReturnValue(delayedPreview);
+    renderEditor();
+    await screen.findByRole("heading", { name: "크리미" });
+    await waitFor(() => expect(mocks.renderImage).toHaveBeenCalledTimes(1));
+    expect(screen.getByText("미리보기 준비 중")).toBeTruthy();
+    finishPreview(previewBlob);
+    await screen.findByRole("img", { name: "크리미 하루일지 미리보기" });
+  });
+
+  it("allows navigation from an errored A preview and makes B ready", async () => {
+    mocks.fetch.mockImplementation(async (id: string) => roster.find((item) => item.id === id)!);
+    mocks.renderImage.mockRejectedValueOnce(new Error("A failed")).mockResolvedValueOnce(previewBlob);
+    render(<JournalEditorNavigationHarness />);
+    await screen.findByRole("alert");
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    await screen.findByRole("img", { name: "몽이 하루일지 미리보기" });
   });
 
   it("reopens a completed entry for valid editing and offers the next unfinished Dog", async () => {

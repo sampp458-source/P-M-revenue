@@ -31,7 +31,8 @@ export function buildJournalExportFilename(
 }
 
 function waitForImage(image: HTMLImageElement) {
-  if (image.complete && image.naturalWidth > 0) {
+  if (image.complete) {
+    if (image.naturalWidth <= 0) return Promise.reject(new Error("JOURNAL_EXPORT_ASSET_LOAD_FAILED"));
     return typeof image.decode === "function" ? image.decode() : Promise.resolve();
   }
   return new Promise<void>((resolve, reject) => {

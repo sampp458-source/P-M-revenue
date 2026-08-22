@@ -83,8 +83,7 @@ export function JournalEditor({
   const previewRasterRef = useRef<JournalRasterCacheEntry | null>(null);
   const exportInFlightRef = useRef(false);
   const [previewRaster, setPreviewRaster] = useState<JournalRasterCacheEntry | null>(null);
-  const [previewRendering, setPreviewRendering] = useState(true);
-  const [previewError, setPreviewError] = useState("");
+  const [previewState, setPreviewState] = useState<"PREPARING" | "READY" | "ERROR">("PREPARING");
   const [previewRetry, setPreviewRetry] = useState(0);
   const [navigationIntent, setNavigationIntent] = useState<"list" | string | null>(null);
   const navigationInFlightRef = useRef(false);
@@ -135,8 +134,7 @@ export function JournalEditor({
   useEffect(() => {
     const scheduler = new JournalPreviewScheduler<Blob>(
       () => {
-        setPreviewRendering(true);
-        setPreviewError("");
+        setPreviewState("PREPARING");
       },
       (key, blob) => {
         const nextRaster = createCurrentJournalRasterCacheEntry(key, blob, URL.createObjectURL(blob));
@@ -144,11 +142,10 @@ export function JournalEditor({
         previewRasterRef.current = nextRaster;
         setPreviewRaster(nextRaster);
         if (previousRaster) URL.revokeObjectURL(previousRaster.url);
-        setPreviewRendering(false);
+        setPreviewState("READY");
       },
       () => {
-        setPreviewError("미리보기를 만들지 못했습니다. 다시 시도해 주세요.");
-        setPreviewRendering(false);
+        setPreviewState("ERROR");
       },
     );
     previewSchedulerRef.current = scheduler;
@@ -160,8 +157,7 @@ export function JournalEditor({
 
   useEffect(() => {
     if (loading) return;
-    setPreviewRendering(true);
-    setPreviewError("");
+    setPreviewState("PREPARING");
     previewSchedulerRef.current?.request({
       key: previewKey,
       run: () => {
@@ -171,6 +167,10 @@ export function JournalEditor({
       },
     }, previewRetry > 0);
   }, [loading, previewKey, previewRetry]);
+
+  const previewRendering = previewState === "PREPARING";
+  const previewError = previewState === "ERROR" ? "미리보기를 만들지 못했습니다. 다시 시도해 주세요." : "";
+  const currentPreviewRaster = isCurrentJournalRasterCacheEntry(previewRaster, previewKey) ? previewRaster : null;
 
   useEffect(() => () => {
     const current = previewRasterRef.current;
@@ -322,8 +322,8 @@ export function JournalEditor({
         </div>
 
         <aside className="sticky top-6 hidden min-w-0 xl:block" aria-label={`${previewViewModel.dogName} 결과 미리보기`}>
-          <JournalExportActions ready={isCurrentJournalRasterCacheEntry(previewRaster, previewKey) && !previewRendering} exporting={exporting} error={exportError || previewError} onExport={exportImage} />
-          <JournalRasterPreview viewModel={previewViewModel} rasterUrl={previewRaster?.url ?? null} rendering={previewRendering} error={previewError} onRetry={() => setPreviewRetry((value) => value + 1)} className="mx-auto max-w-[min(34rem,calc((100vh-3rem)*0.75))] rounded-2xl shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
+          <JournalExportActions ready={Boolean(currentPreviewRaster) && !previewRendering} exporting={exporting} error={exportError || previewError} onExport={exportImage} />
+          <JournalRasterPreview viewModel={previewViewModel} rasterUrl={currentPreviewRaster?.url ?? null} rendering={previewRendering} error={previewError} onRetry={() => setPreviewRetry((value) => value + 1)} className="mx-auto max-w-[min(34rem,calc((100vh-3rem)*0.75))] rounded-2xl shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
         </aside>
       </div>
 
@@ -338,8 +338,8 @@ export function JournalEditor({
       </div>
 
       <Modal open={previewOpen} title="결과 미리보기" description={`${previewViewModel.dogName} · ${previewViewModel.displayDate}`} onClose={() => setPreviewOpen(false)} size="large" resetKey={entry.id}>
-        <JournalExportActions ready={isCurrentJournalRasterCacheEntry(previewRaster, previewKey) && !previewRendering} exporting={exporting} error={exportError || previewError} onExport={exportImage} />
-        <JournalRasterPreview viewModel={previewViewModel} rasterUrl={previewRaster?.url ?? null} rendering={previewRendering} error={previewError} onRetry={() => setPreviewRetry((value) => value + 1)} className="mx-auto max-w-[calc((100dvh-10rem)*0.75)] rounded-xl shadow-[0_12px_36px_rgb(23_36_58_/_0.14)]" />
+        <JournalExportActions ready={Boolean(currentPreviewRaster) && !previewRendering} exporting={exporting} error={exportError || previewError} onExport={exportImage} />
+        <JournalRasterPreview viewModel={previewViewModel} rasterUrl={currentPreviewRaster?.url ?? null} rendering={previewRendering} error={previewError} onRetry={() => setPreviewRetry((value) => value + 1)} className="mx-auto max-w-[calc((100dvh-10rem)*0.75)] rounded-xl shadow-[0_12px_36px_rgb(23_36_58_/_0.14)]" />
       </Modal>
 
       <div aria-hidden="true" data-testid="journal-canonical-preview-source" className="pointer-events-none fixed left-[-12000px] top-0 h-[1440px] w-[1080px] overflow-hidden">

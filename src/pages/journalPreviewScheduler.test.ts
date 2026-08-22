@@ -41,6 +41,76 @@ describe("Journal latest-only preview scheduler", () => {
     vi.useRealTimers();
   });
 
+  it("settles the active A job without starting obsolete B when navigation returns A", async () => {
+    vi.useFakeTimers();
+    let finishA!: (value: string) => void;
+    const runningA = new Promise<string>((resolve) => { finishA = resolve; });
+    const starts = vi.fn();
+    const result = vi.fn();
+    const runB = vi.fn().mockResolvedValue("B-result");
+    const scheduler = new JournalPreviewScheduler(starts, result, vi.fn(), 0);
+
+    scheduler.request({ key: "entry-A:revision-1", run: () => runningA });
+    await vi.runOnlyPendingTimersAsync();
+    scheduler.request({ key: "entry-B:revision-1", run: runB });
+    scheduler.request({ key: "entry-A:revision-1", run: () => runningA });
+    finishA("A-result");
+    await runningA;
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(starts).toHaveBeenCalledTimes(1);
+    expect(runB).not.toHaveBeenCalled();
+    expect(result).toHaveBeenCalledWith("entry-A:revision-1", "A-result");
+    scheduler.dispose();
+    vi.useRealTimers();
+  });
+
+  it("runs the latest C job after rapid A to B to C navigation", async () => {
+    vi.useFakeTimers();
+    let finishA!: (value: string) => void;
+    const runningA = new Promise<string>((resolve) => { finishA = resolve; });
+    const result = vi.fn();
+    const runB = vi.fn().mockResolvedValue("B-result");
+    const runC = vi.fn().mockResolvedValue("C-result");
+    const scheduler = new JournalPreviewScheduler(vi.fn(), result, vi.fn(), 0);
+
+    scheduler.request({ key: "entry-A:revision-1", run: () => runningA });
+    await vi.runOnlyPendingTimersAsync();
+    scheduler.request({ key: "entry-B:revision-1", run: runB });
+    scheduler.request({ key: "entry-C:revision-1", run: runC });
+    finishA("A-result");
+    await runningA;
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(runB).not.toHaveBeenCalled();
+    expect(runC).toHaveBeenCalledTimes(1);
+    expect(result).toHaveBeenCalledTimes(1);
+    expect(result).toHaveBeenCalledWith("entry-C:revision-1", "C-result");
+    scheduler.dispose();
+    vi.useRealTimers();
+  });
+
+  it("settles a hung current render as an error instead of preparing forever", async () => {
+    vi.useFakeTimers();
+    const error = vi.fn();
+    const scheduler = new JournalPreviewScheduler(vi.fn(), vi.fn(), error, 0, 100);
+    scheduler.request({ key: "entry-A:revision-1", run: () => new Promise(() => undefined) });
+    await vi.runOnlyPendingTimersAsync();
+    await vi.advanceTimersByTimeAsync(100);
+    expect(error).toHaveBeenCalledWith("entry-A:revision-1", expect.objectContaining({ message: "JOURNAL_PREVIEW_JOB_TIMEOUT" }));
+    scheduler.dispose();
+    vi.useRealTimers();
+  });
+
   it("reports only a current failure and disposes pending work", async () => {
     vi.useFakeTimers();
     const error = vi.fn();
