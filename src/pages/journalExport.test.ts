@@ -4,16 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { toCanvas } from "html-to-image";
 import {
   buildJournalExportFilename,
-  encodeJournalPreviewBlob,
   exportJournalImage,
-  exportJournalPreviewImage,
   inlineJournalSnapshotImages,
   renderJournalImageBlob,
   waitForJournalAssets,
 } from "./journalExport";
 import {
-  buildJournalPreviewRenderKey,
-  createCurrentJournalRasterCacheEntry,
   JOURNAL_ASSET_VERSION,
   JOURNAL_RENDERER_VERSION,
   JOURNAL_TEMPLATE_VERSION,
@@ -34,14 +30,6 @@ function createCurrentTemplateRoot() {
   root.dataset.journalTemplateVersion = JOURNAL_TEMPLATE_VERSION;
   root.dataset.journalAssetVersion = JOURNAL_ASSET_VERSION;
   return root;
-}
-
-function createCurrentRaster(blob: Blob) {
-  return createCurrentJournalRasterCacheEntry(
-    buildJournalPreviewRenderKey(viewModel),
-    blob,
-    "blob:canonical-preview",
-  );
 }
 
 describe("Journal image export", () => {
@@ -219,50 +207,6 @@ describe("Journal image export", () => {
     expect(context.imageSmoothingEnabled).toBe(true);
     expect(context.imageSmoothingQuality).toBe("high");
     expect(context.drawImage).toHaveBeenCalled();
-  });
-
-  it("downloads the exact PNG blob displayed by the live preview without rerasterizing", async () => {
-    const previewBlob = new Blob(["canonical-preview"], { type: "image/png" });
-    const result = await exportJournalPreviewImage(createCurrentRaster(previewBlob), viewModel, "png");
-    expect(result.blob).toBe(previewBlob);
-    expect(result.filename).toBe("P&M_하루일지_크리미_2026-08-20.png");
-    expect(toCanvas).not.toHaveBeenCalled();
-    expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1);
-  });
-
-  it("encodes JPG from the same 1080×1440 preview bitmap without a resize pass", async () => {
-    class MockImage {
-      decoding = "async";
-      naturalWidth = 1080;
-      naturalHeight = 1440;
-      onload: (() => void) | null = null;
-      onerror: (() => void) | null = null;
-      set src(_value: string) { queueMicrotask(() => this.onload?.()); }
-      decode = vi.fn().mockResolvedValue(undefined);
-    }
-    vi.stubGlobal("Image", MockImage);
-    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback: BlobCallback, type?: string) => {
-      callback(new Blob(["jpg"], { type }));
-    });
-    const previewBlob = new Blob(["canonical-preview"], { type: "image/png" });
-    const jpg = await encodeJournalPreviewBlob(previewBlob, "jpg");
-    const context = vi.mocked(HTMLCanvasElement.prototype.getContext).mock.results.at(-1)?.value as unknown as CanvasRenderingContext2D;
-    expect(jpg.type).toBe("image/jpeg");
-    expect(context.drawImage).toHaveBeenCalledWith(expect.any(MockImage), 0, 0);
-    expect(toCanvas).not.toHaveBeenCalled();
-    expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:journal");
-  });
-
-  it("rejects an unversioned or stale rendered preview instead of treating it as canonical", async () => {
-    const previewBlob = new Blob(["legacy-preview"], { type: "image/png" });
-    const staleRaster = {
-      ...createCurrentRaster(previewBlob),
-      templateVersion: "legacy-template",
-    };
-
-    await expect(exportJournalPreviewImage(staleRaster, viewModel, "png"))
-      .rejects.toThrow("JOURNAL_PREVIEW_CACHE_VERSION_MISMATCH");
-    expect(HTMLAnchorElement.prototype.click).not.toHaveBeenCalled();
   });
 
   it("rejects a rendered DOM snapshot without the current renderer contract", async () => {

@@ -2,15 +2,8 @@ import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, Eye, Image, Load
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, Card, FormAlert, Input, Modal, Textarea } from "../components/ui";
 import { JournalAutosaveQueue, type JournalSaveState } from "./journalAutosave";
-import { exportJournalPreviewImage, renderJournalImageBlob, type JournalExportFormat } from "./journalExport";
-import {
-  buildJournalPreviewRenderKey,
-  createCurrentJournalRasterCacheEntry,
-  isCurrentJournalRasterCacheEntry,
-  type JournalRasterCacheEntry,
-} from "./journalRenderContract";
-import { JournalReportTemplate } from "./JournalReportTemplate";
-import { JournalPreviewScheduler } from "./journalPreviewScheduler";
+import { exportJournalImage, type JournalExportFormat } from "./journalExport";
+import { JournalReportPreview, JournalReportTemplate } from "./JournalReportTemplate";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import {
   completeJournalEntry,
@@ -79,15 +72,10 @@ export function JournalEditor({
   const [exportError, setExportError] = useState("");
   const versionRef = useRef(rosterEntry.version);
   const queueRef = useRef<JournalAutosaveQueue<JournalDraft, JournalRosterEntry> | null>(null);
-  const previewSourceRootRef = useRef<HTMLElement>(null);
-  const previewRasterRef = useRef<JournalRasterCacheEntry | null>(null);
+  const exportSourceRootRef = useRef<HTMLElement>(null);
   const exportInFlightRef = useRef(false);
-  const [previewRaster, setPreviewRaster] = useState<JournalRasterCacheEntry | null>(null);
-  const [previewState, setPreviewState] = useState<"PREPARING" | "READY" | "ERROR">("PREPARING");
-  const [previewRetry, setPreviewRetry] = useState(0);
   const [navigationIntent, setNavigationIntent] = useState<"list" | string | null>(null);
   const navigationInFlightRef = useRef(false);
-  const previewSchedulerRef = useRef<JournalPreviewScheduler<Blob> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,53 +117,6 @@ export function JournalEditor({
   );
   const friendOptionsForDay = rosterEntries.filter((item) => item.dog.id !== entry.dog.id);
   const previewViewModel = useMemo(() => buildJournalPreviewViewModel(entry, draft, rosterEntries), [draft, entry, rosterEntries]);
-  const previewKey = useMemo(() => buildJournalPreviewRenderKey(previewViewModel), [previewViewModel]);
-
-  useEffect(() => {
-    const scheduler = new JournalPreviewScheduler<Blob>(
-      () => {
-        setPreviewState("PREPARING");
-      },
-      (key, blob) => {
-        const nextRaster = createCurrentJournalRasterCacheEntry(key, blob, URL.createObjectURL(blob));
-        const previousRaster = previewRasterRef.current;
-        previewRasterRef.current = nextRaster;
-        setPreviewRaster(nextRaster);
-        if (previousRaster) URL.revokeObjectURL(previousRaster.url);
-        setPreviewState("READY");
-      },
-      () => {
-        setPreviewState("ERROR");
-      },
-    );
-    previewSchedulerRef.current = scheduler;
-    return () => {
-      scheduler.dispose();
-      previewSchedulerRef.current = null;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (loading) return;
-    setPreviewState("PREPARING");
-    previewSchedulerRef.current?.request({
-      key: previewKey,
-      run: () => {
-        const source = previewSourceRootRef.current;
-        if (!source) return Promise.reject(new Error("JOURNAL_PREVIEW_SOURCE_UNAVAILABLE"));
-        return renderJournalImageBlob(source, "png");
-      },
-    }, previewRetry > 0);
-  }, [loading, previewKey, previewRetry]);
-
-  const previewRendering = previewState === "PREPARING";
-  const previewError = previewState === "ERROR" ? "미리보기를 만들지 못했습니다. 다시 시도해 주세요." : "";
-  const currentPreviewRaster = isCurrentJournalRasterCacheEntry(previewRaster, previewKey) ? previewRaster : null;
-
-  useEffect(() => () => {
-    const current = previewRasterRef.current;
-    if (current) URL.revokeObjectURL(current.url);
-  }, []);
 
   const update = (change: (current: JournalDraft) => JournalDraft) => {
     setDraft((current) => {
@@ -234,8 +175,8 @@ export function JournalEditor({
 
   const exportImage = async (format: JournalExportFormat) => {
     if (exportInFlightRef.current) return;
-    const raster = previewRasterRef.current;
-    if (!raster || !isCurrentJournalRasterCacheEntry(raster, previewKey)) {
+    const source = exportSourceRootRef.current;
+    if (!source) {
       setExportError("이미지를 저장하지 못했습니다. 다시 시도해 주세요.");
       return;
     }
@@ -243,7 +184,7 @@ export function JournalEditor({
     setExporting(format);
     setExportError("");
     try {
-      await exportJournalPreviewImage(raster, previewViewModel, format);
+      await exportJournalImage(source, previewViewModel, format);
     } catch {
       setExportError("이미지를 저장하지 못했습니다. 다시 시도해 주세요.");
     } finally {
@@ -322,8 +263,8 @@ export function JournalEditor({
         </div>
 
         <aside className="sticky top-6 hidden min-w-0 xl:block" aria-label={`${previewViewModel.dogName} 결과 미리보기`}>
-          <JournalExportActions ready={Boolean(currentPreviewRaster) && !previewRendering} exporting={exporting} error={exportError || previewError} onExport={exportImage} />
-          <JournalRasterPreview viewModel={previewViewModel} rasterUrl={currentPreviewRaster?.url ?? null} rendering={previewRendering} error={previewError} onRetry={() => setPreviewRetry((value) => value + 1)} className="mx-auto max-w-[min(34rem,calc((100vh-3rem)*0.75))] rounded-2xl shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
+          <JournalExportActions ready exporting={exporting} error={exportError} onExport={exportImage} />
+          <JournalReportPreview viewModel={previewViewModel} className="mx-auto max-w-[min(34rem,calc((100vh-3rem)*0.75))] rounded-2xl bg-[#fffcf8] shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
         </aside>
       </div>
 
@@ -338,38 +279,14 @@ export function JournalEditor({
       </div>
 
       <Modal open={previewOpen} title="결과 미리보기" description={`${previewViewModel.dogName} · ${previewViewModel.displayDate}`} onClose={() => setPreviewOpen(false)} size="large" resetKey={entry.id}>
-        <JournalExportActions ready={Boolean(currentPreviewRaster) && !previewRendering} exporting={exporting} error={exportError || previewError} onExport={exportImage} />
-        <JournalRasterPreview viewModel={previewViewModel} rasterUrl={currentPreviewRaster?.url ?? null} rendering={previewRendering} error={previewError} onRetry={() => setPreviewRetry((value) => value + 1)} className="mx-auto max-w-[calc((100dvh-10rem)*0.75)] rounded-xl shadow-[0_12px_36px_rgb(23_36_58_/_0.14)]" />
+        <JournalExportActions ready exporting={exporting} error={exportError} onExport={exportImage} />
+        <JournalReportPreview viewModel={previewViewModel} className="mx-auto max-w-[calc((100dvh-10rem)*0.75)] rounded-xl bg-[#fffcf8] shadow-[0_12px_36px_rgb(23_36_58_/_0.14)]" />
       </Modal>
 
-      <div aria-hidden="true" data-testid="journal-canonical-preview-source" className="pointer-events-none fixed left-[-12000px] top-0 h-[1440px] w-[1080px] overflow-hidden">
-        <JournalReportTemplate reportRef={previewSourceRootRef} viewModel={previewViewModel} />
+      <div aria-hidden="true" data-testid="journal-canonical-export-source" className="pointer-events-none fixed left-[-12000px] top-0 h-[1440px] w-[1080px] overflow-hidden">
+        <JournalReportTemplate reportRef={exportSourceRootRef} viewModel={previewViewModel} testId="journal-export-template" />
       </div>
     </section>
-  );
-}
-
-function JournalRasterPreview({
-  viewModel,
-  rasterUrl,
-  rendering,
-  error,
-  onRetry,
-  className = "",
-}: {
-  viewModel: ReturnType<typeof buildJournalPreviewViewModel>;
-  rasterUrl: string | null;
-  rendering: boolean;
-  error: string;
-  onRetry: () => void;
-  className?: string;
-}) {
-  return (
-    <div data-testid="journal-raster-preview" className={`relative aspect-[3/4] overflow-hidden bg-[#fffcf8] ${className}`}>
-      {rasterUrl ? <img src={rasterUrl} alt={`${viewModel.dogName} 하루일지 미리보기`} className="h-full w-full object-contain" /> : null}
-      {rendering ? <div className={`absolute inset-0 flex items-center justify-center text-sm font-semibold text-text-secondary ${rasterUrl ? "bg-[#fffcf8]/70" : "bg-[#fffcf8]/90"}`}><LoaderCircle className="mr-2 animate-spin" size={18} />{rasterUrl ? "미리보기 업데이트 중" : "미리보기 준비 중"}</div> : null}
-      {!rendering && error ? <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-[#fffcf8]/90 px-6 text-center text-sm font-semibold text-text-secondary"><span>미리보기를 만들지 못했습니다.</span><Button type="button" variant="secondary" onClick={onRetry}>재시도</Button></div> : null}
-    </div>
   );
 }
 

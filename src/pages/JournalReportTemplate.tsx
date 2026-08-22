@@ -140,6 +140,7 @@ function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
           data-testid="journal-official-logo"
           className="h-[86px] w-[220px] object-contain"
           style={{ filter: "brightness(0) saturate(100%) invert(32%) sepia(22%) saturate(1195%) hue-rotate(158deg) brightness(92%) contrast(90%)" }}
+          onError={(event) => { event.currentTarget.style.visibility = "hidden"; }}
         />
         <div className="relative mt-[-13px] px-[42px] pb-[11px]">
           <span className="absolute inset-x-[18px] bottom-[5px] h-[15px] -rotate-1 rounded-full bg-[#ff7f82]/42" />
@@ -296,11 +297,11 @@ function SmallLabel({ children }: { children: ReactNode }) {
 }
 
 function JournalCharacter({ name, className = "" }: { name: JournalCharacterName; className?: string }) {
-  return <img data-testid={`journal-character-${name}`} src={journalCharacters[name]} alt="" aria-hidden="true" draggable={false} className={className} />;
+  return <img data-testid={`journal-character-${name}`} src={journalCharacters[name]} alt="" aria-hidden="true" draggable={false} className={className} onError={(event) => { event.currentTarget.style.visibility = "hidden"; }} />;
 }
 
 function JournalSectionIllustration({ name, className = "" }: { name: JournalSectionIllustrationName; className?: string }) {
-  return <img data-testid={`journal-section-illustration-${name}`} src={journalSectionIllustrations[name]} alt="" aria-hidden="true" draggable={false} className={`pointer-events-none object-contain ${className}`} />;
+  return <img data-testid={`journal-section-illustration-${name}`} src={journalSectionIllustrations[name]} alt="" aria-hidden="true" draggable={false} className={`pointer-events-none object-contain ${className}`} onError={(event) => { event.currentTarget.style.visibility = "hidden"; }} />;
 }
 
 function commentDensity(comment: string) {

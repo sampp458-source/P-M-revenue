@@ -1,5 +1,5 @@
 import { toCanvas } from "html-to-image";
-import { buildJournalPreviewRenderKey, isCurrentJournalRasterCacheEntry, isCurrentJournalTemplateRoot, type JournalRasterCacheEntry } from "./journalRenderContract";
+import { isCurrentJournalTemplateRoot } from "./journalRenderContract";
 import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
 
 export type JournalExportFormat = "png" | "jpg";
@@ -111,35 +111,6 @@ function canvasToBlob(canvas: HTMLCanvasElement, format: JournalExportFormat) {
   });
 }
 
-export async function encodeJournalPreviewBlob(pngBlob: Blob, format: JournalExportFormat) {
-  if (format === "png") return pngBlob;
-  const canvas = document.createElement("canvas");
-  canvas.width = JOURNAL_EXPORT_WIDTH;
-  canvas.height = JOURNAL_EXPORT_HEIGHT;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("JOURNAL_EXPORT_CANVAS_UNAVAILABLE");
-  context.fillStyle = JOURNAL_EXPORT_BACKGROUND;
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  const objectUrl = URL.createObjectURL(pngBlob);
-  try {
-    const image = new Image();
-    image.decoding = "async";
-    image.src = objectUrl;
-    await new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve();
-      image.onerror = () => reject(new Error("JOURNAL_EXPORT_DECODE_FAILED"));
-    });
-    if (typeof image.decode === "function") await image.decode();
-    if (image.naturalWidth !== JOURNAL_EXPORT_WIDTH || image.naturalHeight !== JOURNAL_EXPORT_HEIGHT) {
-      throw new Error("JOURNAL_EXPORT_SOURCE_SIZE_MISMATCH");
-    }
-    context.drawImage(image, 0, 0);
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
-  return canvasToBlob(canvas, "jpg");
-}
-
 function createFinalCanvas(source: HTMLCanvasElement) {
   const canvas = document.createElement("canvas");
   canvas.width = JOURNAL_EXPORT_WIDTH;
@@ -242,20 +213,6 @@ export async function exportJournalImage(
   format: JournalExportFormat,
 ) {
   const blob = await renderJournalImageBlob(root, format);
-  const filename = buildJournalExportFilename(viewModel.dogName, viewModel.businessDate, format);
-  downloadJournalBlob(blob, filename);
-  return { blob, filename };
-}
-
-export async function exportJournalPreviewImage(
-  raster: JournalRasterCacheEntry,
-  viewModel: JournalPreviewViewModel,
-  format: JournalExportFormat,
-) {
-  if (!isCurrentJournalRasterCacheEntry(raster, buildJournalPreviewRenderKey(viewModel))) {
-    throw new Error("JOURNAL_PREVIEW_CACHE_VERSION_MISMATCH");
-  }
-  const blob = await encodeJournalPreviewBlob(raster.blob, format);
   const filename = buildJournalExportFilename(viewModel.dogName, viewModel.businessDate, format);
   downloadJournalBlob(blob, filename);
   return { blob, filename };

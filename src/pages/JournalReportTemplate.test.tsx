@@ -2,7 +2,7 @@
 
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { JournalReportTemplate, JOURNAL_REPORT_HEIGHT, JOURNAL_REPORT_WIDTH } from "./JournalReportTemplate";
+import { JournalReportPreview, JournalReportTemplate, JOURNAL_REPORT_HEIGHT, JOURNAL_REPORT_WIDTH } from "./JournalReportTemplate";
 import { buildJournalPreviewViewModel } from "./journalPreviewViewModel";
 import { JOURNAL_ASSET_VERSION, JOURNAL_RENDERER_VERSION, JOURNAL_TEMPLATE_VERSION } from "./journalRenderContract";
 import type { JournalDraft, JournalRosterEntry } from "./journalRepository";
@@ -31,6 +31,25 @@ const renderReport = (draftValue = draft(), entryValue = entry()) => render(
 afterEach(cleanup);
 
 describe("Journal 1080x1440 report template", () => {
+  it("scales the fixed canonical geometry without responsive reflow", () => {
+    const width = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
+    Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 540 });
+    try {
+      const viewModel = buildJournalPreviewViewModel(entry(), draft(), [entry(), friend]);
+      render(<JournalReportPreview viewModel={viewModel} />);
+      const preview = screen.getByTestId("journal-report-preview");
+      const transformLayer = preview.firstElementChild as HTMLElement;
+      const report = within(preview).getByTestId("journal-report-template");
+      expect(preview.className).toContain("aspect-[3/4]");
+      expect(transformLayer.style.transform).toBe("scale(0.5)");
+      expect(report.style.width).toBe("1080px");
+      expect(report.style.height).toBe("1440px");
+    } finally {
+      if (width) Object.defineProperty(HTMLElement.prototype, "clientWidth", width);
+      else delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth;
+    }
+  });
+
   it("uses one fixed, overflow-hidden canonical canvas with complete information parity", () => {
     renderReport();
     const report = screen.getByTestId("journal-report-template");
