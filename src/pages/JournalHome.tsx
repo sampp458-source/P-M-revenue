@@ -1,4 +1,4 @@
-import { Archive, BookOpenText, ChevronLeft, ChevronRight, Dog, LoaderCircle, Plus, Trash2 } from "lucide-react";
+import { Archive, BookOpenText, ChevronLeft, ChevronRight, Dog, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Ref } from "react";
 import { SearchSelect } from "../components/SearchSelect";
 import { Badge, Button, Card, FormAlert, Input, Modal, ModalActions } from "../components/ui";
@@ -57,6 +57,8 @@ export function JournalHomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [registerOpen, setRegisterOpen] = useState(false);
+  const [defaultEditOpen, setDefaultEditOpen] = useState(false);
+  const [defaultEditError, setDefaultEditError] = useState("");
   const [directory, setDirectory] = useState<JournalDirectoryDog[]>([]);
   const [directoryLoading, setDirectoryLoading] = useState(false);
   const [selectedDogIds, setSelectedDogIds] = useState<string[]>([]);
@@ -133,25 +135,17 @@ export function JournalHomePage() {
   };
 
   const register = async () => {
-    if (saving) return;
+    if (saving || !selectedDogIds.length) return;
     const normalizedManners = defaultMannersActivity.trim();
     const normalizedPhysical = defaultPhysicalActivity.trim();
-    const defaultsChanged = normalizedManners !== (roster.defaults.mannersActivityName ?? "")
-      || normalizedPhysical !== (roster.defaults.physicalActivityName ?? "");
-    if (!selectedDogIds.length && (!roster.journalDayId || roster.defaults.version === null || !defaultsChanged)) return;
     setSaving(true);
     setError("");
     try {
-      const next = selectedDogIds.length
-        ? await registerJournalRoster(businessDate, selectedDogIds, {
-          mannersActivityName: normalizedManners,
-          physicalActivityName: normalizedPhysical,
-          expectedVersion: roster.defaults.version,
-        })
-        : await updateJournalDayDefaultActivities(roster.journalDayId!, roster.defaults.version!, {
-          mannersActivityName: normalizedManners,
-          physicalActivityName: normalizedPhysical,
-        });
+      const next = await registerJournalRoster(businessDate, selectedDogIds, {
+        mannersActivityName: normalizedManners,
+        physicalActivityName: normalizedPhysical,
+        expectedVersion: roster.defaults.version,
+      });
       setRoster(next);
       setDefaultMannersActivity(next.defaults.mannersActivityName ?? "");
       setDefaultPhysicalActivity(next.defaults.physicalActivityName ?? "");
@@ -168,6 +162,33 @@ export function JournalHomePage() {
   const normalizedDefaultPhysical = defaultPhysicalActivity.trim();
   const defaultsChanged = normalizedDefaultManners !== (roster.defaults.mannersActivityName ?? "")
     || normalizedDefaultPhysical !== (roster.defaults.physicalActivityName ?? "");
+
+  const openDefaultEdit = () => {
+    setDefaultMannersActivity(roster.defaults.mannersActivityName ?? "");
+    setDefaultPhysicalActivity(roster.defaults.physicalActivityName ?? "");
+    setDefaultEditError("");
+    setDefaultEditOpen(true);
+  };
+
+  const saveDefaults = async () => {
+    if (saving || !defaultsChanged || !roster.journalDayId || roster.defaults.version === null) return;
+    setSaving(true);
+    setDefaultEditError("");
+    try {
+      const next = await updateJournalDayDefaultActivities(roster.journalDayId, roster.defaults.version, {
+        mannersActivityName: normalizedDefaultManners,
+        physicalActivityName: normalizedDefaultPhysical,
+      });
+      setRoster(next);
+      setDefaultMannersActivity(next.defaults.mannersActivityName ?? "");
+      setDefaultPhysicalActivity(next.defaults.physicalActivityName ?? "");
+      setDefaultEditOpen(false);
+    } catch (caught) {
+      setDefaultEditError(caught instanceof Error ? caught.message : "오늘의 공통 활동을 저장하지 못했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  };
   const remove = async (entry: JournalRosterEntry) => {
     if (removingId) return;
     setRemovingId(entry.id);
@@ -296,6 +317,23 @@ export function JournalHomePage() {
         </div>
       </div>
 
+      {!loading && roster.journalDayId ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3 shadow-sm" aria-label="오늘의 공통 활동 요약">
+          <div className="min-w-0">
+            <p className="text-sm font-bold text-text-primary">오늘의 공통 활동</p>
+            {roster.defaults.mannersActivityName || roster.defaults.physicalActivityName ? (
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
+                <span>예절 <strong className="font-semibold text-text-primary">{roster.defaults.mannersActivityName || "설정 안 됨"}</strong></span>
+                <span>체육 <strong className="font-semibold text-text-primary">{roster.defaults.physicalActivityName || "설정 안 됨"}</strong></span>
+              </div>
+            ) : <p className="mt-1 text-sm text-text-muted">설정 안 됨</p>}
+          </div>
+          <Button type="button" variant="secondary" className="min-h-10 shrink-0 px-3" onClick={openDefaultEdit}>
+            <Pencil size={15} />{roster.defaults.mannersActivityName || roster.defaults.physicalActivityName ? "수정" : "설정"}
+          </Button>
+        </div>
+      ) : null}
+
       {error ? <div className="mt-4"><FormAlert>{error}</FormAlert></div> : null}
       {loading ? (
         <Card className="mt-5 flex min-h-64 items-center justify-center p-8"><div className="flex items-center gap-2 text-sm text-text-secondary"><LoaderCircle className="animate-spin" size={18} />명단 불러오는 중</div></Card>
@@ -357,9 +395,32 @@ export function JournalHomePage() {
               <Input className="mt-1.5 min-h-11" value={defaultPhysicalActivity} maxLength={80} onChange={(event) => setDefaultPhysicalActivity(event.target.value)} placeholder="체육활동 활동명 입력" />
             </label>
           </div>
-          {roster.journalDayId ? <div className="mt-3 flex justify-end"><Button type="button" variant="secondary" disabled={saving || !defaultsChanged} onClick={() => void register()}>공통 활동만 저장</Button></div> : null}
         </fieldset>
         <ModalActions stickyDesktop><Button type="button" variant="secondary" disabled={saving} onClick={() => setRegisterOpen(false)}>취소</Button><Button type="button" disabled={!selectedDogIds.length || saving || directoryLoading} onClick={() => void register()}>{saving ? "저장 중..." : selectedDogIds.length ? `${selectedDogIds.length}마리 등원 등록` : "등원 등록"}</Button></ModalActions>
+      </Modal>
+
+      <Modal
+        open={defaultEditOpen}
+        title="오늘의 공통 활동 수정"
+        description={`${displayDate(businessDate)} · 이후 신규 등록 일지에 적용됩니다.`}
+        onClose={() => !saving && setDefaultEditOpen(false)}
+        resetKey={`${businessDate}:${roster.defaults.version ?? "none"}`}
+      >
+        <fieldset disabled={saving} className="space-y-4">
+          <label className="block text-sm font-semibold text-text-secondary">
+            예절교육
+            <Input className="mt-1.5 min-h-11" value={defaultMannersActivity} maxLength={80} onChange={(event) => setDefaultMannersActivity(event.target.value)} placeholder="예절교육 활동명 입력" />
+          </label>
+          <label className="block text-sm font-semibold text-text-secondary">
+            체육활동
+            <Input className="mt-1.5 min-h-11" value={defaultPhysicalActivity} maxLength={80} onChange={(event) => setDefaultPhysicalActivity(event.target.value)} placeholder="체육활동 활동명 입력" />
+          </label>
+        </fieldset>
+        {defaultEditError ? <div className="mt-4"><FormAlert>{defaultEditError}</FormAlert></div> : null}
+        <ModalActions>
+          <Button type="button" variant="secondary" disabled={saving} onClick={() => setDefaultEditOpen(false)}>취소</Button>
+          <Button type="button" disabled={saving || !defaultsChanged} onClick={() => void saveDefaults()}>{saving ? "저장 중..." : "저장"}</Button>
+        </ModalActions>
       </Modal>
 
       <Modal

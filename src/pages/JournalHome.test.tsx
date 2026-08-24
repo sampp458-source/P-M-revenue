@@ -152,26 +152,69 @@ describe("Journal Home roster", () => {
     }));
   });
 
-  it("loads and updates an existing day's defaults without changing existing entries", async () => {
+  it("separates default-only editing from registration without changing existing entries", async () => {
     const updated = { ...roster, defaults: { mannersActivityName: "매트", physicalActivityName: "터널", version: 4 } };
     mocks.fetchRoster.mockResolvedValue(roster);
     mocks.fetchDirectory.mockResolvedValue([]);
     mocks.updateDefaults.mockResolvedValue(updated);
     render(<JournalHomePage />);
     await screen.findByText("크리미");
+    const summary = screen.getByLabelText("오늘의 공통 활동 요약");
+    expect(summary.textContent).toContain("예절 기다려");
+    expect(summary.textContent).toContain("체육 밸런스볼");
     fireEvent.click(screen.getByRole("button", { name: "등원 추가" }));
-    const dialog = await screen.findByRole("dialog", { name: "오늘 등원 등록" });
-    expect((within(dialog).getByPlaceholderText("예절교육 활동명 입력") as HTMLInputElement).value).toBe("기다려");
-    expect((within(dialog).getByPlaceholderText("체육활동 활동명 입력") as HTMLInputElement).value).toBe("밸런스볼");
-    fireEvent.change(within(dialog).getByPlaceholderText("예절교육 활동명 입력"), { target: { value: " 매트 " } });
-    fireEvent.change(within(dialog).getByPlaceholderText("체육활동 활동명 입력"), { target: { value: " 터널 " } });
-    expect(within(dialog).getByRole("button", { name: "등원 등록" }).hasAttribute("disabled")).toBe(true);
-    const saveDefaults = within(dialog).getByRole("button", { name: "공통 활동만 저장" });
-    await waitFor(() => expect(saveDefaults.hasAttribute("disabled")).toBe(false));
-    fireEvent.click(saveDefaults);
+    const registration = await screen.findByRole("dialog", { name: "오늘 등원 등록" });
+    expect(within(registration).queryByRole("button", { name: "공통 활동만 저장" })).toBeNull();
+    fireEvent.click(within(registration).getByRole("button", { name: "취소" }));
+    fireEvent.click(within(summary).getByRole("button", { name: "수정" }));
+    const edit = await screen.findByRole("dialog", { name: "오늘의 공통 활동 수정" });
+    expect((within(edit).getByPlaceholderText("예절교육 활동명 입력") as HTMLInputElement).value).toBe("기다려");
+    expect((within(edit).getByPlaceholderText("체육활동 활동명 입력") as HTMLInputElement).value).toBe("밸런스볼");
+    fireEvent.change(within(edit).getByPlaceholderText("예절교육 활동명 입력"), { target: { value: " 매트 " } });
+    fireEvent.change(within(edit).getByPlaceholderText("체육활동 활동명 입력"), { target: { value: " 터널 " } });
+    fireEvent.click(within(edit).getByRole("button", { name: "저장" }));
     await waitFor(() => expect(mocks.updateDefaults).toHaveBeenCalledWith("day-1", 3, {
       mannersActivityName: "매트",
       physicalActivityName: "터널",
+    }));
+    expect(updated.entries).toEqual(roster.entries);
+  });
+
+  it("shows a compact setup entry when an existing day has no defaults", async () => {
+    mocks.fetchRoster.mockResolvedValue({ ...roster, defaults: { mannersActivityName: null, physicalActivityName: null, version: 1 } });
+    render(<JournalHomePage />);
+    const summary = await screen.findByLabelText("오늘의 공통 활동 요약");
+    expect(summary.textContent).toContain("설정 안 됨");
+    expect(within(summary).getByRole("button", { name: "설정" })).not.toBeNull();
+  });
+
+  it("uses edited current defaults only for a subsequently registered Dog", async () => {
+    const updated = { ...roster, defaults: { mannersActivityName: "매트", physicalActivityName: "터널", version: 4 } };
+    const dog = { id: "dog-4", name: "보리", customerId: "customer-4", customerName: "최보호", customerPhone: "01022223333", breed: null };
+    mocks.fetchRoster.mockResolvedValue(roster);
+    mocks.fetchDirectory.mockResolvedValue([dog]);
+    mocks.updateDefaults.mockResolvedValue(updated);
+    mocks.register.mockResolvedValue({
+      ...updated,
+      summary: { ...updated.summary, total: 4, notStarted: 2 },
+      entries: [...updated.entries, { ...updated.entries[2], id: "entry-4", dog: { id: dog.id, name: dog.name } }],
+    });
+    render(<JournalHomePage />);
+    const summary = await screen.findByLabelText("오늘의 공통 활동 요약");
+    fireEvent.click(within(summary).getByRole("button", { name: "수정" }));
+    const edit = await screen.findByRole("dialog", { name: "오늘의 공통 활동 수정" });
+    fireEvent.change(within(edit).getByPlaceholderText("예절교육 활동명 입력"), { target: { value: "매트" } });
+    fireEvent.change(within(edit).getByPlaceholderText("체육활동 활동명 입력"), { target: { value: "터널" } });
+    fireEvent.click(within(edit).getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "오늘의 공통 활동 수정" })).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: "등원 추가" }));
+    const registration = await screen.findByRole("dialog", { name: "오늘 등원 등록" });
+    fireEvent.click(await within(registration).findByRole("option", { name: /보리/ }));
+    fireEvent.click(within(registration).getByRole("button", { name: "1마리 등원 등록" }));
+    await waitFor(() => expect(mocks.register).toHaveBeenCalledWith("2026-08-15", ["dog-4"], {
+      mannersActivityName: "매트",
+      physicalActivityName: "터널",
+      expectedVersion: 4,
     }));
     expect(updated.entries).toEqual(roster.entries);
   });
