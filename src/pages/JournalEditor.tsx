@@ -1,7 +1,8 @@
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, Eye, Image, LoaderCircle } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, Eye, Image, LoaderCircle, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Button, Card, FormAlert, Input, Modal, Textarea } from "../components/ui";
+import { Button, Card, FormAlert, Input, Modal, ModalActions, Textarea } from "../components/ui";
 import { JournalAutosaveQueue, type JournalSaveState } from "./journalAutosave";
+import { journalDeleteConfirmationDetail } from "./journalDeletePresentation";
 import { exportJournalImage, type JournalExportFormat } from "./journalExport";
 import { JournalReportPreview, JournalReportTemplate } from "./JournalReportTemplate";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
@@ -51,12 +52,14 @@ const displayDate = (date: string) =>
 export function JournalEditor({
   entry: rosterEntry,
   rosterEntries,
+  onDelete,
   onEntryUpdate,
   onNavigate,
   onClose,
 }: {
   entry: JournalRosterEntry;
   rosterEntries: JournalRosterEntry[];
+  onDelete?: (expectedVersion: number) => Promise<void>;
   onEntryUpdate: (entry: JournalRosterEntry) => void;
   onNavigate: (entryId: string) => void;
   onClose: () => void;
@@ -68,6 +71,8 @@ export function JournalEditor({
   const [error, setError] = useState("");
   const [completing, setCompleting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState<JournalExportFormat | null>(null);
   const [exportError, setExportError] = useState("");
   const versionRef = useRef(rosterEntry.version);
@@ -173,6 +178,20 @@ export function JournalEditor({
     }
   };
 
+  const remove = async () => {
+    if (!onDelete || deleting || !(await flush())) return;
+    setDeleting(true);
+    setError("");
+    try {
+      await onDelete(versionRef.current);
+      setDeleteOpen(false);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "일지를 삭제하지 못했습니다.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const exportImage = async (format: JournalExportFormat) => {
     if (exportInFlightRef.current) return;
     const source = exportSourceRootRef.current;
@@ -272,6 +291,11 @@ export function JournalEditor({
         <div className="mx-auto max-w-[1480px] xl:grid xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)] xl:gap-6 2xl:gap-8">
           <div className="flex min-w-0 items-center gap-3">
             <span className="min-w-0 flex-1 text-xs text-text-secondary"><SaveState state={saveState} /></span>
+            {onDelete ? (
+              <Button type="button" aria-label="일지 삭제" variant="secondary" className="min-h-11 border-error/30 px-3 text-error hover:bg-error-soft" disabled={deleting} onClick={() => setDeleteOpen(true)}>
+                <Trash2 size={17} /><span className="hidden sm:inline">일지 삭제</span>
+              </Button>
+            ) : null}
             <Button type="button" variant="secondary" className="min-h-11 px-3 xl:hidden" onClick={() => setPreviewOpen(true)}><Eye size={17} />미리보기</Button>
             <Button type="button" className="min-h-11 min-w-32" disabled={completing || saveState === "saving"} onClick={() => void complete()}>{completing ? <LoaderCircle className="animate-spin" size={17} /> : <Check size={17} />}작성 완료</Button>
           </div>
@@ -281,6 +305,21 @@ export function JournalEditor({
       <Modal open={previewOpen} title="결과 미리보기" description={`${previewViewModel.dogName} · ${previewViewModel.displayDate}`} onClose={() => setPreviewOpen(false)} size="large" resetKey={entry.id}>
         <JournalExportActions ready exporting={exporting} error={exportError} onExport={exportImage} />
         <JournalReportPreview viewModel={previewViewModel} className="mx-auto max-w-[calc((100dvh-10rem)*0.75)] rounded-xl bg-[#fffcf8] shadow-[0_12px_36px_rgb(23_36_58_/_0.14)]" />
+      </Modal>
+
+      <Modal
+        open={deleteOpen}
+        title="일지 삭제"
+        description={`${entry.dog.name}의 ${displayDate(entry.businessDate)} 일지를 삭제할까요? ${journalDeleteConfirmationDetail(entry.status)}`}
+        onClose={() => { if (!deleting) setDeleteOpen(false); }}
+        resetKey={`${entry.id}:${entry.version}`}
+      >
+        <ModalActions>
+          <Button type="button" variant="secondary" disabled={deleting} onClick={() => setDeleteOpen(false)}>취소</Button>
+          <Button type="button" data-modal-initial variant="danger" disabled={deleting} onClick={() => void remove()}>
+            {deleting ? <LoaderCircle className="animate-spin" size={17} /> : <Trash2 size={17} />}{deleting ? "삭제 중..." : "삭제"}
+          </Button>
+        </ModalActions>
       </Modal>
 
       <div aria-hidden="true" data-testid="journal-canonical-export-source" className="pointer-events-none fixed left-[-12000px] top-0 h-[1440px] w-[1080px] overflow-hidden">

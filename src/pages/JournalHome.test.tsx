@@ -56,19 +56,39 @@ describe("Journal Home roster", () => {
     expect(screen.getAllByRole("button", { name: "오늘 등원 등록" }).length).toBeGreaterThan(0);
   });
 
-  it("renders canonical summary, status filters, and removal only for NOT_STARTED", async () => {
+  it("renders canonical summary, status filters, and delete actions for every status", async () => {
     mocks.fetchRoster.mockResolvedValue(roster);
     render(<JournalHomePage />);
     expect(await screen.findByText("크리미")).not.toBeNull();
     expect(screen.getByLabelText("일지 요약").textContent).toContain("완료1");
     expect(screen.getByLabelText("일지 요약").textContent).toContain("작성중1");
     expect(screen.getByLabelText("일지 요약").textContent).toContain("1미작성");
-    expect(screen.queryByRole("button", { name: "크리미 명단에서 제거" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "몽이 명단에서 제거" })).toBeNull();
-    expect(screen.getByRole("button", { name: "초코 명단에서 제거" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "크리미 일지 삭제" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "몽이 일지 삭제" })).not.toBeNull();
+    expect(screen.getByRole("button", { name: "초코 일지 삭제" })).not.toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "미작성" }));
     expect(screen.getByText("초코")).not.toBeNull();
     expect(screen.queryByText("크리미")).toBeNull();
+  });
+
+  it("confirms and removes a COMPLETED entry, immediately updating summary and batch count", async () => {
+    const afterDelete = {
+      ...roster,
+      summary: { total: 2, notStarted: 1, inProgress: 1, completed: 0 },
+      entries: roster.entries.slice(1),
+    };
+    mocks.fetchRoster.mockResolvedValue(roster);
+    mocks.remove.mockResolvedValue(afterDelete);
+    render(<JournalHomePage />);
+    await screen.findByText("크리미");
+    fireEvent.click(screen.getByRole("button", { name: "크리미 일지 삭제" }));
+    const dialog = screen.getByRole("dialog", { name: "일지 삭제" });
+    expect(dialog.textContent).toContain("완료된 일지가 삭제되며 복구할 수 없습니다.");
+    fireEvent.click(within(dialog).getByRole("button", { name: "삭제" }));
+    await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith("entry-1", 2));
+    await waitFor(() => expect(screen.queryByText("크리미")).toBeNull());
+    expect(screen.getByLabelText("일지 요약").textContent).toContain("0완료");
+    expect(screen.getByRole("button", { name: "2026-08-15 완료 일지 전체 저장" }).textContent).toContain("0건");
   });
 
   it("exports only the selected date's persisted COMPLETED entries as one PNG ZIP", async () => {

@@ -73,11 +73,12 @@ afterEach(() => {
 
 const renderEditor = (
   target = roster[0],
-  options: { onNavigate?: (entryId: string) => void; onClose?: () => void } = {},
+  options: { onNavigate?: (entryId: string) => void; onClose?: () => void; onDelete?: (expectedVersion: number) => Promise<void> } = {},
 ) => render(
   <JournalEditor
     entry={target}
     rosterEntries={roster}
+    onDelete={options.onDelete}
     onEntryUpdate={vi.fn()}
     onNavigate={options.onNavigate ?? vi.fn()}
     onClose={options.onClose ?? vi.fn()}
@@ -163,6 +164,38 @@ describe("Journal Editor", () => {
     await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 6));
     expect(mocks.update).toHaveBeenCalledTimes(1);
     expect(mocks.update.mock.invocationCallOrder[0]).toBeLessThan(mocks.complete.mock.invocationCallOrder[0]);
+  });
+
+  it.each([
+    ["NOT_STARTED", "등록된 일지가 삭제되며 복구할 수 없습니다."],
+    ["IN_PROGRESS", "작성 중인 내용이 함께 삭제되며 복구할 수 없습니다."],
+    ["COMPLETED", "완료된 일지가 삭제되며 복구할 수 없습니다."],
+  ] as const)("offers an exact destructive confirmation for %s entries", async (status, detail) => {
+    const target = entry({ status });
+    const onDelete = vi.fn().mockResolvedValue(undefined);
+    mocks.fetch.mockResolvedValue(target);
+    renderEditor(target, { onDelete });
+    await screen.findByRole("heading", { name: "크리미" });
+    fireEvent.click(screen.getByRole("button", { name: "일지 삭제" }));
+    const dialog = screen.getByRole("dialog", { name: "일지 삭제" });
+    expect(dialog.textContent).toContain("크리미의 2026. 08. 15. 일지를 삭제할까요?");
+    expect(dialog.textContent).toContain(detail);
+    fireEvent.click(within(dialog).getByRole("button", { name: "삭제" }));
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(1));
+  });
+
+  it("flushes an in-flight edit before deleting and passes the latest version", async () => {
+    const target = entry({ status: "IN_PROGRESS", version: 4 });
+    const onDelete = vi.fn().mockResolvedValue(undefined);
+    mocks.fetch.mockResolvedValue(target);
+    mocks.update.mockImplementation(async (_id, version, draft) => entry({ ...target, ...draft, version: version + 1 }));
+    renderEditor(target, { onDelete });
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+    fireEvent.change(comment, { target: { value: "삭제 직전 저장" } });
+    fireEvent.click(screen.getByRole("button", { name: "일지 삭제" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "일지 삭제" })).getByRole("button", { name: "삭제" }));
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(5));
+    expect(mocks.update.mock.invocationCallOrder[0]).toBeLessThan(onDelete.mock.invocationCallOrder[0]);
   });
 
   it("flushes before moving to the next Dog", async () => {

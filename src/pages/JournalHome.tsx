@@ -5,6 +5,7 @@ import { Badge, Button, Card, FormAlert, Input, Modal, ModalActions } from "../c
 import { formatPhoneForDisplay } from "../lib/phone";
 import { seoulDateKey } from "./operationsScheduleRepository";
 import { JournalEditor } from "./JournalEditor";
+import { journalDeleteConfirmationDetail } from "./journalDeletePresentation";
 import { buildUniqueJournalPngFilenames, downloadJournalBatchZip, type JournalBatchFile } from "./journalBatchExport";
 import { renderJournalImageBlob } from "./journalExport";
 import { buildJournalPreviewViewModel, journalEntryToDraft, type JournalPreviewViewModel } from "./journalPreviewViewModel";
@@ -59,6 +60,7 @@ export function JournalHomePage() {
   const [selectedDogIds, setSelectedDogIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<JournalRosterEntry | null>(null);
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [batching, setBatching] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
@@ -134,14 +136,31 @@ export function JournalHomePage() {
   };
 
   const remove = async (entry: JournalRosterEntry) => {
-    if (entry.status !== "NOT_STARTED" || removingId) return;
+    if (removingId) return;
     setRemovingId(entry.id);
     setError("");
     try {
       setRoster(await removeJournalRosterEntry(entry.id, entry.version));
+      setRemoveTarget(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "명단에서 제거하지 못했습니다.");
       setRoster(await fetchJournalRoster(businessDate).catch(() => roster));
+    } finally {
+      setRemovingId(null);
+    }
+  };
+
+  const removeFromEditor = async (entry: JournalRosterEntry, expectedVersion: number) => {
+    if (removingId) return;
+    setRemovingId(entry.id);
+    setError("");
+    try {
+      setRoster(await removeJournalRosterEntry(entry.id, expectedVersion));
+      setSelectedEntryId(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "일지를 삭제하지 못했습니다.");
+      setRoster(await fetchJournalRoster(businessDate).catch(() => roster));
+      throw caught;
     } finally {
       setRemovingId(null);
     }
@@ -197,6 +216,7 @@ export function JournalHomePage() {
         key={selectedEntry.id}
         entry={selectedEntry}
         rosterEntries={roster.entries}
+        onDelete={(expectedVersion) => removeFromEditor(selectedEntry, expectedVersion)}
         onEntryUpdate={applyEntryUpdate}
         onNavigate={setSelectedEntryId}
         onClose={() => setSelectedEntryId(null)}
@@ -264,7 +284,7 @@ export function JournalHomePage() {
             {([['ALL','전체'],['NOT_STARTED','미작성'],['IN_PROGRESS','작성중'],['COMPLETED','완료']] as const).map(([value,label]) => <button key={value} type="button" aria-pressed={filter===value} onClick={() => setFilter(value)} className={`min-h-11 shrink-0 rounded-xl px-4 text-sm font-semibold ${filter===value?'bg-primary text-white':'border border-border bg-surface text-text-secondary hover:bg-primary-soft'}`}>{label}</button>)}
           </div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="오늘의 일지 명단">
-            {visibleEntries.map((entry) => <JournalEntryCard key={entry.id} entry={entry} removing={removingId===entry.id} onOpen={() => setSelectedEntryId(entry.id)} onRemove={() => void remove(entry)} />)}
+            {visibleEntries.map((entry) => <JournalEntryCard key={entry.id} entry={entry} removing={removingId===entry.id} onOpen={() => setSelectedEntryId(entry.id)} onRemove={() => setRemoveTarget(entry)} />)}
             {!visibleEntries.length ? <Card className="p-8 text-center text-sm text-text-muted sm:col-span-2 xl:col-span-3">이 상태의 일지가 없습니다.</Card> : null}
           </div>
         </>
@@ -292,6 +312,21 @@ export function JournalHomePage() {
         )}
         <p className="mt-3 text-sm text-text-secondary">선택 {selectedDogIds.length}마리</p>
         <ModalActions><Button type="button" variant="secondary" disabled={saving} onClick={() => setRegisterOpen(false)}>취소</Button><Button type="button" disabled={!selectedDogIds.length || saving || directoryLoading} onClick={() => void register()}>{saving ? "등록 중..." : "오늘 등원 등록"}</Button></ModalActions>
+      </Modal>
+
+      <Modal
+        open={removeTarget !== null}
+        title="일지 삭제"
+        description={removeTarget ? `${removeTarget.dog.name}의 ${displayDate(removeTarget.businessDate)} 일지를 삭제할까요? ${journalDeleteConfirmationDetail(removeTarget.status)}` : undefined}
+        onClose={() => { if (!removingId) setRemoveTarget(null); }}
+        resetKey={removeTarget ? `${removeTarget.id}:${removeTarget.version}` : "journal-delete"}
+      >
+        <ModalActions>
+          <Button type="button" variant="secondary" disabled={Boolean(removingId)} onClick={() => setRemoveTarget(null)}>취소</Button>
+          <Button type="button" data-modal-initial variant="danger" disabled={Boolean(removingId)} onClick={() => removeTarget && void remove(removeTarget)}>
+            {removingId ? <LoaderCircle className="animate-spin" size={17} /> : <Trash2 size={17} />}{removingId ? "삭제 중..." : "삭제"}
+          </Button>
+        </ModalActions>
       </Modal>
 
       {batchViewModel ? (
@@ -341,7 +376,7 @@ function JournalEntryCard({ entry, removing, onOpen, onRemove }: { entry: Journa
         <p className="mt-1 truncate text-sm text-text-secondary">{entry.customer.name || "보호자 이름 미등록"}</p>
         <p className="mt-2 text-xs font-semibold text-primary">{entry.status === "NOT_STARTED" ? "작성" : entry.status === "IN_PROGRESS" ? "이어서 작성" : "보기/수정"}</p>
       </button>
-      {entry.status === "NOT_STARTED" ? <button type="button" aria-label={`${entry.dog.name} 명단에서 제거`} disabled={removing} onClick={onRemove} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-text-muted hover:bg-error-soft hover:text-error disabled:opacity-50">{removing?<LoaderCircle className="animate-spin" size={17}/>:<Trash2 size={17}/>}</button> : null}
+      <button type="button" aria-label={`${entry.dog.name} 일지 삭제`} disabled={removing} onClick={onRemove} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-text-muted hover:bg-error-soft hover:text-error disabled:opacity-50">{removing?<LoaderCircle className="animate-spin" size={17}/>:<Trash2 size={17}/>}</button>
     </div>
   </Card>;
 }
