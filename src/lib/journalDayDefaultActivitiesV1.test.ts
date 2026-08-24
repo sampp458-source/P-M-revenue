@@ -70,13 +70,13 @@ describe("Journal day default activities V1", () => {
     expect(runtimeQa.trimEnd().endsWith("rollback;")).toBe(true);
   });
 
-  it("renders compact mobile-first inputs before Dog selection without changing editor/export code", () => {
+  it("renders Dog-first registration with compact mobile defaults and a separate defaults-only action", () => {
     expect(home).toContain("오늘의 공통 활동");
     expect(home).toContain('placeholder="예절교육 활동명 입력"');
     expect(home).toContain('placeholder="체육활동 활동명 입력"');
     expect(home).toContain("grid grid-cols-1 gap-3 sm:grid-cols-2");
-    expect(home.indexOf("오늘의 공통 활동")).toBeLessThan(home.indexOf('label="반려견"'));
+    expect(home.indexOf('label="반려견 선택"')).toBeLessThan(home.indexOf("오늘의 공통 활동"));
     expect(home).toContain("maxLength={80}");
-    expect(home).toContain("공통 활동 저장");
+    expect(home).toContain("공통 활동만 저장");
   });
 });

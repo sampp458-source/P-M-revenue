@@ -136,6 +136,7 @@ describe("Journal Home roster", () => {
     await screen.findByText("오늘 등원한 아이들을 등록해주세요.");
     fireEvent.click(screen.getAllByRole("button", { name: "오늘 등원 등록" })[0]);
     const dialog = await screen.findByRole("dialog", { name: "오늘 등원 등록" });
+    expect(within(dialog).getByRole("button", { name: "등원 등록" }).hasAttribute("disabled")).toBe(true);
     const search = within(dialog).getByPlaceholderText("반려견, 보호자 또는 전화번호 검색");
     fireEvent.change(search, { target: { value: "0101234" } });
     await waitFor(() => expect(within(dialog).getByText("크리미")).not.toBeNull());
@@ -143,7 +144,7 @@ describe("Journal Home roster", () => {
     expect(within(dialog).getByText("선택 1마리")).not.toBeNull();
     fireEvent.change(within(dialog).getByPlaceholderText("예절교육 활동명 입력"), { target: { value: "  기다려  " } });
     fireEvent.change(within(dialog).getByPlaceholderText("체육활동 활동명 입력"), { target: { value: " 밸런스볼 " } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "오늘 등원 등록" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "1마리 등원 등록" }));
     await waitFor(() => expect(mocks.register).toHaveBeenCalledWith("2026-08-15", ["dog-1"], {
       mannersActivityName: "기다려",
       physicalActivityName: "밸런스볼",
@@ -159,12 +160,13 @@ describe("Journal Home roster", () => {
     render(<JournalHomePage />);
     await screen.findByText("크리미");
     fireEvent.click(screen.getByRole("button", { name: "등원 추가" }));
-    const dialog = await screen.findByRole("dialog", { name: "등원 추가" });
+    const dialog = await screen.findByRole("dialog", { name: "오늘 등원 등록" });
     expect((within(dialog).getByPlaceholderText("예절교육 활동명 입력") as HTMLInputElement).value).toBe("기다려");
     expect((within(dialog).getByPlaceholderText("체육활동 활동명 입력") as HTMLInputElement).value).toBe("밸런스볼");
     fireEvent.change(within(dialog).getByPlaceholderText("예절교육 활동명 입력"), { target: { value: " 매트 " } });
     fireEvent.change(within(dialog).getByPlaceholderText("체육활동 활동명 입력"), { target: { value: " 터널 " } });
-    const saveDefaults = within(dialog).getByRole("button", { name: "공통 활동 저장" });
+    expect(within(dialog).getByRole("button", { name: "등원 등록" }).hasAttribute("disabled")).toBe(true);
+    const saveDefaults = within(dialog).getByRole("button", { name: "공통 활동만 저장" });
     await waitFor(() => expect(saveDefaults.hasAttribute("disabled")).toBe(false));
     fireEvent.click(saveDefaults);
     await waitFor(() => expect(mocks.updateDefaults).toHaveBeenCalledWith("day-1", 3, {
@@ -188,21 +190,26 @@ describe("Journal Home roster", () => {
     fireEvent.change(screen.getByLabelText("일지 날짜"), { target: { value: "2026-08-14" } });
     await waitFor(() => expect(mocks.fetchRoster).toHaveBeenLastCalledWith("2026-08-14"));
     fireEvent.click(screen.getByRole("button", { name: "등원 추가" }));
-    const dialog = await screen.findByRole("dialog", { name: "등원 추가" });
+    const dialog = await screen.findByRole("dialog", { name: "오늘 등원 등록" });
     expect((within(dialog).getByPlaceholderText("예절교육 활동명 입력") as HTMLInputElement).value).toBe("매트");
     expect((within(dialog).getByPlaceholderText("체육활동 활동명 입력") as HTMLInputElement).value).toBe("터널");
   });
 
   it("keeps the layout overflow-safe for both required mobile widths", async () => {
     mocks.fetchRoster.mockResolvedValue(roster);
+    mocks.fetchDirectory.mockResolvedValue([]);
     const { container } = render(<JournalHomePage />);
     await screen.findByText("크리미");
     fireEvent.click(screen.getByRole("button", { name: "등원 추가" }));
-    await screen.findByRole("dialog", { name: "등원 추가" });
+    const dialog = await screen.findByRole("dialog", { name: "오늘 등원 등록" });
     const root = container.querySelector("[aria-label='유치원 하루 일지']");
     expect(root?.className).toContain("overflow-x-hidden");
     expect(container.innerHTML).toContain("min-h-11");
     expect(container.innerHTML).toContain("sm:grid-cols-2");
     expect(container.innerHTML).toContain("grid-cols-1");
+    const dogSection = await within(dialog).findByText("반려견 선택");
+    expect(dogSection.compareDocumentPosition(within(dialog).getByText("오늘의 공통 활동", { exact: false })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(dialog).getByTestId("modal-actions").className).toContain("sticky");
+    expect(within(dialog).getByTestId("modal-actions").className).toContain("sm:-bottom-6");
   });
 });

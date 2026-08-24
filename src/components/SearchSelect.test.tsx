@@ -31,12 +31,14 @@ const renderSearchSelect = ({
   loadOptions,
   multiple = true,
   showAllOnEmpty = false,
+  resultsPresentation = "popover",
 }: {
   selectedIds?: string[];
   onChange?: (ids: string[]) => void;
   loadOptions?: (query: string) => Promise<readonly Item[]>;
   multiple?: boolean;
   showAllOnEmpty?: boolean;
+  resultsPresentation?: "popover" | "inline";
 } = {}) =>
   render(
     <SearchSelect
@@ -58,6 +60,8 @@ const renderSearchSelect = ({
       debounceMs={0}
       multiple={multiple}
       showAllOnEmpty={showAllOnEmpty}
+      resultsPresentation={resultsPresentation}
+      labelAccessory={<span>선택 {selectedIds.length}마리</span>}
     />,
   );
 
@@ -181,5 +185,20 @@ describe("SearchSelect", () => {
     await waitFor(() =>
       expect(screen.getByText("검색 결과가 없습니다.")).toBeTruthy(),
     );
+  });
+
+  it("renders a bounded inline result panel with complete fixed-height options", async () => {
+    renderSearchSelect({ showAllOnEmpty: true, resultsPresentation: "inline" });
+    fireEvent.focus(screen.getByRole("combobox", { name: "반려견" }));
+
+    const listbox = await screen.findByRole("listbox", { name: "반려견 검색 결과" });
+    expect(listbox.className).toContain("relative");
+    expect(listbox.className).toContain("overflow-hidden");
+    expect(listbox.className).not.toContain("absolute");
+    expect(listbox.querySelector(".max-h-\\[11\\.25rem\\]")?.className).toContain("overflow-y-auto");
+    expect(screen.getByText("선택 0마리")).toBeTruthy();
+    for (const option of screen.getAllByRole("option")) {
+      expect(option.className).toContain("h-[3.75rem]");
+    }
   });
 });

@@ -86,6 +86,7 @@ export interface SearchSelectRenderState {
 
 export interface SearchSelectProps<T> {
   label: string;
+  labelAccessory?: ReactNode;
   items?: readonly T[];
   selectedIds: readonly string[];
   onChange: (selectedIds: string[]) => void;
@@ -108,10 +109,12 @@ export interface SearchSelectProps<T> {
   debounceMs?: number;
   maxResults?: number;
   selectedPlacement?: "before" | "after";
+  resultsPresentation?: "popover" | "inline";
 }
 
 export function SearchSelect<T>({
   label,
+  labelAccessory,
   items,
   selectedIds,
   onChange,
@@ -134,6 +137,7 @@ export function SearchSelect<T>({
   debounceMs = 220,
   maxResults = 8,
   selectedPlacement = "before",
+  resultsPresentation = "popover",
 }: SearchSelectProps<T>) {
   const id = useId();
   const listboxId = `${id}-listbox`;
@@ -163,6 +167,10 @@ export function SearchSelect<T>({
   const [panelLayout, setPanelLayout] = useState<SearchSelectPanelLayout | null>(null);
 
   const updatePanelLayout = useCallback(() => {
+    if (resultsPresentation === "inline") {
+      setPanelLayout(null);
+      return;
+    }
     const input = inputRef.current;
     const viewport = window.visualViewport;
     if (!input || !viewport) {
@@ -174,7 +182,7 @@ export function SearchSelect<T>({
       { top: viewport.offsetTop, height: viewport.height, width: viewport.width },
       { top: rect.top, bottom: rect.bottom },
     ));
-  }, []);
+  }, [resultsPresentation]);
 
   const keepInputVisible = useCallback(() => {
     const input = inputRef.current;
@@ -384,13 +392,18 @@ export function SearchSelect<T>({
 
   return (
     <fieldset ref={rootRef} className="space-y-2" disabled={disabled}>
-      <legend className="text-sm font-medium text-text-primary">
-        {label}
-        {required && (
-          <span aria-hidden="true" className="ml-1 text-error">
-            *
+      <legend className="w-full text-sm font-medium text-text-primary">
+        <span className="flex w-full items-center justify-between gap-3">
+          <span>
+            {label}
+            {required && (
+              <span aria-hidden="true" className="ml-1 text-error">
+                *
+              </span>
+            )}
           </span>
-        )}
+          {labelAccessory}
+        </span>
       </legend>
 
       {selectedPlacement === "before" && selectedChips}
@@ -444,10 +457,15 @@ export function SearchSelect<T>({
             aria-label={`${label} 검색 결과`}
             aria-multiselectable={multiple}
             data-viewport-placement={panelLayout?.placement ?? "fallback-below"}
-            style={panelLayout ? { maxHeight: `${panelLayout.maxHeight}px` } : undefined}
+            style={resultsPresentation === "popover" && panelLayout ? { maxHeight: `${panelLayout.maxHeight}px` } : undefined}
             className={cn(
-              "absolute left-0 right-0 z-40 max-h-[min(20rem,48dvh)] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-surface p-1.5 shadow-[var(--pm-shadow-elevated)]",
-              panelLayout?.placement === "above" ? "bottom-full mb-2" : "top-full mt-2",
+              "left-0 right-0 z-40 rounded-2xl border border-border bg-surface p-1.5",
+              resultsPresentation === "inline"
+                ? "relative mt-2 overflow-hidden shadow-sm"
+                : cn(
+                    "absolute max-h-[min(20rem,48dvh)] overflow-y-auto overscroll-contain shadow-[var(--pm-shadow-elevated)]",
+                    panelLayout?.placement === "above" ? "bottom-full mb-2" : "top-full mt-2",
+                  ),
             )}
           >
             {showRecent && !loading && !searchError && (
@@ -468,28 +486,31 @@ export function SearchSelect<T>({
                 {errorMessage}
               </p>
             ) : results.length > 0 ? (
-              results.map((item, index) => {
-                const itemId = getItemId(item);
-                const selected = selectedIds.includes(itemId);
-                return (
-                  <button
-                    id={`${id}-option-${itemId}`}
-                    key={itemId}
-                    type="button"
-                    role="option"
-                    aria-selected={selected}
-                    onMouseEnter={() => setActiveIndex(index)}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => select(item)}
-                    className={cn(
-                      "flex min-h-14 w-full items-center rounded-xl px-3 py-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                      activeIndex === index && "bg-primary-subtle",
-                    )}
-                  >
-                    {renderOption(item, { selected, recent: showRecent })}
-                  </button>
-                );
-              })
+              <div className={resultsPresentation === "inline" ? "max-h-[11.25rem] overflow-y-auto overscroll-contain" : undefined}>
+                {results.map((item, index) => {
+                  const itemId = getItemId(item);
+                  const selected = selectedIds.includes(itemId);
+                  return (
+                    <button
+                      id={`${id}-option-${itemId}`}
+                      key={itemId}
+                      type="button"
+                      role="option"
+                      aria-selected={selected}
+                      onMouseEnter={() => setActiveIndex(index)}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => select(item)}
+                      className={cn(
+                        "flex w-full items-center rounded-xl px-3 py-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                        resultsPresentation === "inline" ? "h-[3.75rem]" : "min-h-14",
+                        activeIndex === index && "bg-primary-subtle",
+                      )}
+                    >
+                      {renderOption(item, { selected, recent: showRecent })}
+                    </button>
+                  );
+                })}
+              </div>
             ) : (
               <p className="flex min-h-16 items-center justify-center px-3 text-center text-sm text-text-muted">
                 {query.trim() ? noResultsMessage : emptyMessage}

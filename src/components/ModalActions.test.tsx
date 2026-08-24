@@ -46,6 +46,21 @@ describe("ModalActions", () => {
     }
   });
 
+  it("can keep a long registration modal footer sticky on desktop", () => {
+    render(
+      <Modal open title="오늘 등원 등록" size="large" onClose={() => undefined}>
+        <div className="min-h-[900px]">검색 결과</div>
+        <ModalActions stickyDesktop>
+          <Button variant="secondary">취소</Button>
+          <Button>등원 등록</Button>
+        </ModalActions>
+      </Modal>,
+    );
+
+    expect(screen.getByTestId("modal-actions")).toHaveClass("sticky", "sm:-bottom-6", "sm:flex");
+    expect(screen.getByTestId("modal-actions")).not.toHaveClass("sm:static");
+  });
+
   it("provides one section, error, modal context, size, and responsive action contract", () => {
     Object.defineProperty(window, "innerWidth", { configurable: true, value: 375 });
     render(
