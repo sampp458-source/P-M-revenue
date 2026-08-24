@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   fetchDirectory: vi.fn(),
   fetchEntry: vi.fn(),
   register: vi.fn(),
+  updateDefaults: vi.fn(),
   remove: vi.fn(),
   renderImage: vi.fn(),
   downloadBatch: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock("./journalRepository", async (importOriginal) => ({
   fetchJournalDogDirectory: mocks.fetchDirectory,
   fetchJournalEntry: mocks.fetchEntry,
   registerJournalRoster: mocks.register,
+  updateJournalDayDefaultActivities: mocks.updateDefaults,
   removeJournalRosterEntry: mocks.remove,
 }));
 vi.mock("./journalExport", async (importOriginal) => ({
@@ -38,6 +40,7 @@ vi.mock("./journalBatchExport", async (importOriginal) => ({
 const roster = {
   businessDate: "2026-08-15",
   journalDayId: "day-1",
+  defaults: { mannersActivityName: "기다려", physicalActivityName: "밸런스볼", version: 3 },
   summary: { total: 3, notStarted: 1, inProgress: 1, completed: 1 },
   entries: [
     { id: "entry-1", journalDayId: "day-1", businessDate: "2026-08-15", dog: { id: "dog-1", name: "크리미" }, customer: { id: "customer-1", name: "박보호" }, status: "COMPLETED", version: 2, createdAt: "2026-08-15T00:00:00Z", updatedAt: "2026-08-15T00:00:00Z" },
@@ -50,7 +53,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe("Journal Home roster", () => {
   it("shows the empty-day registration state", async () => {
-    mocks.fetchRoster.mockResolvedValue({ ...roster, journalDayId: null, summary: { total: 0, notStarted: 0, inProgress: 0, completed: 0 }, entries: [] });
+    mocks.fetchRoster.mockResolvedValue({ ...roster, journalDayId: null, defaults: { mannersActivityName: null, physicalActivityName: null, version: null }, summary: { total: 0, notStarted: 0, inProgress: 0, completed: 0 }, entries: [] });
     render(<JournalHomePage />);
     expect(await screen.findByText("오늘 등원한 아이들을 등록해주세요.")).not.toBeNull();
     expect(screen.getAllByRole("button", { name: "오늘 등원 등록" }).length).toBeGreaterThan(0);
@@ -115,7 +118,7 @@ describe("Journal Home roster", () => {
   });
 
   it("disables batch export instead of creating an empty ZIP", async () => {
-    mocks.fetchRoster.mockResolvedValue({ ...roster, journalDayId: null, summary: { total: 0, notStarted: 0, inProgress: 0, completed: 0 }, entries: [] });
+    mocks.fetchRoster.mockResolvedValue({ ...roster, journalDayId: null, defaults: { mannersActivityName: null, physicalActivityName: null, version: null }, summary: { total: 0, notStarted: 0, inProgress: 0, completed: 0 }, entries: [] });
     render(<JournalHomePage />);
     await screen.findByText("오늘 등원한 아이들을 등록해주세요.");
     expect(screen.getByRole("button", { name: "2026-08-15 완료 일지 전체 저장" }).hasAttribute("disabled")).toBe(true);
@@ -123,7 +126,7 @@ describe("Journal Home roster", () => {
   });
 
   it("reuses multi-search by Dog, Customer, and phone and registers selected Dogs", async () => {
-    mocks.fetchRoster.mockResolvedValue({ ...roster, journalDayId: null, summary: { total: 0, notStarted: 0, inProgress: 0, completed: 0 }, entries: [] });
+    mocks.fetchRoster.mockResolvedValue({ ...roster, journalDayId: null, defaults: { mannersActivityName: null, physicalActivityName: null, version: null }, summary: { total: 0, notStarted: 0, inProgress: 0, completed: 0 }, entries: [] });
     mocks.fetchDirectory.mockResolvedValue([
       { id: "dog-1", name: "크리미", customerId: "customer-1", customerName: "박보호", customerPhone: "01012345678", breed: null },
       { id: "dog-2", name: "몽이", customerId: "customer-2", customerName: "김보호", customerPhone: "01087654321", breed: null },
@@ -138,17 +141,68 @@ describe("Journal Home roster", () => {
     await waitFor(() => expect(within(dialog).getByText("크리미")).not.toBeNull());
     fireEvent.click(within(dialog).getByRole("option", { name: /크리미/ }));
     expect(within(dialog).getByText("선택 1마리")).not.toBeNull();
+    fireEvent.change(within(dialog).getByPlaceholderText("예절교육 활동명 입력"), { target: { value: "  기다려  " } });
+    fireEvent.change(within(dialog).getByPlaceholderText("체육활동 활동명 입력"), { target: { value: " 밸런스볼 " } });
     fireEvent.click(within(dialog).getByRole("button", { name: "오늘 등원 등록" }));
-    await waitFor(() => expect(mocks.register).toHaveBeenCalledWith("2026-08-15", ["dog-1"]));
+    await waitFor(() => expect(mocks.register).toHaveBeenCalledWith("2026-08-15", ["dog-1"], {
+      mannersActivityName: "기다려",
+      physicalActivityName: "밸런스볼",
+      expectedVersion: null,
+    }));
+  });
+
+  it("loads and updates an existing day's defaults without changing existing entries", async () => {
+    const updated = { ...roster, defaults: { mannersActivityName: "매트", physicalActivityName: "터널", version: 4 } };
+    mocks.fetchRoster.mockResolvedValue(roster);
+    mocks.fetchDirectory.mockResolvedValue([]);
+    mocks.updateDefaults.mockResolvedValue(updated);
+    render(<JournalHomePage />);
+    await screen.findByText("크리미");
+    fireEvent.click(screen.getByRole("button", { name: "등원 추가" }));
+    const dialog = await screen.findByRole("dialog", { name: "등원 추가" });
+    expect((within(dialog).getByPlaceholderText("예절교육 활동명 입력") as HTMLInputElement).value).toBe("기다려");
+    expect((within(dialog).getByPlaceholderText("체육활동 활동명 입력") as HTMLInputElement).value).toBe("밸런스볼");
+    fireEvent.change(within(dialog).getByPlaceholderText("예절교육 활동명 입력"), { target: { value: " 매트 " } });
+    fireEvent.change(within(dialog).getByPlaceholderText("체육활동 활동명 입력"), { target: { value: " 터널 " } });
+    const saveDefaults = within(dialog).getByRole("button", { name: "공통 활동 저장" });
+    await waitFor(() => expect(saveDefaults.hasAttribute("disabled")).toBe(false));
+    fireEvent.click(saveDefaults);
+    await waitFor(() => expect(mocks.updateDefaults).toHaveBeenCalledWith("day-1", 3, {
+      mannersActivityName: "매트",
+      physicalActivityName: "터널",
+    }));
+    expect(updated.entries).toEqual(roster.entries);
+  });
+
+  it("reloads isolated defaults when the selected Journal date changes", async () => {
+    const previousDay = {
+      ...roster,
+      businessDate: "2026-08-14",
+      defaults: { mannersActivityName: "매트", physicalActivityName: "터널", version: 2 },
+      entries: roster.entries.map((entry) => ({ ...entry, businessDate: "2026-08-14" })),
+    };
+    mocks.fetchRoster.mockImplementation(async (date: string) => date === "2026-08-14" ? previousDay : roster);
+    mocks.fetchDirectory.mockResolvedValue([]);
+    render(<JournalHomePage />);
+    await screen.findByText("크리미");
+    fireEvent.change(screen.getByLabelText("일지 날짜"), { target: { value: "2026-08-14" } });
+    await waitFor(() => expect(mocks.fetchRoster).toHaveBeenLastCalledWith("2026-08-14"));
+    fireEvent.click(screen.getByRole("button", { name: "등원 추가" }));
+    const dialog = await screen.findByRole("dialog", { name: "등원 추가" });
+    expect((within(dialog).getByPlaceholderText("예절교육 활동명 입력") as HTMLInputElement).value).toBe("매트");
+    expect((within(dialog).getByPlaceholderText("체육활동 활동명 입력") as HTMLInputElement).value).toBe("터널");
   });
 
   it("keeps the layout overflow-safe for both required mobile widths", async () => {
     mocks.fetchRoster.mockResolvedValue(roster);
     const { container } = render(<JournalHomePage />);
     await screen.findByText("크리미");
+    fireEvent.click(screen.getByRole("button", { name: "등원 추가" }));
+    await screen.findByRole("dialog", { name: "등원 추가" });
     const root = container.querySelector("[aria-label='유치원 하루 일지']");
     expect(root?.className).toContain("overflow-x-hidden");
     expect(container.innerHTML).toContain("min-h-11");
     expect(container.innerHTML).toContain("sm:grid-cols-2");
+    expect(container.innerHTML).toContain("grid-cols-1");
   });
 });

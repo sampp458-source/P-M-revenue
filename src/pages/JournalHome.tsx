@@ -16,6 +16,7 @@ import {
   fetchJournalRoster,
   registerJournalRoster,
   removeJournalRosterEntry,
+  updateJournalDayDefaultActivities,
   type JournalDirectoryDog,
   type JournalRoster,
   type JournalRosterEntry,
@@ -27,6 +28,7 @@ type Filter = "ALL" | JournalStatus;
 const emptyRoster = (businessDate: string): JournalRoster => ({
   businessDate,
   journalDayId: null,
+  defaults: { mannersActivityName: null, physicalActivityName: null, version: null },
   summary: { total: 0, notStarted: 0, inProgress: 0, completed: 0 },
   entries: [],
 });
@@ -58,6 +60,8 @@ export function JournalHomePage() {
   const [directory, setDirectory] = useState<JournalDirectoryDog[]>([]);
   const [directoryLoading, setDirectoryLoading] = useState(false);
   const [selectedDogIds, setSelectedDogIds] = useState<string[]>([]);
+  const [defaultMannersActivity, setDefaultMannersActivity] = useState("");
+  const [defaultPhysicalActivity, setDefaultPhysicalActivity] = useState("");
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removeTarget, setRemoveTarget] = useState<JournalRosterEntry | null>(null);
@@ -74,7 +78,13 @@ export function JournalHomePage() {
     setLoading(true);
     setError("");
     void fetchJournalRoster(businessDate)
-      .then((value) => { if (!cancelled) setRoster(value ?? emptyRoster(businessDate)); })
+      .then((value) => {
+        if (cancelled) return;
+        const next = value ?? emptyRoster(businessDate);
+        setRoster(next);
+        setDefaultMannersActivity(next.defaults.mannersActivityName ?? "");
+        setDefaultPhysicalActivity(next.defaults.physicalActivityName ?? "");
+      })
       .catch((caught) => { if (!cancelled) setError(caught instanceof Error ? caught.message : "일지 명단을 불러오지 못했습니다."); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
@@ -116,16 +126,35 @@ export function JournalHomePage() {
 
   const openRegister = () => {
     setSelectedDogIds([]);
+    setDefaultMannersActivity(roster.defaults.mannersActivityName ?? "");
+    setDefaultPhysicalActivity(roster.defaults.physicalActivityName ?? "");
     setError("");
     setRegisterOpen(true);
   };
 
   const register = async () => {
-    if (!selectedDogIds.length || saving) return;
+    if (saving) return;
+    const normalizedManners = defaultMannersActivity.trim();
+    const normalizedPhysical = defaultPhysicalActivity.trim();
+    const defaultsChanged = normalizedManners !== (roster.defaults.mannersActivityName ?? "")
+      || normalizedPhysical !== (roster.defaults.physicalActivityName ?? "");
+    if (!selectedDogIds.length && (!roster.journalDayId || roster.defaults.version === null || !defaultsChanged)) return;
     setSaving(true);
     setError("");
     try {
-      setRoster(await registerJournalRoster(businessDate, selectedDogIds));
+      const next = selectedDogIds.length
+        ? await registerJournalRoster(businessDate, selectedDogIds, {
+          mannersActivityName: normalizedManners,
+          physicalActivityName: normalizedPhysical,
+          expectedVersion: roster.defaults.version,
+        })
+        : await updateJournalDayDefaultActivities(roster.journalDayId!, roster.defaults.version!, {
+          mannersActivityName: normalizedManners,
+          physicalActivityName: normalizedPhysical,
+        });
+      setRoster(next);
+      setDefaultMannersActivity(next.defaults.mannersActivityName ?? "");
+      setDefaultPhysicalActivity(next.defaults.physicalActivityName ?? "");
       setRegisterOpen(false);
       setSelectedDogIds([]);
     } catch (caught) {
@@ -134,6 +163,15 @@ export function JournalHomePage() {
       setSaving(false);
     }
   };
+
+  const normalizedDefaultManners = defaultMannersActivity.trim();
+  const normalizedDefaultPhysical = defaultPhysicalActivity.trim();
+  const defaultsChanged = normalizedDefaultManners !== (roster.defaults.mannersActivityName ?? "")
+    || normalizedDefaultPhysical !== (roster.defaults.physicalActivityName ?? "");
+  const canSubmitRegistration = !saving && !directoryLoading && (
+    selectedDogIds.length > 0
+    || Boolean(roster.journalDayId && roster.defaults.version !== null && defaultsChanged)
+  );
 
   const remove = async (entry: JournalRosterEntry) => {
     if (removingId) return;
@@ -291,6 +329,19 @@ export function JournalHomePage() {
       )}
 
       <Modal open={registerOpen} title={roster.summary.total ? "등원 추가" : "오늘 등원 등록"} description={`${displayDate(businessDate)} · P&M 유치원`} onClose={() => !saving && setRegisterOpen(false)} resetKey={businessDate}>
+        <fieldset disabled={saving} className="mb-5 rounded-2xl border border-border bg-surface-secondary p-4">
+          <legend className="px-1 text-sm font-bold text-text-primary">오늘의 공통 활동</legend>
+          <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <label className="block text-sm font-semibold text-text-secondary">
+              예절교육
+              <Input className="mt-1.5 min-h-11" value={defaultMannersActivity} maxLength={80} onChange={(event) => setDefaultMannersActivity(event.target.value)} placeholder="예절교육 활동명 입력" />
+            </label>
+            <label className="block text-sm font-semibold text-text-secondary">
+              체육활동
+              <Input className="mt-1.5 min-h-11" value={defaultPhysicalActivity} maxLength={80} onChange={(event) => setDefaultPhysicalActivity(event.target.value)} placeholder="체육활동 활동명 입력" />
+            </label>
+          </div>
+        </fieldset>
         {directoryLoading ? <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-text-secondary"><LoaderCircle className="animate-spin" size={18} />반려견 목록 불러오는 중</div> : (
           <SearchSelect
             label="반려견"
@@ -311,7 +362,7 @@ export function JournalHomePage() {
           />
         )}
         <p className="mt-3 text-sm text-text-secondary">선택 {selectedDogIds.length}마리</p>
-        <ModalActions><Button type="button" variant="secondary" disabled={saving} onClick={() => setRegisterOpen(false)}>취소</Button><Button type="button" disabled={!selectedDogIds.length || saving || directoryLoading} onClick={() => void register()}>{saving ? "등록 중..." : "오늘 등원 등록"}</Button></ModalActions>
+        <ModalActions><Button type="button" variant="secondary" disabled={saving} onClick={() => setRegisterOpen(false)}>취소</Button><Button type="button" disabled={!canSubmitRegistration} onClick={() => void register()}>{saving ? "저장 중..." : selectedDogIds.length ? "오늘 등원 등록" : "공통 활동 저장"}</Button></ModalActions>
       </Modal>
 
       <Modal

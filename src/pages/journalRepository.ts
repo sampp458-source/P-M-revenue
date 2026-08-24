@@ -53,6 +53,11 @@ export interface JournalRosterEntry {
 export interface JournalRoster {
   businessDate: string;
   journalDayId: string | null;
+  defaults: {
+    mannersActivityName: string | null;
+    physicalActivityName: string | null;
+    version: number | null;
+  };
   summary: {
     total: number;
     notStarted: number;
@@ -102,10 +107,33 @@ export function fetchJournalRoster(businessDate: string) {
   return rpc<JournalRoster>("get_journal_roster", { p_business_date: businessDate });
 }
 
-export function registerJournalRoster(businessDate: string, dogIds: string[], requestId = crypto.randomUUID()) {
-  return rpc<JournalRoster>("register_journal_roster", {
+export function registerJournalRoster(
+  businessDate: string,
+  dogIds: string[],
+  defaults: { mannersActivityName: string; physicalActivityName: string; expectedVersion: number | null },
+  requestId = crypto.randomUUID(),
+) {
+  return rpc<JournalRoster>("register_journal_roster_v2", {
     p_business_date: businessDate,
     p_dog_ids: dogIds,
+    p_default_manners_activity: defaults.mannersActivityName || null,
+    p_default_physical_activity: defaults.physicalActivityName || null,
+    p_expected_defaults_version: defaults.expectedVersion,
+    p_request_id: requestId,
+  });
+}
+
+export function updateJournalDayDefaultActivities(
+  journalDayId: string,
+  expectedVersion: number,
+  defaults: { mannersActivityName: string; physicalActivityName: string },
+  requestId = crypto.randomUUID(),
+) {
+  return rpc<JournalRoster>("update_journal_day_default_activities", {
+    p_journal_day_id: journalDayId,
+    p_expected_version: expectedVersion,
+    p_default_manners_activity: defaults.mannersActivityName || null,
+    p_default_physical_activity: defaults.physicalActivityName || null,
     p_request_id: requestId,
   });
 }
