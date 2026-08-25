@@ -1,5 +1,5 @@
 import { toCanvas } from "html-to-image";
-import { isCurrentJournalTemplateRoot, JOURNAL_REQUIRED_ASSET_IDS } from "./journalRenderContract";
+import { isCurrentJournalTemplateRoot, journalViewModelRevision, JOURNAL_REQUIRED_ASSET_IDS } from "./journalRenderContract";
 import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
 
 export type JournalExportFormat = "png" | "jpg";
@@ -10,6 +10,16 @@ export const JOURNAL_EXPORT_SUPERSAMPLE = 2;
 export type JournalRasterPipeline = "direct" | "supersampled";
 const JOURNAL_EXPORT_BACKGROUND = "#fffcf8";
 const JOURNAL_JPG_QUALITY = 0.95;
+let exportGenerationSequence = 0;
+let exportQueue: Promise<void> = Promise.resolve();
+
+type JournalExportGeneration = {
+  generationId: string;
+  entryId: string;
+  viewModelRevision: string;
+  host: HTMLDivElement;
+  snapshot: HTMLElement;
+};
 
 const invalidFilenameCharacters = new Set(['<', '>', ':', '"', '/', '\\', '|', '?', '*']);
 
@@ -160,10 +170,25 @@ function createFinalCanvas(source: HTMLCanvasElement) {
   return canvas;
 }
 
-function createCanonicalSnapshot(root: HTMLElement) {
+function nextExportGenerationId() {
+  exportGenerationSequence += 1;
+  return `journal-export-${exportGenerationSequence}`;
+}
+
+function requiredRootIdentity(root: HTMLElement) {
+  const entryId = root.dataset.journalEntryId;
+  const viewModelRevision = root.dataset.journalViewModelRevision;
+  if (!entryId || !viewModelRevision) throw new Error("JOURNAL_EXPORT_SOURCE_IDENTITY_MISSING");
+  return { entryId, viewModelRevision };
+}
+
+function createCanonicalSnapshot(root: HTMLElement): JournalExportGeneration {
+  const { entryId, viewModelRevision } = requiredRootIdentity(root);
+  const generationId = nextExportGenerationId();
   const host = document.createElement("div");
   host.setAttribute("aria-hidden", "true");
   host.dataset.journalExportSnapshot = "true";
+  host.dataset.exportGenerationId = generationId;
   Object.assign(host.style, {
     position: "fixed",
     left: "-12000px",
@@ -175,24 +200,48 @@ function createCanonicalSnapshot(root: HTMLElement) {
   });
   const snapshot = root.cloneNode(true) as HTMLElement;
   snapshot.dataset.journalCanonicalSnapshot = "true";
+  snapshot.dataset.exportGenerationId = generationId;
   host.appendChild(snapshot);
   document.body.appendChild(host);
-  return { host, snapshot };
+  return { generationId, entryId, viewModelRevision, host, snapshot };
 }
 
-async function rasterizeJournalSnapshot(root: HTMLElement, pipeline: JournalRasterPipeline) {
-  if (!isCurrentJournalTemplateRoot(root)) {
-    throw new Error("JOURNAL_RENDER_SOURCE_VERSION_MISMATCH");
+function assertGenerationIdentity(generation: JournalExportGeneration, node: HTMLElement) {
+  if (node !== generation.snapshot) throw new Error("JOURNAL_EXPORT_READY_RASTER_NODE_MISMATCH");
+  if (node.dataset.exportGenerationId !== generation.generationId) {
+    throw new Error("JOURNAL_EXPORT_GENERATION_IDENTITY_MISMATCH");
   }
-  const { host, snapshot } = createCanonicalSnapshot(root);
+  if (node.dataset.journalEntryId !== generation.entryId || node.dataset.journalViewModelRevision !== generation.viewModelRevision) {
+    throw new Error("JOURNAL_EXPORT_ENTRY_IDENTITY_MISMATCH");
+  }
+}
+
+function runSerializedExport<T>(task: () => Promise<T>) {
+  const running = exportQueue.then(task, task);
+  exportQueue = running.then(() => undefined, () => undefined);
+  return running;
+}
+
+async function rasterizeJournalGeneration(generation: JournalExportGeneration, pipeline: JournalRasterPipeline) {
+  const { host, snapshot } = generation;
   try {
+    assertGenerationIdentity(generation, snapshot);
     await waitForJournalLayoutSettle();
     await inlineJournalSnapshotImages(snapshot, JOURNAL_REQUIRED_ASSET_IDS);
     await waitForJournalLayoutSettle();
+    assertGenerationIdentity(generation, snapshot);
+    await waitForJournalAssets(snapshot, JOURNAL_REQUIRED_ASSET_IDS);
+    if (Array.from(snapshot.querySelectorAll<HTMLImageElement>("img[data-journal-asset]")).some((image) => !image.src.startsWith("data:"))) {
+      throw new Error("JOURNAL_EXPORT_PRE_RASTER_ASSET_GATE_FAILED");
+    }
+    const readyNode = snapshot;
+    const rasterNode = snapshot;
+    if (readyNode !== rasterNode) throw new Error("JOURNAL_EXPORT_READY_RASTER_NODE_MISMATCH");
+    assertGenerationIdentity(generation, rasterNode);
     const supersample = pipeline === "supersampled" ? JOURNAL_EXPORT_SUPERSAMPLE : 1;
     const rasterWidth = JOURNAL_EXPORT_WIDTH * supersample;
     const rasterHeight = JOURNAL_EXPORT_HEIGHT * supersample;
-    const sourceCanvas = await toCanvas(snapshot, {
+    const sourceCanvas = await toCanvas(rasterNode, {
       width: JOURNAL_EXPORT_WIDTH,
       height: JOURNAL_EXPORT_HEIGHT,
       canvasWidth: rasterWidth,
@@ -220,7 +269,11 @@ export async function renderJournalImageBlob(
   format: JournalExportFormat,
   pipeline: JournalRasterPipeline = "direct",
 ) {
-  const finalCanvas = await rasterizeJournalSnapshot(root, pipeline);
+  if (!isCurrentJournalTemplateRoot(root)) {
+    throw new Error("JOURNAL_RENDER_SOURCE_VERSION_MISMATCH");
+  }
+  const generation = createCanonicalSnapshot(root);
+  const finalCanvas = await runSerializedExport(() => rasterizeJournalGeneration(generation, pipeline));
   if (finalCanvas.width !== JOURNAL_EXPORT_WIDTH || finalCanvas.height !== JOURNAL_EXPORT_HEIGHT) {
     throw new Error("JOURNAL_EXPORT_SIZE_MISMATCH");
   }
@@ -245,6 +298,10 @@ export async function exportJournalImage(
   viewModel: JournalPreviewViewModel,
   format: JournalExportFormat,
 ) {
+  const rootIdentity = requiredRootIdentity(root);
+  if (rootIdentity.entryId !== viewModel.entryId || rootIdentity.viewModelRevision !== journalViewModelRevision(viewModel)) {
+    throw new Error("JOURNAL_EXPORT_ENTRY_IDENTITY_MISMATCH");
+  }
   const blob = await renderJournalImageBlob(root, format);
   const filename = buildJournalExportFilename(viewModel.dogName, viewModel.businessDate, format);
   downloadJournalBlob(blob, filename);

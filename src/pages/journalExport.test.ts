@@ -10,6 +10,7 @@ import {
   waitForJournalAssets,
 } from "./journalExport";
 import {
+  journalViewModelRevision,
   JOURNAL_ASSET_VERSION,
   JOURNAL_REQUIRED_ASSET_IDS,
   JOURNAL_RENDERER_VERSION,
@@ -20,16 +21,19 @@ import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
 vi.mock("html-to-image", () => ({ toCanvas: vi.fn() }));
 
 const viewModel = {
+  entryId: "entry-creamy",
   dogName: "크리미",
   businessDate: "2026-08-20",
 } as JournalPreviewViewModel;
 
-function createCurrentTemplateRoot() {
+function createCurrentTemplateRoot(model: JournalPreviewViewModel = viewModel) {
   const root = document.createElement("article");
   root.dataset.journalSource = "typed-view-model";
   root.dataset.journalRendererVersion = JOURNAL_RENDERER_VERSION;
   root.dataset.journalTemplateVersion = JOURNAL_TEMPLATE_VERSION;
   root.dataset.journalAssetVersion = JOURNAL_ASSET_VERSION;
+  root.dataset.journalEntryId = model.entryId;
+  root.dataset.journalViewModelRevision = journalViewModelRevision(model);
   JOURNAL_REQUIRED_ASSET_IDS.forEach((assetId) => {
     const image = document.createElement("img");
     image.dataset.journalAsset = assetId;
@@ -356,5 +360,75 @@ describe("Journal image export", () => {
     vi.mocked(toCanvas).mockResolvedValue({ width: 2160, height: 2880 } as HTMLCanvasElement);
     await expect(exportJournalImage(root, viewModel, "png")).rejects.toThrow("JOURNAL_EXPORT_RASTER_SIZE_MISMATCH");
     expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the clicked ViewModel does not own the rendered entry root", async () => {
+    const root = createCurrentTemplateRoot();
+    await expect(exportJournalImage(root, { ...viewModel, entryId: "entry-autumn", dogName: "가을" }, "png"))
+      .rejects.toThrow("JOURNAL_EXPORT_ENTRY_IDENTITY_MISMATCH");
+    expect(toCanvas).not.toHaveBeenCalled();
+  });
+
+  it("serializes overlapping entry generations and rasterizes each captured same-node snapshot", async () => {
+    const dust = { ...viewModel, entryId: "entry-dust", dogName: "먼지" };
+    const autumn = { ...viewModel, entryId: "entry-autumn", dogName: "가을" };
+    let releaseFirst!: (canvas: HTMLCanvasElement) => void;
+    const firstCanvas = new Promise<HTMLCanvasElement>((resolve) => { releaseFirst = resolve; });
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1440;
+    vi.mocked(toCanvas).mockImplementationOnce(() => firstCanvas).mockResolvedValue(canvas);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback: BlobCallback, type?: string) => callback(new Blob(["image"], { type })));
+
+    const first = renderJournalImageBlob(createCurrentTemplateRoot(dust), "png");
+    const second = renderJournalImageBlob(createCurrentTemplateRoot(autumn), "png");
+    await vi.waitFor(() => expect(toCanvas).toHaveBeenCalledTimes(1));
+    expect(document.querySelectorAll("[data-journal-export-snapshot='true']")).toHaveLength(2);
+    const dustNode = vi.mocked(toCanvas).mock.calls[0][0] as HTMLElement;
+    expect(dustNode.dataset.journalEntryId).toBe("entry-dust");
+    releaseFirst(canvas);
+    await vi.waitFor(() => expect(toCanvas).toHaveBeenCalledTimes(2));
+    const autumnNode = vi.mocked(toCanvas).mock.calls[1][0] as HTMLElement;
+    expect(autumnNode.dataset.journalEntryId).toBe("entry-autumn");
+    expect(autumnNode).not.toBe(dustNode);
+    expect(autumnNode.dataset.exportGenerationId).not.toBe(dustNode.dataset.exportGenerationId);
+    await Promise.all([first, second]);
+    expect(document.querySelectorAll("[data-journal-export-snapshot='true']")).toHaveLength(0);
+  });
+
+  it("rechecks entry identity immediately before rasterization", async () => {
+    Object.defineProperty(HTMLImageElement.prototype, "decode", {
+      configurable: true,
+      value: vi.fn(function decode(this: HTMLImageElement) {
+        const root = this.closest<HTMLElement>("[data-journal-canonical-snapshot='true']");
+        if (root) root.dataset.journalEntryId = "entry-wrong";
+        return Promise.resolve();
+      }),
+    });
+    await expect(renderJournalImageBlob(createCurrentTemplateRoot(), "png"))
+      .rejects.toThrow("JOURNAL_EXPORT_ENTRY_IDENTITY_MISMATCH");
+    expect(toCanvas).not.toHaveBeenCalled();
+    expect(document.querySelectorAll("[data-journal-export-snapshot='true']")).toHaveLength(0);
+  });
+
+  it("keeps 20 alternating entry generations isolated and complete", async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1440;
+    vi.mocked(toCanvas).mockResolvedValue(canvas);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback: BlobCallback, type?: string) => callback(new Blob(["image"], { type })));
+    const models = Array.from({ length: 20 }, (_, index) => index % 2 === 0
+      ? { ...viewModel, entryId: "entry-dust", dogName: "먼지" }
+      : { ...viewModel, entryId: "entry-autumn", dogName: "가을" });
+    await Promise.all(models.map((model) => renderJournalImageBlob(createCurrentTemplateRoot(model), "png")));
+    const rasterNodes = vi.mocked(toCanvas).mock.calls.map(([node]) => node as HTMLElement);
+    expect(rasterNodes).toHaveLength(20);
+    expect(rasterNodes.map((node) => node.dataset.journalEntryId))
+      .toEqual(models.map((model) => model.entryId));
+    expect(new Set(rasterNodes.map((node) => node.dataset.exportGenerationId)).size).toBe(20);
+    rasterNodes.forEach((node) => {
+      expect(node.querySelectorAll("img[data-journal-asset]")).toHaveLength(7);
+      expect(Array.from(node.querySelectorAll<HTMLImageElement>("img[data-journal-asset]")).every((image) => image.src.startsWith("data:"))).toBe(true);
+    });
   });
 });
