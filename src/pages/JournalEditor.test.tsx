@@ -28,6 +28,20 @@ vi.mock("./journalExport", async (importOriginal) => ({
   exportJournalImage: mocks.exportImage,
 }));
 
+vi.mock("./journalAssetSources", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./journalAssetSources")>()),
+  loadEmbeddedJournalAssetSources: vi.fn().mockResolvedValue({
+    "header-dog-a": "data:image/png;base64,YQ==",
+    "header-dog-b": "data:image/png;base64,Yg==",
+    "best-friend-duo": "data:image/png;base64,Yw==",
+    meal: "data:image/png;base64,ZA==",
+    manners: "data:image/png;base64,ZQ==",
+    physical: "data:image/png;base64,Zg==",
+    "teacher-comment-dog": "data:image/png;base64,Zw==",
+    "official-logo": "data:image/png;base64,aA==",
+  }),
+}));
+
 const entry = (overrides: Partial<JournalRosterEntry> = {}): JournalRosterEntry => ({
   id: "entry-1",
   journalDayId: "day-1",
@@ -125,7 +139,7 @@ describe("Journal Editor", () => {
     expect(container.querySelector("[aria-label='크리미 일지 편집기'] > div")?.className).toContain("xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]");
     expect(screen.getByTestId("journal-report-preview").className).toContain("aspect-[3/4]");
     expect(liveReport("크리미").getAttribute("style")).toContain("width: 1080px");
-    expect(screen.getByTestId("journal-canonical-export-source").getAttribute("aria-hidden")).toBe("true");
+    expect(screen.queryByTestId("journal-canonical-export-source")).toBeNull();
     expect(screen.getByLabelText("크리미 결과 미리보기").className).toContain("hidden");
     expect(screen.getByLabelText("크리미 결과 미리보기").className).toContain("xl:block");
     expect(screen.getByRole("button", { name: "미리보기" })).toBeTruthy();
@@ -341,7 +355,7 @@ describe("Journal Editor", () => {
     fireEvent.click(screen.getByRole("button", { name: "미리보기" }));
     expect(screen.getByRole("dialog", { name: "결과 미리보기" })).toBeTruthy();
     expect(screen.getAllByTestId("journal-report-preview")).toHaveLength(2);
-    expect(screen.getAllByLabelText("크리미 하루 일지 결과지")).toHaveLength(3);
+    expect(screen.getAllByLabelText("크리미 하루 일지 결과지")).toHaveLength(2);
     expect(mocks.renderImage).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "닫기" }));
     expect(screen.queryByRole("dialog", { name: "결과 미리보기" })).toBeNull();
@@ -357,7 +371,8 @@ describe("Journal Editor", () => {
     await waitFor(() => expect(save.hasAttribute("disabled")).toBe(false));
     fireEvent.click(save);
     await waitFor(() => expect(mocks.exportImage).toHaveBeenCalledTimes(1));
-    expect(mocks.exportImage.mock.calls[0][0]).toBe(screen.getByTestId("journal-export-template"));
+    expect((mocks.exportImage.mock.calls[0][0] as HTMLElement).dataset.testid).toBe("journal-export-template");
+    expect(Array.from((mocks.exportImage.mock.calls[0][0] as HTMLElement).querySelectorAll<HTMLImageElement>("img")).every((image) => image.src.startsWith("data:image/png"))).toBe(true);
     expect(mocks.exportImage.mock.calls[0][1]).toMatchObject({ teacherComment: "아직 저장되지 않은 최신 내용" });
     expect(mocks.exportImage.mock.calls[0][2]).toBe("png");
     expect(mocks.update).not.toHaveBeenCalled();
@@ -374,7 +389,7 @@ describe("Journal Editor", () => {
     await waitFor(() => expect(png.hasAttribute("disabled")).toBe(false));
     fireEvent.click(png);
     fireEvent.click(png);
-    expect(mocks.exportImage).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mocks.exportImage).toHaveBeenCalledTimes(1));
     expect(screen.getByRole("button", { name: "이미지 만드는 중..." }).hasAttribute("disabled")).toBe(true);
     rejectExport(new Error("raster failed"));
     expect((await screen.findByRole("alert")).textContent).toBe("이미지를 저장하지 못했습니다. 다시 시도해 주세요.");
@@ -403,10 +418,11 @@ describe("Journal Editor", () => {
     await waitFor(() => expect(jpg.hasAttribute("disabled")).toBe(false));
     fireEvent.click(jpg);
     await waitFor(() => expect(mocks.exportImage).toHaveBeenCalledWith(
-      screen.getByTestId("journal-export-template"),
+      expect.any(HTMLElement),
       expect.objectContaining({ status: "COMPLETED" }),
       "jpg",
     ));
+    expect((mocks.exportImage.mock.calls[0][0] as HTMLElement).dataset.testid).toBe("journal-export-template");
     expect(mocks.complete).not.toHaveBeenCalled();
   });
 });

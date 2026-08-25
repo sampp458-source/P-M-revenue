@@ -36,6 +36,19 @@ vi.mock("./journalBatchExport", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./journalBatchExport")>()),
   downloadJournalBatchZip: mocks.downloadBatch,
 }));
+vi.mock("./journalAssetSources", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./journalAssetSources")>()),
+  loadEmbeddedJournalAssetSources: vi.fn().mockResolvedValue({
+    "header-dog-a": "data:image/png;base64,YQ==",
+    "header-dog-b": "data:image/png;base64,Yg==",
+    "best-friend-duo": "data:image/png;base64,Yw==",
+    meal: "data:image/png;base64,ZA==",
+    manners: "data:image/png;base64,ZQ==",
+    physical: "data:image/png;base64,Zg==",
+    "teacher-comment-dog": "data:image/png;base64,Zw==",
+    "official-logo": "data:image/png;base64,aA==",
+  }),
+}));
 
 const roster = {
   businessDate: "2026-08-15",

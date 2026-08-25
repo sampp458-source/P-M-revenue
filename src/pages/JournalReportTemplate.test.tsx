@@ -3,6 +3,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { JournalReportPreview, JournalReportTemplate, JOURNAL_REPORT_HEIGHT, JOURNAL_REPORT_WIDTH } from "./JournalReportTemplate";
+import type { JournalAssetSourceMap } from "./journalAssetSources";
 import { buildJournalPreviewViewModel } from "./journalPreviewViewModel";
 import { JOURNAL_ASSET_VERSION, JOURNAL_RENDERER_VERSION, JOURNAL_REQUIRED_ASSET_IDS, JOURNAL_TEMPLATE_VERSION } from "./journalRenderContract";
 import type { JournalDraft, JournalRosterEntry } from "./journalRepository";
@@ -31,6 +32,20 @@ const renderReport = (draftValue = draft(), entryValue = entry()) => render(
 afterEach(cleanup);
 
 describe("Journal 1080x1440 report template", () => {
+  it("injects the complete embedded export bundle without changing the preview template", () => {
+    const assetSources = Object.fromEntries([
+      ...JOURNAL_REQUIRED_ASSET_IDS,
+      "official-logo",
+    ].map((id) => [id, `data:image/png;base64,${btoa(id)}`])) as JournalAssetSourceMap;
+    const viewModel = buildJournalPreviewViewModel(entry(), draft(), [entry(), friend]);
+    render(<JournalReportTemplate viewModel={viewModel} assetSources={assetSources} />);
+    const report = screen.getByTestId("journal-report-template");
+    expect(report.querySelectorAll("img")).toHaveLength(8);
+    expect(Array.from(report.querySelectorAll<HTMLImageElement>("img")).every((image) => image.src.startsWith("data:image/png"))).toBe(true);
+    expect(Array.from(report.querySelectorAll("[data-journal-asset]")).map((node) => node.getAttribute("data-journal-asset")).sort())
+      .toEqual([...JOURNAL_REQUIRED_ASSET_IDS].sort());
+  });
+
   it("scales the fixed canonical geometry without responsive reflow", () => {
     const width = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "clientWidth");
     Object.defineProperty(HTMLElement.prototype, "clientWidth", { configurable: true, get: () => 540 });

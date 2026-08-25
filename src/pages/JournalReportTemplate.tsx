@@ -1,7 +1,7 @@
 import { Check, CircleUserRound, Dumbbell, Flower2, Heart, Medal, MessageCircleHeart, PawPrint, Salad, Sparkles } from "lucide-react";
-import { useLayoutEffect, useRef, useState, type ReactNode, type Ref } from "react";
-import { journalCharacters, journalSectionIllustrations, type JournalCharacterName, type JournalSectionIllustrationName } from "../assets/journal/journalAssets";
-import pmLogo from "../assets/pm-logo.png";
+import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import type { JournalCharacterName, JournalSectionIllustrationName } from "../assets/journal/journalAssets";
+import { JOURNAL_BUNDLED_ASSET_SOURCES, type JournalAssetSourceMap } from "./journalAssetSources";
 import { journalViewModelRevision, JOURNAL_ASSET_VERSION, JOURNAL_RENDERER_VERSION, JOURNAL_TEMPLATE_VERSION, type JournalRequiredAssetId } from "./journalRenderContract";
 import type { JournalPreviewActivity, JournalPreviewOption, JournalPreviewViewModel } from "./journalPreviewViewModel";
 
@@ -20,50 +20,56 @@ export function JournalReportTemplate({
   viewModel,
   reportRef,
   testId = "journal-report-template",
+  assetSources = JOURNAL_BUNDLED_ASSET_SOURCES,
 }: {
   viewModel: JournalPreviewViewModel;
   reportRef?: Ref<HTMLElement>;
   testId?: string;
+  assetSources?: JournalAssetSourceMap;
 }) {
   return (
-    <article
-      ref={reportRef}
-      data-testid={testId}
-      data-journal-source="typed-view-model"
-      data-journal-renderer-version={JOURNAL_RENDERER_VERSION}
-      data-journal-template-version={JOURNAL_TEMPLATE_VERSION}
-      data-journal-asset-version={JOURNAL_ASSET_VERSION}
-      data-journal-entry-id={viewModel.entryId}
-      data-journal-view-model-revision={journalViewModelRevision(viewModel)}
-      aria-label={`${viewModel.dogName} 하루 일지 결과지`}
-      className="relative flex shrink-0 flex-col overflow-hidden bg-[#fffcf8] p-[46px] text-[#25384a]"
-      style={{
-        width: JOURNAL_REPORT_WIDTH,
-        height: JOURNAL_REPORT_HEIGHT,
-        fontFamily: 'Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      }}
-    >
-      <span className="pointer-events-none absolute inset-[17px] rounded-[52px] border-[3px] border-[#e6eef4]" />
-      <ReportHeader viewModel={viewModel} />
+    <JournalAssetSourceContext.Provider value={assetSources}>
+      <article
+        ref={reportRef}
+        data-testid={testId}
+        data-journal-source="typed-view-model"
+        data-journal-renderer-version={JOURNAL_RENDERER_VERSION}
+        data-journal-template-version={JOURNAL_TEMPLATE_VERSION}
+        data-journal-asset-version={JOURNAL_ASSET_VERSION}
+        data-journal-entry-id={viewModel.entryId}
+        data-journal-view-model-revision={journalViewModelRevision(viewModel)}
+        aria-label={`${viewModel.dogName} 하루 일지 결과지`}
+        className="relative flex shrink-0 flex-col overflow-hidden bg-[#fffcf8] p-[46px] text-[#25384a]"
+        style={{
+          width: JOURNAL_REPORT_WIDTH,
+          height: JOURNAL_REPORT_HEIGHT,
+          fontFamily: 'Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        }}
+      >
+        <span className="pointer-events-none absolute inset-[17px] rounded-[52px] border-[3px] border-[#e6eef4]" />
+        <ReportHeader viewModel={viewModel} />
 
-      <main className="relative z-10 mt-[16px] grid min-h-0 flex-1 grid-rows-[170px_206px_120px_178px_minmax(0,1fr)] gap-[8px]">
-        <DailyStatusComposition viewModel={viewModel} />
+        <main className="relative z-10 mt-[16px] grid min-h-0 flex-1 grid-rows-[170px_206px_120px_178px_minmax(0,1fr)] gap-[8px]">
+          <DailyStatusComposition viewModel={viewModel} />
 
-        <MealRelationshipComposition viewModel={viewModel} />
+          <MealRelationshipComposition viewModel={viewModel} />
 
-        <BestFriendRibbon name={viewModel.bestFriendName ?? ""} />
+          <BestFriendRibbon name={viewModel.bestFriendName ?? ""} />
 
-        <div data-card-surface="activities" className="relative grid grid-cols-[0.96fr_1.04fr] gap-[20px] overflow-hidden rounded-[36px_20px_42px_24px] bg-[linear-gradient(104deg,#fffafb_0%,#fffafb_46%,#fbfffd_54%,#fbfffd_100%)] px-[8px]">
-          <span className="absolute left-1/2 top-[28px] h-[118px] border-l-2 border-dotted border-[#dbe7ef]/80" />
-          <ActivityCard activity={viewModel.manners} icon={<Medal size={25} />} paletteName="coral" motif="medal" />
-          <ActivityCard activity={viewModel.physical} icon={<Dumbbell size={25} />} paletteName="green" motif="movement" />
-        </div>
+          <div data-card-surface="activities" className="relative grid grid-cols-[0.96fr_1.04fr] gap-[20px] overflow-hidden rounded-[36px_20px_42px_24px] bg-[linear-gradient(104deg,#fffafb_0%,#fffafb_46%,#fbfffd_54%,#fbfffd_100%)] px-[8px]">
+            <span className="absolute left-1/2 top-[28px] h-[118px] border-l-2 border-dotted border-[#dbe7ef]/80" />
+            <ActivityCard activity={viewModel.manners} icon={<Medal size={25} />} paletteName="coral" motif="medal" />
+            <ActivityCard activity={viewModel.physical} icon={<Dumbbell size={25} />} paletteName="green" motif="movement" />
+          </div>
 
-        <TeacherComment comment={viewModel.teacherComment} />
-      </main>
-    </article>
+          <TeacherComment comment={viewModel.teacherComment} />
+        </main>
+      </article>
+    </JournalAssetSourceContext.Provider>
   );
 }
+
+const JournalAssetSourceContext = createContext<JournalAssetSourceMap>(JOURNAL_BUNDLED_ASSET_SOURCES);
 
 function DailyStatusComposition({ viewModel }: { viewModel: JournalPreviewViewModel }) {
   return (
@@ -128,6 +134,7 @@ export function JournalReportPreview({ viewModel, className = "" }: { viewModel:
 }
 
 function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
+  const sources = useContext(JournalAssetSourceContext);
   return (
     <header data-card-surface="header" className="relative z-10 h-[235px] shrink-0 overflow-hidden rounded-[52px_52px_38px_38px] border-[3px] border-[#dbeaf4] bg-white px-[34px] py-[17px] shadow-[0_8px_24px_rgb(47_98_132_/_0.055)]">
       <span className="absolute left-[26px] top-[24px] h-[150px] w-[150px] rounded-full bg-[#ffe9ed]/52" />
@@ -137,7 +144,7 @@ function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
 
       <div className="mx-auto flex w-[590px] flex-col items-center">
         <img
-          src={pmLogo}
+          src={sources["official-logo"]}
           alt="P&M"
           data-testid="journal-official-logo"
           className="h-[86px] w-[220px] object-contain"
@@ -312,11 +319,13 @@ const sectionAssetId: Record<JournalSectionIllustrationName, JournalRequiredAsse
 };
 
 function JournalCharacter({ name, className = "" }: { name: JournalCharacterName; className?: string }) {
-  return <img data-testid={`journal-character-${name}`} data-journal-asset={characterAssetId[name]} src={journalCharacters[name]} alt="" aria-hidden="true" draggable={false} className={className} onError={(event) => { event.currentTarget.style.visibility = "hidden"; }} />;
+  const sources = useContext(JournalAssetSourceContext);
+  return <img data-testid={`journal-character-${name}`} data-journal-asset={characterAssetId[name]} src={sources[characterAssetId[name]]} alt="" aria-hidden="true" draggable={false} className={className} onError={(event) => { event.currentTarget.style.visibility = "hidden"; }} />;
 }
 
 function JournalSectionIllustration({ name, className = "" }: { name: JournalSectionIllustrationName; className?: string }) {
-  return <img data-testid={`journal-section-illustration-${name}`} data-journal-asset={sectionAssetId[name]} src={journalSectionIllustrations[name]} alt="" aria-hidden="true" draggable={false} className={`pointer-events-none object-contain ${className}`} onError={(event) => { event.currentTarget.style.visibility = "hidden"; }} />;
+  const sources = useContext(JournalAssetSourceContext);
+  return <img data-testid={`journal-section-illustration-${name}`} data-journal-asset={sectionAssetId[name]} src={sources[sectionAssetId[name]]} alt="" aria-hidden="true" draggable={false} className={`pointer-events-none object-contain ${className}`} onError={(event) => { event.currentTarget.style.visibility = "hidden"; }} />;
 }
 
 function commentDensity(comment: string) {

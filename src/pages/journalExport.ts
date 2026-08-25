@@ -227,11 +227,9 @@ async function rasterizeJournalGeneration(generation: JournalExportGeneration, p
   try {
     assertGenerationIdentity(generation, snapshot);
     await waitForJournalLayoutSettle();
-    await inlineJournalSnapshotImages(snapshot, JOURNAL_REQUIRED_ASSET_IDS);
-    await waitForJournalLayoutSettle();
     assertGenerationIdentity(generation, snapshot);
     await waitForJournalAssets(snapshot, JOURNAL_REQUIRED_ASSET_IDS);
-    if (Array.from(snapshot.querySelectorAll<HTMLImageElement>("img[data-journal-asset]")).some((image) => !image.src.startsWith("data:"))) {
+    if (Array.from(snapshot.querySelectorAll<HTMLImageElement>("img")).some((image) => !image.src.startsWith("data:image/png"))) {
       throw new Error("JOURNAL_EXPORT_PRE_RASTER_ASSET_GATE_FAILED");
     }
     const readyNode = snapshot;

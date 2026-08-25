@@ -262,6 +262,27 @@ describe("Journal image export", () => {
     expect(toCanvas).not.toHaveBeenCalled();
   });
 
+  it("performs no asset fetch during rasterization and rejects any non-embedded image", async () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1440;
+    vi.mocked(toCanvas).mockResolvedValue(canvas);
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback: BlobCallback, type?: string) => callback(new Blob(["png"], { type })));
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await renderJournalImageBlob(createCurrentTemplateRoot(), "png");
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    const nonEmbedded = createCurrentTemplateRoot();
+    const logo = document.createElement("img");
+    logo.src = "/assets/pm-logo.png";
+    nonEmbedded.appendChild(logo);
+    await expect(renderJournalImageBlob(nonEmbedded, "png"))
+      .rejects.toThrow("JOURNAL_EXPORT_PRE_RASTER_ASSET_GATE_FAILED");
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("never rasterizes before all required images decode and removes the snapshot only after rasterization", async () => {
     let releaseDecode!: () => void;
     const decodeBarrier = new Promise<void>((resolve) => { releaseDecode = resolve; });
