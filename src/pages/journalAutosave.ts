@@ -2,8 +2,10 @@ import {
   createJournalDiagnosticId,
   journalPersistenceErrorFromUnknown,
   logJournalSaveFailure,
+  safeJournalFailureDiagnostic,
   type JournalPersistenceContext,
   type JournalSaveFailureDiagnostic,
+  type JournalValidationShape,
 } from "./journalPersistenceDiagnostics";
 
 export interface VersionedJournalSnapshot {
@@ -59,6 +61,7 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
     private readonly diagnostics?: {
       context: () => Pick<JournalPersistenceContext, "entryId" | "entryStatus">;
       onFailure: (diagnostic: JournalSaveFailureDiagnostic | null) => void;
+      validationShape?: (snapshot: TSnapshot) => JournalValidationShape;
       now?: () => number;
       diagnosticIdFactory?: () => string;
     },
@@ -208,7 +211,7 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
               error instanceof JournalAutosaveQueueError && error.kind === "timeout" ? "TIMEOUT" : undefined,
             );
             const endedAt = this.diagnostics?.now?.() ?? Date.now();
-            const diagnostic: JournalSaveFailureDiagnostic = {
+            const diagnostic = safeJournalFailureDiagnostic({
               diagnosticId: this.diagnostics?.diagnosticIdFactory?.() ?? createJournalDiagnosticId(),
               failureKind: failure.kind,
               operation: failure.operation,
@@ -226,7 +229,7 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
               isTimeout: failure.isTimeout,
               isAbort: failure.isAbort,
               isNetwork: failure.isNetwork,
-            };
+            }, failure, this.diagnostics?.validationShape?.(item.snapshot));
             if (this.diagnostics) {
               logJournalSaveFailure(diagnostic);
               this.diagnostics.onFailure(diagnostic);

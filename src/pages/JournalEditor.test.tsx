@@ -325,6 +325,43 @@ describe("Journal Editor", () => {
     consoleError.mockRestore();
   });
 
+  it("copies a bounded validation snapshot without Journal business content", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    const onClose = vi.fn();
+    const target = entry({
+      status: "COMPLETED", version: 17, conditionCodes: ["active"], urination: true,
+      defecation: true, stoolCondition: "good", teacherRelationship: "loves_teacher",
+      friendRelationship: "loves_friends", mannersActivityName: "private manners activity",
+      mannersEvaluation: null, physicalActivityName: "private physical activity",
+      physicalEvaluation: "fun", teacherComment: "private teacher comment",
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.fetch.mockResolvedValue(target);
+    mocks.update.mockRejectedValue(new JournalPersistenceError(
+      "VALIDATION", "update_journal_entry_draft", "entry-1", "COMPLETED", 17, "request-runtime",
+      { httpStatus: 400, postgresCode: "22023", message: "활동명과 평가는 함께 입력해 주세요.", details: "private details", hint: "private hint" },
+    ));
+    renderEditor(target, { onClose });
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+    fireEvent.change(comment, { target: { value: "unsaved private content" } });
+    fireEvent.click(screen.getByRole("button", { name: "목록" }));
+    await screen.findByText("저장을 완료하지 못했습니다.");
+    fireEvent.click(screen.getAllByRole("button", { name: /진단 정보 복사/ })[0]);
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const copied = writeText.mock.calls[0][0] as string;
+    expect(copied).toContain("POSTGRES_CODE: 22023");
+    expect(copied).toContain("SERVER_MESSAGE: 활동명과 평가는 함께 입력해 주세요.");
+    expect(copied).toContain("ASSERTION_KEY: ACTIVITY_PAIR_INVALID");
+    expect(copied).toContain("MANNERS_ACTIVITY_LENGTH:");
+    expect(copied).not.toContain("private manners activity");
+    expect(copied).not.toContain("private physical activity");
+    expect(copied).not.toContain("unsaved private content");
+    expect(copied).not.toContain("private details");
+    expect(copied).not.toContain("private hint");
+    consoleError.mockRestore();
+  });
+
   it("retries a timed-out revision with the same request ID and then navigates", async () => {
     const onClose = vi.fn();
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);

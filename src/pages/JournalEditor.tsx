@@ -1,9 +1,12 @@
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, Eye, Image, LoaderCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clipboard, Download, Eye, Image, LoaderCircle, Trash2 } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { Button, Card, FormAlert, Input, Modal, ModalActions, Textarea } from "../components/ui";
 import { JournalAutosaveQueue, type JournalSaveState } from "./journalAutosave";
 import {
   JournalPersistenceError,
+  formatJournalFailureDiagnostic,
+  getJournalFailureDiagnostic,
+  journalValidationShape,
   type JournalPersistenceFailureKind,
   type JournalSaveFailureDiagnostic,
 } from "./journalPersistenceDiagnostics";
@@ -85,6 +88,7 @@ export function JournalEditor({
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<JournalSaveState>("idle");
   const [saveFailure, setSaveFailure] = useState<JournalSaveFailureDiagnostic | null>(null);
+  const [diagnosticCopyState, setDiagnosticCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [error, setError] = useState("");
   const [completing, setCompleting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -94,6 +98,8 @@ export function JournalEditor({
   const [exportError, setExportError] = useState("");
   const versionRef = useRef(rosterEntry.version);
   const entryStatusRef = useRef(rosterEntry.status);
+  const rosterEntriesRef = useRef(rosterEntries);
+  rosterEntriesRef.current = rosterEntries;
   const queueRef = useRef<JournalAutosaveQueue<JournalDraft, JournalRosterEntry> | null>(null);
   const exportSourceRootRef = useRef<HTMLElement>(null);
   const exportInFlightRef = useRef(false);
@@ -135,7 +141,14 @@ export function JournalEditor({
           undefined,
           {
             context: () => ({ entryId: loaded.id, entryStatus: entryStatusRef.current }),
-            onFailure: setSaveFailure,
+            onFailure: (diagnostic) => {
+              setSaveFailure(diagnostic);
+              if (diagnostic) setDiagnosticCopyState("idle");
+            },
+            validationShape: (snapshot) => journalValidationShape(
+              snapshot,
+              rosterEntriesRef.current.map((item) => item.dog.id),
+            ),
           },
         );
       })
@@ -222,6 +235,31 @@ export function JournalEditor({
     setNavigationIntent(null);
     setError("");
     queueRef.current?.dismissError();
+  };
+
+  const copyFailureDiagnostic = async () => {
+    if (!saveFailure) return;
+    const diagnostic = getJournalFailureDiagnostic(saveFailure.diagnosticId) ?? saveFailure;
+    const text = formatJournalFailureDiagnostic(diagnostic);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand("copy");
+        textarea.remove();
+        if (!copied) throw new Error("JOURNAL_DIAGNOSTIC_COPY_FAILED");
+      }
+      setDiagnosticCopyState("copied");
+    } catch {
+      setDiagnosticCopyState("error");
+    }
   };
 
   const move = async (targetId: string) => {
@@ -334,6 +372,7 @@ export function JournalEditor({
                 <Button type="button" variant="secondary" disabled={saveFailure?.failureKind === "VERSION_CONFLICT"} onClick={retryNavigation}>
                   {saveFailure?.failureKind === "VERSION_CONFLICT" ? "최신 상태 확인 필요" : "다시 시도"}
                 </Button>
+                {saveFailure ? <Button type="button" variant="ghost" onClick={() => void copyFailureDiagnostic()}><Clipboard size={16} />진단 정보 복사</Button> : null}
                 <Button type="button" variant="ghost" onClick={continueEditing}>계속 작성</Button>
               </div>
             </div>
@@ -395,6 +434,11 @@ export function JournalEditor({
         <div className="mx-auto max-w-[1480px] xl:grid xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)] xl:gap-6 2xl:gap-8">
           <div className="flex min-w-0 items-center gap-3">
             <span className="min-w-0 flex-1 text-xs text-text-secondary"><SaveState state={saveState} failure={saveFailure} /></span>
+            {saveFailure ? (
+              <Button type="button" variant="ghost" className="min-h-11 px-2" onClick={() => void copyFailureDiagnostic()}>
+                <Clipboard size={16} /><span className="hidden sm:inline">{diagnosticCopyState === "copied" ? "복사됨" : diagnosticCopyState === "error" ? "복사 실패" : "진단 정보 복사"}</span>
+              </Button>
+            ) : null}
             {onDelete ? (
               <Button type="button" aria-label="일지 삭제" variant="secondary" className="min-h-11 border-error/30 px-3 text-error hover:bg-error-soft" disabled={deleting} onClick={() => setDeleteOpen(true)}>
                 <Trash2 size={17} /><span className="hidden sm:inline">일지 삭제</span>
