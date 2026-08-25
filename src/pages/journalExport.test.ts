@@ -11,6 +11,7 @@ import {
 } from "./journalExport";
 import {
   JOURNAL_ASSET_VERSION,
+  JOURNAL_REQUIRED_ASSET_IDS,
   JOURNAL_RENDERER_VERSION,
   JOURNAL_TEMPLATE_VERSION,
 } from "./journalRenderContract";
@@ -29,7 +30,23 @@ function createCurrentTemplateRoot() {
   root.dataset.journalRendererVersion = JOURNAL_RENDERER_VERSION;
   root.dataset.journalTemplateVersion = JOURNAL_TEMPLATE_VERSION;
   root.dataset.journalAssetVersion = JOURNAL_ASSET_VERSION;
+  JOURNAL_REQUIRED_ASSET_IDS.forEach((assetId) => {
+    const image = document.createElement("img");
+    image.dataset.journalAsset = assetId;
+    image.src = `data:image/png;base64,${btoa(assetId)}`;
+    root.appendChild(image);
+  });
   return root;
+}
+
+const originalImageComplete = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "complete");
+const originalImageNaturalWidth = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "naturalWidth");
+const originalImageNaturalHeight = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "naturalHeight");
+const originalImageDecode = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, "decode");
+
+function restoreImageProperty(name: string, descriptor: PropertyDescriptor | undefined) {
+  if (descriptor) Object.defineProperty(HTMLImageElement.prototype, name, descriptor);
+  else delete (HTMLImageElement.prototype as unknown as Record<string, unknown>)[name];
 }
 
 describe("Journal image export", () => {
@@ -45,11 +62,21 @@ describe("Journal image export", () => {
       imageSmoothingEnabled: false,
       imageSmoothingQuality: "low",
     } as unknown as CanvasRenderingContext2D);
+    Object.defineProperties(HTMLImageElement.prototype, {
+      complete: { configurable: true, get: () => true },
+      naturalWidth: { configurable: true, get: () => 320 },
+      naturalHeight: { configurable: true, get: () => 240 },
+      decode: { configurable: true, value: vi.fn().mockResolvedValue(undefined) },
+    });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    restoreImageProperty("complete", originalImageComplete);
+    restoreImageProperty("naturalWidth", originalImageNaturalWidth);
+    restoreImageProperty("naturalHeight", originalImageNaturalHeight);
+    restoreImageProperty("decode", originalImageDecode);
   });
 
   it("keeps Korean names, uses the journal date, and sanitizes unsafe or long names", () => {
@@ -69,11 +96,77 @@ describe("Journal image export", () => {
     Object.defineProperties(image, {
       complete: { configurable: true, value: true },
       naturalWidth: { configurable: true, value: 120 },
+      naturalHeight: { configurable: true, value: 80 },
       decode: { configurable: true, value: decode },
     });
     root.appendChild(image);
     await waitForJournalAssets(root);
     expect(decode).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for delayed load and delayed decode before resolving asset readiness", async () => {
+    const root = document.createElement("div");
+    const image = document.createElement("img");
+    let complete = false;
+    let decodeReady!: () => void;
+    const decode = vi.fn(() => new Promise<void>((resolve) => { decodeReady = resolve; }));
+    Object.defineProperties(image, {
+      complete: { configurable: true, get: () => complete },
+      naturalWidth: { configurable: true, get: () => complete ? 120 : 0 },
+      naturalHeight: { configurable: true, get: () => complete ? 80 : 0 },
+      decode: { configurable: true, value: decode },
+    });
+    root.appendChild(image);
+    let resolved = false;
+    const readiness = waitForJournalAssets(root).then(() => { resolved = true; });
+    await Promise.resolve();
+    expect(resolved).toBe(false);
+    complete = true;
+    image.dispatchEvent(new Event("load"));
+    await Promise.resolve();
+    expect(decode).toHaveBeenCalledTimes(1);
+    expect(resolved).toBe(false);
+    decodeReady();
+    await readiness;
+    expect(resolved).toBe(true);
+  });
+
+  it("fails closed when decode rejects or either natural dimension is zero", async () => {
+    const decodeFailure = document.createElement("img");
+    Object.defineProperties(decodeFailure, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 120 },
+      naturalHeight: { configurable: true, value: 80 },
+      decode: { configurable: true, value: vi.fn().mockRejectedValue(new Error("decode")) },
+    });
+    const decodeRoot = document.createElement("div");
+    decodeRoot.appendChild(decodeFailure);
+    await expect(waitForJournalAssets(decodeRoot)).rejects.toThrow("JOURNAL_EXPORT_ASSET_DECODE_FAILED");
+
+    const zeroHeight = document.createElement("img");
+    Object.defineProperties(zeroHeight, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 120 },
+      naturalHeight: { configurable: true, value: 0 },
+      decode: { configurable: true, value: undefined },
+    });
+    const dimensionRoot = document.createElement("div");
+    dimensionRoot.appendChild(zeroHeight);
+    await expect(waitForJournalAssets(dimensionRoot)).rejects.toThrow("JOURNAL_EXPORT_ASSET_LOAD_FAILED");
+    expect(toCanvas).not.toHaveBeenCalled();
+  });
+
+  it("uses the dimensions fallback when Safari does not expose img.decode", async () => {
+    const root = document.createElement("div");
+    const image = document.createElement("img");
+    Object.defineProperties(image, {
+      complete: { configurable: true, value: true },
+      naturalWidth: { configurable: true, value: 120 },
+      naturalHeight: { configurable: true, value: 80 },
+      decode: { configurable: true, value: undefined },
+    });
+    root.appendChild(image);
+    await expect(waitForJournalAssets(root)).resolves.toBeUndefined();
   });
 
   it("fails closed before rasterizing when an illustration cannot load", async () => {
@@ -82,6 +175,7 @@ describe("Journal image export", () => {
     Object.defineProperties(image, {
       complete: { configurable: true, value: true },
       naturalWidth: { configurable: true, value: 0 },
+      naturalHeight: { configurable: true, value: 0 },
     });
     root.appendChild(image);
     const readiness = waitForJournalAssets(root);
@@ -99,6 +193,7 @@ describe("Journal image export", () => {
     Object.defineProperties(image, {
       complete: { configurable: true, value: true },
       naturalWidth: { configurable: true, value: 320 },
+      naturalHeight: { configurable: true, value: 240 },
       decode: { configurable: true, value: decode },
     });
     root.appendChild(image);
@@ -122,6 +217,7 @@ describe("Journal image export", () => {
       Object.defineProperties(image, {
         complete: { configurable: true, value: true },
         naturalWidth: { configurable: true, value: 320 },
+        naturalHeight: { configurable: true, value: 240 },
         decode: { configurable: true, value: vi.fn().mockResolvedValue(undefined) },
       });
       root.appendChild(image);
@@ -141,6 +237,7 @@ describe("Journal image export", () => {
     Object.defineProperties(image, {
       complete: { configurable: true, value: true },
       naturalWidth: { configurable: true, value: 320 },
+      naturalHeight: { configurable: true, value: 240 },
       decode: { configurable: true, value: vi.fn().mockResolvedValue(undefined) },
     });
     root.appendChild(image);
@@ -148,6 +245,44 @@ describe("Journal image export", () => {
 
     await expect(inlineJournalSnapshotImages(root)).rejects.toThrow("JOURNAL_EXPORT_ASSET_INLINE_FAILED");
     expect(toCanvas).not.toHaveBeenCalled();
+  });
+
+  it("requires every approved illustration identity exactly once before rasterizing", async () => {
+    const root = createCurrentTemplateRoot();
+    root.querySelector('[data-journal-asset="physical"]')?.remove();
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1440;
+    vi.mocked(toCanvas).mockResolvedValue(canvas);
+    await expect(renderJournalImageBlob(root, "png")).rejects.toThrow("JOURNAL_EXPORT_REQUIRED_ASSET_MISSING:physical");
+    expect(toCanvas).not.toHaveBeenCalled();
+  });
+
+  it("never rasterizes before all required images decode and removes the snapshot only after rasterization", async () => {
+    let releaseDecode!: () => void;
+    const decodeBarrier = new Promise<void>((resolve) => { releaseDecode = resolve; });
+    Object.defineProperty(HTMLImageElement.prototype, "decode", {
+      configurable: true,
+      value: vi.fn(() => decodeBarrier),
+    });
+    let releaseRaster!: (canvas: HTMLCanvasElement) => void;
+    vi.mocked(toCanvas).mockImplementation(() => new Promise<HTMLCanvasElement>((resolve) => { releaseRaster = resolve; }));
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback: BlobCallback, type?: string) => callback(new Blob(["png"], { type })));
+
+    const exporting = renderJournalImageBlob(createCurrentTemplateRoot(), "png");
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(toCanvas).not.toHaveBeenCalled();
+    expect(document.querySelector("[data-journal-export-snapshot='true']")).not.toBeNull();
+    releaseDecode();
+    await vi.waitFor(() => expect(toCanvas).toHaveBeenCalledTimes(1));
+    expect(document.querySelector("[data-journal-export-snapshot='true']")).not.toBeNull();
+    const canvas = document.createElement("canvas");
+    canvas.width = 1080;
+    canvas.height = 1440;
+    releaseRaster(canvas);
+    await exporting;
+    expect(document.querySelector("[data-journal-export-snapshot='true']")).toBeNull();
   });
 
   it.each([

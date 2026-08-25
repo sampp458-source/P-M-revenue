@@ -2,7 +2,7 @@ import { Check, CircleUserRound, Dumbbell, Flower2, Heart, Medal, MessageCircleH
 import { useLayoutEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { journalCharacters, journalSectionIllustrations, type JournalCharacterName, type JournalSectionIllustrationName } from "../assets/journal/journalAssets";
 import pmLogo from "../assets/pm-logo.png";
-import { JOURNAL_ASSET_VERSION, JOURNAL_RENDERER_VERSION, JOURNAL_TEMPLATE_VERSION } from "./journalRenderContract";
+import { JOURNAL_ASSET_VERSION, JOURNAL_RENDERER_VERSION, JOURNAL_TEMPLATE_VERSION, type JournalRequiredAssetId } from "./journalRenderContract";
 import type { JournalPreviewActivity, JournalPreviewOption, JournalPreviewViewModel } from "./journalPreviewViewModel";
 
 export const JOURNAL_REPORT_WIDTH = 1080;
@@ -296,12 +296,25 @@ function SmallLabel({ children }: { children: ReactNode }) {
   return <p className="mb-[1px] text-[18px] font-extrabold text-[#52697c]">{children}</p>;
 }
 
+const characterAssetId: Record<JournalCharacterName, JournalRequiredAssetId> = {
+  dogAWaving: "header-dog-a",
+  dogBPeeking: "header-dog-b",
+  bestFriendDuo: "best-friend-duo",
+  dogAHeartLetter: "teacher-comment-dog",
+};
+
+const sectionAssetId: Record<JournalSectionIllustrationName, JournalRequiredAssetId> = {
+  meal: "meal",
+  manners: "manners",
+  physical: "physical",
+};
+
 function JournalCharacter({ name, className = "" }: { name: JournalCharacterName; className?: string }) {
-  return <img data-testid={`journal-character-${name}`} src={journalCharacters[name]} alt="" aria-hidden="true" draggable={false} className={className} onError={(event) => { event.currentTarget.style.visibility = "hidden"; }} />;
+  return <img data-testid={`journal-character-${name}`} data-journal-asset={characterAssetId[name]} src={journalCharacters[name]} alt="" aria-hidden="true" draggable={false} className={className} onError={(event) => { event.currentTarget.style.visibility = "hidden"; }} />;
 }
 
 function JournalSectionIllustration({ name, className = "" }: { name: JournalSectionIllustrationName; className?: string }) {
-  return <img data-testid={`journal-section-illustration-${name}`} src={journalSectionIllustrations[name]} alt="" aria-hidden="true" draggable={false} className={`pointer-events-none object-contain ${className}`} onError={(event) => { event.currentTarget.style.visibility = "hidden"; }} />;
+  return <img data-testid={`journal-section-illustration-${name}`} data-journal-asset={sectionAssetId[name]} src={journalSectionIllustrations[name]} alt="" aria-hidden="true" draggable={false} className={`pointer-events-none object-contain ${className}`} onError={(event) => { event.currentTarget.style.visibility = "hidden"; }} />;
 }
 
 function commentDensity(comment: string) {

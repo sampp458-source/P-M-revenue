@@ -1,5 +1,5 @@
 import { toCanvas } from "html-to-image";
-import { isCurrentJournalTemplateRoot } from "./journalRenderContract";
+import { isCurrentJournalTemplateRoot, JOURNAL_REQUIRED_ASSET_IDS } from "./journalRenderContract";
 import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
 
 export type JournalExportFormat = "png" | "jpg";
@@ -30,29 +30,53 @@ export function buildJournalExportFilename(
   return `P&M_하루일지_${safeDogName}_${safeDate}.${format}`;
 }
 
-function waitForImage(image: HTMLImageElement) {
-  if (image.complete) {
-    if (image.naturalWidth <= 0) return Promise.reject(new Error("JOURNAL_EXPORT_ASSET_LOAD_FAILED"));
-    return typeof image.decode === "function" ? image.decode() : Promise.resolve();
+async function waitForImage(image: HTMLImageElement) {
+  if (!image.complete) {
+    await new Promise<void>((resolve, reject) => {
+      const done = () => {
+        image.removeEventListener("load", loaded);
+        image.removeEventListener("error", failed);
+      };
+      const loaded = () => { done(); resolve(); };
+      const failed = () => { done(); reject(new Error("JOURNAL_EXPORT_ASSET_LOAD_FAILED")); };
+      image.addEventListener("load", loaded, { once: true });
+      image.addEventListener("error", failed, { once: true });
+    });
   }
-  return new Promise<void>((resolve, reject) => {
-    const done = () => {
-      image.removeEventListener("load", loaded);
-      image.removeEventListener("error", failed);
-    };
-    const loaded = () => { done(); resolve(); };
-    const failed = () => { done(); reject(new Error("JOURNAL_EXPORT_ASSET_LOAD_FAILED")); };
-    image.addEventListener("load", loaded, { once: true });
-    image.addEventListener("error", failed, { once: true });
-  });
+  if (typeof image.decode === "function") {
+    try {
+      await image.decode();
+    } catch {
+      throw new Error("JOURNAL_EXPORT_ASSET_DECODE_FAILED");
+    }
+  }
+  if (!image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0) {
+    throw new Error("JOURNAL_EXPORT_ASSET_LOAD_FAILED");
+  }
 }
 
-export async function waitForJournalAssets(root: HTMLElement) {
+function assertRequiredAssetIdentity(root: HTMLElement, requiredAssetIds: readonly string[]) {
+  const images = Array.from(root.querySelectorAll<HTMLImageElement>("img[data-journal-asset]"));
+  const counts = new Map<string, number>();
+  images.forEach((image) => {
+    const id = image.dataset.journalAsset;
+    if (id) counts.set(id, (counts.get(id) ?? 0) + 1);
+  });
+  const invalid = requiredAssetIds.filter((id) => counts.get(id) !== 1);
+  if (invalid.length) throw new Error(`JOURNAL_EXPORT_REQUIRED_ASSET_MISSING:${invalid.join(",")}`);
+  return images.filter((image) => requiredAssetIds.includes(image.dataset.journalAsset ?? ""));
+}
+
+export async function waitForJournalAssets(root: HTMLElement, requiredAssetIds: readonly string[] = []) {
   if (document.fonts) await document.fonts.ready;
   const images = Array.from(root.querySelectorAll("img"));
+  const requiredImages = requiredAssetIds.length ? assertRequiredAssetIdentity(root, requiredAssetIds) : [];
   await Promise.all(images.map(waitForImage));
-  if (images.some((image) => !image.complete || image.naturalWidth <= 0)) {
+  if (images.some((image) => !image.complete || image.naturalWidth <= 0 || image.naturalHeight <= 0)) {
     throw new Error("JOURNAL_EXPORT_ASSET_LOAD_FAILED");
+  }
+  if (requiredAssetIds.length && requiredImages.length !== requiredAssetIds.length) {
+    throw new Error("JOURNAL_EXPORT_REQUIRED_ASSET_NOT_READY");
   }
 }
 
@@ -85,8 +109,8 @@ function loadJournalAssetDataUrl(source: string) {
   return loading;
 }
 
-export async function inlineJournalSnapshotImages(root: HTMLElement) {
-  await waitForJournalAssets(root);
+export async function inlineJournalSnapshotImages(root: HTMLElement, requiredAssetIds: readonly string[] = []) {
+  await waitForJournalAssets(root, requiredAssetIds);
   const images = Array.from(root.querySelectorAll("img"));
   await Promise.all(images.map(async (image) => {
     const source = image.currentSrc || image.src;
@@ -94,10 +118,21 @@ export async function inlineJournalSnapshotImages(root: HTMLElement) {
     image.src = await loadJournalAssetDataUrl(source);
     image.dataset.journalAssetInlined = "true";
   }));
-  await waitForJournalAssets(root);
+  await waitForJournalAssets(root, requiredAssetIds);
   if (images.some((image) => !image.src.startsWith("data:"))) {
     throw new Error("JOURNAL_EXPORT_ASSET_INLINE_FAILED");
   }
+}
+
+export async function waitForJournalLayoutSettle() {
+  await new Promise<void>((resolve) => {
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolve());
+    else resolve();
+  });
+  await new Promise<void>((resolve) => {
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolve());
+    else resolve();
+  });
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, format: JournalExportFormat) {
@@ -151,11 +186,9 @@ async function rasterizeJournalSnapshot(root: HTMLElement, pipeline: JournalRast
   }
   const { host, snapshot } = createCanonicalSnapshot(root);
   try {
-    await new Promise<void>((resolve) => {
-      if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolve());
-      else resolve();
-    });
-    await inlineJournalSnapshotImages(snapshot);
+    await waitForJournalLayoutSettle();
+    await inlineJournalSnapshotImages(snapshot, JOURNAL_REQUIRED_ASSET_IDS);
+    await waitForJournalLayoutSettle();
     const supersample = pipeline === "supersampled" ? JOURNAL_EXPORT_SUPERSAMPLE : 1;
     const rasterWidth = JOURNAL_EXPORT_WIDTH * supersample;
     const rasterHeight = JOURNAL_EXPORT_HEIGHT * supersample;

@@ -4,7 +4,7 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { JournalReportPreview, JournalReportTemplate, JOURNAL_REPORT_HEIGHT, JOURNAL_REPORT_WIDTH } from "./JournalReportTemplate";
 import { buildJournalPreviewViewModel } from "./journalPreviewViewModel";
-import { JOURNAL_ASSET_VERSION, JOURNAL_RENDERER_VERSION, JOURNAL_TEMPLATE_VERSION } from "./journalRenderContract";
+import { JOURNAL_ASSET_VERSION, JOURNAL_RENDERER_VERSION, JOURNAL_REQUIRED_ASSET_IDS, JOURNAL_TEMPLATE_VERSION } from "./journalRenderContract";
 import type { JournalDraft, JournalRosterEntry } from "./journalRepository";
 
 const entry = (overrides: Partial<JournalRosterEntry> = {}): JournalRosterEntry => ({
@@ -88,6 +88,8 @@ describe("Journal 1080x1440 report template", () => {
     expect(screen.getByTestId("journal-section-illustration-meal").getAttribute("src")).toContain("journal-meal-bowl.png");
     expect(screen.getByTestId("journal-section-illustration-manners").getAttribute("src")).toContain("journal-manners-book-medal.png");
     expect(screen.getByTestId("journal-section-illustration-physical").getAttribute("src")).toContain("journal-physical-ball-motion.png");
+    expect(Array.from(report.querySelectorAll("[data-journal-asset]")).map((node) => node.getAttribute("data-journal-asset")).sort())
+      .toEqual([...JOURNAL_REQUIRED_ASSET_IDS].sort());
     expect(report.innerHTML).not.toContain("#fff8ea");
     expect(report.innerHTML).not.toContain("#f9e3df");
     expect(report.innerHTML).not.toContain("#e3f0df");

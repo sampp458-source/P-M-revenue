@@ -5,6 +5,18 @@ export const JOURNAL_RENDERER_VERSION = "live-dom-v1";
 export const JOURNAL_TEMPLATE_VERSION = "journal-template-v10";
 export const JOURNAL_ASSET_VERSION = "approved-illustrations-v1";
 
+export const JOURNAL_REQUIRED_ASSET_IDS = [
+  "header-dog-a",
+  "header-dog-b",
+  "best-friend-duo",
+  "meal",
+  "manners",
+  "physical",
+  "teacher-comment-dog",
+] as const;
+
+export type JournalRequiredAssetId = typeof JOURNAL_REQUIRED_ASSET_IDS[number];
+
 export const JOURNAL_APPROVED_ASSET_SOURCE_KEY = [
   pmLogo,
   ...Object.values(journalCharacters),
