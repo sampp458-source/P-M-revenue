@@ -97,8 +97,9 @@ const throwError = (error: { code?: string; message?: string } | null) => {
   throw new JournalRepositoryError("일지 명단을 불러오지 못했습니다.", "unavailable");
 };
 
-async function rpc<T>(name: string, args: Record<string, unknown>) {
-  const result = await supabase.rpc(name, args);
+async function rpc<T>(name: string, args: Record<string, unknown>, signal?: AbortSignal) {
+  const request = supabase.rpc(name, args);
+  const result = signal ? await request.abortSignal(signal) : await request;
   throwError(result.error);
   return result.data as T;
 }
@@ -154,7 +155,8 @@ export function updateJournalEntryDraft(
   entryId: string,
   expectedVersion: number,
   draft: JournalDraft,
-  requestId = crypto.randomUUID(),
+  requestId: string = crypto.randomUUID(),
+  signal?: AbortSignal,
 ) {
   return rpc<JournalRosterEntry>("update_journal_entry_draft", {
     p_entry_id: entryId,
@@ -173,7 +175,7 @@ export function updateJournalEntryDraft(
     p_physical_evaluation: draft.physicalEvaluation,
     p_teacher_comment: draft.teacherComment || null,
     p_request_id: requestId,
-  });
+  }, signal);
 }
 
 export function completeJournalEntry(

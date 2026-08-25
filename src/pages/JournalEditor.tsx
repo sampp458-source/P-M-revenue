@@ -84,7 +84,10 @@ export function JournalEditor({
   const [exportViewModel, setExportViewModel] = useState<ReturnType<typeof buildJournalPreviewViewModel> | null>(null);
   const [exportAssetSources, setExportAssetSources] = useState<JournalAssetSourceMap | null>(null);
   const [navigationIntent, setNavigationIntent] = useState<"list" | string | null>(null);
+  const [navigationRecovery, setNavigationRecovery] = useState(false);
   const navigationInFlightRef = useRef(false);
+  const pendingNavigationRef = useRef<{ intent: "list" | string; navigate: () => void } | null>(null);
+  const actionInFlightRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,7 +101,8 @@ export function JournalEditor({
         versionRef.current = loaded.version;
         queueRef.current = new JournalAutosaveQueue(
           loaded.version,
-          (snapshot, expectedVersion) => updateJournalEntryDraft(loaded.id, expectedVersion, snapshot),
+          (snapshot, expectedVersion, requestId, signal) =>
+            updateJournalEntryDraft(loaded.id, expectedVersion, snapshot, requestId, signal),
           (result) => {
             versionRef.current = result.version;
             setEntry(result);
@@ -112,7 +116,7 @@ export function JournalEditor({
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => {
       cancelled = true;
-      queueRef.current?.cancel();
+      queueRef.current?.dispose();
       queueRef.current = null;
     };
   }, [onEntryUpdate, rosterEntry.id]);
@@ -128,6 +132,7 @@ export function JournalEditor({
   const previewViewModel = useMemo(() => buildJournalPreviewViewModel(entry, draft, rosterEntries), [draft, entry, rosterEntries]);
 
   const update = (change: (current: JournalDraft) => JournalDraft) => {
+    if (actionInFlightRef.current) return;
     setDraft((current) => {
       const nextDraft = change(current);
       queueRef.current?.schedule(nextDraft);
@@ -138,7 +143,8 @@ export function JournalEditor({
 
   const flush = async () => {
     try {
-      await queueRef.current?.flush();
+      const queue = queueRef.current;
+      if (queue) await queue.flush(queue.getDraftRevision());
       return true;
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "일지를 저장하지 못했습니다.");
@@ -146,15 +152,49 @@ export function JournalEditor({
     }
   };
 
-  const navigateAfterSave = async (intent: "list" | string, navigate: () => void) => {
-    if (navigationInFlightRef.current) return;
+  const continueNavigationAfterSave = async () => {
+    const attempt = pendingNavigationRef.current;
+    if (!attempt || navigationInFlightRef.current) return;
     navigationInFlightRef.current = true;
-    setNavigationIntent(intent);
-    if (await flush()) navigate();
-    else {
+    setNavigationRecovery(false);
+    setNavigationIntent(attempt.intent);
+    try {
+      const queue = queueRef.current;
+      if (queue) {
+        while (pendingNavigationRef.current === attempt) {
+          const targetRevision = queue.getDraftRevision();
+          await queue.flush(targetRevision);
+          if (queue.getSavedRevision() >= targetRevision && queue.getDraftRevision() === targetRevision) break;
+        }
+      }
+      if (pendingNavigationRef.current !== attempt) return;
+      pendingNavigationRef.current = null;
+      attempt.navigate();
+    } catch {
+      setNavigationRecovery(true);
+    } finally {
       navigationInFlightRef.current = false;
       setNavigationIntent(null);
     }
+  };
+
+  const navigateAfterSave = async (intent: "list" | string, navigate: () => void) => {
+    if (navigationInFlightRef.current || pendingNavigationRef.current) return;
+    pendingNavigationRef.current = { intent, navigate };
+    await continueNavigationAfterSave();
+  };
+
+  const retryNavigation = () => {
+    if (!pendingNavigationRef.current) return;
+    void continueNavigationAfterSave();
+  };
+
+  const continueEditing = () => {
+    pendingNavigationRef.current = null;
+    setNavigationRecovery(false);
+    setNavigationIntent(null);
+    setError("");
+    queueRef.current?.dismissError();
   };
 
   const move = async (targetId: string) => {
@@ -166,12 +206,15 @@ export function JournalEditor({
   };
 
   const complete = async () => {
-    if (completing || !(await flush())) return;
+    if (actionInFlightRef.current) return;
+    actionInFlightRef.current = true;
     setCompleting(true);
     setError("");
     try {
+      if (!(await flush())) return;
       const completed = await completeJournalEntry(entry.id, versionRef.current);
       versionRef.current = completed.version;
+      queueRef.current?.acknowledgeExternalVersion(completed.version);
       setEntry(completed);
       onEntryUpdate(completed);
       setSaveState("saved");
@@ -179,20 +222,25 @@ export function JournalEditor({
       setError(caught instanceof Error ? caught.message : "작성 완료 처리에 실패했습니다.");
     } finally {
       setCompleting(false);
+      actionInFlightRef.current = false;
     }
   };
 
   const remove = async () => {
-    if (!onDelete || deleting || !(await flush())) return;
+    if (!onDelete || actionInFlightRef.current) return;
+    actionInFlightRef.current = true;
     setDeleting(true);
     setError("");
     try {
+      if (!(await flush())) return;
       await onDelete(versionRef.current);
+      queueRef.current?.dispose();
       setDeleteOpen(false);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "일지를 삭제하지 못했습니다.");
     } finally {
       setDeleting(false);
+      actionInFlightRef.current = false;
     }
   };
 
@@ -231,20 +279,30 @@ export function JournalEditor({
         <div className="min-w-0">
           <header className="mb-3 rounded-2xl border border-border bg-surface p-3 shadow-sm sm:p-4">
             <div className="flex min-h-11 items-center gap-3">
-              <button type="button" aria-busy={navigationIntent === "list"} onClick={() => void close()} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-text-secondary hover:bg-primary-soft hover:text-primary">{navigationIntent === "list" ? <LoaderCircle className="animate-spin" size={18} /> : <ArrowLeft size={18} />}목록</button>
+              <button type="button" aria-busy={navigationIntent === "list"} disabled={completing || deleting} onClick={() => void close()} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-text-secondary hover:bg-primary-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-50">{navigationIntent === "list" ? <LoaderCircle className="animate-spin" size={18} /> : <ArrowLeft size={18} />}목록</button>
               <div className="min-w-0 flex-1 border-l border-border pl-3">
                 <h1 className="truncate text-lg font-bold text-text-primary sm:text-xl">{entry.dog.name}</h1>
                 <p className="truncate text-xs text-text-secondary sm:text-sm">{displayDate(entry.businessDate)} · {entry.status === "COMPLETED" ? "완료" : entry.status === "IN_PROGRESS" ? "작성중" : "미작성"} · <SaveState state={saveState} /></p>
               </div>
             </div>
             <nav className="mt-2 grid grid-cols-3 items-center gap-2 border-t border-border pt-2" aria-label="일지 대상 이동">
-              <Button type="button" variant="ghost" className="px-2" disabled={!previous} aria-busy={Boolean(previous && navigationIntent === previous.id)} onClick={() => previous && void move(previous.id)}>{previous && navigationIntent === previous.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronLeft size={17} />}이전</Button>
+              <Button type="button" variant="ghost" className="px-2" disabled={!previous || completing || deleting} aria-busy={Boolean(previous && navigationIntent === previous.id)} onClick={() => previous && void move(previous.id)}>{previous && navigationIntent === previous.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronLeft size={17} />}이전</Button>
               <span className="text-center text-sm font-semibold tabular-nums text-text-secondary">{position + 1} / {rosterEntries.length}</span>
-              <Button type="button" variant="ghost" className="px-2" disabled={!next} aria-busy={Boolean(next && navigationIntent === next.id)} onClick={() => next && void move(next.id)}>다음{next && navigationIntent === next.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronRight size={17} />}</Button>
+              <Button type="button" variant="ghost" className="px-2" disabled={!next || completing || deleting} aria-busy={Boolean(next && navigationIntent === next.id)} onClick={() => next && void move(next.id)}>다음{next && navigationIntent === next.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronRight size={17} />}</Button>
             </nav>
           </header>
 
           {error ? <div className="mb-3"><FormAlert>{error}</FormAlert></div> : null}
+          {navigationRecovery ? (
+            <div role="alert" className="mb-3 rounded-xl border border-error/30 bg-error-soft p-3 text-sm text-text-primary">
+              <p className="font-semibold">저장을 완료하지 못했습니다.</p>
+              <p className="mt-0.5 text-text-secondary">입력 내용은 현재 화면에 유지됩니다.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" onClick={retryNavigation}>다시 시도</Button>
+                <Button type="button" variant="ghost" onClick={continueEditing}>계속 작성</Button>
+              </div>
+            </div>
+          ) : null}
           {entry.status === "COMPLETED" ? (
             <div className={`mb-3 flex flex-wrap items-center gap-2 rounded-xl border p-3 text-sm ${nextIncomplete ? "border-success/20 bg-success-soft text-success" : "border-primary/20 bg-primary-soft text-primary"}`}>
               <strong className="inline-flex items-center gap-1.5"><Check size={17} />{nextIncomplete ? `${entry.dog.name} 일지 완료` : "오늘의 일지를 모두 작성했습니다."}</strong>
@@ -252,7 +310,7 @@ export function JournalEditor({
             </div>
           ) : null}
 
-          <div className="space-y-3">
+          <fieldset disabled={completing || deleting} className="space-y-3 disabled:opacity-70">
         <EditorSection title="컨디션" description="하나 이상 선택해 주세요.">
           <MultiChips options={conditionOptions} values={draft.conditionCodes} onChange={(conditionCodes) => update((value) => ({ ...value, conditionCodes }))} />
         </EditorSection>
@@ -289,7 +347,7 @@ export function JournalEditor({
           <Textarea aria-label="선생님의 한마디" rows={6} maxLength={JOURNAL_COMMENT_MAX_LENGTH} value={draft.teacherComment} onChange={(event) => update((current) => ({ ...current, teacherComment: event.target.value }))} placeholder="오늘 하루의 특별한 모습을 기록해 주세요." className="min-h-36 resize-y" />
           <p className="mt-2 text-right text-xs tabular-nums text-text-muted">{draft.teacherComment.length} / {JOURNAL_COMMENT_MAX_LENGTH}</p>
         </EditorSection>
-          </div>
+          </fieldset>
         </div>
 
         <aside className="sticky top-6 hidden min-w-0 xl:block" aria-label={`${previewViewModel.dogName} 결과 미리보기`}>
@@ -308,7 +366,7 @@ export function JournalEditor({
               </Button>
             ) : null}
             <Button type="button" variant="secondary" className="min-h-11 px-3 xl:hidden" onClick={() => setPreviewOpen(true)}><Eye size={17} />미리보기</Button>
-            <Button type="button" className="min-h-11 min-w-32" disabled={completing || saveState === "saving"} onClick={() => void complete()}>{completing ? <LoaderCircle className="animate-spin" size={17} /> : <Check size={17} />}작성 완료</Button>
+            <Button type="button" className="min-h-11 min-w-32" disabled={completing || deleting || saveState === "saving" || saveState === "slow"} onClick={() => void complete()}>{completing ? <LoaderCircle className="animate-spin" size={17} /> : <Check size={17} />}작성 완료</Button>
           </div>
         </div>
       </div>
@@ -398,8 +456,9 @@ function JournalExportActions({
 }
 
 function SaveState({ state }: { state: JournalSaveState }) {
-  if (state === "saving") return <span className="inline-flex items-center gap-1"><LoaderCircle className="animate-spin" size={13} />저장 중...</span>;
-  if (state === "error") return <span className="text-error">저장 실패</span>;
+  if (state === "saving" || state === "slow") return <span className="inline-flex items-center gap-1"><LoaderCircle className="animate-spin" size={13} />저장 중...</span>;
+  if (state === "error" || state === "timeout") return <span className="text-error">저장 실패</span>;
+  if (state === "pending") return <span>저장 대기</span>;
   return <span>{state === "saved" ? "저장됨" : "변경 없음"}</span>;
 }
 

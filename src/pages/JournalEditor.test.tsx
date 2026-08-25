@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JournalEditor } from "./JournalEditor";
@@ -180,6 +180,26 @@ describe("Journal Editor", () => {
     expect(mocks.update.mock.invocationCallOrder[0]).toBeLessThan(mocks.complete.mock.invocationCallOrder[0]);
   });
 
+  it("locks editing during completion so a stale draft cannot overwrite the completed result", async () => {
+    let finishCompletion!: (value: JournalRosterEntry) => void;
+    const completing = new Promise<JournalRosterEntry>((resolve) => { finishCompletion = resolve; });
+    const loaded = entry({ status: "IN_PROGRESS", version: 3, teacherComment: "저장 전" });
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.update.mockImplementation(async (_id, version, draft) => entry({ ...loaded, ...draft, version: version + 1 }));
+    mocks.complete.mockReturnValue(completing);
+    renderEditor(loaded);
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+    fireEvent.change(comment, { target: { value: "완료할 내용" } });
+    fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 4));
+    expect((comment.closest("fieldset") as HTMLFieldSetElement).disabled).toBe(true);
+    fireEvent.change(comment, { target: { value: "완료 중 stale 입력" } });
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+    finishCompletion(entry({ ...loaded, teacherComment: "완료할 내용", status: "COMPLETED", version: 5 }));
+    await waitFor(() => expect(screen.getByText("크리미 일지 완료")).toBeTruthy());
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ["NOT_STARTED", "등록된 일지가 삭제되며 복구할 수 없습니다."],
     ["IN_PROGRESS", "작성 중인 내용이 함께 삭제되며 복구할 수 없습니다."],
@@ -210,6 +230,27 @@ describe("Journal Editor", () => {
     fireEvent.click(within(screen.getByRole("dialog", { name: "일지 삭제" })).getByRole("button", { name: "삭제" }));
     await waitFor(() => expect(onDelete).toHaveBeenCalledWith(5));
     expect(mocks.update.mock.invocationCallOrder[0]).toBeLessThan(onDelete.mock.invocationCallOrder[0]);
+  });
+
+  it("locks editing during deletion so no autosave can resurrect the removed entry", async () => {
+    let finishDelete!: () => void;
+    const deleting = new Promise<void>((resolve) => { finishDelete = resolve; });
+    const target = entry({ status: "IN_PROGRESS", version: 4 });
+    const onDelete = vi.fn().mockReturnValue(deleting);
+    mocks.fetch.mockResolvedValue(target);
+    mocks.update.mockImplementation(async (_id, version, draft) => entry({ ...target, ...draft, version: version + 1 }));
+    renderEditor(target, { onDelete });
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+    fireEvent.change(comment, { target: { value: "삭제 전 마지막 저장" } });
+    fireEvent.click(screen.getByRole("button", { name: "일지 삭제" }));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "일지 삭제" })).getByRole("button", { name: "삭제" }));
+    await waitFor(() => expect(onDelete).toHaveBeenCalledWith(5));
+    expect((comment.closest("fieldset") as HTMLFieldSetElement).disabled).toBe(true);
+    fireEvent.change(comment, { target: { value: "삭제 중 stale 입력" } });
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+    finishDelete();
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "일지 삭제" })).toBeNull());
+    expect(mocks.update).toHaveBeenCalledTimes(1);
   });
 
   it("flushes before moving to the next Dog", async () => {
@@ -251,7 +292,93 @@ describe("Journal Editor", () => {
     expect(onNavigate).not.toHaveBeenCalled();
     finishSave(entry({ teacherComment: "이동 직전 저장", status: "IN_PROGRESS", version: 2 }));
     await waitFor(() => expect(onNavigate).toHaveBeenCalledWith("entry-2"));
-    expect(mocks.update).toHaveBeenCalledWith("entry-1", 1, expect.objectContaining({ teacherComment: "이동 직전 저장" }));
+    expect(mocks.update).toHaveBeenCalledWith(
+      "entry-1",
+      1,
+      expect.objectContaining({ teacherComment: "이동 직전 저장" }),
+      expect.any(String),
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("stops navigation after 20 seconds, preserves input, and exposes recoverable actions", async () => {
+    const onClose = vi.fn();
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.update.mockImplementation(() => new Promise(() => undefined));
+    renderEditor(roster[0], { onClose });
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+    vi.useFakeTimers();
+    fireEvent.change(comment, { target: { value: "사라지면 안 되는 입력" } });
+    fireEvent.click(screen.getByRole("button", { name: "목록" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByText("저장을 완료하지 못했습니다.")).toBeTruthy();
+    expect(screen.getByText("입력 내용은 현재 화면에 유지됩니다.")).toBeTruthy();
+    expect((screen.getByRole("textbox", { name: "선생님의 한마디" }) as HTMLTextAreaElement).value).toBe("사라지면 안 되는 입력");
+    expect(screen.getByRole("button", { name: "목록" }).getAttribute("aria-busy")).toBe("false");
+    expect(screen.getByRole("button", { name: "다시 시도" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "계속 작성" })).toBeTruthy();
+  });
+
+  it("retries a timed-out revision with the same request ID and then navigates", async () => {
+    const onClose = vi.fn();
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.update
+      .mockImplementationOnce(() => new Promise(() => undefined))
+      .mockResolvedValueOnce(entry({ status: "IN_PROGRESS", teacherComment: "보존", version: 2 }));
+    renderEditor(roster[0], { onClose });
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+    vi.useFakeTimers();
+    fireEvent.change(comment, { target: { value: "보존" } });
+    fireEvent.click(screen.getByRole("button", { name: "목록" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+    const firstRequestId = mocks.update.mock.calls[0][3];
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(mocks.update).toHaveBeenCalledTimes(2);
+    expect(mocks.update.mock.calls[1][3]).toBe(firstRequestId);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves an edit made during navigation flush before moving", async () => {
+    let finishFirst!: (value: JournalRosterEntry) => void;
+    const firstSave = new Promise<JournalRosterEntry>((resolve) => { finishFirst = resolve; });
+    const onClose = vi.fn();
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.update
+      .mockReturnValueOnce(firstSave)
+      .mockResolvedValueOnce(entry({ teacherComment: "최신 두 번째 입력", version: 3 }));
+    renderEditor(roster[0], { onClose });
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+    fireEvent.change(comment, { target: { value: "첫 입력" } });
+    fireEvent.click(screen.getByRole("button", { name: "목록" }));
+    fireEvent.change(comment, { target: { value: "최신 두 번째 입력" } });
+    finishFirst(entry({ teacherComment: "첫 입력", version: 2 }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(mocks.update).toHaveBeenCalledTimes(2);
+    expect(mocks.update.mock.calls[1][2]).toMatchObject({ teacherComment: "최신 두 번째 입력" });
+    expect(mocks.update.mock.calls[1][1]).toBe(2);
+  });
+
+  it("joins duplicate List clicks without starting another save", async () => {
+    let finishSave!: (value: JournalRosterEntry) => void;
+    const saving = new Promise<JournalRosterEntry>((resolve) => { finishSave = resolve; });
+    const onClose = vi.fn();
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.update.mockReturnValue(saving);
+    renderEditor(roster[0], { onClose });
+    fireEvent.change(await screen.findByRole("textbox", { name: "선생님의 한마디" }), { target: { value: "한 번만 저장" } });
+    const list = screen.getByRole("button", { name: "목록" });
+    fireEvent.click(list);
+    fireEvent.click(list);
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+    finishSave(entry({ teacherComment: "한 번만 저장", version: 2 }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(mocks.update).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -269,6 +396,18 @@ describe("Journal Editor", () => {
     if (destination) await waitFor(() => expect(onNavigate).toHaveBeenCalledWith(destination));
     else await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     expect(mocks.update).toHaveBeenCalledTimes(1);
+  });
+
+  it("flushes the last selected option before List navigation", async () => {
+    const onClose = vi.fn();
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.update.mockImplementation(async (_id, version, draft) => entry({ ...draft, version: version + 1 }));
+    renderEditor(roster[0], { onClose });
+    await screen.findByRole("heading", { name: "크리미" });
+    fireEvent.click(screen.getByRole("button", { name: "활발해요" }));
+    fireEvent.click(screen.getByRole("button", { name: "목록" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(mocks.update.mock.calls[0][2]).toMatchObject({ conditionCodes: ["active"] });
   });
 
   it("renders each navigated entry immediately across A to B to A", async () => {
