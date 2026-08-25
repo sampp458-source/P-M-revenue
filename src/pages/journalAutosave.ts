@@ -1,3 +1,11 @@
+import {
+  createJournalDiagnosticId,
+  journalPersistenceErrorFromUnknown,
+  logJournalSaveFailure,
+  type JournalPersistenceContext,
+  type JournalSaveFailureDiagnostic,
+} from "./journalPersistenceDiagnostics";
+
 export interface VersionedJournalSnapshot {
   version: number;
 }
@@ -7,7 +15,7 @@ export type JournalSaveState = "idle" | "pending" | "saving" | "slow" | "saved" 
 export const JOURNAL_AUTOSAVE_TIMEOUT_MS = 20_000;
 export const JOURNAL_AUTOSAVE_SLOW_MS = 8_000;
 
-type SaveRevision<TSnapshot> = { revision: number; requestId: string; snapshot: TSnapshot };
+type SaveRevision<TSnapshot> = { revision: number; requestId: string; snapshot: TSnapshot; attemptNumber: number };
 type RevisionWaiter = {
   targetRevision: number;
   resolve: (savedRevision: number) => void;
@@ -32,6 +40,7 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
   private activeController: AbortController | null = null;
   private waiters: RevisionWaiter[] = [];
   private disposed = false;
+  private blockedFailure: Error | null = null;
 
   constructor(
     private version: number,
@@ -47,12 +56,24 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
     private readonly timeoutMs = JOURNAL_AUTOSAVE_TIMEOUT_MS,
     private readonly slowMs = JOURNAL_AUTOSAVE_SLOW_MS,
     private readonly requestIdFactory: () => string = () => crypto.randomUUID(),
+    private readonly diagnostics?: {
+      context: () => Pick<JournalPersistenceContext, "entryId" | "entryStatus">;
+      onFailure: (diagnostic: JournalSaveFailureDiagnostic | null) => void;
+      now?: () => number;
+      diagnosticIdFactory?: () => string;
+    },
   ) {}
 
   schedule(snapshot: TSnapshot) {
     if (this.disposed) throw new JournalAutosaveQueueError("종료된 저장 큐에는 변경을 추가할 수 없습니다.", "disposed");
     this.draftRevision += 1;
-    this.pending = { revision: this.draftRevision, requestId: this.requestIdFactory(), snapshot };
+    this.pending = { revision: this.draftRevision, requestId: this.requestIdFactory(), snapshot, attemptNumber: 0 };
+    if (this.blockedFailure) {
+      this.retryPending = null;
+      this.onState("error");
+      return this.draftRevision;
+    }
+    this.diagnostics?.onFailure(null);
     this.onState("pending");
     if (this.timer) clearTimeout(this.timer);
     this.timer = setTimeout(() => {
@@ -65,6 +86,7 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
   async flush(targetRevision = this.draftRevision) {
     if (this.disposed) throw new JournalAutosaveQueueError("저장 큐가 종료되었습니다.", "disposed");
     if (targetRevision <= this.savedRevision) return this.savedRevision;
+    if (this.blockedFailure) throw this.blockedFailure;
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
@@ -78,6 +100,11 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
 
   dismissError() {
     if (this.disposed) return;
+    if (this.blockedFailure) {
+      this.onState("error");
+      return;
+    }
+    this.diagnostics?.onFailure(null);
     this.onState(this.pending || this.retryPending ? "pending" : this.savedRevision === this.draftRevision ? "saved" : "idle");
   }
 
@@ -114,13 +141,13 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
     this.waiters = error === undefined ? remaining : [];
   }
 
-  private async saveWithDeadline(item: SaveRevision<TSnapshot>) {
+  private async saveWithDeadline(item: SaveRevision<TSnapshot>, expectedVersion: number) {
     const controller = new AbortController();
     this.activeController = controller;
     let timedOut = false;
     let timeout: ReturnType<typeof setTimeout> | null = null;
     let slow: ReturnType<typeof setTimeout> | null = null;
-    const request = Promise.resolve(this.save(item.snapshot, this.version, item.requestId, controller.signal));
+    const request = Promise.resolve(this.save(item.snapshot, expectedVersion, item.requestId, controller.signal));
     void request.catch(() => undefined);
     const deadline = new Promise<never>((_resolve, reject) => {
       timeout = setTimeout(() => {
@@ -152,17 +179,67 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
           else this.pending = null;
           this.runningRevision = item;
           this.onState("saving");
+          const expectedVersion = this.version;
+          item.attemptNumber += 1;
+          const startedAt = this.diagnostics?.now?.() ?? Date.now();
           try {
-            const result = await this.saveWithDeadline(item);
+            const result = await this.saveWithDeadline(item, expectedVersion);
             if (this.disposed) return;
+            this.blockedFailure = null;
+            this.diagnostics?.onFailure(null);
             this.version = result.version;
             this.savedRevision = Math.max(this.savedRevision, item.revision);
             this.onResult(result);
             this.settleWaiters();
           } catch (error) {
-            this.retryPending = item;
-            this.onState(error instanceof JournalAutosaveQueueError && error.kind === "timeout" ? "timeout" : "error");
-            this.settleWaiters(error);
+            if (this.disposed) return;
+            const contextValue = this.diagnostics?.context();
+            const context: JournalPersistenceContext = {
+              operation: "update_journal_entry_draft",
+              entryId: contextValue?.entryId ?? "unknown-entry",
+              entryStatus: contextValue?.entryStatus ?? "UNKNOWN",
+              expectedVersion,
+              requestId: item.requestId,
+            };
+            const failure = journalPersistenceErrorFromUnknown(
+              error,
+              context,
+              {},
+              error instanceof JournalAutosaveQueueError && error.kind === "timeout" ? "TIMEOUT" : undefined,
+            );
+            const endedAt = this.diagnostics?.now?.() ?? Date.now();
+            const diagnostic: JournalSaveFailureDiagnostic = {
+              diagnosticId: this.diagnostics?.diagnosticIdFactory?.() ?? createJournalDiagnosticId(),
+              failureKind: failure.kind,
+              operation: failure.operation,
+              entryId: failure.entryId,
+              entryStatus: failure.entryStatus,
+              serverExpectedVersion: expectedVersion,
+              localDraftRevision: item.revision,
+              requestId: item.requestId,
+              attemptNumber: item.attemptNumber,
+              startedAt: new Date(startedAt).toISOString(),
+              endedAt: new Date(endedAt).toISOString(),
+              durationMs: Math.max(0, endedAt - startedAt),
+              httpStatus: failure.httpStatus,
+              postgresCode: failure.postgresCode,
+              isTimeout: failure.isTimeout,
+              isAbort: failure.isAbort,
+              isNetwork: failure.isNetwork,
+            };
+            if (this.diagnostics) {
+              logJournalSaveFailure(diagnostic);
+              this.diagnostics.onFailure(diagnostic);
+            }
+            if (failure.kind === "VERSION_CONFLICT") {
+              this.blockedFailure = failure;
+              this.pending = item;
+              this.retryPending = null;
+            } else {
+              this.retryPending = item;
+            }
+            this.onState(failure.kind === "TIMEOUT" ? "timeout" : "error");
+            this.settleWaiters(failure);
             return;
           } finally {
             this.runningRevision = null;

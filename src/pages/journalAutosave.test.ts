@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { JournalAutosaveQueue, JournalAutosaveQueueError } from "./journalAutosave";
+import { JournalPersistenceError, type JournalSaveFailureDiagnostic } from "./journalPersistenceDiagnostics";
 
 const signal = expect.any(AbortSignal);
 
@@ -70,7 +71,7 @@ describe("Journal revision autosave queue", () => {
     const queue = new JournalAutosaveQueue(1, save, vi.fn(), (state) => states.push(state), 800, 20_000, 8_000, () => "request-stable");
     queue.schedule("unsaved input");
     const flushing = queue.flush(1);
-    const timeoutResult = expect(flushing).rejects.toMatchObject({ kind: "timeout" });
+    const timeoutResult = expect(flushing).rejects.toMatchObject({ kind: "TIMEOUT" });
     await vi.advanceTimersByTimeAsync(8_000);
     expect(states.at(-1)).toBe("slow");
     await vi.advanceTimersByTimeAsync(12_000);
@@ -104,11 +105,11 @@ describe("Journal revision autosave queue", () => {
     const queue = new JournalAutosaveQueue(1, save, vi.fn(), vi.fn(), 800, 20_000, 8_000, () => ids.shift()!);
     queue.schedule("first");
     const firstFlush = queue.flush(1);
-    const firstFailure = expect(firstFlush).rejects.toMatchObject({ kind: "timeout" });
+    const firstFailure = expect(firstFlush).rejects.toMatchObject({ kind: "TIMEOUT" });
     await Promise.resolve();
     queue.schedule("latest");
     const latestFlush = queue.flush(2);
-    const latestFailure = expect(latestFlush).rejects.toMatchObject({ kind: "timeout" });
+    const latestFailure = expect(latestFlush).rejects.toMatchObject({ kind: "TIMEOUT" });
     await vi.advanceTimersByTimeAsync(20_000);
     await firstFailure;
     await latestFailure;
@@ -135,5 +136,126 @@ describe("Journal revision autosave queue", () => {
     await expect(flushing).rejects.toBeInstanceOf(JournalAutosaveQueueError);
     expect(activeSignal?.aborted).toBe(true);
     expect(() => queue.schedule("later")).toThrow("종료된 저장 큐");
+  });
+
+  it("captures timeout runtime evidence and retries the same request", async () => {
+    vi.useFakeTimers();
+    const diagnostics: Array<JournalSaveFailureDiagnostic | null> = [];
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const save = vi.fn()
+      .mockImplementationOnce(() => new Promise(() => undefined))
+      .mockResolvedValueOnce({ version: 18 });
+    const queue = new JournalAutosaveQueue(
+      17,
+      save,
+      vi.fn(),
+      vi.fn(),
+      0,
+      20_000,
+      8_000,
+      () => "request-timeout",
+      {
+        context: () => ({ entryId: "entry-1", entryStatus: "COMPLETED" }),
+        onFailure: (diagnostic) => diagnostics.push(diagnostic),
+        diagnosticIdFactory: () => "JRN-SAVE-TIMEOUT1",
+      },
+    );
+    queue.schedule("local input");
+    const first = queue.flush(1);
+    const rejection = expect(first).rejects.toMatchObject({ kind: "TIMEOUT", isTimeout: true });
+    await vi.advanceTimersByTimeAsync(20_000);
+    await rejection;
+    expect(diagnostics.at(-1)).toMatchObject({
+      diagnosticId: "JRN-SAVE-TIMEOUT1",
+      failureKind: "TIMEOUT",
+      entryId: "entry-1",
+      entryStatus: "COMPLETED",
+      serverExpectedVersion: 17,
+      localDraftRevision: 1,
+      requestId: "request-timeout",
+      attemptNumber: 1,
+      durationMs: 20_000,
+      isTimeout: true,
+    });
+    await queue.flush(1);
+    expect(save.mock.calls.map((call) => call.slice(0, 3))).toEqual([
+      ["local input", 17, "request-timeout"],
+      ["local input", 17, "request-timeout"],
+    ]);
+    expect(diagnostics.at(-1)).toBeNull();
+    consoleError.mockRestore();
+  });
+
+  it("keeps network retry idempotent and classifies explicit abort separately", async () => {
+    const diagnostics: Array<JournalSaveFailureDiagnostic | null> = [];
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const save = vi.fn()
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      .mockResolvedValueOnce({ version: 2 });
+    const queue = new JournalAutosaveQueue(
+      1, save, vi.fn(), vi.fn(), 0, 20_000, 8_000, () => "request-network",
+      {
+        context: () => ({ entryId: "entry-1", entryStatus: "IN_PROGRESS" }),
+        onFailure: (diagnostic) => diagnostics.push(diagnostic),
+        diagnosticIdFactory: () => "JRN-SAVE-NETWORK1",
+      },
+    );
+    queue.schedule("input");
+    await expect(queue.flush(1)).rejects.toMatchObject({ kind: "NETWORK", isNetwork: true });
+    expect(diagnostics.at(-1)).toMatchObject({ failureKind: "NETWORK", requestId: "request-network" });
+    await queue.flush(1);
+    expect(save.mock.calls[1].slice(0, 3)).toEqual(["input", 1, "request-network"]);
+
+    const abortSave = vi.fn().mockRejectedValue(new DOMException("aborted", "AbortError"));
+    const abortDiagnostics: Array<JournalSaveFailureDiagnostic | null> = [];
+    const abortQueue = new JournalAutosaveQueue(
+      1, abortSave, vi.fn(), vi.fn(), 0, 20_000, 8_000, () => "request-abort",
+      {
+        context: () => ({ entryId: "entry-1", entryStatus: "IN_PROGRESS" }),
+        onFailure: (diagnostic) => abortDiagnostics.push(diagnostic),
+      },
+    );
+    abortQueue.schedule("input");
+    await expect(abortQueue.flush(1)).rejects.toMatchObject({ kind: "ABORT", isAbort: true });
+    expect(abortDiagnostics.at(-1)).toMatchObject({ failureKind: "ABORT" });
+    consoleError.mockRestore();
+  });
+
+  it("blocks blind retries after a version conflict while preserving newer local input", async () => {
+    const diagnostics: Array<JournalSaveFailureDiagnostic | null> = [];
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const conflict = new JournalPersistenceError(
+      "VERSION_CONFLICT",
+      "update_journal_entry_draft",
+      "entry-1",
+      "COMPLETED",
+      17,
+      "request-conflict",
+      { httpStatus: 409, postgresCode: "PT409", message: "stale" },
+    );
+    const save = vi.fn().mockRejectedValue(conflict);
+    const queue = new JournalAutosaveQueue(
+      17, save, vi.fn(), vi.fn(), 0, 20_000, 8_000, () => "request-conflict",
+      {
+        context: () => ({ entryId: "entry-1", entryStatus: "COMPLETED" }),
+        onFailure: (diagnostic) => diagnostics.push(diagnostic),
+        diagnosticIdFactory: () => "JRN-SAVE-CONFLICT1",
+      },
+    );
+    queue.schedule("unsaved input");
+    await expect(queue.flush(1)).rejects.toMatchObject({ kind: "VERSION_CONFLICT" });
+    expect(diagnostics.at(-1)).toMatchObject({
+      failureKind: "VERSION_CONFLICT",
+      serverExpectedVersion: 17,
+      localDraftRevision: 1,
+      requestId: "request-conflict",
+    });
+    await expect(queue.flush(1)).rejects.toBe(conflict);
+    queue.schedule("newer local input");
+    await expect(queue.flush(2)).rejects.toBe(conflict);
+    expect(queue.getPendingRevision()).toBe(2);
+    expect(queue.getSavedRevision()).toBe(0);
+    expect(save).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
   });
 });

@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JournalEditor } from "./JournalEditor";
+import { JournalPersistenceError, type JournalPersistenceFailureKind } from "./journalPersistenceDiagnostics";
 import { buildJournalPreviewViewModel } from "./journalPreviewViewModel";
 import type { JournalDraft, JournalRosterEntry } from "./journalRepository";
 
@@ -298,11 +299,13 @@ describe("Journal Editor", () => {
       expect.objectContaining({ teacherComment: "이동 직전 저장" }),
       expect.any(String),
       expect.any(AbortSignal),
+      "NOT_STARTED",
     );
   });
 
   it("stops navigation after 20 seconds, preserves input, and exposes recoverable actions", async () => {
     const onClose = vi.fn();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     mocks.fetch.mockResolvedValue(entry());
     mocks.update.mockImplementation(() => new Promise(() => undefined));
     renderEditor(roster[0], { onClose });
@@ -318,10 +321,13 @@ describe("Journal Editor", () => {
     expect(screen.getByRole("button", { name: "목록" }).getAttribute("aria-busy")).toBe("false");
     expect(screen.getByRole("button", { name: "다시 시도" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "계속 작성" })).toBeTruthy();
+    expect(screen.getAllByText(/TIMEOUT · JRN-SAVE-[A-F0-9]{8}/).length).toBeGreaterThan(0);
+    consoleError.mockRestore();
   });
 
   it("retries a timed-out revision with the same request ID and then navigates", async () => {
     const onClose = vi.fn();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
     mocks.fetch.mockResolvedValue(entry());
     mocks.update
       .mockImplementationOnce(() => new Promise(() => undefined))
@@ -342,6 +348,67 @@ describe("Journal Editor", () => {
     expect(mocks.update).toHaveBeenCalledTimes(2);
     expect(mocks.update.mock.calls[1][3]).toBe(firstRequestId);
     expect(onClose).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
+  });
+
+  it.each([
+    ["VERSION_CONFLICT", "PT409", 409],
+    ["PERMISSION", "42501", 403],
+    ["SERVER", "P0001", 500],
+  ] as const)("shows safe %s evidence, preserves input, and blocks navigation", async (kind, postgresCode, httpStatus) => {
+    const onClose = vi.fn();
+    const target = entry({ status: "COMPLETED", version: 17, teacherComment: "saved" });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.fetch.mockResolvedValue(target);
+    mocks.update.mockRejectedValue(new JournalPersistenceError(
+      kind as JournalPersistenceFailureKind,
+      "update_journal_entry_draft",
+      "entry-1",
+      "COMPLETED",
+      17,
+      "request-runtime",
+      { httpStatus, postgresCode, message: "raw server message", details: "raw details", hint: "raw hint" },
+    ));
+    renderEditor(target, { onClose });
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+    fireEvent.change(comment, { target: { value: "unsaved local content" } });
+    fireEvent.click(screen.getByRole("button", { name: "목록" }));
+    await screen.findByText("저장을 완료하지 못했습니다.");
+    expect(onClose).not.toHaveBeenCalled();
+    expect((comment as HTMLTextAreaElement).value).toBe("unsaved local content");
+    expect(screen.getByRole("button", { name: "목록" }).getAttribute("aria-busy")).toBe("false");
+    expect(screen.getAllByText(new RegExp(`${kind} · JRN-SAVE-[A-F0-9]{8}`)).length).toBeGreaterThan(0);
+    expect(screen.queryByText("raw server message")).toBeNull();
+    expect(screen.queryByText("raw details")).toBeNull();
+    const retry = screen.getByRole("button", { name: kind === "VERSION_CONFLICT" ? "최신 상태 확인 필요" : "다시 시도" });
+    expect((retry as HTMLButtonElement).disabled).toBe(kind === "VERSION_CONFLICT");
+    if (kind === "VERSION_CONFLICT") {
+      fireEvent.click(retry);
+      expect(mocks.update).toHaveBeenCalledTimes(1);
+    }
+    expect(mocks.update.mock.calls[0][1]).toBe(17);
+    expect(mocks.update.mock.calls[0][5]).toBe("COMPLETED");
+    consoleError.mockRestore();
+  });
+
+  it.each([
+    ["ABORT", new DOMException("aborted", "AbortError")],
+    ["NETWORK", new TypeError("Failed to fetch")],
+    ["UNKNOWN", new Error("unclassified")],
+  ] as const)("classifies client failure as %s without losing local input", async (kind, failure) => {
+    const onClose = vi.fn();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.update.mockRejectedValue(failure);
+    renderEditor(roster[0], { onClose });
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+    fireEvent.change(comment, { target: { value: "preserved" } });
+    fireEvent.click(screen.getByRole("button", { name: "목록" }));
+    await screen.findByText("저장을 완료하지 못했습니다.");
+    expect((comment as HTMLTextAreaElement).value).toBe("preserved");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getAllByText(new RegExp(`${kind} · JRN-SAVE-[A-F0-9]{8}`)).length).toBeGreaterThan(0);
+    consoleError.mockRestore();
   });
 
   it("saves an edit made during navigation flush before moving", async () => {

@@ -1,4 +1,10 @@
 import { supabase } from "../lib/supabase";
+import {
+  JournalPersistenceError,
+  classifyJournalPersistenceFailure,
+  journalPersistenceErrorFromUnknown,
+  type JournalPersistenceContext,
+} from "./journalPersistenceDiagnostics";
 
 export type JournalStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
 export type JournalCondition = "active" | "calm" | "tired" | "sensitive";
@@ -83,7 +89,9 @@ export class JournalRepositoryError extends Error {
   }
 }
 
-const throwError = (error: { code?: string; message?: string } | null) => {
+type SupabaseErrorMetadata = { code?: string; message?: string; details?: string; hint?: string };
+
+const throwError = (error: SupabaseErrorMetadata | null) => {
   if (!error) return;
   if (error.code === "PT409" || error.code === "40001") {
     throw new JournalRepositoryError("다른 직원이 먼저 변경했습니다. 최신 명단을 불러왔습니다.", "conflict");
@@ -97,11 +105,38 @@ const throwError = (error: { code?: string; message?: string } | null) => {
   throw new JournalRepositoryError("일지 명단을 불러오지 못했습니다.", "unavailable");
 };
 
-async function rpc<T>(name: string, args: Record<string, unknown>, signal?: AbortSignal) {
-  const request = supabase.rpc(name, args);
-  const result = signal ? await request.abortSignal(signal) : await request;
-  throwError(result.error);
-  return result.data as T;
+async function rpc<T>(
+  name: string,
+  args: Record<string, unknown>,
+  signal?: AbortSignal,
+  persistenceContext?: JournalPersistenceContext,
+) {
+  try {
+    const request = supabase.rpc(name, args);
+    const result = signal ? await request.abortSignal(signal) : await request;
+    if (result.error && persistenceContext) {
+      throw new JournalPersistenceError(
+        classifyJournalPersistenceFailure(result.error, result.status),
+        persistenceContext.operation,
+        persistenceContext.entryId,
+        persistenceContext.entryStatus,
+        persistenceContext.expectedVersion,
+        persistenceContext.requestId,
+        {
+          httpStatus: result.status,
+          postgresCode: result.error.code,
+          message: result.error.message,
+          details: result.error.details,
+          hint: result.error.hint,
+        },
+      );
+    }
+    throwError(result.error);
+    return result.data as T;
+  } catch (error) {
+    if (!persistenceContext || error instanceof JournalPersistenceError) throw error;
+    throw journalPersistenceErrorFromUnknown(error, persistenceContext);
+  }
 }
 
 export function fetchJournalRoster(businessDate: string) {
@@ -157,7 +192,15 @@ export function updateJournalEntryDraft(
   draft: JournalDraft,
   requestId: string = crypto.randomUUID(),
   signal?: AbortSignal,
+  entryStatus: JournalStatus = "IN_PROGRESS",
 ) {
+  const persistenceContext: JournalPersistenceContext = {
+    operation: "update_journal_entry_draft",
+    entryId,
+    entryStatus,
+    expectedVersion,
+    requestId,
+  };
   return rpc<JournalRosterEntry>("update_journal_entry_draft", {
     p_entry_id: entryId,
     p_expected_version: expectedVersion,
@@ -175,7 +218,7 @@ export function updateJournalEntryDraft(
     p_physical_evaluation: draft.physicalEvaluation,
     p_teacher_comment: draft.teacherComment || null,
     p_request_id: requestId,
-  }, signal);
+  }, signal, persistenceContext);
 }
 
 export function completeJournalEntry(

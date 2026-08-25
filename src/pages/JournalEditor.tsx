@@ -2,6 +2,11 @@ import { ArrowLeft, Check, ChevronLeft, ChevronRight, Download, Eye, Image, Load
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { Button, Card, FormAlert, Input, Modal, ModalActions, Textarea } from "../components/ui";
 import { JournalAutosaveQueue, type JournalSaveState } from "./journalAutosave";
+import {
+  JournalPersistenceError,
+  type JournalPersistenceFailureKind,
+  type JournalSaveFailureDiagnostic,
+} from "./journalPersistenceDiagnostics";
 import { loadEmbeddedJournalAssetSources, type JournalAssetSourceMap } from "./journalAssetSources";
 import { journalDeleteConfirmationDetail } from "./journalDeletePresentation";
 import { exportJournalImage, type JournalExportFormat } from "./journalExport";
@@ -50,6 +55,16 @@ const physicalOptions: Array<[JournalPhysicalEvaluation, string]> = [
 const displayDate = (date: string) =>
   new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(`${date}T12:00:00+09:00`));
 
+const journalFailureMessage = (kind: JournalPersistenceFailureKind) => {
+  if (kind === "VERSION_CONFLICT") return "다른 변경사항이 먼저 저장되었습니다.";
+  if (kind === "PERMISSION") return "현재 계정으로 일지를 저장할 수 없습니다.";
+  if (kind === "TIMEOUT") return "서버 응답이 지연되고 있습니다.";
+  if (kind === "ABORT") return "저장 요청이 중단되었습니다.";
+  if (kind === "NETWORK") return "네트워크 연결을 확인해 주세요.";
+  if (kind === "VALIDATION" || kind === "REQUEST_CONFLICT") return "저장 요청을 확인할 수 없습니다.";
+  return "저장 중 오류가 발생했습니다.";
+};
+
 export function JournalEditor({
   entry: rosterEntry,
   rosterEntries,
@@ -69,6 +84,7 @@ export function JournalEditor({
   const [draft, setDraft] = useState<JournalDraft>(() => journalEntryToDraft(rosterEntry));
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<JournalSaveState>("idle");
+  const [saveFailure, setSaveFailure] = useState<JournalSaveFailureDiagnostic | null>(null);
   const [error, setError] = useState("");
   const [completing, setCompleting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -77,6 +93,7 @@ export function JournalEditor({
   const [exporting, setExporting] = useState<JournalExportFormat | null>(null);
   const [exportError, setExportError] = useState("");
   const versionRef = useRef(rosterEntry.version);
+  const entryStatusRef = useRef(rosterEntry.status);
   const queueRef = useRef<JournalAutosaveQueue<JournalDraft, JournalRosterEntry> | null>(null);
   const exportSourceRootRef = useRef<HTMLElement>(null);
   const exportInFlightRef = useRef(false);
@@ -93,23 +110,33 @@ export function JournalEditor({
     let cancelled = false;
     setLoading(true);
     setError("");
+    setSaveFailure(null);
     void fetchJournalEntry(rosterEntry.id)
       .then((loaded) => {
         if (cancelled) return;
         setEntry(loaded);
         setDraft(journalEntryToDraft(loaded));
         versionRef.current = loaded.version;
+        entryStatusRef.current = loaded.status;
         queueRef.current = new JournalAutosaveQueue(
           loaded.version,
           (snapshot, expectedVersion, requestId, signal) =>
-            updateJournalEntryDraft(loaded.id, expectedVersion, snapshot, requestId, signal),
+            updateJournalEntryDraft(loaded.id, expectedVersion, snapshot, requestId, signal, entryStatusRef.current),
           (result) => {
             versionRef.current = result.version;
+            entryStatusRef.current = result.status;
             setEntry(result);
             onEntryUpdate(result);
           },
           setSaveState,
           JOURNAL_AUTOSAVE_DELAY,
+          undefined,
+          undefined,
+          undefined,
+          {
+            context: () => ({ entryId: loaded.id, entryStatus: entryStatusRef.current }),
+            onFailure: setSaveFailure,
+          },
         );
       })
       .catch((caught) => setError(caught instanceof Error ? caught.message : "일지를 불러오지 못했습니다."))
@@ -147,7 +174,7 @@ export function JournalEditor({
       if (queue) await queue.flush(queue.getDraftRevision());
       return true;
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "일지를 저장하지 못했습니다.");
+      setError(caught instanceof JournalPersistenceError ? journalFailureMessage(caught.kind) : caught instanceof Error ? caught.message : "일지를 저장하지 못했습니다.");
       return false;
     }
   };
@@ -214,6 +241,7 @@ export function JournalEditor({
       if (!(await flush())) return;
       const completed = await completeJournalEntry(entry.id, versionRef.current);
       versionRef.current = completed.version;
+      entryStatusRef.current = completed.status;
       queueRef.current?.acknowledgeExternalVersion(completed.version);
       setEntry(completed);
       onEntryUpdate(completed);
@@ -282,7 +310,7 @@ export function JournalEditor({
               <button type="button" aria-busy={navigationIntent === "list"} disabled={completing || deleting} onClick={() => void close()} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-text-secondary hover:bg-primary-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-50">{navigationIntent === "list" ? <LoaderCircle className="animate-spin" size={18} /> : <ArrowLeft size={18} />}목록</button>
               <div className="min-w-0 flex-1 border-l border-border pl-3">
                 <h1 className="truncate text-lg font-bold text-text-primary sm:text-xl">{entry.dog.name}</h1>
-                <p className="truncate text-xs text-text-secondary sm:text-sm">{displayDate(entry.businessDate)} · {entry.status === "COMPLETED" ? "완료" : entry.status === "IN_PROGRESS" ? "작성중" : "미작성"} · <SaveState state={saveState} /></p>
+                <p className="truncate text-xs text-text-secondary sm:text-sm">{displayDate(entry.businessDate)} · {entry.status === "COMPLETED" ? "완료" : entry.status === "IN_PROGRESS" ? "작성중" : "미작성"} · <SaveState state={saveState} failure={saveFailure} /></p>
               </div>
             </div>
             <nav className="mt-2 grid grid-cols-3 items-center gap-2 border-t border-border pt-2" aria-label="일지 대상 이동">
@@ -297,8 +325,15 @@ export function JournalEditor({
             <div role="alert" className="mb-3 rounded-xl border border-error/30 bg-error-soft p-3 text-sm text-text-primary">
               <p className="font-semibold">저장을 완료하지 못했습니다.</p>
               <p className="mt-0.5 text-text-secondary">입력 내용은 현재 화면에 유지됩니다.</p>
+              {saveFailure ? (
+                <p className="mt-1 text-xs text-text-secondary">
+                  {journalFailureMessage(saveFailure.failureKind)} · {saveFailure.failureKind} · {saveFailure.diagnosticId}
+                </p>
+              ) : null}
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button type="button" variant="secondary" onClick={retryNavigation}>다시 시도</Button>
+                <Button type="button" variant="secondary" disabled={saveFailure?.failureKind === "VERSION_CONFLICT"} onClick={retryNavigation}>
+                  {saveFailure?.failureKind === "VERSION_CONFLICT" ? "최신 상태 확인 필요" : "다시 시도"}
+                </Button>
                 <Button type="button" variant="ghost" onClick={continueEditing}>계속 작성</Button>
               </div>
             </div>
@@ -359,7 +394,7 @@ export function JournalEditor({
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:left-64">
         <div className="mx-auto max-w-[1480px] xl:grid xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)] xl:gap-6 2xl:gap-8">
           <div className="flex min-w-0 items-center gap-3">
-            <span className="min-w-0 flex-1 text-xs text-text-secondary"><SaveState state={saveState} /></span>
+            <span className="min-w-0 flex-1 text-xs text-text-secondary"><SaveState state={saveState} failure={saveFailure} /></span>
             {onDelete ? (
               <Button type="button" aria-label="일지 삭제" variant="secondary" className="min-h-11 border-error/30 px-3 text-error hover:bg-error-soft" disabled={deleting} onClick={() => setDeleteOpen(true)}>
                 <Trash2 size={17} /><span className="hidden sm:inline">일지 삭제</span>
@@ -455,9 +490,9 @@ function JournalExportActions({
   );
 }
 
-function SaveState({ state }: { state: JournalSaveState }) {
+function SaveState({ state, failure }: { state: JournalSaveState; failure: JournalSaveFailureDiagnostic | null }) {
   if (state === "saving" || state === "slow") return <span className="inline-flex items-center gap-1"><LoaderCircle className="animate-spin" size={13} />저장 중...</span>;
-  if (state === "error" || state === "timeout") return <span className="text-error">저장 실패</span>;
+  if (state === "error" || state === "timeout") return <span className="block truncate text-error">저장 실패{failure ? ` · ${failure.failureKind} · ${failure.diagnosticId}` : ""}</span>;
   if (state === "pending") return <span>저장 대기</span>;
   return <span>{state === "saved" ? "저장됨" : "변경 없음"}</span>;
 }
