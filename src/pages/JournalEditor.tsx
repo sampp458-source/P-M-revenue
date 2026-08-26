@@ -367,19 +367,19 @@ export function JournalEditor({
           </fieldset>
         </div>
 
-        <aside className="contents xl:sticky xl:top-[78px] xl:grid xl:h-full xl:min-h-0 xl:grid-rows-[auto_auto_auto_minmax(0,1fr)_auto] xl:gap-2 xl:overflow-hidden" aria-label={`${previewViewModel.dogName} 일지 작업 패널`} data-testid="journal-editor-control-panel">
-          <header className="order-1 rounded-2xl border border-border bg-surface p-3 shadow-sm sm:p-4 xl:order-none xl:px-3 xl:py-2.5">
-            <div className="flex min-h-11 items-center gap-3 xl:gap-2.5">
-              <button type="button" aria-busy={navigationIntent === "list"} disabled={completing || deleting} onClick={() => void close()} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-text-secondary hover:bg-primary-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-50">{navigationIntent === "list" ? <LoaderCircle className="animate-spin" size={18} /> : <ArrowLeft size={18} />}목록</button>
+        <aside className="journal-editor-control-panel contents xl:sticky xl:top-[78px] xl:grid xl:h-full xl:min-h-0 xl:grid-rows-[auto_auto_auto_minmax(0,1fr)_auto] xl:gap-2 xl:overflow-hidden xl:rounded-2xl" aria-label={`${previewViewModel.dogName} 일지 작업 패널`} data-testid="journal-editor-control-panel">
+          <header className="order-1 rounded-2xl border border-border bg-surface p-3 shadow-sm sm:p-4 xl:order-none xl:px-3 xl:py-0.5">
+            <div className="flex min-h-11 items-center gap-3 xl:min-h-9 xl:gap-2.5">
+              <button type="button" aria-busy={navigationIntent === "list"} disabled={completing || deleting} onClick={() => void close()} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-text-secondary hover:bg-primary-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 xl:min-h-9 xl:py-1">{navigationIntent === "list" ? <LoaderCircle className="animate-spin" size={18} /> : <ArrowLeft size={18} />}목록</button>
               <div className="min-w-0 flex-1 border-l border-border pl-3">
                 <h1 className="truncate text-lg font-bold text-text-primary sm:text-xl">{entry.dog.name}</h1>
                 <p className="truncate text-xs text-text-secondary sm:text-sm">{displayDate(entry.businessDate)} · {entry.status === "COMPLETED" ? "완료" : entry.status === "IN_PROGRESS" ? "작성중" : "미작성"} · <SaveState state={saveState} failure={saveFailure} /></p>
               </div>
             </div>
-            <nav className="mt-2 grid grid-cols-3 items-center gap-2 border-t border-border pt-2 xl:mt-1.5 xl:gap-1.5 xl:pt-1.5" aria-label="일지 대상 이동">
-              <Button type="button" variant="ghost" className="px-2 xl:min-h-9 xl:py-1" disabled={!previous || completing || deleting} aria-busy={Boolean(previous && navigationIntent === previous.id)} onClick={() => previous && void move(previous.id)}>{previous && navigationIntent === previous.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronLeft size={17} />}이전</Button>
+            <nav className="mt-2 grid grid-cols-3 items-center gap-2 border-t border-border pt-2 xl:mt-1 xl:gap-1.5 xl:pt-1" aria-label="일지 대상 이동">
+              <Button type="button" variant="ghost" className="px-2 xl:min-h-8 xl:py-1" disabled={!previous || completing || deleting} aria-busy={Boolean(previous && navigationIntent === previous.id)} onClick={() => previous && void move(previous.id)}>{previous && navigationIntent === previous.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronLeft size={17} />}이전</Button>
               <span className="text-center text-sm font-semibold tabular-nums text-text-secondary">{position + 1} / {rosterEntries.length}</span>
-              <Button type="button" variant="ghost" className="px-2 xl:min-h-9 xl:py-1" disabled={!next || completing || deleting} aria-busy={Boolean(next && navigationIntent === next.id)} onClick={() => next && void move(next.id)}>다음{next && navigationIntent === next.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronRight size={17} />}</Button>
+              <Button type="button" variant="ghost" className="px-2 xl:min-h-8 xl:py-1" disabled={!next || completing || deleting} aria-busy={Boolean(next && navigationIntent === next.id)} onClick={() => next && void move(next.id)}>다음{next && navigationIntent === next.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronRight size={17} />}</Button>
             </nav>
           </header>
 
@@ -482,7 +482,7 @@ function DesktopJournalPreview({ viewModel }: { viewModel: ReturnType<typeof bui
   }, []);
 
   return (
-    <div ref={viewportRef} className="order-5 hidden min-h-0 items-center justify-center overflow-hidden xl:order-none xl:flex" aria-label={`${viewModel.dogName} 결과 미리보기`} data-testid="journal-editor-preview-viewport">
+    <div ref={viewportRef} className="journal-editor-preview-stage order-5 hidden min-h-0 items-center justify-center overflow-hidden xl:order-none xl:flex xl:rounded-xl" aria-label={`${viewModel.dogName} 결과 미리보기`} data-testid="journal-editor-preview-viewport">
       <div className="w-full max-w-full" style={previewWidth ? { width: `${previewWidth}px` } : undefined}>
         <JournalReportPreview viewModel={viewModel} className="rounded-2xl bg-[#fffcf8] shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
       </div>

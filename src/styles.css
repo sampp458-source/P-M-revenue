@@ -47,6 +47,12 @@ input[type="number"], input[type="date"], .tabular-nums { font-variant-numeric: 
 ::selection { background: #dbe7f1; color: #17243a; }
 
 @media (min-width: 1280px) {
+  .journal-editor-control-panel {
+    background: #fff !important;
+  }
+  .journal-editor-preview-stage {
+    background: #1e3a5f;
+  }
   .journal-editor-form-scrollbar {
     scrollbar-color: rgb(39 76 119 / 0.22) transparent;
     scrollbar-width: thin;

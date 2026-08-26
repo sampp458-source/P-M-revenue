@@ -154,8 +154,10 @@ describe("Journal Editor", () => {
     expect(controlPanel.className).toContain("xl:overflow-hidden");
     expect(controlPanel.className).toContain("xl:grid-rows-[auto_auto_auto_minmax(0,1fr)_auto]");
     expect(controlPanel.className).toContain("xl:gap-2");
+    expect(controlPanel.className).toContain("journal-editor-control-panel");
     expect(previewViewport.className).toContain("min-h-0");
     expect(previewViewport.className).toContain("overflow-hidden");
+    expect(previewViewport.className).toContain("journal-editor-preview-stage");
     expect(finalActions.className).toContain("xl:static");
     expect(finalActions.className).toContain("xl:p-1.5");
     expect(within(controlPanel).getByRole("button", { name: "목록" })).toBeTruthy();
