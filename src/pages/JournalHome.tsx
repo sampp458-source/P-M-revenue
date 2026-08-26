@@ -1,5 +1,5 @@
 import { Archive, BookOpenText, ChevronLeft, ChevronRight, Dog, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type Ref } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SearchSelect } from "../components/SearchSelect";
 import { Badge, Button, Card, FormAlert, Input, Modal, ModalActions } from "../components/ui";
 import { formatPhoneForDisplay } from "../lib/phone";
@@ -8,9 +8,7 @@ import { JournalEditor } from "./JournalEditor";
 import { journalDeleteConfirmationDetail } from "./journalDeletePresentation";
 import { buildUniqueJournalPngFilenames, downloadJournalBatchZip, type JournalBatchFile } from "./journalBatchExport";
 import { renderJournalImageBlob } from "./journalExport";
-import { loadEmbeddedJournalAssetSources, type JournalAssetSourceMap } from "./journalAssetSources";
-import { buildJournalPreviewViewModel, journalEntryToDraft, type JournalPreviewViewModel } from "./journalPreviewViewModel";
-import { JournalReportTemplate } from "./JournalReportTemplate";
+import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import {
   fetchJournalEntry,
   fetchJournalDogDirectory,
@@ -71,10 +69,6 @@ export function JournalHomePage() {
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [batching, setBatching] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
-  const [batchViewModel, setBatchViewModel] = useState<JournalPreviewViewModel | null>(null);
-  const [batchAssetSources, setBatchAssetSources] = useState<JournalAssetSourceMap | null>(null);
-  const batchRootRef = useRef<HTMLElement>(null);
-  const batchReadyRef = useRef<{ entryId: string; resolve: () => void } | null>(null);
   const batchInFlightRef = useRef(false);
 
   useEffect(() => {
@@ -222,12 +216,6 @@ export function JournalHomePage() {
     }
   };
 
-  const waitForBatchRender = (viewModel: JournalPreviewViewModel, assetSources: JournalAssetSourceMap) => new Promise<void>((resolve) => {
-    batchReadyRef.current = { entryId: viewModel.entryId, resolve };
-    setBatchAssetSources(assetSources);
-    setBatchViewModel(viewModel);
-  });
-
   const batchExport = async () => {
     if (batchInFlightRef.current || !completedEntries.length) return;
     batchInFlightRef.current = true;
@@ -240,7 +228,6 @@ export function JournalHomePage() {
     setBatchProgress({ current: 0, total: targets.length });
     setError("");
     try {
-      const assetSources = await loadEmbeddedJournalAssetSources();
       for (let index = 0; index < targets.length; index += 1) {
         const target = targets[index];
         currentDogName = target.dog.name;
@@ -249,10 +236,7 @@ export function JournalHomePage() {
           throw new Error("JOURNAL_BATCH_TARGET_CHANGED");
         }
         const viewModel = buildJournalPreviewViewModel(persisted, journalEntryToDraft(persisted), rosterSnapshot);
-        await waitForBatchRender(viewModel, assetSources);
-        const root = batchRootRef.current;
-        if (!root) throw new Error("JOURNAL_BATCH_RENDER_UNAVAILABLE");
-        files.push({ filename: filenames[index], blob: await renderJournalImageBlob(root, "png") });
+        files.push({ filename: filenames[index], blob: await renderJournalImageBlob(viewModel, "png") });
         setBatchProgress({ current: index + 1, total: targets.length });
       }
       await downloadJournalBatchZip(files, businessDate);
@@ -261,9 +245,6 @@ export function JournalHomePage() {
         ? `${currentDogName} 일지 이미지를 만들지 못했습니다. 전체 저장을 다시 시도해 주세요.`
         : "완료 일지를 저장하지 못했습니다. 다시 시도해 주세요.");
     } finally {
-      batchReadyRef.current = null;
-      setBatchViewModel(null);
-      setBatchAssetSources(null);
       setBatching(false);
       batchInFlightRef.current = false;
     }
@@ -443,39 +424,7 @@ export function JournalHomePage() {
         </ModalActions>
       </Modal>
 
-      {batchViewModel && batchAssetSources ? (
-        <BatchJournalRenderer
-          viewModel={batchViewModel}
-          assetSources={batchAssetSources}
-          reportRef={batchRootRef}
-          onReady={(entryId) => {
-            if (batchReadyRef.current?.entryId !== entryId) return;
-            const ready = batchReadyRef.current;
-            batchReadyRef.current = null;
-            ready.resolve();
-          }}
-        />
-      ) : null}
     </section>
-  );
-}
-
-function BatchJournalRenderer({
-  viewModel,
-  assetSources,
-  reportRef,
-  onReady,
-}: {
-  viewModel: JournalPreviewViewModel;
-  assetSources: JournalAssetSourceMap;
-  reportRef: Ref<HTMLElement>;
-  onReady: (entryId: string) => void;
-}) {
-  useLayoutEffect(() => onReady(viewModel.entryId), [onReady, viewModel.entryId]);
-  return (
-    <div aria-hidden="true" className="pointer-events-none fixed left-[-12000px] top-0 h-[1440px] w-[1080px] overflow-hidden">
-      <JournalReportTemplate viewModel={viewModel} assetSources={assetSources} reportRef={reportRef} testId="journal-batch-export-template" />
-    </div>
   );
 }
 

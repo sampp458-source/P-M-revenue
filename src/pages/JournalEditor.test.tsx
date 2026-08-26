@@ -29,20 +29,6 @@ vi.mock("./journalExport", async (importOriginal) => ({
   exportJournalImage: mocks.exportImage,
 }));
 
-vi.mock("./journalAssetSources", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./journalAssetSources")>()),
-  loadEmbeddedJournalAssetSources: vi.fn().mockResolvedValue({
-    "header-dog-a": "data:image/png;base64,YQ==",
-    "header-dog-b": "data:image/png;base64,Yg==",
-    "best-friend-duo": "data:image/png;base64,Yw==",
-    meal: "data:image/png;base64,ZA==",
-    manners: "data:image/png;base64,ZQ==",
-    physical: "data:image/png;base64,Zg==",
-    "teacher-comment-dog": "data:image/png;base64,Zw==",
-    "official-logo": "data:image/png;base64,aA==",
-  }),
-}));
-
 const entry = (overrides: Partial<JournalRosterEntry> = {}): JournalRosterEntry => ({
   id: "entry-1",
   journalDayId: "day-1",
@@ -614,12 +600,36 @@ describe("Journal Editor", () => {
     await waitFor(() => expect(save.hasAttribute("disabled")).toBe(false));
     fireEvent.click(save);
     await waitFor(() => expect(mocks.exportImage).toHaveBeenCalledTimes(1));
-    expect((mocks.exportImage.mock.calls[0][0] as HTMLElement).dataset.testid).toBe("journal-export-template");
-    expect(Array.from((mocks.exportImage.mock.calls[0][0] as HTMLElement).querySelectorAll<HTMLImageElement>("img")).every((image) => image.src.startsWith("data:image/png"))).toBe(true);
-    expect(mocks.exportImage.mock.calls[0][1]).toMatchObject({ teacherComment: "아직 저장되지 않은 최신 내용" });
-    expect(mocks.exportImage.mock.calls[0][2]).toBe("png");
+    expect(mocks.exportImage.mock.calls[0][0]).toMatchObject({ teacherComment: "아직 저장되지 않은 최신 내용" });
+    expect(mocks.exportImage.mock.calls[0][1]).toBe("png");
     expect(mocks.update).not.toHaveBeenCalled();
     expect(mocks.complete).not.toHaveBeenCalled();
+  });
+
+  it("keeps autosave and List navigation independent while a Canvas export is in flight", async () => {
+    const loaded = entry({ status: "IN_PROGRESS", version: 4, teacherComment: "저장 전" });
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.update.mockImplementation(async (_id, version, draft) => entry({ ...loaded, ...draft, version: version + 1 }));
+    let finishExport!: () => void;
+    mocks.exportImage.mockImplementation(() => new Promise<void>((resolve) => { finishExport = resolve; }));
+    const onClose = vi.fn();
+    renderEditor(loaded, { onClose });
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+    fireEvent.click(screen.getByRole("button", { name: "PNG 저장" }));
+    await waitFor(() => expect(mocks.exportImage).toHaveBeenCalledTimes(1));
+    fireEvent.change(comment, { target: { value: "export 중 저장할 최신 입력" } });
+    fireEvent.click(screen.getByRole("button", { name: "목록" }));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledWith(
+      "entry-1",
+      4,
+      expect.objectContaining({ teacherComment: "export 중 저장할 최신 입력" }),
+      expect.any(String),
+      expect.any(AbortSignal),
+      "IN_PROGRESS",
+    ));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    finishExport();
+    await waitFor(() => expect(screen.getByRole("button", { name: "PNG 저장" }).hasAttribute("disabled")).toBe(false));
   });
 
   it("guards duplicate export clicks, exposes loading, and recovers after an error", async () => {
@@ -661,11 +671,9 @@ describe("Journal Editor", () => {
     await waitFor(() => expect(jpg.hasAttribute("disabled")).toBe(false));
     fireEvent.click(jpg);
     await waitFor(() => expect(mocks.exportImage).toHaveBeenCalledWith(
-      expect.any(HTMLElement),
       expect.objectContaining({ status: "COMPLETED" }),
       "jpg",
     ));
-    expect((mocks.exportImage.mock.calls[0][0] as HTMLElement).dataset.testid).toBe("journal-export-template");
     expect(mocks.complete).not.toHaveBeenCalled();
   });
 });

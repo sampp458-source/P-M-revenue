@@ -1,5 +1,5 @@
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clipboard, Download, Eye, Image, LoaderCircle, Trash2 } from "lucide-react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, Card, FormAlert, Input, Modal, ModalActions, Textarea } from "../components/ui";
 import { JournalAutosaveQueue, type JournalSaveState } from "./journalAutosave";
 import {
@@ -10,10 +10,9 @@ import {
   type JournalPersistenceFailureKind,
   type JournalSaveFailureDiagnostic,
 } from "./journalPersistenceDiagnostics";
-import { loadEmbeddedJournalAssetSources, type JournalAssetSourceMap } from "./journalAssetSources";
 import { journalDeleteConfirmationDetail } from "./journalDeletePresentation";
 import { exportJournalImage, type JournalExportFormat } from "./journalExport";
-import { JournalReportPreview, JournalReportTemplate } from "./JournalReportTemplate";
+import { JournalReportPreview } from "./JournalReportTemplate";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import {
   completeJournalEntry,
@@ -101,11 +100,7 @@ export function JournalEditor({
   const rosterEntriesRef = useRef(rosterEntries);
   rosterEntriesRef.current = rosterEntries;
   const queueRef = useRef<JournalAutosaveQueue<JournalDraft, JournalRosterEntry> | null>(null);
-  const exportSourceRootRef = useRef<HTMLElement>(null);
   const exportInFlightRef = useRef(false);
-  const exportReadyRef = useRef<{ entryId: string; resolve: () => void } | null>(null);
-  const [exportViewModel, setExportViewModel] = useState<ReturnType<typeof buildJournalPreviewViewModel> | null>(null);
-  const [exportAssetSources, setExportAssetSources] = useState<JournalAssetSourceMap | null>(null);
   const [navigationIntent, setNavigationIntent] = useState<"list" | string | null>(null);
   const [navigationRecovery, setNavigationRecovery] = useState(false);
   const navigationInFlightRef = useRef(false);
@@ -317,21 +312,10 @@ export function JournalEditor({
     setExporting(format);
     setExportError("");
     try {
-      const sources = await loadEmbeddedJournalAssetSources();
-      await new Promise<void>((resolve) => {
-        exportReadyRef.current = { entryId: capturedViewModel.entryId, resolve };
-        setExportAssetSources(sources);
-        setExportViewModel(capturedViewModel);
-      });
-      const source = exportSourceRootRef.current;
-      if (!source) throw new Error("JOURNAL_EXPORT_RENDER_UNAVAILABLE");
-      await exportJournalImage(source, capturedViewModel, format);
+      await exportJournalImage(capturedViewModel, format);
     } catch {
       setExportError("이미지를 저장하지 못했습니다. 다시 시도해 주세요.");
     } finally {
-      exportReadyRef.current = null;
-      setExportViewModel(null);
-      setExportAssetSources(null);
       exportInFlightRef.current = false;
       setExporting(null);
     }
@@ -470,39 +454,7 @@ export function JournalEditor({
         </ModalActions>
       </Modal>
 
-      {exportViewModel && exportAssetSources ? (
-        <ExportJournalRenderer
-          viewModel={exportViewModel}
-          assetSources={exportAssetSources}
-          reportRef={exportSourceRootRef}
-          onReady={(entryId) => {
-            if (exportReadyRef.current?.entryId !== entryId) return;
-            const ready = exportReadyRef.current;
-            exportReadyRef.current = null;
-            ready.resolve();
-          }}
-        />
-      ) : null}
     </section>
-  );
-}
-
-function ExportJournalRenderer({
-  viewModel,
-  assetSources,
-  reportRef,
-  onReady,
-}: {
-  viewModel: ReturnType<typeof buildJournalPreviewViewModel>;
-  assetSources: JournalAssetSourceMap;
-  reportRef: Ref<HTMLElement>;
-  onReady: (entryId: string) => void;
-}) {
-  useLayoutEffect(() => onReady(viewModel.entryId), [onReady, viewModel.entryId]);
-  return (
-    <div aria-hidden="true" data-testid="journal-canonical-export-source" className="pointer-events-none fixed left-[-12000px] top-0 h-[1440px] w-[1080px] overflow-hidden">
-      <JournalReportTemplate reportRef={reportRef} viewModel={viewModel} assetSources={assetSources} testId="journal-export-template" />
-    </div>
   );
 }
 

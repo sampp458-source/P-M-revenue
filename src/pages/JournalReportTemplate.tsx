@@ -3,17 +3,27 @@ import { createContext, useContext, useLayoutEffect, useRef, useState, type Reac
 import type { JournalCharacterName, JournalSectionIllustrationName } from "../assets/journal/journalAssets";
 import { JOURNAL_BUNDLED_ASSET_SOURCES, type JournalAssetSourceMap } from "./journalAssetSources";
 import { journalViewModelRevision, JOURNAL_ASSET_VERSION, JOURNAL_RENDERER_VERSION, JOURNAL_TEMPLATE_VERSION, type JournalRequiredAssetId } from "./journalRenderContract";
+import {
+  JOURNAL_REPORT_FONT_FAMILY,
+  JOURNAL_REPORT_HEIGHT,
+  JOURNAL_REPORT_LAYOUT,
+  JOURNAL_REPORT_PALETTE,
+  JOURNAL_REPORT_WIDTH,
+  journalActivityFontSize,
+  journalBestFriendFontSize,
+  journalCommentTypography,
+  journalDogNameFontSize,
+} from "./journalReportScene";
 import type { JournalPreviewActivity, JournalPreviewOption, JournalPreviewViewModel } from "./journalPreviewViewModel";
 
-export const JOURNAL_REPORT_WIDTH = 1080;
-export const JOURNAL_REPORT_HEIGHT = 1440;
+export { JOURNAL_REPORT_WIDTH, JOURNAL_REPORT_HEIGHT } from "./journalReportScene";
 
 type Palette = "coral" | "green" | "amber" | "lavender";
 const palette = {
-  coral: { surface: "#fffafb", accent: "#ff7f82", ink: "#25384a", border: "#ffd9df", highlight: "rgb(255 233 237 / 0.9)" },
-  green: { surface: "#fbfffd", accent: "#62b98a", ink: "#25384a", border: "#cfeede", highlight: "rgb(230 247 239 / 0.95)" },
-  amber: { surface: "#fffef8", accent: "#d3a82f", ink: "#25384a", border: "#f5e39d", highlight: "rgb(255 243 188 / 0.9)" },
-  lavender: { surface: "#fdfcff", accent: "#8a75bc", ink: "#25384a", border: "#ddd4fa", highlight: "rgb(241 235 255 / 0.95)" },
+  coral: { ...JOURNAL_REPORT_PALETTE.coral, ink: JOURNAL_REPORT_PALETTE.ink, highlight: "rgb(255 233 237 / 0.9)" },
+  green: { ...JOURNAL_REPORT_PALETTE.green, ink: JOURNAL_REPORT_PALETTE.ink, highlight: "rgb(230 247 239 / 0.95)" },
+  amber: { ...JOURNAL_REPORT_PALETTE.amber, ink: JOURNAL_REPORT_PALETTE.ink, highlight: "rgb(255 243 188 / 0.9)" },
+  lavender: { ...JOURNAL_REPORT_PALETTE.lavender, ink: JOURNAL_REPORT_PALETTE.ink, highlight: "rgb(241 235 255 / 0.95)" },
 } as const;
 
 export function JournalReportTemplate({
@@ -39,17 +49,21 @@ export function JournalReportTemplate({
         data-journal-entry-id={viewModel.entryId}
         data-journal-view-model-revision={journalViewModelRevision(viewModel)}
         aria-label={`${viewModel.dogName} 하루 일지 결과지`}
-        className="relative flex shrink-0 flex-col overflow-hidden bg-[#fffcf8] p-[46px] text-[#25384a]"
+        className="relative flex shrink-0 flex-col overflow-hidden bg-[#fffcf8] text-[#25384a]"
         style={{
           width: JOURNAL_REPORT_WIDTH,
           height: JOURNAL_REPORT_HEIGHT,
-          fontFamily: 'Pretendard, "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          padding: JOURNAL_REPORT_LAYOUT.pagePadding,
+          fontFamily: JOURNAL_REPORT_FONT_FAMILY,
         }}
       >
         <span className="pointer-events-none absolute inset-[17px] rounded-[52px] border-[3px] border-[#e6eef4]" />
         <ReportHeader viewModel={viewModel} />
 
-        <main className="relative z-10 mt-[16px] grid min-h-0 flex-1 grid-rows-[170px_206px_120px_178px_minmax(0,1fr)] gap-[8px]">
+        <main
+          className="relative z-10 grid min-h-0 flex-1 grid-rows-[170px_206px_120px_178px_minmax(0,1fr)]"
+          style={{ marginTop: JOURNAL_REPORT_LAYOUT.mainGap * 2, gap: JOURNAL_REPORT_LAYOUT.mainGap }}
+        >
           <DailyStatusComposition viewModel={viewModel} />
 
           <MealRelationshipComposition viewModel={viewModel} />
@@ -209,7 +223,8 @@ function BestFriendRibbon({ name }: { name: string }) {
 
 function ActivityCard({ activity, icon, paletteName, motif }: { activity: JournalPreviewActivity; icon: ReactNode; paletteName: Palette; motif: "medal" | "movement" }) {
   const colors = palette[paletteName];
-  const activityClass = activity.activityName.length > 50 ? "text-[17px] leading-[1.18]" : activity.activityName.length > 28 ? "text-[21px] leading-[1.2]" : "text-[28px] leading-[1.2]";
+  const activitySize = journalActivityFontSize(activity.activityName.length);
+  const activityClass = activitySize === 17 ? "text-[17px] leading-[1.18]" : activitySize === 21 ? "text-[21px] leading-[1.2]" : "text-[28px] leading-[1.2]";
   return (
     <section data-journal-section={motif} aria-label={activity.title} className={`relative overflow-visible px-[17px] py-[8px] ${motif === "medal" ? "pr-[22px]" : "pl-[22px]"}`} style={{ color: colors.ink, "--journal-selected": colors.highlight } as React.CSSProperties}>
       <span className={`absolute inset-x-[8px] bottom-[7px] top-[15px] rounded-[48%] ${motif === "medal" ? "rotate-[-1deg] bg-[#fffafb]" : "rotate-[1deg] bg-[#fbfffd]"}`} />
@@ -329,11 +344,7 @@ function JournalSectionIllustration({ name, className = "" }: { name: JournalSec
 }
 
 function commentDensity(comment: string) {
-  if (comment.length <= 120) return "hero";
-  if (comment.length <= 220) return "large";
-  if (comment.length <= 320) return "standard";
-  if (comment.length <= 420) return "compact";
-  return "minimum-safe";
+  return journalCommentTypography(comment.length).density;
 }
 
 function commentClass(comment: string) {
@@ -346,11 +357,13 @@ function commentClass(comment: string) {
 }
 
 function bestFriendNameClass(name: string) {
-  const size = name.length > 18 ? "text-[22px] leading-[1.08]" : name.length > 10 ? "text-[30px] leading-[1.08]" : "text-[44px] leading-[1.04]";
+  const fontSize = journalBestFriendFontSize(name.length);
+  const size = fontSize === 22 ? "text-[22px] leading-[1.08]" : fontSize === 30 ? "text-[30px] leading-[1.08]" : "text-[44px] leading-[1.04]";
   return `min-w-0 break-words border-b-[8px] border-[#ff7f82]/38 px-[12px] pb-[1px] text-center font-black tracking-[-0.05em] text-[#2f6284] ${size}`;
 }
 
 function headerDogNameClass(name: string) {
-  const size = name.length > 20 ? "text-[17px] leading-[1.08]" : name.length > 8 ? "text-[20px] leading-[1.08]" : "text-[32px] leading-[1.12]";
+  const fontSize = journalDogNameFontSize(name.length);
+  const size = fontSize === 17 ? "text-[17px] leading-[1.08]" : fontSize === 20 ? "text-[20px] leading-[1.08]" : "text-[32px] leading-[1.12]";
   return `absolute bottom-[10px] left-[8px] w-[270px] break-words text-center font-black tracking-[-0.045em] text-[#2f6284] ${size}`;
 }

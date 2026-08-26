@@ -36,20 +36,6 @@ vi.mock("./journalBatchExport", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./journalBatchExport")>()),
   downloadJournalBatchZip: mocks.downloadBatch,
 }));
-vi.mock("./journalAssetSources", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./journalAssetSources")>()),
-  loadEmbeddedJournalAssetSources: vi.fn().mockResolvedValue({
-    "header-dog-a": "data:image/png;base64,YQ==",
-    "header-dog-b": "data:image/png;base64,Yg==",
-    "best-friend-duo": "data:image/png;base64,Yw==",
-    meal: "data:image/png;base64,ZA==",
-    manners: "data:image/png;base64,ZQ==",
-    physical: "data:image/png;base64,Zg==",
-    "teacher-comment-dog": "data:image/png;base64,Zw==",
-    "official-logo": "data:image/png;base64,aA==",
-  }),
-}));
-
 const roster = {
   businessDate: "2026-08-15",
   journalDayId: "day-1",
@@ -122,7 +108,7 @@ describe("Journal Home roster", () => {
     expect(mocks.fetchEntry).toHaveBeenCalledTimes(1);
     expect(mocks.fetchEntry).toHaveBeenCalledWith("entry-1");
     expect(mocks.renderImage).toHaveBeenCalledTimes(1);
-    expect((mocks.renderImage.mock.calls[0][0] as HTMLElement).dataset.testid).toBe("journal-batch-export-template");
+    expect(mocks.renderImage.mock.calls[0][0]).toMatchObject({ entryId: "entry-1", dogName: "크리미" });
     expect(mocks.renderImage.mock.calls[0][1]).toBe("png");
     expect(mocks.downloadBatch.mock.calls[0][0]).toEqual([
       expect.objectContaining({ filename: "P&M_하루일지_크리미_2026-08-15.png", blob: expect.objectContaining({ type: "image/png" }) }),
