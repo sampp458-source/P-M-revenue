@@ -123,15 +123,50 @@ describe("Journal Editor", () => {
     expect(mocks.update.mock.calls[0][2]).toMatchObject({ conditionCodes: ["active"], defecation: false, stoolCondition: null });
     expect(container.querySelector("[aria-label='크리미 일지 편집기']")?.className).toContain("overflow-x-hidden");
     expect(container.innerHTML).toContain("min-h-11");
-    expect(container.querySelector("[aria-label='크리미 일지 편집기'] > div")?.className).toContain("xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)]");
+    expect(container.querySelector("[aria-label='크리미 일지 편집기'] > div")?.className).toContain("xl:grid-cols-[minmax(0,1.42fr)_minmax(400px,1fr)]");
     expect(screen.getByTestId("journal-report-preview").className).toContain("aspect-[3/4]");
     expect(liveReport("크리미").getAttribute("style")).toContain("width: 1080px");
     expect(screen.queryByTestId("journal-canonical-export-source")).toBeNull();
     expect(screen.getByLabelText("크리미 결과 미리보기").className).toContain("hidden");
-    expect(screen.getByLabelText("크리미 결과 미리보기").className).toContain("xl:block");
+    expect(screen.getByLabelText("크리미 결과 미리보기").className).toContain("xl:flex");
     expect(screen.getByRole("button", { name: "미리보기" })).toBeTruthy();
     expect(screen.queryByText("미리보기 준비 중")).toBeNull();
     expect(mocks.renderImage).not.toHaveBeenCalled();
+  });
+
+  it("builds a desktop sticky workspace with an independently scrolling form and ordered controls", async () => {
+    const completed = entry({ status: "COMPLETED", version: 8 });
+    mocks.fetch.mockResolvedValue(completed);
+    renderEditor(completed, { onDelete: vi.fn().mockResolvedValue(undefined) });
+    await screen.findByRole("heading", { name: "크리미" });
+
+    const editor = screen.getByLabelText("크리미 일지 편집기");
+    const formScroll = screen.getByTestId("journal-editor-form-scroll");
+    const controlPanel = screen.getByTestId("journal-editor-control-panel");
+    const previewViewport = screen.getByTestId("journal-editor-preview-viewport");
+    const finalActions = screen.getByTestId("journal-editor-final-actions");
+
+    expect(editor.className).toContain("xl:h-[calc(100dvh-110px)]");
+    expect(formScroll.className).toContain("xl:overflow-y-auto");
+    expect(formScroll.className).toContain("xl:pb-8");
+    expect(formScroll.className).toContain("journal-editor-form-scrollbar");
+    expect(controlPanel.className).toContain("xl:sticky");
+    expect(controlPanel.className).toContain("xl:overflow-hidden");
+    expect(controlPanel.className).toContain("xl:grid-rows-[auto_auto_auto_minmax(0,1fr)_auto]");
+    expect(controlPanel.className).toContain("xl:gap-2");
+    expect(previewViewport.className).toContain("min-h-0");
+    expect(previewViewport.className).toContain("overflow-hidden");
+    expect(finalActions.className).toContain("xl:static");
+    expect(finalActions.className).toContain("xl:p-1.5");
+    expect(within(controlPanel).getByRole("button", { name: "목록" })).toBeTruthy();
+    const exportControls = within(controlPanel).getByLabelText("일지 이미지 저장");
+    expect(exportControls.className).toContain("xl:mb-0");
+    expect(within(controlPanel).getByRole("button", { name: "PNG 저장" })).toBeTruthy();
+    expect(within(controlPanel).getByRole("button", { name: "일지 삭제" })).toBeTruthy();
+    expect(within(controlPanel).getByRole("button", { name: "작성 완료" })).toBeTruthy();
+    expect(within(controlPanel).getByText("크리미 일지 완료")).toBeTruthy();
+    expect(within(formScroll).getByRole("heading", { name: "컨디션" })).toBeTruthy();
+    expect(within(formScroll).getByRole("heading", { name: "선생님의 한마디" })).toBeTruthy();
   });
 
   it("uses a light selected state with a non-color check indicator", async () => {

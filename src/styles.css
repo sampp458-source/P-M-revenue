@@ -46,6 +46,30 @@ input, select, textarea { color-scheme: light; }
 input[type="number"], input[type="date"], .tabular-nums { font-variant-numeric: tabular-nums; }
 ::selection { background: #dbe7f1; color: #17243a; }
 
+@media (min-width: 1280px) {
+  .journal-editor-form-scrollbar {
+    scrollbar-color: rgb(39 76 119 / 0.22) transparent;
+    scrollbar-width: thin;
+  }
+  .journal-editor-form-scrollbar::-webkit-scrollbar {
+    width: 7px;
+  }
+  .journal-editor-form-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .journal-editor-form-scrollbar::-webkit-scrollbar-thumb {
+    min-height: 36px;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: rgb(39 76 119 / 0.18);
+    background-clip: padding-box;
+  }
+  .journal-editor-form-scrollbar:hover::-webkit-scrollbar-thumb {
+    background: rgb(39 76 119 / 0.34);
+    background-clip: padding-box;
+  }
+}
+
 .pm-card {
   box-shadow: var(--pm-shadow-surface), inset 0 1px 0 rgb(255 255 255 / .82);
 }

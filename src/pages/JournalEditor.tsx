@@ -1,5 +1,5 @@
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clipboard, Download, Eye, Image, LoaderCircle, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, Card, FormAlert, Input, Modal, ModalActions, Textarea } from "../components/ui";
 import { JournalAutosaveQueue, type JournalSaveState } from "./journalAutosave";
 import {
@@ -324,50 +324,9 @@ export function JournalEditor({
   if (loading) return <Card className="flex min-h-72 items-center justify-center"><LoaderCircle className="animate-spin text-primary" /></Card>;
 
   return (
-    <section className="mx-auto max-w-[1480px] overflow-x-hidden pb-24" aria-label={`${entry.dog.name} 일지 편집기`}>
-      <div className="xl:grid xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)] xl:items-start xl:gap-6 2xl:gap-8">
-        <div className="min-w-0">
-          <header className="mb-3 rounded-2xl border border-border bg-surface p-3 shadow-sm sm:p-4">
-            <div className="flex min-h-11 items-center gap-3">
-              <button type="button" aria-busy={navigationIntent === "list"} disabled={completing || deleting} onClick={() => void close()} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-text-secondary hover:bg-primary-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-50">{navigationIntent === "list" ? <LoaderCircle className="animate-spin" size={18} /> : <ArrowLeft size={18} />}목록</button>
-              <div className="min-w-0 flex-1 border-l border-border pl-3">
-                <h1 className="truncate text-lg font-bold text-text-primary sm:text-xl">{entry.dog.name}</h1>
-                <p className="truncate text-xs text-text-secondary sm:text-sm">{displayDate(entry.businessDate)} · {entry.status === "COMPLETED" ? "완료" : entry.status === "IN_PROGRESS" ? "작성중" : "미작성"} · <SaveState state={saveState} failure={saveFailure} /></p>
-              </div>
-            </div>
-            <nav className="mt-2 grid grid-cols-3 items-center gap-2 border-t border-border pt-2" aria-label="일지 대상 이동">
-              <Button type="button" variant="ghost" className="px-2" disabled={!previous || completing || deleting} aria-busy={Boolean(previous && navigationIntent === previous.id)} onClick={() => previous && void move(previous.id)}>{previous && navigationIntent === previous.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronLeft size={17} />}이전</Button>
-              <span className="text-center text-sm font-semibold tabular-nums text-text-secondary">{position + 1} / {rosterEntries.length}</span>
-              <Button type="button" variant="ghost" className="px-2" disabled={!next || completing || deleting} aria-busy={Boolean(next && navigationIntent === next.id)} onClick={() => next && void move(next.id)}>다음{next && navigationIntent === next.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronRight size={17} />}</Button>
-            </nav>
-          </header>
-
-          {error ? <div className="mb-3"><FormAlert>{error}</FormAlert></div> : null}
-          {navigationRecovery ? (
-            <div role="alert" className="mb-3 rounded-xl border border-error/30 bg-error-soft p-3 text-sm text-text-primary">
-              <p className="font-semibold">저장을 완료하지 못했습니다.</p>
-              <p className="mt-0.5 text-text-secondary">입력 내용은 현재 화면에 유지됩니다.</p>
-              {saveFailure ? (
-                <p className="mt-1 text-xs text-text-secondary">
-                  {journalFailureMessage(saveFailure.failureKind)} · {saveFailure.failureKind} · {saveFailure.diagnosticId}
-                </p>
-              ) : null}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Button type="button" variant="secondary" disabled={saveFailure?.failureKind === "VERSION_CONFLICT"} onClick={retryNavigation}>
-                  {saveFailure?.failureKind === "VERSION_CONFLICT" ? "최신 상태 확인 필요" : "다시 시도"}
-                </Button>
-                {saveFailure ? <Button type="button" variant="ghost" onClick={() => void copyFailureDiagnostic()}><Clipboard size={16} />진단 정보 복사</Button> : null}
-                <Button type="button" variant="ghost" onClick={continueEditing}>계속 작성</Button>
-              </div>
-            </div>
-          ) : null}
-          {entry.status === "COMPLETED" ? (
-            <div className={`mb-3 flex flex-wrap items-center gap-2 rounded-xl border p-3 text-sm ${nextIncomplete ? "border-success/20 bg-success-soft text-success" : "border-primary/20 bg-primary-soft text-primary"}`}>
-              <strong className="inline-flex items-center gap-1.5"><Check size={17} />{nextIncomplete ? `${entry.dog.name} 일지 완료` : "오늘의 일지를 모두 작성했습니다."}</strong>
-              {nextIncomplete ? <Button type="button" variant="secondary" className="ml-auto" onClick={() => void move(nextIncomplete.id)}>다음 미작성 · {nextIncomplete.dog.name}<ChevronRight size={17} /></Button> : null}
-            </div>
-          ) : null}
-
+    <section className="mx-auto max-w-[1520px] overflow-x-hidden pb-24 xl:h-[calc(100dvh-110px)] xl:pb-0" aria-label={`${entry.dog.name} 일지 편집기`}>
+      <div className="flex min-h-0 flex-col gap-3 xl:grid xl:h-full xl:grid-cols-[minmax(0,1.42fr)_minmax(400px,1fr)] xl:items-stretch xl:gap-5 2xl:grid-cols-[minmax(0,1.36fr)_minmax(440px,1fr)] 2xl:gap-6">
+        <div className="journal-editor-form-scrollbar order-3 min-w-0 xl:order-none xl:h-full xl:overflow-y-auto xl:overscroll-contain xl:pb-8 xl:pr-1.5" data-testid="journal-editor-form-scroll">
           <fieldset disabled={completing || deleting} className="space-y-3 disabled:opacity-70">
         <EditorSection title="컨디션" description="하나 이상 선택해 주세요.">
           <MultiChips options={conditionOptions} values={draft.conditionCodes} onChange={(conditionCodes) => update((value) => ({ ...value, conditionCodes }))} />
@@ -408,15 +367,61 @@ export function JournalEditor({
           </fieldset>
         </div>
 
-        <aside className="sticky top-6 hidden min-w-0 xl:block" aria-label={`${previewViewModel.dogName} 결과 미리보기`}>
-          <JournalExportActions ready exporting={exporting} error={exportError} onExport={exportImage} />
-          <JournalReportPreview viewModel={previewViewModel} className="mx-auto max-w-[min(34rem,calc((100vh-3rem)*0.75))] rounded-2xl bg-[#fffcf8] shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
-        </aside>
-      </div>
+        <aside className="contents xl:sticky xl:top-[78px] xl:grid xl:h-full xl:min-h-0 xl:grid-rows-[auto_auto_auto_minmax(0,1fr)_auto] xl:gap-2 xl:overflow-hidden" aria-label={`${previewViewModel.dogName} 일지 작업 패널`} data-testid="journal-editor-control-panel">
+          <header className="order-1 rounded-2xl border border-border bg-surface p-3 shadow-sm sm:p-4 xl:order-none xl:px-3 xl:py-2.5">
+            <div className="flex min-h-11 items-center gap-3 xl:gap-2.5">
+              <button type="button" aria-busy={navigationIntent === "list"} disabled={completing || deleting} onClick={() => void close()} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-text-secondary hover:bg-primary-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-50">{navigationIntent === "list" ? <LoaderCircle className="animate-spin" size={18} /> : <ArrowLeft size={18} />}목록</button>
+              <div className="min-w-0 flex-1 border-l border-border pl-3">
+                <h1 className="truncate text-lg font-bold text-text-primary sm:text-xl">{entry.dog.name}</h1>
+                <p className="truncate text-xs text-text-secondary sm:text-sm">{displayDate(entry.businessDate)} · {entry.status === "COMPLETED" ? "완료" : entry.status === "IN_PROGRESS" ? "작성중" : "미작성"} · <SaveState state={saveState} failure={saveFailure} /></p>
+              </div>
+            </div>
+            <nav className="mt-2 grid grid-cols-3 items-center gap-2 border-t border-border pt-2 xl:mt-1.5 xl:gap-1.5 xl:pt-1.5" aria-label="일지 대상 이동">
+              <Button type="button" variant="ghost" className="px-2 xl:min-h-9 xl:py-1" disabled={!previous || completing || deleting} aria-busy={Boolean(previous && navigationIntent === previous.id)} onClick={() => previous && void move(previous.id)}>{previous && navigationIntent === previous.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronLeft size={17} />}이전</Button>
+              <span className="text-center text-sm font-semibold tabular-nums text-text-secondary">{position + 1} / {rosterEntries.length}</span>
+              <Button type="button" variant="ghost" className="px-2 xl:min-h-9 xl:py-1" disabled={!next || completing || deleting} aria-busy={Boolean(next && navigationIntent === next.id)} onClick={() => next && void move(next.id)}>다음{next && navigationIntent === next.id ? <LoaderCircle className="animate-spin" size={17} /> : <ChevronRight size={17} />}</Button>
+            </nav>
+          </header>
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:left-64">
-        <div className="mx-auto max-w-[1480px] xl:grid xl:grid-cols-[minmax(0,3fr)_minmax(320px,2fr)] xl:gap-6 2xl:gap-8">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="order-2 space-y-2 xl:order-none" data-testid="journal-editor-status-region">
+          {error ? <FormAlert>{error}</FormAlert> : null}
+          {navigationRecovery ? (
+            <div role="alert" className="rounded-xl border border-error/30 bg-error-soft p-3 text-sm text-text-primary">
+              <p className="font-semibold">저장을 완료하지 못했습니다.</p>
+              <p className="mt-0.5 text-text-secondary">입력 내용은 현재 화면에 유지됩니다.</p>
+              {saveFailure ? (
+                <p className="mt-1 text-xs text-text-secondary">
+                  {journalFailureMessage(saveFailure.failureKind)} · {saveFailure.failureKind} · {saveFailure.diagnosticId}
+                </p>
+              ) : null}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" disabled={saveFailure?.failureKind === "VERSION_CONFLICT"} onClick={retryNavigation}>
+                  {saveFailure?.failureKind === "VERSION_CONFLICT" ? "최신 상태 확인 필요" : "다시 시도"}
+                </Button>
+                {saveFailure ? <Button type="button" variant="ghost" onClick={() => void copyFailureDiagnostic()}><Clipboard size={16} />진단 정보 복사</Button> : null}
+                <Button type="button" variant="ghost" onClick={continueEditing}>계속 작성</Button>
+              </div>
+            </div>
+          ) : null}
+          {entry.status === "COMPLETED" ? (
+            <div className={`flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 text-sm xl:py-1.5 ${nextIncomplete ? "border-success/20 bg-success-soft text-success" : "border-primary/20 bg-primary-soft text-primary"}`}>
+              <strong className="inline-flex items-center gap-1.5"><Check size={17} />{nextIncomplete ? `${entry.dog.name} 일지 완료` : "오늘의 일지를 모두 작성했습니다."}</strong>
+              {nextIncomplete ? <Button type="button" variant="secondary" className="ml-auto xl:min-h-9 xl:px-3 xl:py-1" onClick={() => void move(nextIncomplete.id)}>다음 미작성 · {nextIncomplete.dog.name}<ChevronRight size={17} /></Button> : null}
+            </div>
+          ) : null}
+          </div>
+
+          <div className="order-4 xl:order-none">
+            <div className="mb-2 xl:hidden">
+              <Button type="button" variant="secondary" className="w-full" onClick={() => setPreviewOpen(true)}><Eye size={17} />미리보기</Button>
+            </div>
+            <JournalExportActions ready exporting={exporting} error={exportError} onExport={exportImage} compactDesktop />
+          </div>
+
+          <DesktopJournalPreview viewModel={previewViewModel} />
+
+          <div className="order-5 fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:left-64 xl:static xl:z-auto xl:rounded-2xl xl:border xl:bg-surface xl:p-1.5 xl:backdrop-blur-none" data-testid="journal-editor-final-actions">
+          <div className="flex min-w-0 items-center gap-2">
             <span className="min-w-0 flex-1 text-xs text-text-secondary"><SaveState state={saveState} failure={saveFailure} /></span>
             {saveFailure ? (
               <Button type="button" variant="ghost" className="min-h-11 px-2" onClick={() => void copyFailureDiagnostic()}>
@@ -428,10 +433,10 @@ export function JournalEditor({
                 <Trash2 size={17} /><span className="hidden sm:inline">일지 삭제</span>
               </Button>
             ) : null}
-            <Button type="button" variant="secondary" className="min-h-11 px-3 xl:hidden" onClick={() => setPreviewOpen(true)}><Eye size={17} />미리보기</Button>
-            <Button type="button" className="min-h-11 min-w-32" disabled={completing || deleting || saveState === "saving" || saveState === "slow"} onClick={() => void complete()}>{completing ? <LoaderCircle className="animate-spin" size={17} /> : <Check size={17} />}작성 완료</Button>
+            <Button type="button" className="min-h-11 min-w-28" disabled={completing || deleting || saveState === "saving" || saveState === "slow"} onClick={() => void complete()}>{completing ? <LoaderCircle className="animate-spin" size={17} /> : <Check size={17} />}작성 완료</Button>
           </div>
-        </div>
+          </div>
+        </aside>
       </div>
 
       <Modal open={previewOpen} title="결과 미리보기" description={`${previewViewModel.dogName} · ${previewViewModel.displayDate}`} onClose={() => setPreviewOpen(false)} size="large" resetKey={entry.id}>
@@ -458,19 +463,48 @@ export function JournalEditor({
   );
 }
 
+function DesktopJournalPreview({ viewModel }: { viewModel: ReturnType<typeof buildJournalPreviewViewModel> }) {
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const [previewWidth, setPreviewWidth] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const update = () => {
+      const width = Math.min(viewport.clientWidth, viewport.clientHeight * 0.75);
+      setPreviewWidth(width > 0 ? width : null);
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(update);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={viewportRef} className="order-5 hidden min-h-0 items-center justify-center overflow-hidden xl:order-none xl:flex" aria-label={`${viewModel.dogName} 결과 미리보기`} data-testid="journal-editor-preview-viewport">
+      <div className="w-full max-w-full" style={previewWidth ? { width: `${previewWidth}px` } : undefined}>
+        <JournalReportPreview viewModel={viewModel} className="rounded-2xl bg-[#fffcf8] shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
+      </div>
+    </div>
+  );
+}
+
 function JournalExportActions({
   ready,
   exporting,
   error,
   onExport,
+  compactDesktop = false,
 }: {
   ready: boolean;
   exporting: JournalExportFormat | null;
   error: string;
   onExport: (format: JournalExportFormat) => Promise<void>;
+  compactDesktop?: boolean;
 }) {
   return (
-    <div className="mb-3 rounded-xl border border-border bg-surface p-2.5" aria-label="일지 이미지 저장">
+    <div className={`mb-3 rounded-xl border border-border bg-surface p-2.5 ${compactDesktop ? "xl:mb-0 xl:p-1.5" : ""}`} aria-label="일지 이미지 저장">
       <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
         <Button type="button" className="min-h-11 min-w-32" disabled={!ready || exporting !== null} onClick={() => void onExport("png")}>
           {exporting === "png" ? <LoaderCircle className="animate-spin" size={17} /> : <Download size={17} />}
