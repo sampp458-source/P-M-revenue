@@ -39,6 +39,18 @@ function renderedCanvas(type = "image/png") {
   return canvas;
 }
 
+const readyMetrics = (overrides: Record<string, number> = {}) => ({
+  width: 1080,
+  height: 1440,
+  requiredAssetSlots: 7,
+  verifiedAssetSlots: 7,
+  requiredVisualElements: 13,
+  verifiedVisualElements: 13,
+  requiredTextLandmarks: 16,
+  verifiedTextLandmarks: 16,
+  ...overrides,
+});
+
 describe("Journal Canvas export", () => {
   beforeEach(() => {
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:journal") });
@@ -46,7 +58,7 @@ describe("Journal Canvas export", () => {
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
     mocks.renderCanvas.mockResolvedValue({
       canvas: renderedCanvas(),
-      metrics: { width: 1080, height: 1440, requiredAssetSlots: 7, verifiedAssetSlots: 7 },
+      metrics: readyMetrics(),
     });
     mocks.validateBlob.mockResolvedValue(undefined);
   });
@@ -66,7 +78,7 @@ describe("Journal Canvas export", () => {
   ] as const)("exports %s from the typed ViewModel at exactly 1080×1440", async (format, mimeType, quality, filename) => {
     const canvas = renderedCanvas(mimeType);
     const toBlob = vi.mocked(canvas.toBlob);
-    mocks.renderCanvas.mockResolvedValueOnce({ canvas, metrics: { width: 1080, height: 1440, requiredAssetSlots: 7, verifiedAssetSlots: 7 } });
+    mocks.renderCanvas.mockResolvedValueOnce({ canvas, metrics: readyMetrics() });
     const result = await exportJournalImage(viewModel, format);
     expect(mocks.renderCanvas).toHaveBeenCalledWith(expect.objectContaining({ viewModel, width: 1080, height: 1440 }));
     expect(toBlob).toHaveBeenCalledWith(expect.any(Function), mimeType, quality);
@@ -79,10 +91,28 @@ describe("Journal Canvas export", () => {
   it("fails closed when any approved illustration pixel slot is unverified", async () => {
     mocks.renderCanvas.mockResolvedValueOnce({
       canvas: renderedCanvas(),
-      metrics: { width: 1080, height: 1440, requiredAssetSlots: 7, verifiedAssetSlots: 6 },
+      metrics: readyMetrics({ verifiedAssetSlots: 6 }),
     });
     await expect(renderJournalImageBlob(viewModel, "png")).rejects.toThrow("JOURNAL_EXPORT_ASSET_PIXEL_VALIDATION_FAILED");
     expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the logo or any required decoration is unverified", async () => {
+    mocks.renderCanvas.mockResolvedValueOnce({
+      canvas: renderedCanvas(),
+      metrics: readyMetrics({ verifiedVisualElements: 12 }),
+    });
+    await expect(renderJournalImageBlob(viewModel, "png")).rejects.toThrow("JOURNAL_EXPORT_VISUAL_COMPLETENESS_FAILED");
+    expect(mocks.validateBlob).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when any required text landmark is missing", async () => {
+    mocks.renderCanvas.mockResolvedValueOnce({
+      canvas: renderedCanvas(),
+      metrics: readyMetrics({ verifiedTextLandmarks: 15 }),
+    });
+    await expect(renderJournalImageBlob(viewModel, "png")).rejects.toThrow("JOURNAL_EXPORT_TEXT_LANDMARKS_MISSING");
+    expect(mocks.validateBlob).not.toHaveBeenCalled();
   });
 
   it("fails closed on a non-canonical raster size", async () => {
@@ -90,7 +120,7 @@ describe("Journal Canvas export", () => {
     canvas.width = 1079;
     mocks.renderCanvas.mockResolvedValueOnce({
       canvas,
-      metrics: { width: 1079, height: 1440, requiredAssetSlots: 7, verifiedAssetSlots: 7 },
+      metrics: readyMetrics({ width: 1079 }),
     });
     await expect(renderJournalImageBlob(viewModel, "png")).rejects.toThrow("JOURNAL_EXPORT_SIZE_MISMATCH");
   });
@@ -101,9 +131,9 @@ describe("Journal Canvas export", () => {
     mocks.renderCanvas
       .mockImplementationOnce(async (scene) => {
         await firstBarrier;
-        return { canvas: renderedCanvas(), metrics: { width: 1080, height: 1440, requiredAssetSlots: 7, verifiedAssetSlots: 7 }, scene };
+        return { canvas: renderedCanvas(), metrics: readyMetrics(), scene };
       })
-      .mockResolvedValueOnce({ canvas: renderedCanvas(), metrics: { width: 1080, height: 1440, requiredAssetSlots: 7, verifiedAssetSlots: 7 } });
+      .mockResolvedValueOnce({ canvas: renderedCanvas(), metrics: readyMetrics() });
     const first = renderJournalImageBlob({ ...viewModel, entryId: "entry-dust", dogName: "먼지" }, "png");
     const second = renderJournalImageBlob({ ...viewModel, entryId: "entry-autumn", dogName: "가을" }, "png");
     await vi.waitFor(() => expect(mocks.renderCanvas).toHaveBeenCalledTimes(1));

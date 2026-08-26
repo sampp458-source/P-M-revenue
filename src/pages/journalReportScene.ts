@@ -36,10 +36,36 @@ export const JOURNAL_REPORT_ASSET_SLOTS = {
   meal: { x: 293, y: 462, width: 120, height: 90 },
   "best-friend-duo": { x: 182, y: 701, width: 224, height: 108 },
   manners: { x: 52, y: 812, width: 76, height: 52 },
-  physical: { x: 934, y: 808, width: 94, height: 62 },
+  physical: { x: 940, y: 808, width: 94, height: 62 },
   "teacher-comment-dog": { x: 865, y: 1210, width: 158, height: 174 },
-  "official-logo": { x: 430, y: 59, width: 220, height: 86 },
+  "official-logo": { x: 430, y: 66, width: 220, height: 86 },
 } as const satisfies Record<string, JournalSceneRect>;
+
+export const JOURNAL_REPORT_VISUAL_REGIONS = {
+  "official-logo": JOURNAL_REPORT_ASSET_SLOTS["official-logo"],
+  "header-underline": { x: 407, y: 202, width: 266, height: 22 },
+  "condition-icon": { x: 70, y: 301, width: 36, height: 36 },
+  "toilet-icon": { x: 523, y: 301, width: 36, height: 36 },
+  "meal-icon": { x: 72, y: 487, width: 36, height: 36 },
+  "relationship-icon": { x: 447, y: 487, width: 36, height: 36 },
+  "manners-icon": { x: 129, y: 825, width: 36, height: 36 },
+  "physical-icon": { x: 562, y: 825, width: 36, height: 36 },
+  "comment-icon": { x: 80, y: 1019, width: 40, height: 40 },
+  "comment-quote": { x: 76, y: 1064, width: 32, height: 52 },
+  "best-friend-blue-underline": { x: 398, y: 792, width: 286, height: 7 },
+  "best-friend-pink-accent": { x: 288, y: 708, width: 68, height: 58 },
+  "selected-option-marks": { x: 70, y: 342, width: 940, height: 642 },
+} as const satisfies Record<string, JournalSceneRect>;
+
+export const JOURNAL_REQUIRED_VISUAL_ELEMENT_IDS = Object.keys(JOURNAL_REPORT_VISUAL_REGIONS) as Array<keyof typeof JOURNAL_REPORT_VISUAL_REGIONS>;
+
+export const JOURNAL_REPORT_TYPOGRAPHY = {
+  heading: { size: 26, weight: 900, lineHeight: 36, letterSpacing: -0.65 },
+  smallLabel: { size: 18, weight: 800, lineHeight: 23, letterSpacing: 0 },
+  option: { size: 22, weight: 600, selectedWeight: 900, lineHeight: 25.08, letterSpacing: 0 },
+  compactOption: { size: 19, weight: 600, selectedWeight: 900, lineHeight: 21.66, letterSpacing: 0 },
+  commentHeading: { size: 27, weight: 900, lineHeight: 40, letterSpacing: -0.675 },
+} as const;
 
 export type JournalReportScene = {
   width: typeof JOURNAL_REPORT_WIDTH;
@@ -81,4 +107,14 @@ export function journalBestFriendFontSize(length: number) {
 
 export function journalActivityFontSize(length: number) {
   return length > 50 ? 17 : length > 28 ? 21 : 28;
+}
+
+export function journalTeacherCommentDogSlot(length: number): JournalSceneRect {
+  const density = journalCommentTypography(length).density;
+  const size = density === "minimum-safe" ? { width: 72, height: 80 }
+    : density === "compact" ? { width: 90, height: 98 }
+      : density === "standard" ? { width: 112, height: 124 }
+        : density === "large" ? { width: 145, height: 160 }
+          : { width: 158, height: 174 };
+  return { x: 1023 - size.width, y: 1387 - size.height, ...size };
 }

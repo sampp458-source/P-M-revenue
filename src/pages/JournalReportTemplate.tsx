@@ -8,6 +8,7 @@ import {
   JOURNAL_REPORT_HEIGHT,
   JOURNAL_REPORT_LAYOUT,
   JOURNAL_REPORT_PALETTE,
+  JOURNAL_REPORT_TYPOGRAPHY,
   JOURNAL_REPORT_WIDTH,
   journalActivityFontSize,
   journalBestFriendFontSize,
@@ -249,7 +250,7 @@ function TeacherComment({ comment }: { comment: string }) {
     <section data-journal-section="letter" data-card-surface="teacher-comment" aria-label="선생님의 한마디" className="relative min-h-0 overflow-hidden rounded-[30px_52px_34px_48px] border-[3px] border-[#ffd9df] bg-white px-[34px] pb-[22px] pt-[16px] shadow-[0_8px_22px_rgb(47_98_132_/_0.04)]">
       <span className="absolute right-0 top-0 h-[88px] w-[132px] bg-[#ffe9ed]/66 [clip-path:polygon(100%_0,100%_100%,0_0)]" />
       <JournalCharacter name="dogAHeartLetter" className={`absolute bottom-[7px] right-[11px] object-contain object-bottom ${characterClass}`} />
-      <h2 aria-label="선생님의 한마디" className="relative mb-[8px] flex items-center gap-[10px] text-[27px] font-black tracking-[-0.025em] text-[#2f6284]"><span className="flex h-[40px] w-[40px] items-center justify-center rounded-[15px_20px_14px_21px] bg-[#ffe9ed] text-[#ff7f82]"><MessageCircleHeart size={27} /></span>선생님의 한마디</h2>
+      <h2 aria-label="선생님의 한마디" className="relative mb-[8px] flex items-center gap-[10px] text-[27px] font-black tracking-[-0.025em] text-[#2f6284]" style={{ fontSize: JOURNAL_REPORT_TYPOGRAPHY.commentHeading.size, lineHeight: `${JOURNAL_REPORT_TYPOGRAPHY.commentHeading.lineHeight}px`, letterSpacing: JOURNAL_REPORT_TYPOGRAPHY.commentHeading.letterSpacing }}><span className="flex h-[40px] w-[40px] items-center justify-center rounded-[15px_20px_14px_21px] bg-[#ffe9ed] text-[#ff7f82]"><MessageCircleHeart size={27} /></span>선생님의 한마디</h2>
       <span className="absolute left-[30px] top-[61px] text-[50px] font-black leading-none text-[#ffb8bc]/58">“</span>
       <p data-testid="journal-report-comment" data-comment-density={density} className={`${commentClass(comment)} ${textInset} relative h-[calc(100%-48px)] whitespace-pre-wrap break-words pl-[27px] font-normal tracking-[-0.01em] text-[#25384a]`}>{comment}</p>
     </section>
@@ -257,7 +258,7 @@ function TeacherComment({ comment }: { comment: string }) {
 }
 
 function SectionHeading({ title, icon, color }: { title: string; icon: ReactNode; color: string }) {
-  return <h2 className="relative mb-[5px] flex items-center gap-[8px] text-[26px] font-black tracking-[-0.025em]" style={{ color }}><span className="flex h-[36px] w-[36px] items-center justify-center rounded-[13px_20px_14px_21px] bg-[#f6f9fb]">{icon}</span>{title}</h2>;
+  return <h2 className="relative mb-[5px] flex items-center gap-[8px] text-[26px] font-black tracking-[-0.025em]" style={{ color, fontSize: JOURNAL_REPORT_TYPOGRAPHY.heading.size, lineHeight: `${JOURNAL_REPORT_TYPOGRAPHY.heading.lineHeight}px`, letterSpacing: JOURNAL_REPORT_TYPOGRAPHY.heading.letterSpacing }}><span className="flex h-[36px] w-[36px] items-center justify-center rounded-[13px_20px_14px_21px] bg-[#f6f9fb]">{icon}</span>{title}</h2>;
 }
 
 function Options({
@@ -317,7 +318,7 @@ function Binary({ label, options }: { label: string; options: JournalPreviewOpti
 }
 
 function SmallLabel({ children }: { children: ReactNode }) {
-  return <p className="mb-[1px] text-[18px] font-extrabold text-[#52697c]">{children}</p>;
+  return <p className="mb-[1px] text-[18px] font-extrabold text-[#52697c]" style={{ fontSize: JOURNAL_REPORT_TYPOGRAPHY.smallLabel.size, fontWeight: JOURNAL_REPORT_TYPOGRAPHY.smallLabel.weight, lineHeight: `${JOURNAL_REPORT_TYPOGRAPHY.smallLabel.lineHeight}px`, letterSpacing: JOURNAL_REPORT_TYPOGRAPHY.smallLabel.letterSpacing }}>{children}</p>;
 }
 
 const characterAssetId: Record<JournalCharacterName, JournalRequiredAssetId> = {

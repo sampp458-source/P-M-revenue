@@ -51,6 +51,12 @@ export async function renderJournalImageBlob(viewModel: JournalPreviewViewModel,
     if (metrics.verifiedAssetSlots !== metrics.requiredAssetSlots || metrics.requiredAssetSlots !== 7) {
       throw new Error("JOURNAL_EXPORT_ASSET_PIXEL_VALIDATION_FAILED");
     }
+    if (metrics.verifiedVisualElements !== metrics.requiredVisualElements || metrics.requiredVisualElements <= 0) {
+      throw new Error("JOURNAL_EXPORT_VISUAL_COMPLETENESS_FAILED");
+    }
+    if (metrics.verifiedTextLandmarks !== metrics.requiredTextLandmarks || metrics.requiredTextLandmarks <= 0) {
+      throw new Error("JOURNAL_EXPORT_TEXT_LANDMARKS_MISSING");
+    }
     const blob = await canvasToBlob(canvas, format);
     await validateJournalEncodedBlob(blob, scene, metrics);
     canvas.width = 1;
