@@ -15,6 +15,9 @@ export type JournalTeacherRelationship = "loves_teacher" | "prefers_friends" | "
 export type JournalFriendRelationship = "loves_friends" | "prefers_teacher" | "uncomfortable_with_friends";
 export type JournalMannersEvaluation = "excellent" | "can_improve" | "difficult";
 export type JournalPhysicalEvaluation = "champion" | "fun" | "rest";
+export type JournalBestFriendTarget =
+  | { type: "DOG"; dogId: string }
+  | { type: "TEACHER"; dogId: null };
 
 export interface JournalDraft {
   conditionCodes: JournalCondition[];
@@ -24,7 +27,9 @@ export interface JournalDraft {
   mealCodes: JournalMeal[];
   teacherRelationship: JournalTeacherRelationship | null;
   friendRelationship: JournalFriendRelationship | null;
-  bestFriendDogId: string | null;
+  /** V2 canonical field. The legacy field remains optional for rollback/test fixture normalization only. */
+  bestFriendTargets?: JournalBestFriendTarget[];
+  bestFriendDogId?: string | null;
   mannersActivityName: string;
   mannersEvaluation: JournalMannersEvaluation | null;
   physicalActivityName: string;
@@ -47,6 +52,7 @@ export interface JournalRosterEntry {
   teacherRelationship: JournalTeacherRelationship | null;
   friendRelationship: JournalFriendRelationship | null;
   bestFriendDogId: string | null;
+  bestFriendTargets?: JournalBestFriendTarget[];
   mannersActivityName: string | null;
   mannersEvaluation: JournalMannersEvaluation | null;
   physicalActivityName: string | null;
@@ -88,6 +94,11 @@ export class JournalRepositoryError extends Error {
     super(message);
     this.name = "JournalRepositoryError";
   }
+}
+
+export function normalizedJournalBestFriendTargets(draft: Pick<JournalDraft, "bestFriendTargets" | "bestFriendDogId">) {
+  if (draft.bestFriendTargets) return draft.bestFriendTargets;
+  return draft.bestFriendDogId ? [{ type: "DOG" as const, dogId: draft.bestFriendDogId }] : [];
 }
 
 type SupabaseErrorMetadata = { code?: string; message?: string; details?: string; hint?: string };
@@ -202,7 +213,7 @@ export function updateJournalEntryDraft(
     expectedVersion,
     requestId,
   };
-  return rpc<JournalRosterEntry>("update_journal_entry_draft", {
+  return rpc<JournalRosterEntry>("update_journal_entry_draft_v2", {
     p_entry_id: entryId,
     p_expected_version: expectedVersion,
     p_condition_codes: draft.conditionCodes,
@@ -212,7 +223,7 @@ export function updateJournalEntryDraft(
     p_meal_codes: draft.mealCodes,
     p_teacher_relationship: draft.teacherRelationship,
     p_friend_relationship: draft.friendRelationship,
-    p_best_friend_dog_id: draft.bestFriendDogId,
+    p_best_friend_targets: normalizedJournalBestFriendTargets(draft),
     p_manners_activity_name: draft.mannersActivityName || null,
     p_manners_evaluation: draft.mannersEvaluation,
     p_physical_activity_name: draft.physicalActivityName || null,

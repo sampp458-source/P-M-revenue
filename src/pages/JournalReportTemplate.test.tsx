@@ -118,8 +118,9 @@ describe("Journal 1080x1440 report template", () => {
     for (const heading of ["오늘의 컨디션", "배변 상태", "유치원에서 먹은 것", "오늘의 관계", "예절교육", "체육 시간", "선생님의 한마디"]) {
       expect(within(report).getByRole("heading", { name: heading })).toBeTruthy();
     }
-    expect(within(report).getByText("몽이")).toBeTruthy();
-    expect(screen.getByTestId("journal-best-friend-name").className).toContain("text-[44px]");
+    expect(screen.getByTestId("journal-best-friend-name").dataset.bestFriendPhrase).toBe("몽이예요 ♡");
+    expect(screen.getByTestId("journal-best-friend-name").dataset.fontSize).toBe("44");
+    expect(screen.getByTestId("journal-best-friend-name").style.fontSize).toBe("44px");
     expect(within(report).getByText("오늘도 친구들과 즐겁게 지냈어요.")).toBeTruthy();
   });
 
@@ -194,10 +195,43 @@ describe("Journal 1080x1440 report template", () => {
     const longFriend = entry({ id: "entry-2", dog: { id: "dog-2", name: "세상에서제일친한몽이왕자님" } });
     render(<JournalReportTemplate viewModel={buildJournalPreviewViewModel(entry(), draft(), [entry(), longFriend])} />);
     const friendName = screen.getByTestId("journal-best-friend-name");
-    expect(friendName.textContent).toBe(longFriend.dog.name);
-    expect(friendName.className).toContain("text-[30px]");
+    expect(friendName.textContent).toBe(`${longFriend.dog.name}이에요 ♡`);
+    expect(friendName.dataset.fontSize).toBe("30");
+    expect(friendName.style.fontSize).toBe("30px");
     expect(friendName.className).toContain("px-[12px]");
     expect(friendName.className).not.toContain("truncate");
+  });
+
+  it("renders ordered multi-Dog and Teacher targets with Korean grammar and at least 22px type", () => {
+    const friends = [
+      friend,
+      entry({ id: "entry-3", dog: { id: "dog-3", name: "가을" } }),
+      entry({ id: "entry-4", dog: { id: "dog-4", name: "건달" } }),
+      entry({ id: "entry-5", dog: { id: "dog-5", name: "먼지" } }),
+    ];
+    render(<JournalReportTemplate viewModel={buildJournalPreviewViewModel(entry(), draft({
+      bestFriendTargets: [
+        { type: "DOG", dogId: "dog-2" },
+        { type: "DOG", dogId: "dog-3" },
+        { type: "TEACHER", dogId: null },
+        { type: "DOG", dogId: "dog-4" },
+        { type: "DOG", dogId: "dog-5" },
+      ],
+    }), [entry(), ...friends])} />);
+    const names = screen.getByTestId("journal-best-friend-name");
+    expect(names.textContent).toBe("몽이, 가을, 선생님, 건달, 먼지예요 ♡");
+    expect(names.dataset.bestFriendPhrase).toBe("몽이, 가을, 선생님, 건달, 먼지예요 ♡");
+    expect(names.dataset.targetCount).toBe("5");
+    expect(names.dataset.fontSize).toBe("30");
+    expect(names.style.fontSize).toBe("30px");
+    expect(names.dataset.layoutLines).toBe("몽이, 가을, 선생님,|건달, 먼지예요 ♡");
+    expect(screen.getByTestId("journal-best-friend-suffix").textContent).toContain("예요");
+  });
+
+  it("keeps the optional empty Best Friend state free of a dangling particle", () => {
+    renderReport(draft({ bestFriendDogId: null, bestFriendTargets: [] }));
+    expect(screen.getByTestId("journal-best-friend-name").textContent).toBe("\u00a0");
+    expect(screen.queryByTestId("journal-best-friend-suffix")).toBeNull();
   });
 
   it.each([
@@ -220,7 +254,7 @@ describe("Journal 1080x1440 report template", () => {
     if (name === "long friend") viewModel.bestFriendName = longFriend.dog.name;
     render(<JournalReportTemplate viewModel={viewModel} />);
     const expected = name === "long dog" ? entryValue.dog.name : longFriend.dog.name;
-    expect(screen.getByText(expected)).toBeTruthy();
+    expect(name === "long dog" ? screen.getByTestId("journal-dog-name").textContent : screen.getByTestId("journal-best-friend-name").dataset.bestFriendPhrase).toContain(expected);
     expect(screen.getByTestId("journal-report-template").innerHTML).not.toContain("line-clamp");
     expect(screen.getByTestId("journal-report-template").innerHTML).not.toContain("truncate");
   });

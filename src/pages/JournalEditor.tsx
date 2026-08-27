@@ -1,6 +1,7 @@
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clipboard, Download, Eye, Image, LoaderCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clipboard, Download, Eye, GraduationCap, Image, LoaderCircle, PawPrint, Trash2 } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, Card, FormAlert, Input, Modal, ModalActions, Textarea } from "../components/ui";
+import { SearchSelect } from "../components/SearchSelect";
 import { JournalAutosaveQueue, type JournalSaveState } from "./journalAutosave";
 import {
   JournalPersistenceError,
@@ -15,11 +16,14 @@ import { exportJournalImage, type JournalExportFormat } from "./journalExport";
 import { JournalReportPreview } from "./JournalReportTemplate";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import { normalizeJournalTeacherComment } from "./journalTextNormalization";
+import { JOURNAL_BEST_FRIEND_MAX_TARGETS, JOURNAL_BEST_FRIEND_TEACHER_LABEL } from "./journalBestFriendPresentation";
 import {
   completeJournalEntry,
   fetchJournalEntry,
+  normalizedJournalBestFriendTargets,
   updateJournalEntryDraft,
   type JournalCondition,
+  type JournalBestFriendTarget,
   type JournalDraft,
   type JournalFriendRelationship,
   type JournalMannersEvaluation,
@@ -29,6 +33,9 @@ import {
   type JournalStoolCondition,
   type JournalTeacherRelationship,
 } from "./journalRepository";
+
+type BestFriendChoice = { id: string; label: string; target: JournalBestFriendTarget };
+const BEST_FRIEND_PINNED_IDS = ["TEACHER"] as const;
 
 export const JOURNAL_COMMENT_MAX_LENGTH = 500;
 export const JOURNAL_AUTOSAVE_DELAY = 800;
@@ -165,6 +172,16 @@ export function JournalEditor({
     [entry.id, rosterEntries],
   );
   const friendOptionsForDay = rosterEntries.filter((item) => item.dog.id !== entry.dog.id);
+  const bestFriendChoices = useMemo<BestFriendChoice[]>(() => [
+    { id: "TEACHER", label: JOURNAL_BEST_FRIEND_TEACHER_LABEL, target: { type: "TEACHER", dogId: null } },
+    ...friendOptionsForDay.map((item) => ({
+      id: `DOG:${item.dog.id}`,
+      label: item.dog.name,
+      target: { type: "DOG" as const, dogId: item.dog.id },
+    })),
+  ], [friendOptionsForDay]);
+  const selectedBestFriendTargets = normalizedJournalBestFriendTargets(draft);
+  const selectedBestFriendIds = selectedBestFriendTargets.map((target) => target.type === "TEACHER" ? "TEACHER" : `DOG:${target.dogId}`);
   const previewViewModel = useMemo(() => buildJournalPreviewViewModel(entry, draft, rosterEntries), [draft, entry, rosterEntries]);
 
   const update = (change: (current: JournalDraft) => JournalDraft) => {
@@ -328,16 +345,16 @@ export function JournalEditor({
     <section className="mx-auto max-w-[1600px] overflow-x-hidden pb-24 xl:h-[calc(100dvh-110px)] xl:pb-0" aria-label={`${entry.dog.name} 일지 편집기`}>
       <div className="flex min-h-0 flex-col gap-3 xl:grid xl:h-full xl:grid-cols-[minmax(0,1.2fr)_minmax(420px,1fr)] xl:items-stretch xl:gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(480px,1fr)] 2xl:gap-5">
         <div className="journal-editor-form-scrollbar order-3 min-w-0 xl:order-none xl:h-full xl:overflow-y-auto xl:overscroll-contain xl:pb-8 xl:pr-1.5" data-testid="journal-editor-form-scroll">
-          <fieldset disabled={completing || deleting} className="space-y-3 disabled:opacity-70">
+          <fieldset disabled={completing || deleting} className="space-y-3 disabled:opacity-70 xl:space-y-1.5">
         <EditorSection title="컨디션" description="하나 이상 선택해 주세요.">
           <MultiChips options={conditionOptions} values={draft.conditionCodes} onChange={(conditionCodes) => update((value) => ({ ...value, conditionCodes }))} />
         </EditorSection>
 
         <EditorSection title="배변">
           <BinaryChoice label="소변" value={draft.urination} onChange={(urination) => update((current) => ({ ...current, urination }))} />
-          <div className="mt-3"><BinaryChoice label="대변" value={draft.defecation} onChange={(defecation) => update((current) => ({ ...current, defecation, stoolCondition: defecation ? current.stoolCondition : null }))} /></div>
-          <div className="mt-3">
-            <span className="mb-2 block text-sm font-semibold text-text-primary">대변 상태</span>
+          <div className="mt-3 xl:mt-2"><BinaryChoice label="대변" value={draft.defecation} onChange={(defecation) => update((current) => ({ ...current, defecation, stoolCondition: defecation ? current.stoolCondition : null }))} /></div>
+          <div className="mt-3 xl:mt-2">
+            <span className="mb-2 block text-sm font-semibold text-text-primary xl:mb-1.5">대변 상태</span>
             <SingleChips options={stoolOptions} value={draft.stoolCondition} disabled={draft.defecation !== true} onChange={(stoolCondition) => update((current) => ({ ...current, stoolCondition }))} />
           </div>
         </EditorSection>
@@ -347,15 +364,40 @@ export function JournalEditor({
         </EditorSection>
 
         <EditorSection title="관계">
-          <LabeledSingle label="선생님과" options={teacherOptions} value={draft.teacherRelationship} onChange={(teacherRelationship) => update((current) => ({ ...current, teacherRelationship }))} />
-          <div className="mt-3"><LabeledSingle label="친구들과" options={friendOptions} value={draft.friendRelationship} onChange={(friendRelationship) => update((current) => ({ ...current, friendRelationship }))} /></div>
+          <div className="xl:grid xl:grid-cols-2 xl:gap-2">
+            <LabeledSingle label="선생님과" options={teacherOptions} value={draft.teacherRelationship} onChange={(teacherRelationship) => update((current) => ({ ...current, teacherRelationship }))} />
+            <div className="mt-3 xl:mt-0"><LabeledSingle label="친구들과" options={friendOptions} value={draft.friendRelationship} onChange={(friendRelationship) => update((current) => ({ ...current, friendRelationship }))} /></div>
+          </div>
         </EditorSection>
 
-        <EditorSection title="제일 친한 친구" description="오늘 등원한 다른 반려견 중 선택할 수 있습니다.">
-          <select aria-label="제일 친한 친구" className="min-h-11 w-full rounded-xl border border-border-strong bg-surface px-3 text-sm text-text-primary" value={draft.bestFriendDogId ?? ""} onChange={(event) => update((current) => ({ ...current, bestFriendDogId: event.target.value || null }))}>
-            <option value="">선택 안 함</option>
-            {friendOptionsForDay.map((item) => <option key={item.dog.id} value={item.dog.id}>{item.dog.name}</option>)}
-          </select>
+        <EditorSection title="제일 친한 친구" description={`오늘 등원한 다른 반려견과 선생님 중 최대 ${JOURNAL_BEST_FRIEND_MAX_TARGETS}명을 선택할 수 있습니다.`}>
+          <SearchSelect
+            label="제일 친한 친구 검색"
+            labelAccessory={<span className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-bold tabular-nums text-primary">{selectedBestFriendTargets.length}/{JOURNAL_BEST_FRIEND_MAX_TARGETS}</span>}
+            items={bestFriendChoices}
+            selectedIds={selectedBestFriendIds}
+            onChange={(ids) => {
+              if (ids.length > JOURNAL_BEST_FRIEND_MAX_TARGETS) {
+                setError(`제일 친한 친구는 최대 ${JOURNAL_BEST_FRIEND_MAX_TARGETS}명까지 선택할 수 있습니다.`);
+                return;
+              }
+              const choices = new Map(bestFriendChoices.map((choice) => [choice.id, choice.target]));
+              update((current) => ({ ...current, bestFriendTargets: ids.flatMap((id) => choices.get(id) ?? []) }));
+            }}
+            getItemId={(item) => item.id}
+            getSearchText={(item) => item.label}
+            renderOption={(item) => <span className="flex items-center gap-2"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">{item.target.type === "TEACHER" ? <GraduationCap size={18} /> : <PawPrint size={18} />}</span><strong className="text-sm text-text-primary">{item.label}</strong></span>}
+            renderSelected={(item) => item.label}
+            placeholder="당일 등원 반려견 또는 선생님 검색"
+            emptyMessage="이름을 검색하거나 목록에서 선택하세요."
+            noResultsMessage="선택 가능한 대상이 없습니다."
+            multiple
+            showAllOnEmpty
+            resultsPresentation="popover"
+            pinnedItemIds={BEST_FRIEND_PINNED_IDS}
+            maxSelections={JOURNAL_BEST_FRIEND_MAX_TARGETS}
+            maxSelectionsMessage={`${JOURNAL_BEST_FRIEND_MAX_TARGETS}/${JOURNAL_BEST_FRIEND_MAX_TARGETS} · 추가하려면 선택을 해제해 주세요.`}
+          />
         </EditorSection>
 
         <ActivitySection title="예절교육" activity={draft.mannersActivityName} evaluation={draft.mannersEvaluation} options={mannersOptions} onActivity={(mannersActivityName) => update((current) => ({ ...current, mannersActivityName }))} onEvaluation={(mannersEvaluation) => update((current) => ({ ...current, mannersEvaluation }))} />
@@ -532,7 +574,7 @@ function SaveState({ state, failure }: { state: JournalSaveState; failure: Journ
 }
 
 function EditorSection({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
-  return <Card className="p-3.5 sm:p-4"><h2 className="text-base font-bold text-text-primary">{title}</h2>{description ? <p className="mt-0.5 text-xs text-text-muted">{description}</p> : null}<div className="mt-3">{children}</div></Card>;
+  return <Card className="p-3.5 sm:p-4 xl:p-2.5"><h2 className="text-base font-bold text-text-primary">{title}</h2>{description ? <p className="mt-0.5 text-xs text-text-muted">{description}</p> : null}<div className="mt-3 xl:mt-1.5">{children}</div></Card>;
 }
 
 const selectedChipClass = "border-primary bg-primary-soft text-primary shadow-[inset_0_0_0_1px_rgb(39_76_119_/_0.08)]";
@@ -543,21 +585,21 @@ function ChipContent({ selected, label }: { selected: boolean; label: string }) 
 }
 
 function MultiChips<T extends string>({ options, values, onChange }: { options: Array<[T, string]>; values: T[]; onChange: (values: T[]) => void }) {
-  return <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{options.map(([value,label]) => { const selected=values.includes(value); return <button key={value} type="button" aria-pressed={selected} onClick={() => onChange(selected ? values.filter((item) => item!==value) : [...values,value])} className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors ${selected ? selectedChipClass : unselectedChipClass}`}><ChipContent selected={selected} label={label} /></button>; })}</div>;
+  return <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{options.map(([value,label]) => { const selected=values.includes(value); return <button key={value} type="button" aria-pressed={selected} onClick={() => onChange(selected ? values.filter((item) => item!==value) : [...values,value])} className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors xl:min-h-10 xl:py-1.5 ${selected ? selectedChipClass : unselectedChipClass}`}><ChipContent selected={selected} label={label} /></button>; })}</div>;
 }
 
 function SingleChips<T extends string>({ options, value, onChange, disabled=false }: { options: Array<[T,string]>; value: T|null; onChange:(value:T)=>void; disabled?:boolean }) {
-  return <div className="grid grid-cols-2 gap-2">{options.map(([code,label]) => { const selected = value === code; return <button key={code} type="button" disabled={disabled} aria-pressed={selected} onClick={() => onChange(code)} className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${selected ? selectedChipClass : unselectedChipClass}`}><ChipContent selected={selected} label={label} /></button>; })}</div>;
+  return <div className="grid grid-cols-2 gap-2">{options.map(([code,label]) => { const selected = value === code; return <button key={code} type="button" disabled={disabled} aria-pressed={selected} onClick={() => onChange(code)} className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 xl:min-h-10 xl:py-1.5 ${selected ? selectedChipClass : unselectedChipClass}`}><ChipContent selected={selected} label={label} /></button>; })}</div>;
 }
 
 function BinaryChoice({ label, value, onChange }: { label:string; value:boolean|null; onChange:(value:boolean)=>void }) {
-  return <div><span className="mb-2 block text-sm font-semibold text-text-primary">{label}</span><div className="grid grid-cols-2 gap-2">{([true, false] as const).map((choice) => { const selected = value === choice; const text = choice ? "O" : "X"; return <button key={text} type="button" aria-pressed={selected} onClick={() => onChange(choice)} className={`min-h-11 rounded-xl border text-sm font-bold transition-colors ${selected ? selectedChipClass : unselectedChipClass}`}><ChipContent selected={selected} label={text} /></button>; })}</div></div>;
+  return <div><span className="mb-2 block text-sm font-semibold text-text-primary xl:mb-1.5">{label}</span><div className="grid grid-cols-2 gap-2">{([true, false] as const).map((choice) => { const selected = value === choice; const text = choice ? "O" : "X"; return <button key={text} type="button" aria-pressed={selected} onClick={() => onChange(choice)} className={`min-h-11 rounded-xl border text-sm font-bold transition-colors xl:min-h-10 ${selected ? selectedChipClass : unselectedChipClass}`}><ChipContent selected={selected} label={text} /></button>; })}</div></div>;
 }
 
 function LabeledSingle<T extends string>({ label, options, value, onChange }: { label:string; options:Array<[T,string]>; value:T|null; onChange:(value:T)=>void }) {
-  return <div><span className="mb-2 block text-sm font-semibold text-text-primary">{label}</span><SingleChips options={options} value={value} onChange={onChange} /></div>;
+  return <div><span className="mb-2 block text-sm font-semibold text-text-primary xl:mb-1.5">{label}</span><SingleChips options={options} value={value} onChange={onChange} /></div>;
 }
 
 function ActivitySection<T extends string>({ title, activity, evaluation, options, onActivity, onEvaluation }: { title:string; activity:string; evaluation:T|null; options:Array<[T,string]>; onActivity:(value:string)=>void; onEvaluation:(value:T)=>void }) {
-  return <EditorSection title={title} description="활동명과 평가는 함께 입력하거나 둘 다 비워둘 수 있습니다."><Input aria-label={`${title} 활동명`} maxLength={80} value={activity} onChange={(event) => onActivity(event.target.value)} placeholder="활동명 직접 입력" className="min-h-11" /><div className="mt-3"><SingleChips options={options} value={evaluation} onChange={onEvaluation} /></div></EditorSection>;
+  return <EditorSection title={title} description="활동명과 평가는 함께 입력하거나 둘 다 비워둘 수 있습니다."><Input aria-label={`${title} 활동명`} maxLength={80} value={activity} onChange={(event) => onActivity(event.target.value)} placeholder="활동명 직접 입력" className="min-h-11 xl:min-h-10" /><div className="mt-3 xl:mt-2"><SingleChips options={options} value={evaluation} onChange={onEvaluation} /></div></EditorSection>;
 }

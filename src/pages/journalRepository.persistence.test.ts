@@ -48,11 +48,12 @@ describe("Journal update persistence metadata", () => {
       details: "version mismatch",
       hint: "reload",
     });
-    expect(mocks.rpc).toHaveBeenCalledWith("update_journal_entry_draft", expect.objectContaining({
+    expect(mocks.rpc).toHaveBeenCalledWith("update_journal_entry_draft_v2", expect.objectContaining({
       p_entry_id: "entry-1",
       p_expected_version: 17,
       p_request_id: "request-1",
       p_teacher_comment: "business content must not be logged",
+      p_best_friend_targets: [],
     }));
     expect(abortSignal).toHaveBeenCalledWith(signal);
   });
@@ -74,8 +75,22 @@ describe("Journal update persistence metadata", () => {
       ...draft,
       teacherComment: "가을\r\n안녕\u00a0친구\ufeff\u200e 👨‍👩‍👧‍👦",
     }, "request-normalize", new AbortController().signal);
-    expect(mocks.rpc).toHaveBeenCalledWith("update_journal_entry_draft", expect.objectContaining({
+    expect(mocks.rpc).toHaveBeenCalledWith("update_journal_entry_draft_v2", expect.objectContaining({
       p_teacher_comment: "가을\n안녕 친구 👨‍👩‍👧‍👦",
+    }));
+  });
+
+  it("preserves the selected V2 target order in the RPC payload", async () => {
+    const abortSignal = vi.fn().mockResolvedValue({ data: { id: "entry-1" }, status: 200, error: null });
+    mocks.rpc.mockReturnValue({ abortSignal });
+    const targets = [
+      { type: "DOG" as const, dogId: "dog-b" },
+      { type: "TEACHER" as const, dogId: null },
+      { type: "DOG" as const, dogId: "dog-c" },
+    ];
+    await updateJournalEntryDraft("entry-1", 1, { ...draft, bestFriendTargets: targets }, "request-targets", new AbortController().signal);
+    expect(mocks.rpc).toHaveBeenCalledWith("update_journal_entry_draft_v2", expect.objectContaining({
+      p_best_friend_targets: targets,
     }));
   });
 });

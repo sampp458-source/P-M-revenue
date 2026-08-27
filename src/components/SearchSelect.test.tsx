@@ -32,6 +32,8 @@ const renderSearchSelect = ({
   multiple = true,
   showAllOnEmpty = false,
   resultsPresentation = "popover",
+  maxSelections,
+  pinnedItemIds,
 }: {
   selectedIds?: string[];
   onChange?: (ids: string[]) => void;
@@ -39,6 +41,8 @@ const renderSearchSelect = ({
   multiple?: boolean;
   showAllOnEmpty?: boolean;
   resultsPresentation?: "popover" | "inline";
+  maxSelections?: number;
+  pinnedItemIds?: readonly string[];
 } = {}) =>
   render(
     <SearchSelect
@@ -62,6 +66,9 @@ const renderSearchSelect = ({
       showAllOnEmpty={showAllOnEmpty}
       resultsPresentation={resultsPresentation}
       labelAccessory={<span>선택 {selectedIds.length}마리</span>}
+      maxSelections={maxSelections}
+      maxSelectionsMessage="선택 한도에 도달했습니다."
+      pinnedItemIds={pinnedItemIds}
     />,
   );
 
@@ -175,6 +182,22 @@ describe("SearchSelect", () => {
     expect(screen.getByRole("option", { name: /초코/ })).toBeTruthy();
   });
 
+  it("stays collapsed until focus and keeps pinned options ahead of recent items", async () => {
+    localStorage.setItem("test-search-select-recent", JSON.stringify(["dog-1"]));
+    renderSearchSelect({ showAllOnEmpty: true, pinnedItemIds: ["dog-2"] });
+    const input = screen.getByRole("combobox", { name: "반려견" });
+
+    expect(input.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.queryByRole("listbox")).toBeNull();
+    fireEvent.focus(input);
+
+    const options = await screen.findAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual([
+      expect.stringContaining("초코"),
+      expect.stringContaining("토리"),
+    ]);
+  });
+
   it("distinguishes the empty prompt from a no-result search", async () => {
     renderSearchSelect();
     const input = screen.getByRole("combobox", { name: "반려견" });
@@ -200,5 +223,22 @@ describe("SearchSelect", () => {
     for (const option of screen.getAllByRole("option")) {
       expect(option.className).toContain("h-[3.75rem]");
     }
+  });
+
+  it("fails closed at the multi-selection limit while keeping selected items removable", async () => {
+    const onChange = vi.fn();
+    renderSearchSelect({ selectedIds: ["dog-1"], onChange, showAllOnEmpty: true, maxSelections: 1 });
+    fireEvent.focus(screen.getByRole("combobox", { name: "반려견" }));
+
+    const selected = await screen.findByRole("option", { name: /토리/ });
+    const blocked = screen.getByRole("option", { name: /초코/ });
+    expect(selected.getAttribute("aria-disabled")).toBe("false");
+    expect(blocked.getAttribute("aria-disabled")).toBe("true");
+    expect(blocked.hasAttribute("disabled")).toBe(true);
+    expect(screen.getByRole("status").textContent).toBe("선택 한도에 도달했습니다.");
+    fireEvent.click(blocked);
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /토리 .* 선택 해제/ }));
+    expect(onChange).toHaveBeenCalledWith([]);
   });
 });

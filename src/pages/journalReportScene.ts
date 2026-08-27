@@ -119,7 +119,7 @@ export function journalDogNameFontSize(length: number) {
 }
 
 export function journalBestFriendFontSize(length: number) {
-  return length > 18 ? 22 : length > 10 ? 30 : 44;
+  return length > 24 ? 24 : length > 18 ? 28 : length > 10 ? 30 : 44;
 }
 
 export function journalActivityFontSize(length: number) {

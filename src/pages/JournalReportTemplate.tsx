@@ -11,11 +11,11 @@ import {
   JOURNAL_REPORT_TYPOGRAPHY,
   JOURNAL_REPORT_WIDTH,
   journalActivityFontSize,
-  journalBestFriendFontSize,
   journalCommentTypography,
   journalDogNameFontSize,
 } from "./journalReportScene";
 import type { JournalPreviewActivity, JournalPreviewOption, JournalPreviewViewModel } from "./journalPreviewViewModel";
+import { normalizedJournalBestFriendDisplayTargets, resolveJournalBestFriendLayout, type JournalBestFriendDisplayTarget } from "./journalBestFriendPresentation";
 
 export { JOURNAL_REPORT_WIDTH, JOURNAL_REPORT_HEIGHT } from "./journalReportScene";
 
@@ -69,7 +69,7 @@ export function JournalReportTemplate({
 
           <MealRelationshipComposition viewModel={viewModel} />
 
-          <BestFriendRibbon name={viewModel.bestFriendName ?? ""} />
+          <BestFriendRibbon targets={normalizedJournalBestFriendDisplayTargets(viewModel)} />
 
           <div data-card-surface="activities" className="relative grid grid-cols-[0.96fr_1.04fr] gap-[20px] overflow-hidden rounded-[36px_20px_42px_24px] bg-[linear-gradient(104deg,#fffafb_0%,#fffafb_46%,#fbfffd_54%,#fbfffd_100%)] px-[8px]">
             <span className="absolute left-1/2 top-[28px] h-[118px] border-l-2 border-dotted border-[#dbe7ef]/80" />
@@ -202,7 +202,8 @@ function Relationship({ label, options, scene }: { label: string; options: Journ
   );
 }
 
-function BestFriendRibbon({ name }: { name: string }) {
+function BestFriendRibbon({ targets }: { targets: JournalBestFriendDisplayTarget[] }) {
+  const layout = resolveJournalBestFriendLayout(targets);
   return (
     <section data-journal-section="interlude" data-card-surface="best-friend" className="relative flex min-w-0 items-center justify-center overflow-hidden px-[28px]" aria-label="오늘의 제일 친한 친구">
       <span className="absolute left-[183px] top-[15px] h-[90px] w-[610px] rotate-[-1deg] rounded-[48%] bg-[#f5fbff]/88" />
@@ -212,10 +213,25 @@ function BestFriendRibbon({ name }: { name: string }) {
         <JournalCharacter name="bestFriendDuo" className="relative z-10 h-[108px] w-[224px] shrink-0 self-end object-contain object-bottom" />
         <div className="relative z-10 flex w-[480px] min-w-0 flex-col items-center justify-center">
           <p className="text-[20px] font-black tracking-[-0.02em] text-[#607488]">오늘의 제일 친한 친구는</p>
-          <div className="mt-[-2px] flex w-full min-w-0 items-end justify-center gap-[8px]">
-            <strong data-testid="journal-best-friend-name" className={bestFriendNameClass(name)}>{name || "\u00a0"}</strong>
-            <p className="mb-[5px] shrink-0 text-[20px] font-extrabold text-[#607488]">예요 <span className="text-[#ff7f82]">♡</span></p>
-          </div>
+          <strong
+            data-testid="journal-best-friend-name"
+            data-target-count={targets.length}
+            data-best-friend-phrase={layout.phrase}
+            data-layout-lines={layout.lines.join("|")}
+            data-line-count={layout.lineCount}
+            data-font-size={layout.fontSize}
+            className={bestFriendNameClass()}
+            style={{ maxWidth: layout.maxTextWidth, fontSize: layout.fontSize, lineHeight: `${layout.lineHeight}px` }}
+          >
+            {layout.lines.length > 0 ? layout.lines.map((line, index) => (
+              <span key={`${index}-${line}`}>
+                {index > 0 ? " " : null}
+                <span data-testid={line.endsWith("♡") ? "journal-best-friend-suffix" : undefined} className="block whitespace-nowrap">
+                  {line.endsWith("♡") ? <>{line.slice(0, -1)}<span className="text-[#ff7f82]">♡</span></> : line}
+                </span>
+              </span>
+            )) : "\u00a0"}
+          </strong>
         </div>
       </div>
     </section>
@@ -345,10 +361,8 @@ function JournalSectionIllustration({ name, className = "" }: { name: JournalSec
   return <img data-testid={`journal-section-illustration-${name}`} data-journal-asset={sectionAssetId[name]} src={sources[sectionAssetId[name]]} alt="" aria-hidden="true" draggable={false} className={`pointer-events-none object-contain ${className}`} onError={(event) => { event.currentTarget.style.visibility = "hidden"; }} />;
 }
 
-function bestFriendNameClass(name: string) {
-  const fontSize = journalBestFriendFontSize(name.length);
-  const size = fontSize === 22 ? "text-[22px] leading-[1.08]" : fontSize === 30 ? "text-[30px] leading-[1.08]" : "text-[44px] leading-[1.04]";
-  return `min-w-0 break-words border-b-[8px] border-[#ff7f82]/38 px-[12px] pb-[1px] text-center font-black tracking-[-0.05em] text-[#2f6284] ${size}`;
+function bestFriendNameClass() {
+  return "mt-[-2px] block break-words border-b-[8px] border-[#ff7f82]/38 px-[12px] pb-[1px] text-center font-black tracking-[-0.05em] text-[#2f6284]";
 }
 
 function headerDogNameClass(name: string) {

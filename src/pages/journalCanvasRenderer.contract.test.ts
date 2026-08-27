@@ -72,7 +72,8 @@ describe("Journal Canvas renderer contract", () => {
 
   it("shares canonical long-name, activity, and 500-character comment density thresholds", () => {
     expect(journalDogNameFontSize(21)).toBe(17);
-    expect(journalBestFriendFontSize(19)).toBe(22);
+    expect(journalBestFriendFontSize(19)).toBe(28);
+    expect(journalBestFriendFontSize(25)).toBe(24);
     expect(journalActivityFontSize(51)).toBe(17);
     expect(journalCommentTypography(500)).toEqual({ density: "minimum-safe", size: 19, lineHeight: 1.32 });
     expect(journalTeacherCommentDogSlot(500)).toEqual({ x: 951, y: 1307, width: 72, height: 80 });

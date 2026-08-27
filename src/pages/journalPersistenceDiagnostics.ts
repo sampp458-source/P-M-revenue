@@ -36,6 +36,9 @@ export type JournalValidationAssertionKey =
   | "PERMISSION_DENIED"
   | "BEST_FRIEND_SELF"
   | "BEST_FRIEND_NOT_IN_ROSTER"
+  | "BEST_FRIEND_DUPLICATE_TARGET"
+  | "BEST_FRIEND_TOO_MANY_TARGETS"
+  | "BEST_FRIEND_INVALID_TARGET_TYPE"
   | "COMPLETION_REQUIRED_FIELD_MISSING"
   | "ACTIVITY_PAIR_INVALID"
   | "COMMENT_TOO_LONG"
@@ -52,8 +55,11 @@ export interface JournalValidationShape {
   mealCount: number;
   teacherRelationshipPresent: boolean;
   friendRelationshipPresent: boolean;
+  bestFriendTargetCount: number;
+  bestFriendDogTargetCount: number;
   bestFriendDogIdPresent: boolean;
   bestFriendRosterMembershipKnown: boolean | null;
+  bestFriendDuplicateKnown: boolean;
   mannersActivityPresent: boolean;
   mannersActivityLength: number;
   mannersEvaluationPresent: boolean;
@@ -72,7 +78,8 @@ type JournalValidationDraftLike = {
   mealCodes: readonly unknown[];
   teacherRelationship: unknown | null;
   friendRelationship: unknown | null;
-  bestFriendDogId: string | null;
+  bestFriendTargets?: ReadonlyArray<{ type: string; dogId: string | null }>;
+  bestFriendDogId?: string | null;
   mannersActivityName: string;
   mannersEvaluation: unknown | null;
   physicalActivityName: string;
@@ -84,6 +91,7 @@ export function journalValidationShape(
   draft: JournalValidationDraftLike,
   rosterDogIds: readonly string[],
 ): JournalValidationShape {
+  const bestFriendTargets = draft.bestFriendTargets ?? (draft.bestFriendDogId ? [{ type: "DOG", dogId: draft.bestFriendDogId }] : []);
   const mannersActivity = draft.mannersActivityName.trim();
   const physicalActivity = draft.physicalActivityName.trim();
   const teacherComment = draft.teacherComment.trim();
@@ -95,10 +103,13 @@ export function journalValidationShape(
     mealCount: draft.mealCodes.length,
     teacherRelationshipPresent: draft.teacherRelationship !== null,
     friendRelationshipPresent: draft.friendRelationship !== null,
-    bestFriendDogIdPresent: draft.bestFriendDogId !== null,
-    bestFriendRosterMembershipKnown: draft.bestFriendDogId === null
-      ? null
-      : rosterDogIds.includes(draft.bestFriendDogId),
+    bestFriendTargetCount: bestFriendTargets.length,
+    bestFriendDogTargetCount: bestFriendTargets.filter((target) => target.type === "DOG").length,
+    bestFriendDogIdPresent: bestFriendTargets.some((target) => target.type === "DOG"),
+    bestFriendRosterMembershipKnown: bestFriendTargets.some((target) => target.type === "DOG")
+      ? bestFriendTargets.filter((target) => target.type === "DOG").every((target) => Boolean(target.dogId && rosterDogIds.includes(target.dogId)))
+      : null,
+    bestFriendDuplicateKnown: new Set(bestFriendTargets.map((target) => target.type === "TEACHER" ? "TEACHER" : `DOG:${target.dogId}`)).size !== bestFriendTargets.length,
     mannersActivityPresent: mannersActivity.length > 0,
     mannersActivityLength: mannersActivity.length,
     mannersEvaluationPresent: draft.mannersEvaluation !== null,
@@ -174,6 +185,9 @@ const SAFE_SERVER_MESSAGES = new Map<string, JournalValidationAssertionKey>([
   ["일지를 작성할 권한이 없습니다.", "PERMISSION_DENIED"],
   ["자기 자신을 제일 친한 친구로 선택할 수 없습니다.", "BEST_FRIEND_SELF"],
   ["같은 날 등원 명단의 반려견만 선택할 수 있습니다.", "BEST_FRIEND_NOT_IN_ROSTER"],
+  ["같은 제일 친한 친구 대상을 중복 선택할 수 없습니다.", "BEST_FRIEND_DUPLICATE_TARGET"],
+  ["제일 친한 친구는 최대 5명까지 선택할 수 있습니다.", "BEST_FRIEND_TOO_MANY_TARGETS"],
+  ["제일 친한 친구 대상 유형을 확인해 주세요.", "BEST_FRIEND_INVALID_TARGET_TYPE"],
   ["필수 일지 내용을 모두 입력해 주세요.", "COMPLETION_REQUIRED_FIELD_MISSING"],
   ["활동명과 평가는 함께 입력해 주세요.", "ACTIVITY_PAIR_INVALID"],
 ]);
@@ -190,8 +204,11 @@ const EMPTY_VALIDATION_SHAPE: JournalValidationShape = Object.freeze({
   mealCount: 0,
   teacherRelationshipPresent: false,
   friendRelationshipPresent: false,
+  bestFriendTargetCount: 0,
+  bestFriendDogTargetCount: 0,
   bestFriendDogIdPresent: false,
   bestFriendRosterMembershipKnown: null,
+  bestFriendDuplicateKnown: false,
   mannersActivityPresent: false,
   mannersActivityLength: 0,
   mannersEvaluationPresent: false,
@@ -226,7 +243,9 @@ export function journalValidationAssertionKey(
   if (postgresCode === "PT409" || postgresCode === "40001") return "VERSION_CONFLICT";
   if (postgresCode === "42501") return "PERMISSION_DENIED";
   if (postgresCode === "23505") return "UNIQUE_CONSTRAINT_VIOLATION";
-  if (shape.bestFriendDogIdPresent && shape.bestFriendRosterMembershipKnown === false) return "BEST_FRIEND_NOT_IN_ROSTER";
+  if (shape.bestFriendDuplicateKnown) return "BEST_FRIEND_DUPLICATE_TARGET";
+  if (shape.bestFriendTargetCount > 5) return "BEST_FRIEND_TOO_MANY_TARGETS";
+  if (shape.bestFriendDogTargetCount > 0 && shape.bestFriendRosterMembershipKnown === false) return "BEST_FRIEND_NOT_IN_ROSTER";
   if (shape.teacherCommentLength > 500) return "COMMENT_TOO_LONG";
   if (shape.mannersActivityLength > 80) return "MANNERS_ACTIVITY_TOO_LONG";
   if (shape.physicalActivityLength > 80) return "PHYSICAL_ACTIVITY_TOO_LONG";
@@ -285,8 +304,11 @@ export function formatJournalFailureDiagnostic(diagnostic: JournalSaveFailureDia
     ["MEAL_COUNT", shape.mealCount],
     ["TEACHER_RELATIONSHIP_PRESENT", shape.teacherRelationshipPresent],
     ["FRIEND_RELATIONSHIP_PRESENT", shape.friendRelationshipPresent],
+    ["BEST_FRIEND_TARGET_COUNT", shape.bestFriendTargetCount],
+    ["BEST_FRIEND_DOG_TARGET_COUNT", shape.bestFriendDogTargetCount],
     ["BEST_FRIEND_PRESENT", shape.bestFriendDogIdPresent],
     ["BEST_FRIEND_ROSTER_MEMBERSHIP_KNOWN", shape.bestFriendRosterMembershipKnown],
+    ["BEST_FRIEND_DUPLICATE_KNOWN", shape.bestFriendDuplicateKnown],
     ["MANNERS_ACTIVITY_PRESENT", shape.mannersActivityPresent],
     ["MANNERS_ACTIVITY_LENGTH", shape.mannersActivityLength],
     ["MANNERS_EVALUATION_PRESENT", shape.mannersEvaluationPresent],

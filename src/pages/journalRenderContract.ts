@@ -3,7 +3,7 @@ import pmLogo from "../assets/pm-logo.png";
 import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
 
 export const JOURNAL_RENDERER_VERSION = "live-dom-v1";
-export const JOURNAL_TEMPLATE_VERSION = "journal-template-v10";
+export const JOURNAL_TEMPLATE_VERSION = "journal-template-v11-best-friend-targets";
 export const JOURNAL_ASSET_VERSION = "approved-illustrations-v1";
 
 export const JOURNAL_REQUIRED_ASSET_IDS = [

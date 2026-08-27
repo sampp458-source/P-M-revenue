@@ -110,6 +110,9 @@ export interface SearchSelectProps<T> {
   maxResults?: number;
   selectedPlacement?: "before" | "after";
   resultsPresentation?: "popover" | "inline";
+  maxSelections?: number;
+  maxSelectionsMessage?: string;
+  pinnedItemIds?: readonly string[];
 }
 
 export function SearchSelect<T>({
@@ -138,6 +141,9 @@ export function SearchSelect<T>({
   maxResults = 8,
   selectedPlacement = "before",
   resultsPresentation = "popover",
+  maxSelections,
+  maxSelectionsMessage,
+  pinnedItemIds,
 }: SearchSelectProps<T>) {
   const id = useId();
   const listboxId = `${id}-listbox`;
@@ -145,6 +151,7 @@ export function SearchSelect<T>({
   const inputRef = useRef<HTMLInputElement>(null);
   const requestSequence = useRef(0);
   const emptyItemsRef = useRef<readonly T[]>([]);
+  const emptyPinnedItemIdsRef = useRef<readonly string[]>([]);
   const getItemIdRef = useRef(getItemId);
   const getSearchTextRef = useRef(getSearchText);
   const loadOptionsRef = useRef(loadOptions);
@@ -154,6 +161,7 @@ export function SearchSelect<T>({
   loadOptionsRef.current = loadOptions;
   resolveRecentOptionsRef.current = resolveRecentOptions;
   const availableItems = items ?? emptyItemsRef.current;
+  const stablePinnedItemIds = pinnedItemIds ?? emptyPinnedItemIdsRef.current;
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -262,16 +270,26 @@ export function SearchSelect<T>({
                 ),
               );
         } else if (showAllOnEmpty) {
+          const pinnedItems = stablePinnedItemIds
+            .map((pinnedId) => itemById.get(pinnedId))
+            .filter((item): item is T => Boolean(item));
+          const pinnedIds = new Set(
+            pinnedItems.map((item) => getItemIdRef.current(item)),
+          );
           const recentItems = recentIds
             .map((recentId) => itemById.get(recentId))
-            .filter((item): item is T => Boolean(item));
+            .filter((item): item is T => item !== undefined)
+            .filter((item) => !pinnedIds.has(getItemIdRef.current(item)));
           const recentItemIds = new Set(
             recentItems.map((item) => getItemIdRef.current(item)),
           );
           nextResults = [
+            ...pinnedItems,
             ...recentItems,
             ...availableItems.filter(
-              (item) => !recentItemIds.has(getItemIdRef.current(item)),
+              (item) =>
+                !pinnedIds.has(getItemIdRef.current(item)) &&
+                !recentItemIds.has(getItemIdRef.current(item)),
             ),
           ];
         } else if (recentIds.length > 0) {
@@ -306,6 +324,7 @@ export function SearchSelect<T>({
     availableItems,
     itemById,
     maxResults,
+    stablePinnedItemIds,
     recentIds,
     showAllOnEmpty,
   ]);
@@ -331,6 +350,7 @@ export function SearchSelect<T>({
   const select = (item: T) => {
     const itemId = getItemId(item);
     const selected = selectedIds.includes(itemId);
+    if (!selected && multiple && maxSelections !== undefined && selectedIds.length >= maxSelections) return;
     const nextSelectedIds = selected
       ? selectedIds.filter((selectedId) => selectedId !== itemId)
       : multiple
@@ -490,6 +510,10 @@ export function SearchSelect<T>({
                 {results.map((item, index) => {
                   const itemId = getItemId(item);
                   const selected = selectedIds.includes(itemId);
+                  const selectionLimitReached = !selected
+                    && multiple
+                    && maxSelections !== undefined
+                    && selectedIds.length >= maxSelections;
                   return (
                     <button
                       id={`${id}-option-${itemId}`}
@@ -497,6 +521,8 @@ export function SearchSelect<T>({
                       type="button"
                       role="option"
                       aria-selected={selected}
+                      aria-disabled={selectionLimitReached}
+                      disabled={selectionLimitReached}
                       onMouseEnter={() => setActiveIndex(index)}
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => select(item)}
@@ -504,6 +530,7 @@ export function SearchSelect<T>({
                         "flex w-full items-center rounded-xl px-3 py-2.5 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                         resultsPresentation === "inline" ? "h-[3.75rem]" : "min-h-14",
                         activeIndex === index && "bg-primary-subtle",
+                        selectionLimitReached && "cursor-not-allowed opacity-45",
                       )}
                     >
                       {renderOption(item, { selected, recent: showRecent })}
@@ -519,6 +546,11 @@ export function SearchSelect<T>({
           </div>
         )}
       </div>
+      {maxSelections !== undefined && selectedIds.length >= maxSelections ? (
+        <p role="status" className="text-xs font-semibold text-text-secondary">
+          {maxSelectionsMessage ?? `최대 ${maxSelections}개까지 선택할 수 있습니다.`}
+        </p>
+      ) : null}
       {selectedPlacement === "after" && selectedChips}
     </fieldset>
   );

@@ -74,11 +74,11 @@ afterEach(() => {
 
 const renderEditor = (
   target = roster[0],
-  options: { onNavigate?: (entryId: string) => void; onClose?: () => void; onDelete?: (expectedVersion: number) => Promise<void> } = {},
+  options: { onNavigate?: (entryId: string) => void; onClose?: () => void; onDelete?: (expectedVersion: number) => Promise<void>; rosterEntries?: JournalRosterEntry[] } = {},
 ) => render(
   <JournalEditor
     entry={target}
-    rosterEntries={roster}
+    rosterEntries={options.rosterEntries ?? roster}
     onDelete={options.onDelete}
     onEntryUpdate={vi.fn()}
     onNavigate={options.onNavigate ?? vi.fn()}
@@ -188,6 +188,88 @@ describe("Journal Editor", () => {
     expect(condition.querySelector("svg")).toBeTruthy();
     const report = liveReport("크리미");
     expect(within(report).getByText("활발해요").closest("[data-selected]")?.getAttribute("data-selected")).toBe("true");
+  });
+
+  it("selects ordered same-day Dogs and Teacher through the searchable multi-select", async () => {
+    mocks.fetch.mockResolvedValue(entry());
+    mocks.update.mockImplementation(async (_id, version, nextDraft) => entry({ ...nextDraft, version: version + 1 }));
+    renderEditor();
+    const search = await screen.findByRole("combobox", { name: "제일 친한 친구 검색" });
+    fireEvent.focus(search);
+    const results = await screen.findByRole("listbox", { name: "제일 친한 친구 검색 검색 결과" });
+    const options = await within(results).findAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual(["선생님", "몽이", "초코"]);
+    expect(options.some((option) => option.textContent?.includes("크리미"))).toBe(false);
+    fireEvent.click(within(results).getByRole("option", { name: "몽이" }));
+    fireEvent.click(within(results).getByRole("option", { name: "선생님" }));
+    expect(screen.getByRole("button", { name: "몽이 선택 해제" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "선생님 선택 해제" })).toBeTruthy();
+    expect(screen.getByTestId("journal-best-friend-name").textContent).toBe("몽이, 선생님이에요 ♡");
+    expect(screen.getByTestId("journal-best-friend-suffix").textContent).toContain("이에요");
+  });
+
+  it("searches only the current roster and fails closed after five selected targets", async () => {
+    const extendedRoster = [
+      entry(),
+      entry({ id: "entry-2", dog: { id: "dog-2", name: "몽이" } }),
+      entry({ id: "entry-3", dog: { id: "dog-3", name: "초코" } }),
+      entry({ id: "entry-4", dog: { id: "dog-4", name: "먼지" } }),
+      entry({ id: "entry-5", dog: { id: "dog-5", name: "건달" } }),
+      entry({ id: "entry-6", dog: { id: "dog-6", name: "개똥이" } }),
+    ];
+    const loaded = entry({
+      bestFriendTargets: [
+        { type: "TEACHER", dogId: null },
+        { type: "DOG", dogId: "dog-2" },
+        { type: "DOG", dogId: "dog-3" },
+        { type: "DOG", dogId: "dog-4" },
+        { type: "DOG", dogId: "dog-5" },
+      ],
+    });
+    mocks.fetch.mockResolvedValue(loaded);
+    renderEditor(loaded, { rosterEntries: extendedRoster });
+    const search = await screen.findByRole("combobox", { name: "제일 친한 친구 검색" });
+    fireEvent.focus(search);
+    const blocked = await screen.findByRole("option", { name: "개똥이" });
+    expect(blocked.getAttribute("aria-disabled")).toBe("true");
+    expect((blocked as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("status").textContent).toContain("5/5 · 추가하려면 선택을 해제해 주세요.");
+    fireEvent.change(search, { target: { value: "초코" } });
+    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
+    expect(screen.getByRole("option", { name: "초코" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.queryByRole("option", { name: "크리미" })).toBeNull();
+  });
+
+  it("edits completed-entry targets through the same canonical autosave queue", async () => {
+    const completed = entry({ status: "COMPLETED", version: 8, bestFriendTargets: [] });
+    mocks.fetch.mockResolvedValue(completed);
+    mocks.update.mockImplementation(async (_id, version, nextDraft) => entry({ ...completed, ...nextDraft, status: "COMPLETED", version: version + 1 }));
+    renderEditor(completed);
+    const search = await screen.findByRole("combobox", { name: "제일 친한 친구 검색" });
+    fireEvent.focus(search);
+    fireEvent.click(await screen.findByRole("option", { name: "선생님" }));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledWith(
+        completed.id,
+        8,
+        expect.objectContaining({ bestFriendTargets: [{ type: "TEACHER", dogId: null }] }),
+        expect.any(String),
+        expect.any(AbortSignal),
+        "COMPLETED",
+      ), { timeout: 2_000 });
+  });
+
+  it("hydrates the server-cleaned canonical targets after an editor reload", async () => {
+    const stale = entry({ status: "COMPLETED", version: 8, bestFriendTargets: [{ type: "DOG", dogId: "dog-2" }, { type: "TEACHER", dogId: null }] });
+    const refreshed = entry({ status: "COMPLETED", version: 9, bestFriendTargets: [{ type: "TEACHER", dogId: null }] });
+    mocks.fetch.mockResolvedValueOnce(stale);
+    const first = renderEditor(stale);
+    expect(await screen.findByRole("button", { name: "몽이 선택 해제" })).toBeTruthy();
+    first.unmount();
+    mocks.fetch.mockResolvedValueOnce(refreshed);
+    renderEditor(refreshed, { rosterEntries: [refreshed, roster[2]] });
+    expect(await screen.findByRole("button", { name: "선생님 선택 해제" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "몽이 선택 해제" })).toBeNull();
+    expect(screen.getByText("오늘의 일지를 모두 작성했습니다.")).toBeTruthy();
   });
 
   it("flushes the final local snapshot before completion and uses its latest version", async () => {

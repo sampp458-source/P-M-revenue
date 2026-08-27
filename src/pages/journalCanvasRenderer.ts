@@ -5,13 +5,13 @@ import {
   JOURNAL_REPORT_VISUAL_REGIONS,
   JOURNAL_REQUIRED_VISUAL_ELEMENT_IDS,
   journalActivityFontSize,
-  journalBestFriendFontSize,
   journalCommentTypography,
   journalDogNameFontSize,
   journalTeacherCommentDogSlot,
   type JournalReportScene,
   type JournalSceneRect,
 } from "./journalReportScene";
+import { normalizedJournalBestFriendDisplayTargets, resolveJournalBestFriendLayout } from "./journalBestFriendPresentation";
 import type { JournalPreviewOption } from "./journalPreviewViewModel";
 
 export type JournalCanvasRegionFingerprint = { red: number; green: number; blue: number; alpha: number };
@@ -371,13 +371,30 @@ function renderScene(context: CanvasRenderingContext2D, scene: JournalReportScen
   context.globalAlpha = 0.48; visualFingerprints["best-friend-blue-underline"] = verifyDrawing(context, JOURNAL_REPORT_VISUAL_REGIONS["best-friend-blue-underline"], "best-friend-blue-underline", () => fillRounded(context, JOURNAL_REPORT_VISUAL_REGIONS["best-friend-blue-underline"], 4, "#b9dced")); context.globalAlpha = 1;
   assetFingerprints["best-friend-duo"] = drawVerifiedAsset(context, assets["best-friend-duo"], assetSlots["best-friend-duo"], "best-friend-duo");
   setFont(context, 20, 900, family, -0.4); context.fillStyle = "#607488"; textLandmarks["best-friend-intro"] = drawTextAtVisualCenter(context, "오늘의 제일 친한 친구는", 656, 722.62);
-  const bestFriendSize = journalBestFriendFontSize((vm.bestFriendName ?? "").length); setFont(context, bestFriendSize, 900, family, -bestFriendSize * 0.05); context.fillStyle = colors.blue;
-  const friendName = vm.bestFriendName || " "; const friendTextWidth = context.measureText(friendName).width; const friendNameWidth = Math.min(350, friendTextWidth + 24);
-  setFont(context, 20, 800, family); const suffixWidth = context.measureText("예요 ♡").width;
-  const friendGroupLeft = 656 - (friendNameWidth + 8 + suffixWidth) / 2;
-  setFont(context, bestFriendSize, 900, family, -bestFriendSize * 0.05); textLandmarks["best-friend-name"] = drawTextAtVisualCenter(context, friendName, friendGroupLeft + 12, 758.37, "left");
-  context.globalAlpha = 0.38; fillRounded(context, { x: friendGroupLeft, y: 782.38, width: friendNameWidth, height: 8 }, 4, colors.coral.accent); context.globalAlpha = 1;
-  const suffixX = friendGroupLeft + friendNameWidth + 10.14; setFont(context, 20, 800, family); context.fillStyle = "#607488"; textLandmarks["best-friend-suffix"] = drawTextAtVisualCenter(context, "예요", suffixX, 770.38, "left"); context.fillStyle = colors.coral.accent; drawTextAtVisualCenter(context, "♡", suffixX + context.measureText("예요 ").width, 770.38, "left");
+  const friendTargets = normalizedJournalBestFriendDisplayTargets(vm);
+  const bestFriendLayout = resolveJournalBestFriendLayout(friendTargets);
+  const friendLines = bestFriendLayout.lines.length > 0 ? bestFriendLayout.lines : [" "];
+  const bestFriendSize = bestFriendLayout.fontSize;
+  setFont(context, bestFriendSize, 900, family, -bestFriendSize * 0.05); context.fillStyle = colors.blue;
+  if (friendLines.some((line) => context.measureText(line).width > bestFriendLayout.maxTextWidth)) throw new Error("JOURNAL_CANVAS_BEST_FRIEND_TEXT_OVERFLOW");
+  const bestFriendLineHeight = bestFriendLayout.lineHeight;
+  const firstY = bestFriendLayout.centerY - ((friendLines.length - 1) * bestFriendLineHeight) / 2;
+  const bestFriendBounds = friendLines.map((line, index) => drawTextAtVisualCenter(context, line, 656, firstY + index * bestFriendLineHeight));
+  const bestFriendLeft = Math.min(...bestFriendBounds.map((bounds) => bounds.x));
+  const bestFriendTop = Math.min(...bestFriendBounds.map((bounds) => bounds.y));
+  const bestFriendRight = Math.max(...bestFriendBounds.map((bounds) => bounds.x + bounds.width));
+  const bestFriendBottom = Math.max(...bestFriendBounds.map((bounds) => bounds.y + bounds.height));
+  textLandmarks["best-friend-name"] = {
+    x: bestFriendLeft,
+    y: bestFriendTop,
+    width: bestFriendRight - bestFriendLeft,
+    height: bestFriendBottom - bestFriendTop,
+    centerX: (bestFriendLeft + bestFriendRight) / 2,
+    centerY: (bestFriendTop + bestFriendBottom) / 2,
+  };
+  textLandmarks["best-friend-suffix"] = textLandmarks["best-friend-name"];
+  const underlineWidth = Math.min(410, Math.max(24, ...friendLines.map((line) => context.measureText(line).width)) + 24);
+  context.globalAlpha = 0.38; fillRounded(context, { x: 656 - underlineWidth / 2, y: 784, width: underlineWidth, height: 8 }, 4, colors.coral.accent); context.globalAlpha = 1;
 
   fillSplitRounded(context, layout.activities, 38, 0.49, colors.coral.surface, colors.green.surface); drawDottedDivider(context, 540, 845, 118, "#dbe7ef");
   assetFingerprints.manners = drawVerifiedAsset(context, assets.manners, assetSlots.manners, "manners"); assetFingerprints.physical = drawVerifiedAsset(context, assets.physical, assetSlots.physical, "physical");

@@ -115,6 +115,9 @@ describe("Journal persistence diagnostics", () => {
   it("maps every fixed server assertion and preserves only allowlisted server text", () => {
     expect(JOURNAL_VALIDATION_ASSERTION_MAP).toEqual(expect.arrayContaining([
       expect.objectContaining({ assertionKey: "BEST_FRIEND_NOT_IN_ROSTER" }),
+      expect.objectContaining({ assertionKey: "BEST_FRIEND_DUPLICATE_TARGET" }),
+      expect.objectContaining({ assertionKey: "BEST_FRIEND_TOO_MANY_TARGETS" }),
+      expect.objectContaining({ assertionKey: "BEST_FRIEND_INVALID_TARGET_TYPE" }),
       expect.objectContaining({ assertionKey: "ACTIVITY_PAIR_INVALID" }),
       expect.objectContaining({ assertionKey: "ENTRY_NOT_FOUND" }),
     ]));
@@ -134,6 +137,20 @@ describe("Journal persistence diagnostics", () => {
       serverMessage: "활동명과 평가는 함께 입력해 주세요.",
       serverDetails: "[REDACTED]", serverHint: "[REDACTED]", assertionKey: "ACTIVITY_PAIR_INVALID",
     });
+  });
+
+  it("classifies V2 duplicate and maximum target violations without logging identities", () => {
+    const duplicate = journalValidationShape({
+      conditionCodes: [], urination: null, defecation: null, stoolCondition: null, mealCodes: [],
+      teacherRelationship: null, friendRelationship: null,
+      bestFriendTargets: [{ type: "TEACHER", dogId: null }, { type: "TEACHER", dogId: null }],
+      mannersActivityName: "", mannersEvaluation: null, physicalActivityName: "",
+      physicalEvaluation: null, teacherComment: "",
+    }, []);
+    expect(journalValidationAssertionKey("22023", "[REDACTED]", duplicate)).toBe("BEST_FRIEND_DUPLICATE_TARGET");
+    const tooMany = { ...duplicate, bestFriendDuplicateKnown: false, bestFriendTargetCount: 6 };
+    expect(journalValidationAssertionKey("22023", "[REDACTED]", tooMany)).toBe("BEST_FRIEND_TOO_MANY_TARGETS");
+    expect(JSON.stringify(duplicate)).not.toContain("TEACHER");
   });
 
   it("derives validation-only shape without retaining Journal business content", () => {

@@ -1,4 +1,5 @@
-import type { JournalDraft, JournalRosterEntry } from "./journalRepository";
+import type { JournalBestFriendTarget, JournalDraft, JournalRosterEntry } from "./journalRepository";
+import { JOURNAL_BEST_FRIEND_TEACHER_LABEL, type JournalBestFriendDisplayTarget } from "./journalBestFriendPresentation";
 import { normalizeJournalTeacherComment } from "./journalTextNormalization";
 
 export type JournalPreviewOption = {
@@ -27,7 +28,9 @@ export type JournalPreviewViewModel = {
   mealOptions: JournalPreviewOption[];
   teacherRelationshipOptions: JournalPreviewOption[];
   friendRelationshipOptions: JournalPreviewOption[];
-  bestFriendName: string | null;
+  bestFriendTargets?: JournalBestFriendDisplayTarget[];
+  /** Legacy fixture/read fallback only; current repository normalization always emits targets. */
+  bestFriendName?: string | null;
   manners: JournalPreviewActivity;
   physical: JournalPreviewActivity;
   teacherComment: string;
@@ -70,6 +73,9 @@ const binaryOptions = (selected: boolean | null): JournalPreviewOption[] => [
   { code: "no", label: "X", selected: selected === false },
 ];
 
+const normalizedDraftTargets = (draft: JournalDraft): JournalBestFriendTarget[] =>
+  draft.bestFriendTargets ?? (draft.bestFriendDogId ? [{ type: "DOG", dogId: draft.bestFriendDogId }] : []);
+
 export const journalEntryToDraft = (entry: JournalRosterEntry): JournalDraft => ({
   conditionCodes: entry.conditionCodes ?? [],
   urination: entry.urination ?? null,
@@ -78,6 +84,11 @@ export const journalEntryToDraft = (entry: JournalRosterEntry): JournalDraft => 
   mealCodes: entry.mealCodes ?? [],
   teacherRelationship: entry.teacherRelationship ?? null,
   friendRelationship: entry.friendRelationship ?? null,
+  bestFriendTargets: entry.bestFriendTargets !== undefined
+    ? entry.bestFriendTargets
+    : entry.bestFriendDogId
+      ? [{ type: "DOG", dogId: entry.bestFriendDogId }]
+      : [],
   bestFriendDogId: entry.bestFriendDogId ?? null,
   mannersActivityName: entry.mannersActivityName ?? "",
   mannersEvaluation: entry.mannersEvaluation ?? null,
@@ -91,6 +102,12 @@ export function buildJournalPreviewViewModel(
   draft: JournalDraft,
   rosterEntries: JournalRosterEntry[] = [],
 ): JournalPreviewViewModel {
+  const rosterDogNames = new Map(rosterEntries.map((item) => [item.dog.id, item.dog.name]));
+  const bestFriendTargets = normalizedDraftTargets(draft).flatMap((target): JournalBestFriendDisplayTarget[] => {
+    if (target.type === "TEACHER") return [{ ...target, label: JOURNAL_BEST_FRIEND_TEACHER_LABEL }];
+    const label = rosterDogNames.get(target.dogId);
+    return label ? [{ ...target, label }] : [];
+  });
   return {
     entryId: entry.id,
     businessDate: entry.businessDate,
@@ -105,7 +122,7 @@ export function buildJournalPreviewViewModel(
     mealOptions: selectedOptions(mealOptions, draft.mealCodes),
     teacherRelationshipOptions: singleOptions(teacherRelationshipOptions, draft.teacherRelationship),
     friendRelationshipOptions: singleOptions(friendRelationshipOptions, draft.friendRelationship),
-    bestFriendName: rosterEntries.find((item) => item.dog.id === draft.bestFriendDogId)?.dog.name ?? null,
+    bestFriendTargets,
     manners: { title: "예절교육", activityName: draft.mannersActivityName, options: singleOptions(mannersOptions, draft.mannersEvaluation) },
     physical: { title: "체육 시간", activityName: draft.physicalActivityName, options: singleOptions(physicalOptions, draft.physicalEvaluation) },
     teacherComment: normalizeJournalTeacherComment(draft.teacherComment),
