@@ -77,4 +77,23 @@ describe("Journal completed PNG batch archive", () => {
     expect(result.blob.type).toBe("application/zip");
     expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1);
   });
+
+  it.each([3, 4, 5, 10, 20])("creates a stable sequential archive for %i retained PNG blobs", async (count) => {
+    const files = Array.from({ length: count }, (_, index) => ({
+      filename: `P&M_하루일지_Dog-${index + 1}_2026-08-21.png`,
+      blob: new Blob([`png-${index + 1}`], { type: "image/png" }),
+    }));
+    const archive = await createJournalBatchZip(files);
+    const entries = await readStoredEntries(archive);
+    expect(entries).toHaveLength(count);
+    expect(entries.map((entry) => entry.data)).toEqual(files.map((_file, index) => `png-${index + 1}`));
+  });
+
+  it("reports ZIP and download trigger boundaries", async () => {
+    const events: string[] = [];
+    await downloadJournalBatchZip([
+      { filename: "P&M_하루일지_몽이_2026-08-21.png", blob: new Blob(["png"], { type: "image/png" }) },
+    ], "2026-08-21", (event) => events.push(`${event.stage}_${event.state}`));
+    expect(events).toEqual(["ZIP_START", "ZIP_ACK", "DOWNLOAD_START", "DOWNLOAD_ACK"]);
+  });
 });

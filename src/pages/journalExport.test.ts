@@ -89,12 +89,43 @@ describe("Journal Canvas export", () => {
   });
 
   it("fails closed when any approved illustration pixel slot is unverified", async () => {
+    const canvas = renderedCanvas();
     mocks.renderCanvas.mockResolvedValueOnce({
-      canvas: renderedCanvas(),
+      canvas,
       metrics: readyMetrics({ verifiedAssetSlots: 6 }),
     });
     await expect(renderJournalImageBlob(viewModel, "png")).rejects.toThrow("JOURNAL_EXPORT_ASSET_PIXEL_VALIDATION_FAILED");
+    expect([canvas.width, canvas.height]).toEqual([1, 1]);
     expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("reports render, encode, and validation boundaries in order", async () => {
+    const events: string[] = [];
+    const blob = await renderJournalImageBlob(viewModel, "png", (event) => {
+      events.push(`${event.stage}_${event.state}`);
+    });
+    expect(blob.size).toBeGreaterThan(0);
+    expect(events).toEqual([
+      "RENDER_START", "RENDER_ACK",
+      "ENCODE_START", "ENCODE_ACK",
+      "VALIDATION_START", "VALIDATION_ACK",
+    ]);
+  });
+
+  it("releases the render canvas when encoding fails", async () => {
+    const canvas = renderedCanvas();
+    vi.mocked(canvas.toBlob).mockImplementationOnce((callback) => callback(null));
+    mocks.renderCanvas.mockResolvedValueOnce({ canvas, metrics: readyMetrics() });
+    await expect(renderJournalImageBlob(viewModel, "png")).rejects.toThrow("JOURNAL_EXPORT_ENCODING_FAILED");
+    expect([canvas.width, canvas.height]).toEqual([1, 1]);
+  });
+
+  it("releases the render canvas when encoded validation fails", async () => {
+    const canvas = renderedCanvas();
+    mocks.renderCanvas.mockResolvedValueOnce({ canvas, metrics: readyMetrics() });
+    mocks.validateBlob.mockRejectedValueOnce(new Error("JOURNAL_EXPORT_DECODE_FAILED"));
+    await expect(renderJournalImageBlob(viewModel, "png")).rejects.toThrow("JOURNAL_EXPORT_DECODE_FAILED");
+    expect([canvas.width, canvas.height]).toEqual([1, 1]);
   });
 
   it("fails closed when the logo or any required decoration is unverified", async () => {

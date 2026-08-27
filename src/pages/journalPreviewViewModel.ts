@@ -1,4 +1,5 @@
 import type { JournalDraft, JournalRosterEntry } from "./journalRepository";
+import { normalizeJournalTeacherComment } from "./journalTextNormalization";
 
 export type JournalPreviewOption = {
   code: string;
@@ -82,7 +83,7 @@ export const journalEntryToDraft = (entry: JournalRosterEntry): JournalDraft => 
   mannersEvaluation: entry.mannersEvaluation ?? null,
   physicalActivityName: entry.physicalActivityName ?? "",
   physicalEvaluation: entry.physicalEvaluation ?? null,
-  teacherComment: entry.teacherComment ?? "",
+  teacherComment: normalizeJournalTeacherComment(entry.teacherComment ?? ""),
 });
 
 export function buildJournalPreviewViewModel(
@@ -107,6 +108,6 @@ export function buildJournalPreviewViewModel(
     bestFriendName: rosterEntries.find((item) => item.dog.id === draft.bestFriendDogId)?.dog.name ?? null,
     manners: { title: "예절교육", activityName: draft.mannersActivityName, options: singleOptions(mannersOptions, draft.mannersEvaluation) },
     physical: { title: "체육 시간", activityName: draft.physicalActivityName, options: singleOptions(physicalOptions, draft.physicalEvaluation) },
-    teacherComment: draft.teacherComment,
+    teacherComment: normalizeJournalTeacherComment(draft.teacherComment),
   };
 }

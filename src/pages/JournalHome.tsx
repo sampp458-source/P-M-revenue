@@ -1,4 +1,4 @@
-import { Archive, BookOpenText, ChevronLeft, ChevronRight, Dog, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
+import { Archive, BookOpenText, ChevronLeft, ChevronRight, Clipboard, Dog, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SearchSelect } from "../components/SearchSelect";
 import { Badge, Button, Card, FormAlert, Input, Modal, ModalActions } from "../components/ui";
@@ -7,6 +7,13 @@ import { seoulDateKey } from "./operationsScheduleRepository";
 import { JournalEditor } from "./JournalEditor";
 import { journalDeleteConfirmationDetail } from "./journalDeletePresentation";
 import { buildUniqueJournalPngFilenames, downloadJournalBatchZip, type JournalBatchFile } from "./journalBatchExport";
+import {
+  formatJournalBatchDiagnostic,
+  getJournalBatchDiagnostic,
+  journalBatchFailureMessage,
+  JournalBatchDiagnosticSession,
+  type JournalBatchDiagnostic,
+} from "./journalBatchDiagnostics";
 import { renderJournalImageBlob } from "./journalExport";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import {
@@ -69,6 +76,8 @@ export function JournalHomePage() {
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [batching, setBatching] = useState(false);
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
+  const [batchFailure, setBatchFailure] = useState<JournalBatchDiagnostic | null>(null);
+  const [batchDiagnosticCopyState, setBatchDiagnosticCopyState] = useState<"idle" | "copied" | "error">("idle");
   const batchInFlightRef = useRef(false);
 
   useEffect(() => {
@@ -223,30 +232,69 @@ export function JournalHomePage() {
     const targets = rosterSnapshot.filter((entry) => entry.status === "COMPLETED");
     const filenames = buildUniqueJournalPngFilenames(targets.map((entry) => ({ dogName: entry.dog.name, businessDate })));
     const files: JournalBatchFile[] = [];
-    let currentDogName = "";
+    const diagnostics = new JournalBatchDiagnosticSession(targets.length);
     setBatching(true);
     setBatchProgress({ current: 0, total: targets.length });
+    setBatchFailure(null);
+    setBatchDiagnosticCopyState("idle");
     setError("");
     try {
       for (let index = 0; index < targets.length; index += 1) {
         const target = targets[index];
-        currentDogName = target.dog.name;
+        const context = { ordinal: index + 1, entryId: target.id, dogId: target.dog.id };
+        diagnostics.start("FETCH", context);
         const persisted = await fetchJournalEntry(target.id);
+        diagnostics.ack("FETCH", context);
         if (persisted.status !== "COMPLETED" || persisted.businessDate !== businessDate) {
           throw new Error("JOURNAL_BATCH_TARGET_CHANGED");
         }
         const viewModel = buildJournalPreviewViewModel(persisted, journalEntryToDraft(persisted), rosterSnapshot);
-        files.push({ filename: filenames[index], blob: await renderJournalImageBlob(viewModel, "png") });
+        const blob = await renderJournalImageBlob(viewModel, "png", (event) => {
+          if (event.state === "START") diagnostics.start(event.stage, context);
+          else diagnostics.ack(event.stage, context, event);
+        });
+        files.push({ filename: filenames[index], blob });
+        diagnostics.entryComplete(context, blob.size);
         setBatchProgress({ current: index + 1, total: targets.length });
       }
-      await downloadJournalBatchZip(files, businessDate);
-    } catch {
-      setError(currentDogName
-        ? `${currentDogName} 일지 이미지를 만들지 못했습니다. 전체 저장을 다시 시도해 주세요.`
-        : "완료 일지를 저장하지 못했습니다. 다시 시도해 주세요.");
+      const batchContext = { ordinal: null, entryId: null, dogId: null };
+      await downloadJournalBatchZip(files, businessDate, (event) => {
+        if (event.state === "START") diagnostics.start(event.stage, batchContext);
+        else diagnostics.ack(event.stage, batchContext, event);
+      });
+      diagnostics.complete();
+    } catch (caught) {
+      const failure = diagnostics.fail(caught).diagnostic;
+      setBatchFailure(failure);
+      setError(journalBatchFailureMessage(failure.failure!));
     } finally {
       setBatching(false);
       batchInFlightRef.current = false;
+    }
+  };
+
+  const copyBatchDiagnostic = async () => {
+    if (!batchFailure) return;
+    const diagnostic = getJournalBatchDiagnostic(batchFailure.batchId) ?? batchFailure;
+    const text = formatJournalBatchDiagnostic(diagnostic);
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand("copy");
+        textarea.remove();
+        if (!copied) throw new Error("JOURNAL_BATCH_DIAGNOSTIC_COPY_FAILED");
+      }
+      setBatchDiagnosticCopyState("copied");
+    } catch {
+      setBatchDiagnosticCopyState("error");
     }
   };
 
@@ -320,7 +368,17 @@ export function JournalHomePage() {
         </div>
       ) : null}
 
-      {error ? <div className="mt-4"><FormAlert>{error}</FormAlert></div> : null}
+      {error ? (
+        <div className="mt-4 space-y-2">
+          <FormAlert>{error}</FormAlert>
+          {batchFailure ? (
+            <Button type="button" variant="secondary" onClick={() => void copyBatchDiagnostic()}>
+              <Clipboard size={16} />
+              {batchDiagnosticCopyState === "copied" ? "진단 정보 복사됨" : batchDiagnosticCopyState === "error" ? "진단 정보 복사 실패" : "진단 정보 복사"}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
       {loading ? (
         <Card className="mt-5 flex min-h-64 items-center justify-center p-8"><div className="flex items-center gap-2 text-sm text-text-secondary"><LoaderCircle className="animate-spin" size={18} />명단 불러오는 중</div></Card>
       ) : roster.summary.total === 0 ? (

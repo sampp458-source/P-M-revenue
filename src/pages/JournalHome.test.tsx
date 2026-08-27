@@ -116,6 +116,59 @@ describe("Journal Home roster", () => {
     expect(mocks.downloadBatch.mock.calls[0][1]).toBe("2026-08-15");
   });
 
+  it.each(["RENDER", "ENCODE", "VALIDATION"] as const)(
+    "classifies an injected %s failure and exposes safe diagnostic copy",
+    async (stage) => {
+      const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: clipboard });
+      mocks.fetchRoster.mockResolvedValue(roster);
+      mocks.fetchEntry.mockResolvedValue(roster.entries[0]);
+      mocks.renderImage.mockImplementation(async (_viewModel, _format, onStage) => {
+        onStage?.({ stage, state: "START", canvasWidth: 1080, canvasHeight: 1440 });
+        throw new Error(`JOURNAL_${stage}_FAILED`);
+      });
+      render(<JournalHomePage />);
+      await screen.findByText("크리미");
+      fireEvent.click(screen.getByRole("button", { name: "2026-08-15 완료 일지 전체 저장" }));
+      expect(await screen.findByText("1번째 일지 이미지 생성 중 문제가 발생했습니다.")).not.toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "진단 정보 복사" }));
+      await waitFor(() => expect(clipboard.writeText).toHaveBeenCalledTimes(1));
+      const copied = clipboard.writeText.mock.calls[0][0] as string;
+      expect(copied).toContain(`FAILURE_STAGE: ${stage}`);
+      expect(copied).toContain("FAILURE_ENTRY_ID: entry-1");
+      expect(copied).toContain("FAILURE_DOG_ID: dog-1");
+      expect(copied).not.toContain("크리미");
+    },
+  );
+
+  it.each(["ZIP", "DOWNLOAD"] as const)("classifies an injected %s archive failure", async (stage) => {
+    mocks.fetchRoster.mockResolvedValue(roster);
+    mocks.fetchEntry.mockResolvedValue(roster.entries[0]);
+    mocks.renderImage.mockImplementation(async (_viewModel, _format, onStage) => {
+      onStage?.({ stage: "RENDER", state: "START" });
+      onStage?.({ stage: "RENDER", state: "ACK", canvasWidth: 1080, canvasHeight: 1440 });
+      onStage?.({ stage: "ENCODE", state: "START" });
+      onStage?.({ stage: "ENCODE", state: "ACK", encodedByteSize: 3 });
+      onStage?.({ stage: "VALIDATION", state: "START" });
+      onStage?.({ stage: "VALIDATION", state: "ACK", encodedByteSize: 3 });
+      return new Blob(["png"], { type: "image/png" });
+    });
+    mocks.downloadBatch.mockImplementation(async (_files, _date, onStage) => {
+      onStage?.({ stage: "ZIP", state: "START" });
+      if (stage === "ZIP") throw new Error("JOURNAL_ZIP_FAILED");
+      onStage?.({ stage: "ZIP", state: "ACK", encodedByteSize: 100 });
+      onStage?.({ stage: "DOWNLOAD", state: "START", encodedByteSize: 100 });
+      throw new Error("JOURNAL_DOWNLOAD_FAILED");
+    });
+    render(<JournalHomePage />);
+    await screen.findByText("크리미");
+    fireEvent.click(screen.getByRole("button", { name: "2026-08-15 완료 일지 전체 저장" }));
+    const message = stage === "ZIP"
+      ? "일지 파일 묶음을 만드는 중 문제가 발생했습니다."
+      : "일지 파일 다운로드를 준비하는 중 문제가 발생했습니다.";
+    expect(await screen.findByText(message)).not.toBeNull();
+  });
+
   it("disables batch export instead of creating an empty ZIP", async () => {
     mocks.fetchRoster.mockResolvedValue({ ...roster, journalDayId: null, defaults: { mannersActivityName: null, physicalActivityName: null, version: null }, summary: { total: 0, notStarted: 0, inProgress: 0, completed: 0 }, entries: [] });
     render(<JournalHomePage />);

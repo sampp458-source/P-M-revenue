@@ -5,6 +5,12 @@ export type JournalBatchFile = {
   blob: Blob;
 };
 
+export type JournalBatchArchiveObserver = (event: {
+  stage: "ZIP" | "DOWNLOAD";
+  state: "START" | "ACK";
+  encodedByteSize?: number;
+}) => void;
+
 const utf8 = new TextEncoder();
 const ZIP_UTF8_FLAG = 0x0800;
 const ZIP_STORE_METHOD = 0;
@@ -82,7 +88,9 @@ export async function createJournalBatchZip(files: JournalBatchFile[]) {
     local.view.setUint32(22, data.byteLength, true);
     local.view.setUint16(26, name.byteLength, true);
     local.view.setUint16(28, 0, true);
-    localParts.push(local.bytes, name, data);
+    // Retain the original Blob as the ZIP payload. The temporary Uint8Array is
+    // needed only for CRC calculation and is released before the next entry.
+    localParts.push(local.bytes, name, file.blob);
 
     const central = header(46);
     central.view.setUint32(0, 0x02014b50, true);
@@ -119,9 +127,17 @@ export async function createJournalBatchZip(files: JournalBatchFile[]) {
   return new Blob([...localParts, ...centralParts, end.bytes], { type: "application/zip" });
 }
 
-export async function downloadJournalBatchZip(files: JournalBatchFile[], businessDate: string) {
+export async function downloadJournalBatchZip(
+  files: JournalBatchFile[],
+  businessDate: string,
+  onStage?: JournalBatchArchiveObserver,
+) {
+  onStage?.({ stage: "ZIP", state: "START" });
   const blob = await createJournalBatchZip(files);
+  onStage?.({ stage: "ZIP", state: "ACK", encodedByteSize: blob.size });
   const filename = buildJournalBatchZipFilename(businessDate);
+  onStage?.({ stage: "DOWNLOAD", state: "START", encodedByteSize: blob.size });
   downloadJournalBlob(blob, filename);
+  onStage?.({ stage: "DOWNLOAD", state: "ACK", encodedByteSize: blob.size });
   return { blob, filename };
 }

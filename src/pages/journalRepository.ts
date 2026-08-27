@@ -5,6 +5,7 @@ import {
   journalPersistenceErrorFromUnknown,
   type JournalPersistenceContext,
 } from "./journalPersistenceDiagnostics";
+import { normalizeJournalTeacherComment } from "./journalTextNormalization";
 
 export type JournalStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
 export type JournalCondition = "active" | "calm" | "tired" | "sensitive";
@@ -216,7 +217,7 @@ export function updateJournalEntryDraft(
     p_manners_evaluation: draft.mannersEvaluation,
     p_physical_activity_name: draft.physicalActivityName || null,
     p_physical_evaluation: draft.physicalEvaluation,
-    p_teacher_comment: draft.teacherComment || null,
+    p_teacher_comment: normalizeJournalTeacherComment(draft.teacherComment) || null,
     p_request_id: requestId,
   }, signal, persistenceContext);
 }

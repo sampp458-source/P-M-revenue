@@ -88,7 +88,7 @@ describe("Journal Canvas renderer contract", () => {
     ].map((file) => readFileSync(new URL(file, import.meta.url), "utf8")).join("\n");
     expect(sources).not.toMatch(/html-to-image|foreignObject|cloneNode\(|journal-canonical-export-source|journal-export-template|journal-batch-export-template/);
     expect(sources).toContain("renderJournalReportToCanvas");
-    expect(sources).toContain("renderJournalImageBlob(viewModel, \"png\")");
+    expect(sources).toContain("renderJournalImageBlob(viewModel, \"png\",");
     expect(sources).toContain("actualBoundingBoxAscent");
     expect(sources).toContain("JOURNAL_EXPORT_ENCODED_VISUAL_MISSING");
   });

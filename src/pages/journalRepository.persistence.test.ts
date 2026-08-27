@@ -66,4 +66,16 @@ describe("Journal update persistence metadata", () => {
     const aborted = updateJournalEntryDraft("entry-1", 1, draft, "request-abort", new AbortController().signal);
     await expect(aborted).rejects.toMatchObject({ name: "JournalPersistenceError", kind: "ABORT", isAbort: true });
   });
+
+  it("normalizes teacher comment text at the persistence boundary", async () => {
+    const abortSignal = vi.fn().mockResolvedValue({ data: { id: "entry-1" }, status: 200, error: null });
+    mocks.rpc.mockReturnValue({ abortSignal });
+    await updateJournalEntryDraft("entry-1", 1, {
+      ...draft,
+      teacherComment: "가을\r\n안녕\u00a0친구\ufeff\u200e 👨‍👩‍👧‍👦",
+    }, "request-normalize", new AbortController().signal);
+    expect(mocks.rpc).toHaveBeenCalledWith("update_journal_entry_draft", expect.objectContaining({
+      p_teacher_comment: "가을\n안녕 친구 👨‍👩‍👧‍👦",
+    }));
+  });
 });

@@ -14,6 +14,7 @@ import { journalDeleteConfirmationDetail } from "./journalDeletePresentation";
 import { exportJournalImage, type JournalExportFormat } from "./journalExport";
 import { JournalReportPreview } from "./JournalReportTemplate";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
+import { normalizeJournalTeacherComment } from "./journalTextNormalization";
 import {
   completeJournalEntry,
   fetchJournalEntry,
@@ -361,7 +362,7 @@ export function JournalEditor({
         <ActivitySection title="체육" activity={draft.physicalActivityName} evaluation={draft.physicalEvaluation} options={physicalOptions} onActivity={(physicalActivityName) => update((current) => ({ ...current, physicalActivityName }))} onEvaluation={(physicalEvaluation) => update((current) => ({ ...current, physicalEvaluation }))} />
 
         <EditorSection title="선생님의 한마디" description="작성 완료를 위해 한마디를 입력해 주세요.">
-          <Textarea aria-label="선생님의 한마디" rows={6} maxLength={JOURNAL_COMMENT_MAX_LENGTH} value={draft.teacherComment} onChange={(event) => update((current) => ({ ...current, teacherComment: event.target.value }))} placeholder="오늘 하루의 특별한 모습을 기록해 주세요." className="min-h-36 resize-y" />
+          <Textarea aria-label="선생님의 한마디" rows={6} maxLength={JOURNAL_COMMENT_MAX_LENGTH} value={draft.teacherComment} onChange={(event) => update((current) => ({ ...current, teacherComment: normalizeJournalTeacherComment(event.target.value) }))} placeholder="오늘 하루의 특별한 모습을 기록해 주세요." className="min-h-36 resize-y" />
           <p className="mt-2 text-right text-xs tabular-nums text-text-muted">{draft.teacherComment.length} / {JOURNAL_COMMENT_MAX_LENGTH}</p>
         </EditorSection>
           </fieldset>

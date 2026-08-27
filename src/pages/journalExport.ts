@@ -3,6 +3,14 @@ import { buildJournalReportScene, JOURNAL_REPORT_HEIGHT, JOURNAL_REPORT_WIDTH } 
 import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
 
 export type JournalExportFormat = "png" | "jpg";
+export type JournalImageRenderStage = "RENDER" | "ENCODE" | "VALIDATION";
+export type JournalImageRenderObserver = (event: {
+  stage: JournalImageRenderStage;
+  state: "START" | "ACK";
+  canvasWidth?: number;
+  canvasHeight?: number;
+  encodedByteSize?: number;
+}) => void;
 
 export const JOURNAL_EXPORT_WIDTH = JOURNAL_REPORT_WIDTH;
 export const JOURNAL_EXPORT_HEIGHT = JOURNAL_REPORT_HEIGHT;
@@ -41,27 +49,47 @@ function canvasToBlob(canvas: HTMLCanvasElement, format: JournalExportFormat) {
   });
 }
 
-export async function renderJournalImageBlob(viewModel: JournalPreviewViewModel, format: JournalExportFormat) {
+export async function renderJournalImageBlob(
+  viewModel: JournalPreviewViewModel,
+  format: JournalExportFormat,
+  onStage?: JournalImageRenderObserver,
+) {
   return runSerializedExport(async () => {
     const scene = buildJournalReportScene(viewModel);
-    const { canvas, metrics } = await renderJournalReportToCanvas(scene);
-    if (canvas.width !== JOURNAL_EXPORT_WIDTH || canvas.height !== JOURNAL_EXPORT_HEIGHT) {
-      throw new Error("JOURNAL_EXPORT_SIZE_MISMATCH");
+    let canvas: HTMLCanvasElement | null = null;
+    try {
+      onStage?.({ stage: "RENDER", state: "START" });
+      const rendered = await renderJournalReportToCanvas(scene);
+      canvas = rendered.canvas;
+      const { metrics } = rendered;
+      if (canvas.width !== JOURNAL_EXPORT_WIDTH || canvas.height !== JOURNAL_EXPORT_HEIGHT) {
+        throw new Error("JOURNAL_EXPORT_SIZE_MISMATCH");
+      }
+      if (metrics.verifiedAssetSlots !== metrics.requiredAssetSlots || metrics.requiredAssetSlots !== 7) {
+        throw new Error("JOURNAL_EXPORT_ASSET_PIXEL_VALIDATION_FAILED");
+      }
+      if (metrics.verifiedVisualElements !== metrics.requiredVisualElements || metrics.requiredVisualElements <= 0) {
+        throw new Error("JOURNAL_EXPORT_VISUAL_COMPLETENESS_FAILED");
+      }
+      if (metrics.verifiedTextLandmarks !== metrics.requiredTextLandmarks || metrics.requiredTextLandmarks <= 0) {
+        throw new Error("JOURNAL_EXPORT_TEXT_LANDMARKS_MISSING");
+      }
+      onStage?.({ stage: "RENDER", state: "ACK", canvasWidth: canvas.width, canvasHeight: canvas.height });
+
+      onStage?.({ stage: "ENCODE", state: "START", canvasWidth: canvas.width, canvasHeight: canvas.height });
+      const blob = await canvasToBlob(canvas, format);
+      onStage?.({ stage: "ENCODE", state: "ACK", canvasWidth: canvas.width, canvasHeight: canvas.height, encodedByteSize: blob.size });
+
+      onStage?.({ stage: "VALIDATION", state: "START", canvasWidth: canvas.width, canvasHeight: canvas.height, encodedByteSize: blob.size });
+      await validateJournalEncodedBlob(blob, scene, metrics);
+      onStage?.({ stage: "VALIDATION", state: "ACK", canvasWidth: canvas.width, canvasHeight: canvas.height, encodedByteSize: blob.size });
+      return blob;
+    } finally {
+      if (canvas) {
+        canvas.width = 1;
+        canvas.height = 1;
+      }
     }
-    if (metrics.verifiedAssetSlots !== metrics.requiredAssetSlots || metrics.requiredAssetSlots !== 7) {
-      throw new Error("JOURNAL_EXPORT_ASSET_PIXEL_VALIDATION_FAILED");
-    }
-    if (metrics.verifiedVisualElements !== metrics.requiredVisualElements || metrics.requiredVisualElements <= 0) {
-      throw new Error("JOURNAL_EXPORT_VISUAL_COMPLETENESS_FAILED");
-    }
-    if (metrics.verifiedTextLandmarks !== metrics.requiredTextLandmarks || metrics.requiredTextLandmarks <= 0) {
-      throw new Error("JOURNAL_EXPORT_TEXT_LANDMARKS_MISSING");
-    }
-    const blob = await canvasToBlob(canvas, format);
-    await validateJournalEncodedBlob(blob, scene, metrics);
-    canvas.width = 1;
-    canvas.height = 1;
-    return blob;
   });
 }
 
@@ -73,9 +101,12 @@ export function downloadJournalBlob(blob: Blob, filename: string) {
   anchor.rel = "noopener";
   anchor.style.display = "none";
   document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
+  try {
+    anchor.click();
+  } finally {
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
+  }
 }
 
 export async function exportJournalImage(viewModel: JournalPreviewViewModel, format: JournalExportFormat) {

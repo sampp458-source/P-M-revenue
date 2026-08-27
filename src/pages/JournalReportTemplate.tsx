@@ -243,7 +243,8 @@ function ActivityCard({ activity, icon, paletteName, motif }: { activity: Journa
 }
 
 function TeacherComment({ comment }: { comment: string }) {
-  const density = commentDensity(comment);
+  const typography = journalCommentTypography(comment.length);
+  const density = typography.density;
   const characterClass = density === "minimum-safe" ? "h-[80px] w-[72px] opacity-70" : density === "compact" ? "h-[98px] w-[90px] opacity-80" : density === "standard" ? "h-[124px] w-[112px] opacity-90" : density === "large" ? "h-[160px] w-[145px]" : "h-[174px] w-[158px]";
   const textInset = density === "minimum-safe" ? "pr-[78px]" : density === "compact" ? "pr-[98px]" : density === "standard" ? "pr-[120px]" : density === "large" ? "pr-[154px]" : "pr-[166px]";
   return (
@@ -252,7 +253,7 @@ function TeacherComment({ comment }: { comment: string }) {
       <JournalCharacter name="dogAHeartLetter" className={`absolute bottom-[7px] right-[11px] object-contain object-bottom ${characterClass}`} />
       <h2 aria-label="선생님의 한마디" className="relative mb-[8px] flex items-center gap-[10px] text-[27px] font-black tracking-[-0.025em] text-[#2f6284]" style={{ fontSize: JOURNAL_REPORT_TYPOGRAPHY.commentHeading.size, lineHeight: `${JOURNAL_REPORT_TYPOGRAPHY.commentHeading.lineHeight}px`, letterSpacing: JOURNAL_REPORT_TYPOGRAPHY.commentHeading.letterSpacing }}><span className="flex h-[40px] w-[40px] items-center justify-center rounded-[15px_20px_14px_21px] bg-[#ffe9ed] text-[#ff7f82]"><MessageCircleHeart size={27} /></span>선생님의 한마디</h2>
       <span className="absolute left-[30px] top-[61px] text-[50px] font-black leading-none text-[#ffb8bc]/58">“</span>
-      <p data-testid="journal-report-comment" data-comment-density={density} className={`${commentClass(comment)} ${textInset} relative h-[calc(100%-48px)] whitespace-pre-wrap break-words pl-[27px] font-normal tracking-[-0.01em] text-[#25384a]`}>{comment}</p>
+      <p data-testid="journal-report-comment" data-comment-density={density} className={`${textInset} relative h-[calc(100%-48px)] whitespace-pre-wrap break-words pl-[27px] font-normal tracking-[-0.01em] text-[#25384a]`} style={{ fontSize: `${typography.size}px`, lineHeight: typography.lineHeight }}>{comment}</p>
     </section>
   );
 }
@@ -342,19 +343,6 @@ function JournalCharacter({ name, className = "" }: { name: JournalCharacterName
 function JournalSectionIllustration({ name, className = "" }: { name: JournalSectionIllustrationName; className?: string }) {
   const sources = useContext(JournalAssetSourceContext);
   return <img data-testid={`journal-section-illustration-${name}`} data-journal-asset={sectionAssetId[name]} src={sources[sectionAssetId[name]]} alt="" aria-hidden="true" draggable={false} className={`pointer-events-none object-contain ${className}`} onError={(event) => { event.currentTarget.style.visibility = "hidden"; }} />;
-}
-
-function commentDensity(comment: string) {
-  return journalCommentTypography(comment.length).density;
-}
-
-function commentClass(comment: string) {
-  const density = commentDensity(comment);
-  if (density === "hero") return "text-[34px] leading-[1.58]";
-  if (density === "large") return "text-[29px] leading-[1.52]";
-  if (density === "standard") return "text-[24px] leading-[1.45]";
-  if (density === "compact") return "text-[21px] leading-[1.38]";
-  return "text-[19px] leading-[1.32]";
 }
 
 function bestFriendNameClass(name: string) {

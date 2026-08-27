@@ -90,11 +90,28 @@ export function buildJournalReportScene(viewModel: JournalPreviewViewModel): Jou
 }
 
 export function journalCommentTypography(length: number) {
-  if (length <= 120) return { density: "hero", size: 34, lineHeight: 1.58 } as const;
-  if (length <= 220) return { density: "large", size: 29, lineHeight: 1.52 } as const;
-  if (length <= 320) return { density: "standard", size: 24, lineHeight: 1.45 } as const;
-  if (length <= 420) return { density: "compact", size: 21, lineHeight: 1.38 } as const;
-  return { density: "minimum-safe", size: 19, lineHeight: 1.32 } as const;
+  const bands = [
+    { limit: 120, density: "hero", size: 34, lineHeight: 1.58 },
+    { limit: 220, density: "large", size: 28, lineHeight: 1.5 },
+    { limit: 320, density: "standard", size: 23, lineHeight: 1.42 },
+    { limit: 420, density: "compact", size: 20.5, lineHeight: 1.36 },
+    { limit: 500, density: "minimum-safe", size: 19, lineHeight: 1.32 },
+  ] as const;
+  const bandIndex = bands.findIndex((band) => length <= band.limit);
+  const resolvedIndex = bandIndex === -1 ? bands.length - 1 : bandIndex;
+  const band = bands[resolvedIndex];
+  if (resolvedIndex === bands.length - 1 && length > bands[bands.length - 2].limit) {
+    return { density: band.density, size: band.size, lineHeight: band.lineHeight };
+  }
+  const next = bands[resolvedIndex + 1];
+  const transitionStart = band.limit - 29;
+  if (!next || length < transitionStart) return band;
+  const progress = Math.min(1, Math.max(0, (length - transitionStart) / (band.limit - transitionStart)));
+  return {
+    density: band.density,
+    size: Math.round((band.size + (next.size - band.size) * progress) * 100) / 100,
+    lineHeight: Math.round((band.lineHeight + (next.lineHeight - band.lineHeight) * progress) * 1000) / 1000,
+  };
 }
 
 export function journalDogNameFontSize(length: number) {

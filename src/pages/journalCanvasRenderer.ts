@@ -32,6 +32,16 @@ export type JournalCanvasRenderMetrics = {
 type LoadedAssets = Record<JournalAssetSourceId, HTMLImageElement>;
 type LucideNode = { path?: string; circle?: [number, number, number] };
 
+export const JOURNAL_BINARY_OPTION_GEOMETRY = {
+  areaWidth: 104,
+  columnGap: 6,
+  circleDiameter: 20,
+  markCenterOffset: 10,
+  labelOffset: 28,
+  labelFontSize: 18,
+  selectedWeight: 900,
+} as const;
+
 const ICONS = {
   sparkles: [
     { path: "M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z" },
@@ -249,6 +259,42 @@ function drawOptionGrid(context: CanvasRenderingContext2D, options: JournalPrevi
   });
 }
 
+function drawBinaryOptionGrid(context: CanvasRenderingContext2D, options: JournalPreviewOption[], area: JournalSceneRect, family: string, highlight: string) {
+  const geometry = JOURNAL_BINARY_OPTION_GEOMETRY;
+  const cellWidth = (area.width - geometry.columnGap) / 2;
+  options.forEach((option, index) => {
+    const rect = { x: area.x + index * (cellWidth + geometry.columnGap), y: area.y, width: cellWidth, height: area.height };
+    if (option.selected) drawSelectedBrush(context, rect, highlight, index);
+    const markX = rect.x + geometry.markCenterOffset;
+    const markY = rect.y + rect.height / 2;
+    context.save();
+    context.translate(markX, markY);
+    context.rotate(([-7, 4][index % 2] * Math.PI) / 180);
+    context.strokeStyle = option.selected ? "#ff9da2" : "#aebdc8";
+    context.lineWidth = option.selected ? 2 : 1.5;
+    const radius = geometry.circleDiameter / 2;
+    roundRect(context, { x: -radius, y: -radius, width: geometry.circleDiameter, height: geometry.circleDiameter }, radius - 1);
+    context.stroke();
+    if (option.selected) {
+      context.strokeStyle = "#ff646a";
+      context.lineWidth = 3;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.rotate(-4 * Math.PI / 180);
+      context.beginPath();
+      context.moveTo(-5, 0);
+      context.lineTo(-1, 4);
+      context.lineTo(6, -5);
+      context.stroke();
+    }
+    context.restore();
+    setFont(context, geometry.labelFontSize, option.selected ? geometry.selectedWeight : 600, family);
+    context.fillStyle = option.selected ? "#25384a" : "#667786";
+    // O/X must retain its natural glyph aspect ratio. Do not pass maxWidth.
+    drawTextAtVisualCenter(context, option.label, rect.x + geometry.labelOffset, rect.y + rect.height / 2, "left");
+  });
+}
+
 function drawRelationshipOptions(context: CanvasRenderingContext2D, options: JournalPreviewOption[], x: number, y: number, width: number, family: string, highlight: string) {
   options.forEach((option, index) => drawOptionCell(context, option, { x, y: y + index * 32, width, height: 31 }, family, highlight, true, index));
 }
@@ -297,10 +343,10 @@ function renderScene(context: CanvasRenderingContext2D, scene: JournalReportScen
   drawDottedDivider(context, 493, 319, 104, colors.green.border);
   textLandmarks["toilet-heading"] = drawHeading(context, "배변 상태", 523, 301, colors.green.accent, family, ICONS.flower, "toilet-icon");
   const small = JOURNAL_REPORT_TYPOGRAPHY.smallLabel; setFont(context, small.size, small.weight, family); context.fillStyle = "#52697c";
-  drawTextAtVisualCenter(context, "소변", 523, 353.25, "left"); drawTextAtVisualCenter(context, "대변", 617.34, 353.25, "left"); drawTextAtVisualCenter(context, "대변 상태", 711.7, 353.25, "left");
-  drawOptionGrid(context, vm.urinationOptions, { x: 523, y: 366, width: 86.34, height: 31 }, 2, family, colors.green.highlight, true);
-  drawOptionGrid(context, vm.defecationOptions, { x: 617.34, y: 366, width: 86.35, height: 31 }, 2, family, colors.green.highlight, true);
-  drawOptionGrid(context, vm.stoolOptions, { x: 711.7, y: 366, width: 298.3, height: 64 }, 2, family, colors.green.highlight, true);
+  drawTextAtVisualCenter(context, "소변", 523, 353.25, "left"); drawTextAtVisualCenter(context, "대변", 635, 353.25, "left"); drawTextAtVisualCenter(context, "대변 상태", 747, 353.25, "left");
+  drawBinaryOptionGrid(context, vm.urinationOptions, { x: 523, y: 366, width: 104, height: 31 }, family, colors.green.highlight);
+  drawBinaryOptionGrid(context, vm.defecationOptions, { x: 635, y: 366, width: 104, height: 31 }, family, colors.green.highlight);
+  drawOptionGrid(context, vm.stoolOptions, { x: 747, y: 366, width: 263, height: 64 }, 2, family, colors.green.highlight, true);
 
   const meal = { x: 55, y: 475, width: 351, height: 206 }; fillRounded(context, meal, 38, colors.amber.surface);
   context.globalAlpha = 0.38; fillRounded(context, { x: 47, y: 492, width: 116, height: 132 }, 55, colors.amber.highlight); context.globalAlpha = 1;
@@ -385,10 +431,12 @@ async function decodeJournalBlob(blob: Blob) {
 
 export async function validateJournalEncodedBlob(blob: Blob, scene: JournalReportScene, metrics: JournalCanvasRenderMetrics) {
   const decoded = await decodeJournalBlob(blob);
-  if (decoded.width !== scene.width || decoded.height !== scene.height) { if ("close" in decoded && typeof decoded.close === "function") decoded.close(); throw new Error("JOURNAL_EXPORT_DECODE_SIZE_MISMATCH"); }
   const canvas = document.createElement("canvas"); canvas.width = scene.width; canvas.height = scene.height;
-  const context = canvas.getContext("2d", { alpha: false, willReadFrequently: true }); if (!context) throw new Error("JOURNAL_EXPORT_VALIDATION_CONTEXT_UNAVAILABLE"); context.drawImage(decoded, 0, 0);
   try {
+    if (decoded.width !== scene.width || decoded.height !== scene.height) throw new Error("JOURNAL_EXPORT_DECODE_SIZE_MISMATCH");
+    const context = canvas.getContext("2d", { alpha: false, willReadFrequently: true });
+    if (!context) throw new Error("JOURNAL_EXPORT_VALIDATION_CONTEXT_UNAVAILABLE");
+    context.drawImage(decoded, 0, 0);
     JOURNAL_REQUIRED_ASSET_IDS.forEach((id) => {
       const expected = metrics.assetFingerprints[id]; if (!expected) throw new Error(`JOURNAL_EXPORT_ENCODED_ASSET_MISSING:${id}`);
       const tolerance = blob.type === "image/jpeg" ? 20 : 5;
@@ -399,22 +447,33 @@ export async function validateJournalEncodedBlob(blob: Blob, scene: JournalRepor
       const tolerance = blob.type === "image/jpeg" ? 20 : 5;
       if (fingerprintDistance(expected, regionSignature(context, JOURNAL_REPORT_VISUAL_REGIONS[id]).fingerprint) > tolerance) throw new Error(`JOURNAL_EXPORT_ENCODED_VISUAL_MISSING:${id}`);
     });
-  } finally { if ("close" in decoded && typeof decoded.close === "function") decoded.close(); canvas.width = 1; canvas.height = 1; }
+  } finally {
+    if ("close" in decoded && typeof decoded.close === "function") decoded.close();
+    else if ("src" in decoded) decoded.src = "";
+    canvas.width = 1;
+    canvas.height = 1;
+  }
 }
 
 export async function renderJournalReportToCanvas(scene: JournalReportScene, sources: JournalAssetSourceMap = JOURNAL_CANVAS_ASSET_SOURCES) {
   await waitForJournalCanvasFonts(scene.fontFamily); const assets = await loadJournalCanvasAssets(sources);
   const canvas = document.createElement("canvas"); canvas.width = scene.width; canvas.height = scene.height;
-  const context = canvas.getContext("2d", { alpha: false, willReadFrequently: true }); if (!context) throw new Error("JOURNAL_CANVAS_CONTEXT_UNAVAILABLE");
-  context.imageSmoothingEnabled = true; context.imageSmoothingQuality = "high";
-  const { assetFingerprints, visualFingerprints, textLandmarks } = renderScene(context, scene, assets);
-  const metrics: JournalCanvasRenderMetrics = {
-    width: canvas.width, height: canvas.height,
-    requiredAssetSlots: JOURNAL_REQUIRED_ASSET_IDS.length, verifiedAssetSlots: Object.keys(assetFingerprints).length,
-    requiredVisualElements: JOURNAL_REQUIRED_VISUAL_ELEMENT_IDS.length, verifiedVisualElements: Object.keys(visualFingerprints).length,
-    requiredTextLandmarks: JOURNAL_REQUIRED_TEXT_LANDMARK_IDS.length, verifiedTextLandmarks: Object.keys(textLandmarks).length,
-    assetFingerprints, visualFingerprints, textLandmarks,
-  };
-  if (metrics.verifiedAssetSlots !== metrics.requiredAssetSlots || metrics.verifiedVisualElements !== metrics.requiredVisualElements || metrics.verifiedTextLandmarks !== metrics.requiredTextLandmarks) throw new Error("JOURNAL_CANVAS_VISUAL_COMPLETENESS_FAILED");
-  return { canvas, metrics };
+  try {
+    const context = canvas.getContext("2d", { alpha: false, willReadFrequently: true }); if (!context) throw new Error("JOURNAL_CANVAS_CONTEXT_UNAVAILABLE");
+    context.imageSmoothingEnabled = true; context.imageSmoothingQuality = "high";
+    const { assetFingerprints, visualFingerprints, textLandmarks } = renderScene(context, scene, assets);
+    const metrics: JournalCanvasRenderMetrics = {
+      width: canvas.width, height: canvas.height,
+      requiredAssetSlots: JOURNAL_REQUIRED_ASSET_IDS.length, verifiedAssetSlots: Object.keys(assetFingerprints).length,
+      requiredVisualElements: JOURNAL_REQUIRED_VISUAL_ELEMENT_IDS.length, verifiedVisualElements: Object.keys(visualFingerprints).length,
+      requiredTextLandmarks: JOURNAL_REQUIRED_TEXT_LANDMARK_IDS.length, verifiedTextLandmarks: Object.keys(textLandmarks).length,
+      assetFingerprints, visualFingerprints, textLandmarks,
+    };
+    if (metrics.verifiedAssetSlots !== metrics.requiredAssetSlots || metrics.verifiedVisualElements !== metrics.requiredVisualElements || metrics.verifiedTextLandmarks !== metrics.requiredTextLandmarks) throw new Error("JOURNAL_CANVAS_VISUAL_COMPLETENESS_FAILED");
+    return { canvas, metrics };
+  } catch (error) {
+    canvas.width = 1;
+    canvas.height = 1;
+    throw error;
+  }
 }
