@@ -324,8 +324,8 @@ export function JournalEditor({
   if (loading) return <Card className="flex min-h-72 items-center justify-center"><LoaderCircle className="animate-spin text-primary" /></Card>;
 
   return (
-    <section className="mx-auto max-w-[1520px] overflow-x-hidden pb-24 xl:h-[calc(100dvh-110px)] xl:pb-0" aria-label={`${entry.dog.name} 일지 편집기`}>
-      <div className="flex min-h-0 flex-col gap-3 xl:grid xl:h-full xl:grid-cols-[minmax(0,1.42fr)_minmax(400px,1fr)] xl:items-stretch xl:gap-5 2xl:grid-cols-[minmax(0,1.36fr)_minmax(440px,1fr)] 2xl:gap-6">
+    <section className="mx-auto max-w-[1600px] overflow-x-hidden pb-24 xl:h-[calc(100dvh-110px)] xl:pb-0" aria-label={`${entry.dog.name} 일지 편집기`}>
+      <div className="flex min-h-0 flex-col gap-3 xl:grid xl:h-full xl:grid-cols-[minmax(0,1.2fr)_minmax(420px,1fr)] xl:items-stretch xl:gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(480px,1fr)] 2xl:gap-5">
         <div className="journal-editor-form-scrollbar order-3 min-w-0 xl:order-none xl:h-full xl:overflow-y-auto xl:overscroll-contain xl:pb-8 xl:pr-1.5" data-testid="journal-editor-form-scroll">
           <fieldset disabled={completing || deleting} className="space-y-3 disabled:opacity-70">
         <EditorSection title="컨디션" description="하나 이상 선택해 주세요.">
@@ -367,9 +367,9 @@ export function JournalEditor({
           </fieldset>
         </div>
 
-        <aside className="journal-editor-control-panel contents xl:sticky xl:top-[78px] xl:grid xl:h-full xl:min-h-0 xl:grid-rows-[auto_auto_auto_minmax(0,1fr)_auto] xl:gap-2 xl:overflow-hidden xl:rounded-2xl" aria-label={`${previewViewModel.dogName} 일지 작업 패널`} data-testid="journal-editor-control-panel">
+        <aside className="journal-editor-control-panel contents xl:sticky xl:top-[78px] xl:grid xl:h-full xl:min-h-0 xl:grid-rows-[auto_auto_minmax(0,1fr)_auto] xl:gap-0.5 xl:overflow-hidden xl:rounded-2xl" aria-label={`${previewViewModel.dogName} 일지 작업 패널`} data-testid="journal-editor-control-panel">
           <header className="order-1 rounded-2xl border border-border bg-surface p-3 shadow-sm sm:p-4 xl:order-none xl:px-3 xl:py-0.5">
-            <div className="flex min-h-11 items-center gap-3 xl:min-h-9 xl:gap-2.5">
+            <div className="flex min-h-11 items-center gap-3 xl:min-h-9 xl:gap-2.5 xl:pr-44">
               <button type="button" aria-busy={navigationIntent === "list"} disabled={completing || deleting} onClick={() => void close()} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-text-secondary hover:bg-primary-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 xl:min-h-9 xl:py-1">{navigationIntent === "list" ? <LoaderCircle className="animate-spin" size={18} /> : <ArrowLeft size={18} />}목록</button>
               <div className="min-w-0 flex-1 border-l border-border pl-3">
                 <h1 className="truncate text-lg font-bold text-text-primary sm:text-xl">{entry.dog.name}</h1>
@@ -411,11 +411,11 @@ export function JournalEditor({
           ) : null}
           </div>
 
-          <div className="order-4 xl:order-none">
+          <div className="order-4 xl:absolute xl:right-3 xl:top-1 xl:z-10" data-testid="journal-editor-navigation-export">
             <div className="mb-2 xl:hidden">
               <Button type="button" variant="secondary" className="w-full" onClick={() => setPreviewOpen(true)}><Eye size={17} />미리보기</Button>
             </div>
-            <JournalExportActions ready exporting={exporting} error={exportError} onExport={exportImage} compactDesktop />
+            <JournalExportActions ready exporting={exporting} error={exportError} onExport={exportImage} navigationDesktop />
           </div>
 
           <DesktopJournalPreview viewModel={previewViewModel} />
@@ -471,7 +471,8 @@ function DesktopJournalPreview({ viewModel }: { viewModel: ReturnType<typeof bui
     const viewport = viewportRef.current;
     if (!viewport) return;
     const update = () => {
-      const width = Math.min(viewport.clientWidth, viewport.clientHeight * 0.75);
+      const frameInset = 8;
+      const width = Math.min(viewport.clientWidth - frameInset, (viewport.clientHeight - frameInset) * 0.75);
       setPreviewWidth(width > 0 ? width : null);
     };
     update();
@@ -482,9 +483,9 @@ function DesktopJournalPreview({ viewModel }: { viewModel: ReturnType<typeof bui
   }, []);
 
   return (
-    <div ref={viewportRef} className="journal-editor-preview-stage order-5 hidden min-h-0 items-center justify-center overflow-hidden xl:order-none xl:flex xl:rounded-xl" aria-label={`${viewModel.dogName} 결과 미리보기`} data-testid="journal-editor-preview-viewport">
-      <div className="w-full max-w-full" style={previewWidth ? { width: `${previewWidth}px` } : undefined}>
-        <JournalReportPreview viewModel={viewModel} className="rounded-2xl bg-[#fffcf8] shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
+    <div ref={viewportRef} className="journal-editor-preview-stage order-5 hidden min-h-0 items-center justify-center overflow-hidden xl:order-none xl:flex" aria-label={`${viewModel.dogName} 결과 미리보기`} data-testid="journal-editor-preview-viewport">
+      <div className="journal-editor-preview-frame max-w-full rounded-2xl p-1" style={previewWidth ? { width: `${previewWidth + 8}px` } : undefined} data-testid="journal-editor-preview-frame">
+        <JournalReportPreview viewModel={viewModel} className="w-full rounded-xl bg-[#fffcf8] shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
       </div>
     </div>
   );
@@ -495,27 +496,29 @@ function JournalExportActions({
   exporting,
   error,
   onExport,
-  compactDesktop = false,
+  navigationDesktop = false,
 }: {
   ready: boolean;
   exporting: JournalExportFormat | null;
   error: string;
   onExport: (format: JournalExportFormat) => Promise<void>;
-  compactDesktop?: boolean;
+  navigationDesktop?: boolean;
 }) {
   return (
-    <div className={`mb-3 rounded-xl border border-border bg-surface p-2.5 ${compactDesktop ? "xl:mb-0 xl:p-1.5" : ""}`} aria-label="일지 이미지 저장">
-      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-        <Button type="button" className="min-h-11 min-w-32" disabled={!ready || exporting !== null} onClick={() => void onExport("png")}>
+    <div className={navigationDesktop ? "mb-3 rounded-xl border border-border bg-surface p-2.5 xl:mb-0 xl:border-0 xl:bg-transparent xl:p-0" : "mb-3 rounded-xl border border-border bg-surface p-2.5"} aria-label="일지 이미지 저장">
+      <div className={`flex min-w-0 flex-wrap items-center justify-end ${navigationDesktop ? "gap-2 xl:gap-1" : "gap-2"}`}>
+        <Button type="button" aria-label={exporting === "png" ? "이미지 만드는 중..." : "PNG 저장"} className={navigationDesktop ? "min-h-11 min-w-32 xl:min-w-20 xl:px-2 xl:text-xs" : "min-h-11 min-w-32"} disabled={!ready || exporting !== null} onClick={() => void onExport("png")}>
           {exporting === "png" ? <LoaderCircle className="animate-spin" size={17} /> : <Download size={17} />}
-          {exporting === "png" ? "이미지 만드는 중..." : "PNG 저장"}
+          <span className="xl:hidden">{exporting === "png" ? "이미지 만드는 중..." : "PNG 저장"}</span>
+          <span className="hidden xl:inline">PNG</span>
         </Button>
-        <Button type="button" variant="secondary" className="min-h-11 min-w-28" disabled={!ready || exporting !== null} onClick={() => void onExport("jpg")}>
+        <Button type="button" aria-label={exporting === "jpg" ? "이미지 만드는 중..." : "JPG 저장"} variant="secondary" className={navigationDesktop ? "min-h-11 min-w-28 xl:min-w-20 xl:px-2 xl:text-xs" : "min-h-11 min-w-28"} disabled={!ready || exporting !== null} onClick={() => void onExport("jpg")}>
           {exporting === "jpg" ? <LoaderCircle className="animate-spin" size={17} /> : <Image size={17} />}
-          {exporting === "jpg" ? "이미지 만드는 중..." : "JPG 저장"}
+          <span className="xl:hidden">{exporting === "jpg" ? "이미지 만드는 중..." : "JPG 저장"}</span>
+          <span className="hidden xl:inline">JPG</span>
         </Button>
       </div>
-      {error ? <p role="alert" className="mt-2 text-sm text-error">{error}</p> : null}
+      {error ? <p role="alert" className={navigationDesktop ? "mt-2 text-sm text-error xl:absolute xl:right-0 xl:top-full xl:w-64 xl:rounded-xl xl:border xl:border-error/30 xl:bg-surface xl:p-2 xl:shadow-lg" : "mt-2 text-sm text-error"}>{error}</p> : null}
     </div>
   );
 }

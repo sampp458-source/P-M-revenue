@@ -51,6 +51,9 @@ input[type="number"], input[type="date"], .tabular-nums { font-variant-numeric: 
     background: #fff !important;
   }
   .journal-editor-preview-stage {
+    background: transparent;
+  }
+  .journal-editor-preview-frame {
     background: #1e3a5f;
   }
   .journal-editor-form-scrollbar {
