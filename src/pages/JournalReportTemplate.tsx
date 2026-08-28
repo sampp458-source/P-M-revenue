@@ -32,11 +32,13 @@ export function JournalReportTemplate({
   reportRef,
   testId = "journal-report-template",
   assetSources = JOURNAL_BUNDLED_ASSET_SOURCES,
+  teacherCommentFontFamily = JOURNAL_REPORT_FONT_FAMILY,
 }: {
   viewModel: JournalPreviewViewModel;
   reportRef?: Ref<HTMLElement>;
   testId?: string;
   assetSources?: JournalAssetSourceMap;
+  teacherCommentFontFamily?: string;
 }) {
   return (
     <JournalAssetSourceContext.Provider value={assetSources}>
@@ -77,7 +79,7 @@ export function JournalReportTemplate({
             <ActivityCard activity={viewModel.physical} icon={<Dumbbell size={25} />} paletteName="green" motif="movement" />
           </div>
 
-          <TeacherComment comment={viewModel.teacherComment} />
+          <TeacherComment comment={viewModel.teacherComment} fontFamily={teacherCommentFontFamily} />
         </main>
       </article>
     </JournalAssetSourceContext.Provider>
@@ -124,7 +126,7 @@ function MealRelationshipComposition({ viewModel }: { viewModel: JournalPreviewV
   );
 }
 
-export function JournalReportPreview({ viewModel, className = "" }: { viewModel: JournalPreviewViewModel; className?: string }) {
+export function JournalReportPreview({ viewModel, className = "", teacherCommentFontFamily = JOURNAL_REPORT_FONT_FAMILY }: { viewModel: JournalPreviewViewModel; className?: string; teacherCommentFontFamily?: string }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
@@ -142,7 +144,7 @@ export function JournalReportPreview({ viewModel, className = "" }: { viewModel:
   return (
     <div ref={wrapperRef} className={`relative aspect-[3/4] w-full overflow-hidden ${className}`} data-testid="journal-report-preview">
       <div className="absolute left-0 top-0 origin-top-left" style={{ transform: `scale(${scale})` }}>
-        <JournalReportTemplate viewModel={viewModel} />
+        <JournalReportTemplate viewModel={viewModel} teacherCommentFontFamily={teacherCommentFontFamily} />
       </div>
     </div>
   );
@@ -258,7 +260,7 @@ function ActivityCard({ activity, icon, paletteName, motif }: { activity: Journa
   );
 }
 
-function TeacherComment({ comment }: { comment: string }) {
+function TeacherComment({ comment, fontFamily }: { comment: string; fontFamily: string }) {
   const typography = journalCommentTypography(comment.length);
   return (
     <section data-journal-section="letter" data-card-surface="teacher-comment" aria-label="선생님의 한마디" className="relative min-h-0 overflow-hidden rounded-[30px_52px_34px_48px] border-[3px] border-[#ffd9df] bg-white px-[34px] pb-[22px] pt-[16px] shadow-[0_8px_22px_rgb(47_98_132_/_0.04)]">
@@ -266,7 +268,7 @@ function TeacherComment({ comment }: { comment: string }) {
       <JournalCharacter name="dogAHeartLetter" className="absolute bottom-[7px] right-[11px] h-[174px] w-[158px] object-contain object-bottom" />
       <h2 aria-label="선생님의 한마디" className="relative mb-[8px] flex items-center gap-[10px] text-[27px] font-black tracking-[-0.025em] text-[#2f6284]" style={{ fontSize: JOURNAL_REPORT_TYPOGRAPHY.commentHeading.size, lineHeight: `${JOURNAL_REPORT_TYPOGRAPHY.commentHeading.lineHeight}px`, letterSpacing: JOURNAL_REPORT_TYPOGRAPHY.commentHeading.letterSpacing }}><span className="flex h-[40px] w-[40px] items-center justify-center rounded-[15px_20px_14px_21px] bg-[#ffe9ed] text-[#ff7f82]"><MessageCircleHeart size={27} /></span>선생님의 한마디</h2>
       <span className="absolute left-[30px] top-[61px] text-[50px] font-black leading-none text-[#ffb8bc]/58">“</span>
-      <p data-testid="journal-report-comment" data-comment-density={typography.density} className="relative h-[calc(100%-48px)] whitespace-pre-wrap break-words pl-[27px] font-normal tracking-[-0.01em] text-[#25384a]" style={{ width: `${typography.textWidth + 27}px`, fontSize: `${typography.size}px`, lineHeight: typography.lineHeight }}>{comment}</p>
+      <p data-testid="journal-report-comment" data-comment-density={typography.density} className="relative h-[calc(100%-48px)] whitespace-pre-wrap break-words pl-[27px] font-normal tracking-[-0.01em] text-[#25384a]" style={{ width: `${typography.textWidth + 27}px`, fontFamily, fontSize: `${typography.size}px`, lineHeight: typography.lineHeight }}>{comment}</p>
     </section>
   );
 }

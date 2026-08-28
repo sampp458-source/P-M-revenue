@@ -103,6 +103,13 @@ export async function waitForJournalCanvasFonts(fontFamily: string) {
   if (![400, 600, 700, 800, 900].every((weight) => document.fonts.check(`${weight} 24px ${fontFamily}`, "가나다라마바사"))) throw new Error("JOURNAL_CANVAS_FONT_NOT_READY");
 }
 
+export async function waitForJournalTeacherCommentFont(fontFamily: string) {
+  if (!document.fonts) return;
+  await document.fonts.ready;
+  await document.fonts.load(`400 20px ${fontFamily}`, "한글 ABC 123 ♡ 👏");
+  if (!document.fonts.check(`400 20px ${fontFamily}`, "한글 ABC 123 ♡")) throw new Error("JOURNAL_CUSTOM_FONT_NOT_READY");
+}
+
 function roundRect(context: CanvasRenderingContext2D, rect: JournalSceneRect, radius: number) {
   const r = Math.min(radius, rect.width / 2, rect.height / 2);
   context.beginPath(); context.moveTo(rect.x + r, rect.y);
@@ -312,7 +319,7 @@ function drawDottedDivider(context: CanvasRenderingContext2D, x: number, y: numb
 }
 
 function renderScene(context: CanvasRenderingContext2D, scene: JournalReportScene, assets: LoadedAssets) {
-  const { viewModel: vm, layout, palette: colors, fontFamily: family, assetSlots } = scene;
+  const { viewModel: vm, layout, palette: colors, fontFamily: family, teacherCommentFontFamily, assetSlots } = scene;
   const assetFingerprints: Partial<Record<JournalRequiredAssetId, JournalCanvasRegionFingerprint>> = {};
   const visualFingerprints: Partial<Record<JournalVisualElementId, JournalCanvasRegionFingerprint>> = {};
   const textLandmarks = {} as Record<JournalTextLandmarkId, JournalCanvasTextLandmark>;
@@ -415,7 +422,7 @@ function renderScene(context: CanvasRenderingContext2D, scene: JournalReportScen
   visualFingerprints["comment-quote"] = verifyDrawing(context, JOURNAL_REPORT_VISUAL_REGIONS["comment-quote"], "comment-quote", () => {
     setFont(context, 50, 900, family); context.globalAlpha = 0.58; context.fillStyle = "#ffb8bc"; drawTextAtVisualCenter(context, "“", 76, 1087, "left"); context.globalAlpha = 1;
   });
-  const commentStyle = journalCommentTypography(vm.teacherComment.length); setFont(context, commentStyle.size, 400, family, -commentStyle.size * 0.01); context.fillStyle = colors.ink;
+  const commentStyle = journalCommentTypography(vm.teacherComment.length); setFont(context, commentStyle.size, 400, teacherCommentFontFamily, -commentStyle.size * 0.01); context.fillStyle = colors.ink;
   const commentArea = { x: 110.32, y: 1081.89, width: commentStyle.textWidth, height: commentStyle.availableHeight }; const lineHeight = commentStyle.size * commentStyle.lineHeight;
   const lines = wrapLines(context, vm.teacherComment, commentArea.width, Math.floor(commentArea.height / lineHeight));
   lines.forEach((line, index) => { const metrics = context.measureText(line || "가"); const ascent = metrics.actualBoundingBoxAscent || commentStyle.size * 0.8; const baseline = commentArea.y + ascent + index * lineHeight; context.textAlign = "left"; context.fillText(line, commentArea.x, baseline); if (index === 0) textLandmarks["comment-first-line"] = textLandmarkAtBaseline(context, line, commentArea.x, baseline); });
@@ -472,7 +479,9 @@ export async function validateJournalEncodedBlob(blob: Blob, scene: JournalRepor
 }
 
 export async function renderJournalReportToCanvas(scene: JournalReportScene, sources: JournalAssetSourceMap = JOURNAL_CANVAS_ASSET_SOURCES) {
-  await waitForJournalCanvasFonts(scene.fontFamily); const assets = await loadJournalCanvasAssets(sources);
+  await waitForJournalCanvasFonts(scene.fontFamily);
+  if (scene.teacherCommentFontFamily !== scene.fontFamily) await waitForJournalTeacherCommentFont(scene.teacherCommentFontFamily);
+  const assets = await loadJournalCanvasAssets(sources);
   const canvas = document.createElement("canvas"); canvas.width = scene.width; canvas.height = scene.height;
   try {
     const context = canvas.getContext("2d", { alpha: false, willReadFrequently: true }); if (!context) throw new Error("JOURNAL_CANVAS_CONTEXT_UNAVAILABLE");

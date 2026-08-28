@@ -311,7 +311,7 @@ describe("Journal Editor", () => {
     expect((blocked as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole("status").textContent).toContain("5/5 · 추가하려면 선택을 해제해 주세요.");
     fireEvent.change(search, { target: { value: "초코" } });
-    await waitFor(() => expect(screen.getAllByRole("option")).toHaveLength(1));
+    await waitFor(() => expect(screen.getAllByRole("option").filter((option) => option.tagName === "BUTTON")).toHaveLength(1));
     expect(screen.getByRole("option", { name: "초코" }).getAttribute("aria-selected")).toBe("true");
     expect(screen.queryByRole("option", { name: "크리미" })).toBeNull();
   });

@@ -83,9 +83,13 @@ export type JournalReportScene = {
   assetSlots: typeof JOURNAL_REPORT_ASSET_SLOTS;
   palette: typeof JOURNAL_REPORT_PALETTE;
   fontFamily: typeof JOURNAL_REPORT_FONT_FAMILY;
+  teacherCommentFontFamily: string;
 };
 
-export function buildJournalReportScene(viewModel: JournalPreviewViewModel): JournalReportScene {
+export function buildJournalReportScene(
+  viewModel: JournalPreviewViewModel,
+  teacherCommentFontFamily = JOURNAL_REPORT_FONT_FAMILY,
+): JournalReportScene {
   return {
     width: JOURNAL_REPORT_WIDTH,
     height: JOURNAL_REPORT_HEIGHT,
@@ -94,6 +98,7 @@ export function buildJournalReportScene(viewModel: JournalPreviewViewModel): Jou
     assetSlots: JOURNAL_REPORT_ASSET_SLOTS,
     palette: JOURNAL_REPORT_PALETTE,
     fontFamily: JOURNAL_REPORT_FONT_FAMILY,
+    teacherCommentFontFamily,
   };
 }
 

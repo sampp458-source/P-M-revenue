@@ -24,6 +24,13 @@ import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
 const model = { entryId: "entry", dogName: "가을", businessDate: "2026-08-26" } as JournalPreviewViewModel;
 
 describe("Journal Canvas renderer contract", () => {
+  it("uses the custom family only for the Teacher Comment drawing path", () => {
+    const source = readFileSync(new URL("./journalCanvasRenderer.ts", import.meta.url), "utf8");
+    expect(source).toContain("teacherCommentFontFamily");
+    expect(source).toContain("setFont(context, commentStyle.size, 400, teacherCommentFontFamily");
+    expect(source).toContain("waitForJournalTeacherCommentFont(scene.teacherCommentFontFamily)");
+  });
+
   it("builds one exact 1080×1440 typed scene shared by preview geometry and export", () => {
     const scene = buildJournalReportScene(model);
     expect(scene).toMatchObject({ width: 1080, height: 1440, viewModel: model });

@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildJournalExportFilename, exportJournalImage, renderJournalImageBlob } from "./journalExport";
 import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
@@ -52,6 +54,11 @@ const readyMetrics = (overrides: Record<string, number> = {}) => ({
 });
 
 describe("Journal Canvas export", () => {
+  it("resolves the device-local Teacher Comment font before building the Canvas scene", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/pages/journalExport.ts"), "utf8");
+    expect(source).toContain("await ensureActiveJournalTeacherCommentFont()");
+    expect(source).toContain("buildJournalReportScene(viewModel, teacherCommentFontFamily)");
+  });
   beforeEach(() => {
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:journal") });
     Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });

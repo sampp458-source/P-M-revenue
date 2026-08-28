@@ -1,6 +1,7 @@
 import { renderJournalReportToCanvas, validateJournalEncodedBlob, type JournalCanvasRenderMetrics } from "./journalCanvasRenderer";
 import { buildJournalReportScene, JOURNAL_REPORT_HEIGHT, JOURNAL_REPORT_WIDTH } from "./journalReportScene";
 import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
+import { ensureActiveJournalTeacherCommentFont } from "./journalCustomFont";
 
 export type JournalExportFormat = "png" | "jpg";
 export type JournalImageRenderStage = "RENDER" | "ENCODE" | "VALIDATION";
@@ -55,7 +56,8 @@ export async function renderJournalImageBlob(
   onStage?: JournalImageRenderObserver,
 ) {
   return runSerializedExport(async () => {
-    const scene = buildJournalReportScene(viewModel);
+    const teacherCommentFontFamily = await ensureActiveJournalTeacherCommentFont();
+    const scene = buildJournalReportScene(viewModel, teacherCommentFontFamily);
     let canvas: HTMLCanvasElement | null = null;
     try {
       onStage?.({ stage: "RENDER", state: "START" });

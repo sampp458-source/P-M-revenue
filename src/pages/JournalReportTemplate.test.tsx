@@ -32,6 +32,13 @@ const renderReport = (draftValue = draft(), entryValue = entry()) => render(
 afterEach(cleanup);
 
 describe("Journal 1080x1440 report template", () => {
+  it("applies a custom family only to the Teacher Comment body", () => {
+    const viewModel = buildJournalPreviewViewModel(entry(), draft(), [entry(), friend]);
+    render(<JournalReportTemplate viewModel={viewModel} teacherCommentFontFamily='"pnm-journal-user-font-test", sans-serif' />);
+    expect(screen.getByTestId("journal-report-comment").style.fontFamily).toContain("pnm-journal-user-font-test");
+    expect(screen.getByTestId("journal-report-template").style.fontFamily).not.toContain("pnm-journal-user-font-test");
+  });
+
   it("injects the complete embedded export bundle without changing the preview template", () => {
     const assetSources = Object.fromEntries([
       ...JOURNAL_REQUIRED_ASSET_IDS,
