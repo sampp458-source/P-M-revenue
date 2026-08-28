@@ -1,3 +1,5 @@
+import { canonicalJournalTeacherComment, journalTeacherCommentLength } from "./journalTextNormalization";
+
 export type JournalPersistenceFailureKind =
   | "VERSION_CONFLICT"
   | "PERMISSION"
@@ -94,7 +96,7 @@ export function journalValidationShape(
   const bestFriendTargets = draft.bestFriendTargets ?? (draft.bestFriendDogId ? [{ type: "DOG", dogId: draft.bestFriendDogId }] : []);
   const mannersActivity = draft.mannersActivityName.trim();
   const physicalActivity = draft.physicalActivityName.trim();
-  const teacherComment = draft.teacherComment.trim();
+  const teacherComment = canonicalJournalTeacherComment(draft.teacherComment);
   return {
     conditionCount: draft.conditionCodes.length,
     urineSelected: draft.urination !== null,
@@ -117,7 +119,7 @@ export function journalValidationShape(
     physicalActivityLength: physicalActivity.length,
     physicalEvaluationPresent: draft.physicalEvaluation !== null,
     teacherCommentPresent: teacherComment.length > 0,
-    teacherCommentLength: teacherComment.length,
+    teacherCommentLength: journalTeacherCommentLength(teacherComment),
   };
 }
 

@@ -55,6 +55,13 @@ describe("Journal Best Friend V2 migration", () => {
     expect(migration).toContain("before_data,after_data,changed_by,change_reason,request_id");
   });
 
+  it("keeps the canonical 500-character Teacher Comment server boundary", () => {
+    expect(migration).toContain("normalized_comment text:=nullif(btrim(coalesce(p_teacher_comment,'')),'')");
+    expect(migration).toContain("char_length(coalesce(normalized_comment,''))>500");
+    expect(migration).toContain("teacher_comment=normalized_comment");
+    expect(migration).toContain("p_physical_evaluation,p_teacher_comment,p_request_id");
+  });
+
   it("removes only the deleted roster Dog target while preserving Teacher and parent status", () => {
     expect(migration).toContain("target.target_type='DOG' and target.dog_id=row_before.dog_id");
     expect(migration).toContain("best_friend_roster_member_removed");

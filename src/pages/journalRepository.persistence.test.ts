@@ -80,6 +80,26 @@ describe("Journal update persistence metadata", () => {
     }));
   });
 
+  it("sends exactly 500 PostgreSQL characters and rejects 501 before the RPC", async () => {
+    const abortSignal = vi.fn().mockResolvedValue({ data: { id: "entry-1" }, status: 200, error: null });
+    mocks.rpc.mockReturnValue({ abortSignal });
+    const accepted = `  ${"🐶".repeat(499)}\n  `;
+    await updateJournalEntryDraft("entry-1", 2, { ...draft, teacherComment: accepted }, "request-500", new AbortController().signal);
+    expect(mocks.rpc).toHaveBeenCalledWith("update_journal_entry_draft_v2", expect.objectContaining({
+      p_teacher_comment: `${"🐶".repeat(499)}\n`,
+    }));
+
+    mocks.rpc.mockClear();
+    await expect(Promise.resolve().then(() => updateJournalEntryDraft(
+      "entry-1",
+      2,
+      { ...draft, teacherComment: "가".repeat(501) },
+      "request-501",
+      new AbortController().signal,
+    ))).rejects.toMatchObject({ kind: "VALIDATION", postgresCode: "22023" });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+
   it("preserves the selected V2 target order in the RPC payload", async () => {
     const abortSignal = vi.fn().mockResolvedValue({ data: { id: "entry-1" }, status: 200, error: null });
     mocks.rpc.mockReturnValue({ abortSignal });

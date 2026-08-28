@@ -5,7 +5,11 @@ import {
   journalPersistenceErrorFromUnknown,
   type JournalPersistenceContext,
 } from "./journalPersistenceDiagnostics";
-import { normalizeJournalTeacherComment } from "./journalTextNormalization";
+import {
+  canonicalJournalTeacherComment,
+  JOURNAL_TEACHER_COMMENT_MAX_LENGTH,
+  journalTeacherCommentLength,
+} from "./journalTextNormalization";
 
 export type JournalStatus = "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
 export type JournalCondition = "active" | "calm" | "tired" | "sensitive";
@@ -213,6 +217,18 @@ export function updateJournalEntryDraft(
     expectedVersion,
     requestId,
   };
+  const teacherComment = canonicalJournalTeacherComment(draft.teacherComment);
+  if (journalTeacherCommentLength(teacherComment) > JOURNAL_TEACHER_COMMENT_MAX_LENGTH) {
+    throw new JournalPersistenceError(
+      "VALIDATION",
+      persistenceContext.operation,
+      persistenceContext.entryId,
+      persistenceContext.entryStatus,
+      persistenceContext.expectedVersion,
+      persistenceContext.requestId,
+      { postgresCode: "22023", message: "일지 입력값을 확인해 주세요." },
+    );
+  }
   return rpc<JournalRosterEntry>("update_journal_entry_draft_v2", {
     p_entry_id: entryId,
     p_expected_version: expectedVersion,
@@ -228,7 +244,7 @@ export function updateJournalEntryDraft(
     p_manners_evaluation: draft.mannersEvaluation,
     p_physical_activity_name: draft.physicalActivityName || null,
     p_physical_evaluation: draft.physicalEvaluation,
-    p_teacher_comment: normalizeJournalTeacherComment(draft.teacherComment) || null,
+    p_teacher_comment: teacherComment || null,
     p_request_id: requestId,
   }, signal, persistenceContext);
 }

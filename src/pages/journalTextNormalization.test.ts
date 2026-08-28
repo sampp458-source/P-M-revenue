@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { normalizeJournalTeacherComment } from "./journalTextNormalization";
+import {
+  canonicalJournalTeacherComment,
+  constrainJournalTeacherCommentInput,
+  journalTeacherCommentLength,
+  normalizeJournalTeacherComment,
+} from "./journalTextNormalization";
+
+const fixture = (kind: "ASCII" | "Korean" | "Emoji" | "Newline" | "CRLF" | "Mixed", length: number) => {
+  if (kind === "ASCII") return "a".repeat(length);
+  if (kind === "Korean") return "가".repeat(length);
+  if (kind === "Emoji") return "🐶".repeat(length);
+  const characters = Array.from({ length }, (_, index) => {
+    if (kind === "Mixed") return index % 13 === 0 ? "🐶" : index % 7 === 0 ? "\n" : "가";
+    return index % 11 === 0 || index === length - 1 ? "\n" : "가";
+  }).join("");
+  return kind === "CRLF" ? characters.replaceAll("\n", "\r\n") : characters;
+};
 
 describe("Journal teacher comment normalization", () => {
   it.each([
@@ -21,5 +37,28 @@ describe("Journal teacher comment normalization", () => {
     const result = normalizeJournalTeacherComment(input);
     expect(result).toBe(input);
     expect(result).toHaveLength(500);
+  });
+
+  it.each(["ASCII", "Korean", "Emoji", "Newline", "CRLF", "Mixed"] as const)(
+    "uses the PostgreSQL char_length boundary for %s",
+    (kind) => {
+      const value499 = fixture(kind, 499);
+      const value500 = fixture(kind, 500);
+      const value501 = fixture(kind, 501);
+      const current500 = normalizeJournalTeacherComment(value500);
+      expect(journalTeacherCommentLength(value499)).toBe(499);
+      expect(journalTeacherCommentLength(value500)).toBe(500);
+      expect(journalTeacherCommentLength(value501)).toBe(501);
+      expect(journalTeacherCommentLength(constrainJournalTeacherCommentInput("", value499))).toBe(499);
+      expect(journalTeacherCommentLength(constrainJournalTeacherCommentInput("", value500))).toBe(500);
+      expect(constrainJournalTeacherCommentInput(current500, value501)).toBe(current500);
+    },
+  );
+
+  it("matches server btrim semantics for leading and trailing spaces without removing newlines", () => {
+    const input = `  ${"가".repeat(499)}\n  `;
+    expect(canonicalJournalTeacherComment(input)).toBe(`${"가".repeat(499)}\n`);
+    expect(journalTeacherCommentLength(input)).toBe(500);
+    expect(constrainJournalTeacherCommentInput("", input)).toBe(normalizeJournalTeacherComment(input));
   });
 });

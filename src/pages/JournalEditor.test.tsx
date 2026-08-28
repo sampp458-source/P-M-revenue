@@ -144,6 +144,31 @@ describe("Journal Editor", () => {
     expect(mocks.update).not.toHaveBeenCalled();
   });
 
+  it("never queues a 501-character snapshot after showing 500 / 500", async () => {
+    const loaded = entry({ status: "IN_PROGRESS", version: 2 });
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.update.mockImplementation(async (_id, version, savedDraft) => entry({
+      ...loaded,
+      teacherComment: savedDraft.teacherComment,
+      version: version + 1,
+    }));
+    renderEditor(loaded);
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+
+    fireEvent.change(comment, { target: { value: "🐶".repeat(500) } });
+    expect(screen.getByText("500 / 500")).toBeTruthy();
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1), { timeout: JOURNAL_AUTOSAVE_DELAY + 1_000 });
+    expect(mocks.update.mock.calls[0][2].teacherComment).toBe("🐶".repeat(500));
+
+    fireEvent.change(comment, { target: { value: "🐶".repeat(501) } });
+    expect((comment as HTMLTextAreaElement).value).toBe("🐶".repeat(500));
+    expect(screen.getByText("500 / 500")).toBeTruthy();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, JOURNAL_AUTOSAVE_DELAY + 50));
+    });
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+  });
+
   it("renders the mobile-first typed controls and clears stool when defecation is NO", async () => {
     mocks.fetch.mockResolvedValue(entry());
     mocks.update.mockImplementation(async (_id, version, draft) => entry({ ...draft, status: "IN_PROGRESS", version: version + 1 }));
