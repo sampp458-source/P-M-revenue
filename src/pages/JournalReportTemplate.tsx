@@ -260,16 +260,13 @@ function ActivityCard({ activity, icon, paletteName, motif }: { activity: Journa
 
 function TeacherComment({ comment }: { comment: string }) {
   const typography = journalCommentTypography(comment.length);
-  const density = typography.density;
-  const characterClass = density === "minimum-safe" ? "h-[80px] w-[72px] opacity-70" : density === "compact" ? "h-[98px] w-[90px] opacity-80" : density === "standard" ? "h-[124px] w-[112px] opacity-90" : density === "large" ? "h-[160px] w-[145px]" : "h-[174px] w-[158px]";
-  const textInset = density === "minimum-safe" ? "pr-[78px]" : density === "compact" ? "pr-[98px]" : density === "standard" ? "pr-[120px]" : density === "large" ? "pr-[154px]" : "pr-[166px]";
   return (
     <section data-journal-section="letter" data-card-surface="teacher-comment" aria-label="선생님의 한마디" className="relative min-h-0 overflow-hidden rounded-[30px_52px_34px_48px] border-[3px] border-[#ffd9df] bg-white px-[34px] pb-[22px] pt-[16px] shadow-[0_8px_22px_rgb(47_98_132_/_0.04)]">
       <span className="absolute right-0 top-0 h-[88px] w-[132px] bg-[#ffe9ed]/66 [clip-path:polygon(100%_0,100%_100%,0_0)]" />
-      <JournalCharacter name="dogAHeartLetter" className={`absolute bottom-[7px] right-[11px] object-contain object-bottom ${characterClass}`} />
+      <JournalCharacter name="dogAHeartLetter" className="absolute bottom-[7px] right-[11px] h-[174px] w-[158px] object-contain object-bottom" />
       <h2 aria-label="선생님의 한마디" className="relative mb-[8px] flex items-center gap-[10px] text-[27px] font-black tracking-[-0.025em] text-[#2f6284]" style={{ fontSize: JOURNAL_REPORT_TYPOGRAPHY.commentHeading.size, lineHeight: `${JOURNAL_REPORT_TYPOGRAPHY.commentHeading.lineHeight}px`, letterSpacing: JOURNAL_REPORT_TYPOGRAPHY.commentHeading.letterSpacing }}><span className="flex h-[40px] w-[40px] items-center justify-center rounded-[15px_20px_14px_21px] bg-[#ffe9ed] text-[#ff7f82]"><MessageCircleHeart size={27} /></span>선생님의 한마디</h2>
       <span className="absolute left-[30px] top-[61px] text-[50px] font-black leading-none text-[#ffb8bc]/58">“</span>
-      <p data-testid="journal-report-comment" data-comment-density={density} className={`${textInset} relative h-[calc(100%-48px)] whitespace-pre-wrap break-words pl-[27px] font-normal tracking-[-0.01em] text-[#25384a]`} style={{ fontSize: `${typography.size}px`, lineHeight: typography.lineHeight }}>{comment}</p>
+      <p data-testid="journal-report-comment" data-comment-density={typography.density} className="relative h-[calc(100%-48px)] whitespace-pre-wrap break-words pl-[27px] font-normal tracking-[-0.01em] text-[#25384a]" style={{ width: `${typography.textWidth + 27}px`, fontSize: `${typography.size}px`, lineHeight: typography.lineHeight }}>{comment}</p>
     </section>
   );
 }

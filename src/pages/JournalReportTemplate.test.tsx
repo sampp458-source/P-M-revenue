@@ -268,16 +268,20 @@ describe("Journal 1080x1440 report template", () => {
   });
 
   it.each([
-    ["hero", "따뜻하고 즐거운 하루를 보냈습니다. ".repeat(8).slice(0, 110)],
-    ["large", "따뜻하고 즐거운 하루를 보냈습니다. ".repeat(12).slice(0, 200)],
-    ["standard", "친구들과 차분히 어울리며 다양한 활동을 즐겼습니다. ".repeat(12).slice(0, 300)],
-    ["compact", "친구들과 차분히 어울리며 다양한 활동을 즐겼습니다. ".repeat(18).slice(0, 400)],
-    ["minimum-safe", "오늘의 모습을 보호자님께 정성스럽게 전해 드립니다. ".repeat(25).slice(0, 500)],
-  ])("renders the full %s comment with adaptive typography", (density, comment) => {
+    [1, "가"],
+    [65, "따뜻하고 즐거운 하루를 보냈습니다. ".repeat(8).slice(0, 65)],
+    [182, "따뜻하고 즐거운 하루를 보냈습니다. 🐾 ".repeat(12).slice(0, 182)],
+    [320, "친구들과 차분히 어울리며 다양한 활동을 즐겼습니다.\n".repeat(14).slice(0, 320)],
+    [420, "친구들과 차분히 어울리며 다양한 활동을 즐겼습니다. 🐾\n".repeat(20).slice(0, 420)],
+    [500, "오늘의 모습을 보호자님께 정성스럽게 전해 드립니다. 🐾💛\n".repeat(25).slice(0, 500)],
+  ])("renders the full %i-character comment with fixed typography", (_length, comment) => {
     renderReport(draft({ teacherComment: comment }));
     const commentNode = screen.getByTestId("journal-report-comment");
     expect(commentNode.textContent).toBe(comment);
-    expect(commentNode.dataset.commentDensity).toBe(density);
+    expect(commentNode.dataset.commentDensity).toBe("fixed");
+    expect(commentNode.style.fontSize).toBe("20px");
+    expect(commentNode.style.lineHeight).toBe("1.36");
+    expect(commentNode.style.width).toBe("751px");
     expect(commentNode.className).not.toContain("truncate");
     expect(commentNode.className).not.toContain("line-clamp");
   });

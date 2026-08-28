@@ -67,6 +67,14 @@ export const JOURNAL_REPORT_TYPOGRAPHY = {
   commentHeading: { size: 27, weight: 900, lineHeight: 40, letterSpacing: -0.675 },
 } as const;
 
+export const JOURNAL_TEACHER_COMMENT_FIXED_TYPOGRAPHY = {
+  density: "fixed",
+  size: 20,
+  lineHeight: 1.36,
+  textWidth: 724,
+  availableHeight: 290,
+} as const;
+
 export type JournalReportScene = {
   width: typeof JOURNAL_REPORT_WIDTH;
   height: typeof JOURNAL_REPORT_HEIGHT;
@@ -90,28 +98,8 @@ export function buildJournalReportScene(viewModel: JournalPreviewViewModel): Jou
 }
 
 export function journalCommentTypography(length: number) {
-  const bands = [
-    { limit: 120, density: "hero", size: 34, lineHeight: 1.58 },
-    { limit: 220, density: "large", size: 28, lineHeight: 1.5 },
-    { limit: 320, density: "standard", size: 23, lineHeight: 1.42 },
-    { limit: 420, density: "compact", size: 20.5, lineHeight: 1.36 },
-    { limit: 500, density: "minimum-safe", size: 19, lineHeight: 1.32 },
-  ] as const;
-  const bandIndex = bands.findIndex((band) => length <= band.limit);
-  const resolvedIndex = bandIndex === -1 ? bands.length - 1 : bandIndex;
-  const band = bands[resolvedIndex];
-  if (resolvedIndex === bands.length - 1 && length > bands[bands.length - 2].limit) {
-    return { density: band.density, size: band.size, lineHeight: band.lineHeight };
-  }
-  const next = bands[resolvedIndex + 1];
-  const transitionStart = band.limit - 29;
-  if (!next || length < transitionStart) return band;
-  const progress = Math.min(1, Math.max(0, (length - transitionStart) / (band.limit - transitionStart)));
-  return {
-    density: band.density,
-    size: Math.round((band.size + (next.size - band.size) * progress) * 100) / 100,
-    lineHeight: Math.round((band.lineHeight + (next.lineHeight - band.lineHeight) * progress) * 1000) / 1000,
-  };
+  void length;
+  return JOURNAL_TEACHER_COMMENT_FIXED_TYPOGRAPHY;
 }
 
 export function journalDogNameFontSize(length: number) {
@@ -127,11 +115,7 @@ export function journalActivityFontSize(length: number) {
 }
 
 export function journalTeacherCommentDogSlot(length: number): JournalSceneRect {
-  const density = journalCommentTypography(length).density;
-  const size = density === "minimum-safe" ? { width: 72, height: 80 }
-    : density === "compact" ? { width: 90, height: 98 }
-      : density === "standard" ? { width: 112, height: 124 }
-        : density === "large" ? { width: 145, height: 160 }
-          : { width: 158, height: 174 };
+  void length;
+  const size = { width: 158, height: 174 };
   return { x: 1023 - size.width, y: 1387 - size.height, ...size };
 }

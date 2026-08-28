@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { JOURNAL_BINARY_OPTION_GEOMETRY } from "./journalCanvasRenderer";
-import { journalCommentTypography } from "./journalReportScene";
+import { JOURNAL_TEACHER_COMMENT_FIXED_TYPOGRAPHY, journalCommentTypography, journalTeacherCommentDogSlot } from "./journalReportScene";
 
 describe("Journal report scene contracts", () => {
   it("allocates natural-width O/X labels without circle overlap", () => {
@@ -14,18 +14,16 @@ describe("Journal report scene contracts", () => {
     expect(geometry.selectedWeight).toBe(900);
   });
 
-  it.each([[119, 120, 121], [219, 220, 221], [319, 320, 321], [419, 420, 421]])(
-    "keeps typography transitions smooth around %i/%i/%i characters",
-    (before, boundary, after) => {
-      const values = [before, boundary, after].map((length) => journalCommentTypography(length).size);
-      expect(values[0]).toBeGreaterThanOrEqual(values[1]);
-      expect(values[1]).toBeGreaterThanOrEqual(values[2]);
-      expect(Math.abs(values[0] - values[1])).toBeLessThanOrEqual(0.3);
-      expect(Math.abs(values[1] - values[2])).toBeLessThanOrEqual(0.3);
-    },
-  );
+  it.each([1, 65, 182, 320, 420, 500])("keeps Teacher Comment typography fixed at %i characters", (length) => {
+    expect(journalCommentTypography(length)).toEqual(JOURNAL_TEACHER_COMMENT_FIXED_TYPOGRAPHY);
+  });
 
-  it("keeps the 500-character minimum-safe contract", () => {
-    expect(journalCommentTypography(500)).toMatchObject({ density: "minimum-safe", size: 19, lineHeight: 1.32 });
+  it("keeps the verified fixed text and decorative-dog geometry", () => {
+    expect(JOURNAL_TEACHER_COMMENT_FIXED_TYPOGRAPHY).toEqual({
+      density: "fixed", size: 20, lineHeight: 1.36, textWidth: 724, availableHeight: 290,
+    });
+    expect(JOURNAL_TEACHER_COMMENT_FIXED_TYPOGRAPHY.textWidth).toBe(724);
+    expect(journalTeacherCommentDogSlot(1)).toEqual({ x: 865, y: 1213, width: 158, height: 174 });
+    expect(journalTeacherCommentDogSlot(500)).toEqual(journalTeacherCommentDogSlot(1));
   });
 });

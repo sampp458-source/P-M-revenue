@@ -70,13 +70,14 @@ describe("Journal Canvas renderer contract", () => {
     expect(JOURNAL_REQUIRED_TEXT_LANDMARK_IDS).toEqual(expect.arrayContaining(["header-title", "best-friend-name", "comment-first-line"]));
   });
 
-  it("shares canonical long-name, activity, and 500-character comment density thresholds", () => {
+  it("shares canonical long-name, activity, and fixed Teacher Comment contracts", () => {
     expect(journalDogNameFontSize(21)).toBe(17);
     expect(journalBestFriendFontSize(19)).toBe(28);
     expect(journalBestFriendFontSize(25)).toBe(24);
     expect(journalActivityFontSize(51)).toBe(17);
-    expect(journalCommentTypography(500)).toEqual({ density: "minimum-safe", size: 19, lineHeight: 1.32 });
-    expect(journalTeacherCommentDogSlot(500)).toEqual({ x: 951, y: 1307, width: 72, height: 80 });
+    expect(journalCommentTypography(1)).toEqual({ density: "fixed", size: 20, lineHeight: 1.36, textWidth: 724, availableHeight: 290 });
+    expect(journalCommentTypography(500)).toEqual(journalCommentTypography(1));
+    expect(journalTeacherCommentDogSlot(500)).toEqual({ x: 865, y: 1213, width: 158, height: 174 });
     expect(journalTeacherCommentDogSlot(20)).toEqual({ x: 865, y: 1213, width: 158, height: 174 });
   });
 
