@@ -3,7 +3,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { JournalEditor } from "./JournalEditor";
+import { JOURNAL_AUTOSAVE_DELAY, JournalEditor } from "./JournalEditor";
 import { JournalPersistenceError, type JournalPersistenceFailureKind } from "./journalPersistenceDiagnostics";
 import { buildJournalPreviewViewModel } from "./journalPreviewViewModel";
 import type { JournalDraft, JournalRosterEntry } from "./journalRepository";
@@ -106,6 +106,44 @@ function liveReport(dogName: string) {
 }
 
 describe("Journal Editor", () => {
+  it("hydrates server-created default selections without scheduling an initial autosave", async () => {
+    const initialized = entry({
+      conditionCodes: ["active"],
+      urination: true,
+      defecation: true,
+      stoolCondition: "good",
+      mealCodes: ["brought_food"],
+      teacherRelationship: "loves_teacher",
+      friendRelationship: "loves_friends",
+      bestFriendTargets: [],
+      bestFriendDogId: null,
+      mannersActivityName: "기다려 교육",
+      mannersEvaluation: "excellent",
+      physicalActivityName: "공놀이",
+      physicalEvaluation: "champion",
+      teacherComment: null,
+      status: "NOT_STARTED",
+      version: 1,
+    });
+    mocks.fetch.mockResolvedValue(initialized);
+    renderEditor(initialized);
+
+    await screen.findByRole("heading", { name: "크리미" });
+    await waitFor(() => expect(liveReport("크리미")).toBeTruthy());
+    expect(screen.getByRole("button", { name: "활발해요" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "가져온 사료" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "선생님 너무 좋아요" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "친구 너무 좋아요" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "참 잘했어요" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "나는야 체육왕" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByRole("button", { name: /선택 해제/ })).toBeNull();
+    expect((screen.getByRole("textbox", { name: "선생님의 한마디" }) as HTMLTextAreaElement).value).toBe("");
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, JOURNAL_AUTOSAVE_DELAY + 50));
+    });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
   it("renders the mobile-first typed controls and clears stool when defecation is NO", async () => {
     mocks.fetch.mockResolvedValue(entry());
     mocks.update.mockImplementation(async (_id, version, draft) => entry({ ...draft, status: "IN_PROGRESS", version: version + 1 }));
