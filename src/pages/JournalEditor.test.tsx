@@ -142,6 +142,7 @@ describe("Journal Editor", () => {
 
     const editor = screen.getByLabelText("크리미 일지 편집기");
     const formScroll = screen.getByTestId("journal-editor-form-scroll");
+    const formGrid = screen.getByTestId("journal-editor-form-grid");
     const controlPanel = screen.getByTestId("journal-editor-control-panel");
     const previewViewport = screen.getByTestId("journal-editor-preview-viewport");
     const finalActions = screen.getByTestId("journal-editor-final-actions");
@@ -151,6 +152,8 @@ describe("Journal Editor", () => {
     expect(formScroll.className).toContain("xl:overflow-y-auto");
     expect(formScroll.className).toContain("xl:pb-8");
     expect(formScroll.className).toContain("journal-editor-form-scrollbar");
+    expect(formGrid.className).toContain("xl:grid-cols-2");
+    expect(formGrid.className).toContain("xl:gap-2");
     expect(controlPanel.className).toContain("xl:sticky");
     expect(controlPanel.className).toContain("xl:overflow-hidden");
     expect(controlPanel.className).toContain("xl:grid-rows-[auto_auto_minmax(0,1fr)_auto]");
@@ -171,8 +174,18 @@ describe("Journal Editor", () => {
     expect(within(controlPanel).getByRole("button", { name: "일지 삭제" })).toBeTruthy();
     expect(within(controlPanel).getByRole("button", { name: "작성 완료" })).toBeTruthy();
     expect(within(controlPanel).getByText("크리미 일지 완료")).toBeTruthy();
-    expect(within(formScroll).getByRole("heading", { name: "컨디션" })).toBeTruthy();
-    expect(within(formScroll).getByRole("heading", { name: "선생님의 한마디" })).toBeTruthy();
+    const fullWidthHeadings = ["컨디션", "배변", "먹은 것", "관계", "제일 친한 친구", "선생님의 한마디"];
+    fullWidthHeadings.forEach((heading) => {
+      expect(within(formScroll).getByRole("heading", { name: heading }).parentElement?.className).toContain("xl:col-span-2");
+    });
+    const bestFriendSection = within(formScroll).getByRole("heading", { name: "제일 친한 친구" }).parentElement;
+    const commentSection = within(formScroll).getByRole("heading", { name: "선생님의 한마디" }).parentElement;
+    expect(bestFriendSection?.className).toContain("xl:col-span-2");
+    expect(commentSection?.className).toContain("xl:col-span-2");
+    expect(within(formScroll).getByRole("heading", { name: "관계" }).parentElement?.innerHTML).toContain("xl:grid-cols-2");
+    expect(within(formScroll).getByRole("heading", { name: "배변" }).parentElement?.innerHTML).toContain("xl:grid-cols-4");
+    expect(within(formScroll).getByRole("button", { name: "활발해요" }).className).toContain("xl:whitespace-nowrap");
+    expect(within(formScroll).getByRole("button", { name: "선생님 너무 좋아요" }).className).toContain("xl:whitespace-nowrap");
   });
 
   it("uses a light selected state with a non-color check indicator", async () => {

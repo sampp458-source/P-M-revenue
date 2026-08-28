@@ -345,32 +345,34 @@ export function JournalEditor({
     <section className="mx-auto max-w-[1600px] overflow-x-hidden pb-24 xl:h-[calc(100dvh-110px)] xl:pb-0" aria-label={`${entry.dog.name} 일지 편집기`}>
       <div className="flex min-h-0 flex-col gap-3 xl:grid xl:h-full xl:grid-cols-[minmax(0,1.2fr)_minmax(420px,1fr)] xl:items-stretch xl:gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(480px,1fr)] 2xl:gap-5">
         <div className="journal-editor-form-scrollbar order-3 min-w-0 xl:order-none xl:h-full xl:overflow-y-auto xl:overscroll-contain xl:pb-8 xl:pr-1.5" data-testid="journal-editor-form-scroll">
-          <fieldset disabled={completing || deleting} className="space-y-3 disabled:opacity-70 xl:space-y-1.5">
-        <EditorSection title="컨디션" description="하나 이상 선택해 주세요.">
-          <MultiChips options={conditionOptions} values={draft.conditionCodes} onChange={(conditionCodes) => update((value) => ({ ...value, conditionCodes }))} />
+          <fieldset disabled={completing || deleting} className="space-y-3 disabled:opacity-70 xl:grid xl:grid-cols-2 xl:gap-2 xl:space-y-0" data-testid="journal-editor-form-grid">
+        <EditorSection title="컨디션" description="하나 이상 선택해 주세요." desktopWide>
+          <MultiChips options={conditionOptions} values={draft.conditionCodes} desktopNoWrap onChange={(conditionCodes) => update((value) => ({ ...value, conditionCodes }))} />
         </EditorSection>
 
-        <EditorSection title="배변">
+        <EditorSection title="배변" desktopWide>
+          <div className="xl:grid xl:grid-cols-2 xl:items-start xl:gap-2">
           <BinaryChoice label="소변" value={draft.urination} onChange={(urination) => update((current) => ({ ...current, urination }))} />
-          <div className="mt-3 xl:mt-2"><BinaryChoice label="대변" value={draft.defecation} onChange={(defecation) => update((current) => ({ ...current, defecation, stoolCondition: defecation ? current.stoolCondition : null }))} /></div>
-          <div className="mt-3 xl:mt-2">
+          <div className="mt-3 xl:mt-0"><BinaryChoice label="대변" value={draft.defecation} onChange={(defecation) => update((current) => ({ ...current, defecation, stoolCondition: defecation ? current.stoolCondition : null }))} /></div>
+          <div className="mt-3 xl:col-span-2 xl:mt-0">
             <span className="mb-2 block text-sm font-semibold text-text-primary xl:mb-1.5">대변 상태</span>
-            <SingleChips options={stoolOptions} value={draft.stoolCondition} disabled={draft.defecation !== true} onChange={(stoolCondition) => update((current) => ({ ...current, stoolCondition }))} />
+            <SingleChips options={stoolOptions} value={draft.stoolCondition} disabled={draft.defecation !== true} desktopFourColumns desktopNoWrap onChange={(stoolCondition) => update((current) => ({ ...current, stoolCondition }))} />
+          </div>
           </div>
         </EditorSection>
 
-        <EditorSection title="먹은 것" description="선택하지 않아도 됩니다.">
-          <MultiChips options={mealOptions} values={draft.mealCodes} onChange={(mealCodes) => update((value) => ({ ...value, mealCodes }))} />
+        <EditorSection title="먹은 것" description="선택하지 않아도 됩니다." desktopWide>
+          <MultiChips options={mealOptions} values={draft.mealCodes} desktopNoWrap onChange={(mealCodes) => update((value) => ({ ...value, mealCodes }))} />
         </EditorSection>
 
-        <EditorSection title="관계">
+        <EditorSection title="관계" desktopWide>
           <div className="xl:grid xl:grid-cols-2 xl:gap-2">
-            <LabeledSingle label="선생님과" options={teacherOptions} value={draft.teacherRelationship} onChange={(teacherRelationship) => update((current) => ({ ...current, teacherRelationship }))} />
-            <div className="mt-3 xl:mt-0"><LabeledSingle label="친구들과" options={friendOptions} value={draft.friendRelationship} onChange={(friendRelationship) => update((current) => ({ ...current, friendRelationship }))} /></div>
+            <LabeledSingle label="선생님과" options={teacherOptions} value={draft.teacherRelationship} desktopLastWide desktopNoWrap onChange={(teacherRelationship) => update((current) => ({ ...current, teacherRelationship }))} />
+            <div className="mt-3 xl:mt-0"><LabeledSingle label="친구들과" options={friendOptions} value={draft.friendRelationship} desktopLastWide desktopNoWrap onChange={(friendRelationship) => update((current) => ({ ...current, friendRelationship }))} /></div>
           </div>
         </EditorSection>
 
-        <EditorSection title="제일 친한 친구" description={`오늘 등원한 다른 반려견과 선생님 중 최대 ${JOURNAL_BEST_FRIEND_MAX_TARGETS}명을 선택할 수 있습니다.`}>
+        <EditorSection title="제일 친한 친구" description={`오늘 등원한 다른 반려견과 선생님 중 최대 ${JOURNAL_BEST_FRIEND_MAX_TARGETS}명을 선택할 수 있습니다.`} desktopWide>
           <SearchSelect
             label="제일 친한 친구 검색"
             labelAccessory={<span className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-bold tabular-nums text-primary">{selectedBestFriendTargets.length}/{JOURNAL_BEST_FRIEND_MAX_TARGETS}</span>}
@@ -403,7 +405,7 @@ export function JournalEditor({
         <ActivitySection title="예절교육" activity={draft.mannersActivityName} evaluation={draft.mannersEvaluation} options={mannersOptions} onActivity={(mannersActivityName) => update((current) => ({ ...current, mannersActivityName }))} onEvaluation={(mannersEvaluation) => update((current) => ({ ...current, mannersEvaluation }))} />
         <ActivitySection title="체육" activity={draft.physicalActivityName} evaluation={draft.physicalEvaluation} options={physicalOptions} onActivity={(physicalActivityName) => update((current) => ({ ...current, physicalActivityName }))} onEvaluation={(physicalEvaluation) => update((current) => ({ ...current, physicalEvaluation }))} />
 
-        <EditorSection title="선생님의 한마디" description="작성 완료를 위해 한마디를 입력해 주세요.">
+        <EditorSection title="선생님의 한마디" description="작성 완료를 위해 한마디를 입력해 주세요." desktopWide>
           <Textarea aria-label="선생님의 한마디" rows={6} maxLength={JOURNAL_COMMENT_MAX_LENGTH} value={draft.teacherComment} onChange={(event) => update((current) => ({ ...current, teacherComment: normalizeJournalTeacherComment(event.target.value) }))} placeholder="오늘 하루의 특별한 모습을 기록해 주세요." className="min-h-36 resize-y" />
           <p className="mt-2 text-right text-xs tabular-nums text-text-muted">{draft.teacherComment.length} / {JOURNAL_COMMENT_MAX_LENGTH}</p>
         </EditorSection>
@@ -573,8 +575,8 @@ function SaveState({ state, failure }: { state: JournalSaveState; failure: Journ
   return <span>{state === "saved" ? "저장됨" : "변경 없음"}</span>;
 }
 
-function EditorSection({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
-  return <Card className="p-3.5 sm:p-4 xl:p-2.5"><h2 className="text-base font-bold text-text-primary">{title}</h2>{description ? <p className="mt-0.5 text-xs text-text-muted">{description}</p> : null}<div className="mt-3 xl:mt-1.5">{children}</div></Card>;
+function EditorSection({ title, description, children, desktopWide = false }: { title: string; description?: string; children: ReactNode; desktopWide?: boolean }) {
+  return <Card className={`min-w-0 p-3.5 sm:p-4 xl:p-2 ${desktopWide ? "xl:col-span-2" : ""}`}><h2 className="text-base font-bold text-text-primary">{title}</h2>{description ? <p className="mt-0.5 text-xs text-text-muted">{description}</p> : null}<div className="mt-3 xl:mt-1">{children}</div></Card>;
 }
 
 const selectedChipClass = "border-primary bg-primary-soft text-primary shadow-[inset_0_0_0_1px_rgb(39_76_119_/_0.08)]";
@@ -584,20 +586,20 @@ function ChipContent({ selected, label }: { selected: boolean; label: string }) 
   return <span className="inline-flex items-center justify-center gap-1.5">{selected ? <Check aria-hidden="true" size={14} strokeWidth={3} /> : null}{label}</span>;
 }
 
-function MultiChips<T extends string>({ options, values, onChange }: { options: Array<[T, string]>; values: T[]; onChange: (values: T[]) => void }) {
-  return <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{options.map(([value,label]) => { const selected=values.includes(value); return <button key={value} type="button" aria-pressed={selected} onClick={() => onChange(selected ? values.filter((item) => item!==value) : [...values,value])} className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors xl:min-h-10 xl:py-1.5 ${selected ? selectedChipClass : unselectedChipClass}`}><ChipContent selected={selected} label={label} /></button>; })}</div>;
+function MultiChips<T extends string>({ options, values, onChange, desktopNoWrap=false }: { options: Array<[T, string]>; values: T[]; onChange: (values: T[]) => void; desktopNoWrap?: boolean }) {
+  return <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{options.map(([value,label]) => { const selected=values.includes(value); return <button key={value} type="button" aria-pressed={selected} onClick={() => onChange(selected ? values.filter((item) => item!==value) : [...values,value])} className={`min-h-11 break-keep rounded-xl border px-3 py-2 text-sm font-semibold transition-colors xl:min-h-10 xl:py-1.5 ${desktopNoWrap ? "xl:whitespace-nowrap" : ""} ${selected ? selectedChipClass : unselectedChipClass}`}><ChipContent selected={selected} label={label} /></button>; })}</div>;
 }
 
-function SingleChips<T extends string>({ options, value, onChange, disabled=false }: { options: Array<[T,string]>; value: T|null; onChange:(value:T)=>void; disabled?:boolean }) {
-  return <div className="grid grid-cols-2 gap-2">{options.map(([code,label]) => { const selected = value === code; return <button key={code} type="button" disabled={disabled} aria-pressed={selected} onClick={() => onChange(code)} className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 xl:min-h-10 xl:py-1.5 ${selected ? selectedChipClass : unselectedChipClass}`}><ChipContent selected={selected} label={label} /></button>; })}</div>;
+function SingleChips<T extends string>({ options, value, onChange, disabled=false, desktopFourColumns=false, desktopLastWide=false, desktopNoWrap=false }: { options: Array<[T,string]>; value: T|null; onChange:(value:T)=>void; disabled?:boolean; desktopFourColumns?: boolean; desktopLastWide?: boolean; desktopNoWrap?: boolean }) {
+  return <div className={`grid grid-cols-2 gap-2 ${desktopFourColumns ? "xl:grid-cols-4" : ""}`}>{options.map(([code,label], index) => { const selected = value === code; return <button key={code} type="button" disabled={disabled} aria-pressed={selected} onClick={() => onChange(code)} className={`min-h-11 break-keep rounded-xl border px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 xl:min-h-10 xl:py-1.5 ${desktopLastWide && index === options.length - 1 ? "xl:col-span-2" : ""} ${desktopNoWrap ? "xl:whitespace-nowrap" : ""} ${selected ? selectedChipClass : unselectedChipClass}`}><ChipContent selected={selected} label={label} /></button>; })}</div>;
 }
 
 function BinaryChoice({ label, value, onChange }: { label:string; value:boolean|null; onChange:(value:boolean)=>void }) {
   return <div><span className="mb-2 block text-sm font-semibold text-text-primary xl:mb-1.5">{label}</span><div className="grid grid-cols-2 gap-2">{([true, false] as const).map((choice) => { const selected = value === choice; const text = choice ? "O" : "X"; return <button key={text} type="button" aria-pressed={selected} onClick={() => onChange(choice)} className={`min-h-11 rounded-xl border text-sm font-bold transition-colors xl:min-h-10 ${selected ? selectedChipClass : unselectedChipClass}`}><ChipContent selected={selected} label={text} /></button>; })}</div></div>;
 }
 
-function LabeledSingle<T extends string>({ label, options, value, onChange }: { label:string; options:Array<[T,string]>; value:T|null; onChange:(value:T)=>void }) {
-  return <div><span className="mb-2 block text-sm font-semibold text-text-primary xl:mb-1.5">{label}</span><SingleChips options={options} value={value} onChange={onChange} /></div>;
+function LabeledSingle<T extends string>({ label, options, value, onChange, desktopLastWide=false, desktopNoWrap=false }: { label:string; options:Array<[T,string]>; value:T|null; onChange:(value:T)=>void; desktopLastWide?: boolean; desktopNoWrap?: boolean }) {
+  return <div><span className="mb-2 block text-sm font-semibold text-text-primary xl:mb-1.5">{label}</span><SingleChips options={options} value={value} desktopLastWide={desktopLastWide} desktopNoWrap={desktopNoWrap} onChange={onChange} /></div>;
 }
 
 function ActivitySection<T extends string>({ title, activity, evaluation, options, onActivity, onEvaluation }: { title:string; activity:string; evaluation:T|null; options:Array<[T,string]>; onActivity:(value:string)=>void; onEvaluation:(value:T)=>void }) {
