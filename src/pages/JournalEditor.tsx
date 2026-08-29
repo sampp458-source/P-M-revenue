@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { Button, Card, FormAlert, Input, Modal, ModalActions, Textarea } from "../components/ui";
 import { SearchSelect } from "../components/SearchSelect";
 import { JournalAutosaveQueue, type JournalSaveState } from "./journalAutosave";
+import { completeJournalWithDeadline, formatJournalCompletionDiagnostic, JournalCompletionError } from "./journalCompletion";
 import {
   JournalPersistenceError,
   formatJournalFailureDiagnostic,
@@ -103,6 +104,7 @@ export function JournalEditor({
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<JournalSaveState>("idle");
   const [saveFailure, setSaveFailure] = useState<JournalSaveFailureDiagnostic | null>(null);
+  const [completionFailure, setCompletionFailure] = useState<JournalCompletionError | null>(null);
   const [diagnosticCopyState, setDiagnosticCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [error, setError] = useState("");
   const [completing, setCompleting] = useState(false);
@@ -123,6 +125,10 @@ export function JournalEditor({
   const navigationInFlightRef = useRef(false);
   const pendingNavigationRef = useRef<{ intent: "list" | string; navigate: () => void } | null>(null);
   const actionInFlightRef = useRef(false);
+  const completionAttemptRef = useRef<{ entryId: string; expectedVersion: number; requestId: string } | null>(null);
+  const completionLifecycleRef = useRef<AbortController | null>(null);
+  const activeEntryIdRef = useRef(rosterEntry.id);
+  activeEntryIdRef.current = rosterEntry.id;
   const teacherCommentCompositionRef = useRef(false);
 
   useEffect(() => {
@@ -130,6 +136,8 @@ export function JournalEditor({
     setLoading(true);
     setError("");
     setSaveFailure(null);
+    setCompletionFailure(null);
+    completionAttemptRef.current = null;
     void fetchJournalEntry(rosterEntry.id)
       .then((loaded) => {
         if (cancelled) return;
@@ -171,6 +179,8 @@ export function JournalEditor({
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => {
       cancelled = true;
+      completionLifecycleRef.current?.abort();
+      completionLifecycleRef.current = null;
       queueRef.current?.dispose();
       queueRef.current = null;
     };
@@ -202,6 +212,7 @@ export function JournalEditor({
 
   const update = (change: (current: JournalDraft) => JournalDraft) => {
     if (actionInFlightRef.current) return;
+    setCompletionFailure(null);
     setDraft((current) => {
       const nextDraft = change(current);
       if (nextDraft === current) return current;
@@ -278,9 +289,10 @@ export function JournalEditor({
   };
 
   const copyFailureDiagnostic = async () => {
-    if (!saveFailure) return;
-    const diagnostic = getJournalFailureDiagnostic(saveFailure.diagnosticId) ?? saveFailure;
-    const text = formatJournalFailureDiagnostic(diagnostic);
+    if (!saveFailure && !completionFailure) return;
+    const text = completionFailure
+      ? formatJournalCompletionDiagnostic(completionFailure.diagnostic)
+      : formatJournalFailureDiagnostic(getJournalFailureDiagnostic(saveFailure!.diagnosticId) ?? saveFailure!);
     try {
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
@@ -315,9 +327,32 @@ export function JournalEditor({
     actionInFlightRef.current = true;
     setCompleting(true);
     setError("");
+    setCompletionFailure(null);
+    let completionLifecycle: AbortController | null = null;
     try {
       if (!(await flush())) return;
-      const completed = await completeJournalEntry(entry.id, versionRef.current);
+      const queue = queueRef.current;
+      const expectedVersion = versionRef.current;
+      if (!queue) throw new Error("JOURNAL_AUTOSAVE_QUEUE_UNAVAILABLE");
+      const targetRevision = queue.getDraftRevision();
+      const priorAttempt = completionAttemptRef.current;
+      const attempt = priorAttempt?.entryId === entry.id && priorAttempt.expectedVersion === expectedVersion
+        ? priorAttempt
+        : { entryId: entry.id, expectedVersion, requestId: crypto.randomUUID() };
+      completionAttemptRef.current = attempt;
+      completionLifecycle = new AbortController();
+      completionLifecycleRef.current = completionLifecycle;
+      const completed = await completeJournalWithDeadline({
+        entryId: entry.id,
+        expectedVersion,
+        requestId: attempt.requestId,
+        targetRevision,
+        lifecycleSignal: completionLifecycle.signal,
+        queueSnapshot: () => queue.getDiagnosticSnapshot(),
+        request: (requestId, signal) => completeJournalEntry(entry.id, expectedVersion, requestId, signal),
+      });
+      if (completionLifecycle.signal.aborted || activeEntryIdRef.current !== entry.id) return;
+      completionAttemptRef.current = null;
       versionRef.current = completed.version;
       entryStatusRef.current = completed.status;
       queueRef.current?.acknowledgeExternalVersion(completed.version);
@@ -325,10 +360,20 @@ export function JournalEditor({
       onEntryUpdate(completed);
       setSaveState("saved");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "작성 완료 처리에 실패했습니다.");
+      if (completionLifecycle?.signal.aborted || activeEntryIdRef.current !== entry.id) return;
+      if (caught instanceof JournalCompletionError) {
+        setCompletionFailure(caught);
+        setDiagnosticCopyState("idle");
+        setError(`${caught.message} · ${caught.diagnostic.diagnosticId}`);
+      } else {
+        setError(caught instanceof Error ? caught.message : "작성 완료 처리에 실패했습니다.");
+      }
     } finally {
-      setCompleting(false);
-      actionInFlightRef.current = false;
+      if (completionLifecycleRef.current === completionLifecycle) completionLifecycleRef.current = null;
+      if (!completionLifecycle?.signal.aborted && activeEntryIdRef.current === entry.id) {
+        setCompleting(false);
+        actionInFlightRef.current = false;
+      }
     }
   };
 
@@ -468,7 +513,7 @@ export function JournalEditor({
               <button type="button" aria-busy={navigationIntent === "list"} disabled={completing || deleting} onClick={() => void close()} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-text-secondary hover:bg-primary-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 xl:min-h-9 xl:py-1">{navigationIntent === "list" ? <LoaderCircle className="animate-spin" size={18} /> : <ArrowLeft size={18} />}목록</button>
               <div className="min-w-0 flex-1 border-l border-border pl-3">
                 <h1 className="truncate text-lg font-bold text-text-primary sm:text-xl">{entry.dog.name}</h1>
-                <p className="truncate text-xs text-text-secondary sm:text-sm">{displayDate(entry.businessDate)} · {entry.status === "COMPLETED" ? "완료" : entry.status === "IN_PROGRESS" ? "작성중" : "미작성"} · <SaveState state={saveState} failure={saveFailure} /></p>
+                <p className="truncate text-xs text-text-secondary sm:text-sm">{displayDate(entry.businessDate)} · {entry.status === "COMPLETED" ? "완료" : entry.status === "IN_PROGRESS" ? "작성중" : "미작성"} · <EditorPersistenceStatus state={saveState} failure={saveFailure} completing={completing} completionFailure={completionFailure} /></p>
               </div>
             </div>
             <nav className="mt-2 grid grid-cols-3 items-center gap-2 border-t border-border pt-2 xl:mt-1 xl:gap-1.5 xl:pt-1" aria-label="일지 대상 이동">
@@ -517,8 +562,8 @@ export function JournalEditor({
 
           <div className="order-5 fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:left-64 xl:static xl:z-auto xl:rounded-2xl xl:border xl:bg-surface xl:p-1.5 xl:backdrop-blur-none" data-testid="journal-editor-final-actions">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="min-w-0 flex-1 text-xs text-text-secondary"><SaveState state={saveState} failure={saveFailure} /></span>
-            {saveFailure ? (
+            <span className="min-w-0 flex-1 text-xs text-text-secondary"><EditorPersistenceStatus state={saveState} failure={saveFailure} completing={completing} completionFailure={completionFailure} /></span>
+            {saveFailure || completionFailure ? (
               <Button type="button" variant="ghost" className="min-h-11 px-2" onClick={() => void copyFailureDiagnostic()}>
                 <Clipboard size={16} /><span className="hidden sm:inline">{diagnosticCopyState === "copied" ? "복사됨" : diagnosticCopyState === "error" ? "복사 실패" : "진단 정보 복사"}</span>
               </Button>
@@ -623,6 +668,22 @@ function SaveState({ state, failure }: { state: JournalSaveState; failure: Journ
   if (state === "error" || state === "timeout") return <span className="block truncate text-error">저장 실패{failure ? ` · ${failure.failureKind} · ${failure.diagnosticId}` : ""}</span>;
   if (state === "pending") return <span>저장 대기</span>;
   return <span>{state === "saved" ? "저장됨" : "변경 없음"}</span>;
+}
+
+function EditorPersistenceStatus({
+  state,
+  failure,
+  completing,
+  completionFailure,
+}: {
+  state: JournalSaveState;
+  failure: JournalSaveFailureDiagnostic | null;
+  completing: boolean;
+  completionFailure: JournalCompletionError | null;
+}) {
+  if (completing) return <span className="inline-flex items-center gap-1"><LoaderCircle className="animate-spin" size={13} />완료 처리 중...</span>;
+  if (completionFailure) return <span className="text-error">{completionFailure.kind === "timeout" ? "완료 처리 시간 초과 · 다시 시도" : "완료 처리 실패 · 다시 시도"}</span>;
+  return <SaveState state={state} failure={failure} />;
 }
 
 function EditorSection({ title, description, children, desktopWide = false }: { title: string; description?: string; children: ReactNode; desktopWide?: boolean }) {

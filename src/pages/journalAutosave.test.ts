@@ -48,6 +48,23 @@ describe("Journal revision autosave queue", () => {
       ["second", 2, "request-2", signal],
     ]);
     expect(queue.getSavedRevision()).toBe(2);
+    expect(queue.getDiagnosticSnapshot()).toMatchObject({
+      draftRevision: 2,
+      persistedRevision: 2,
+      pendingRevision: null,
+      inFlightRevision: null,
+      queueLength: 0,
+      debouncePending: false,
+      flushTargetRevision: null,
+      flushWaiterCount: 0,
+      lastTransition: "revision_persisted",
+    });
+  });
+
+  it("bounds an orphaned flush invariant instead of creating a permanent waiter", async () => {
+    const queue = new JournalAutosaveQueue(1, vi.fn(), vi.fn(), vi.fn());
+    await expect(queue.flush(1)).rejects.toMatchObject({ kind: "stalled" });
+    expect(queue.getDiagnosticSnapshot()).toMatchObject({ flushWaiterCount: 0, queueLength: 0 });
   });
 
   it("uses the saved fast path without a network request", async () => {
@@ -157,6 +174,37 @@ describe("Journal revision autosave queue", () => {
     expect(() => queue.schedule("later")).toThrow("종료된 저장 큐");
   });
 
+  it("keeps entry-scoped queues isolated while another entry has an in-flight save", async () => {
+    let entryASignal: AbortSignal | undefined;
+    const entryA = new JournalAutosaveQueue(
+      1,
+      (_snapshot, _version, _requestId, requestSignal) => {
+        entryASignal = requestSignal;
+        return new Promise<{ version: number }>(() => undefined);
+      },
+      vi.fn(),
+      vi.fn(),
+      800,
+      20_000,
+      8_000,
+      () => "entry-a-request",
+    );
+    const entryBSave = vi.fn().mockResolvedValue({ version: 2 });
+    const entryB = new JournalAutosaveQueue(1, entryBSave, vi.fn(), vi.fn(), 800, 20_000, 8_000, () => "entry-b-request");
+    entryA.schedule("entry-a");
+    const entryAFlush = entryA.flush(1);
+    void entryAFlush.catch(() => undefined);
+    await Promise.resolve();
+    entryB.schedule("entry-b");
+    await expect(entryB.flush(1)).resolves.toBe(1);
+    expect(entryB.isSynchronized()).toBe(true);
+    expect(entryA.getRunningRevision()).toBe(1);
+    entryA.dispose();
+    await expect(entryAFlush).rejects.toMatchObject({ kind: "disposed" });
+    expect(entryASignal?.aborted).toBe(true);
+    expect(entryA.getDiagnosticSnapshot().flushWaiterCount).toBe(0);
+  });
+
   it("captures timeout runtime evidence and retries the same request", async () => {
     vi.useFakeTimers();
     const diagnostics: Array<JournalSaveFailureDiagnostic | null> = [];
@@ -202,6 +250,12 @@ describe("Journal revision autosave queue", () => {
       ["local input", 17, "request-timeout"],
     ]);
     expect(diagnostics.at(-1)).toBeNull();
+    expect(queue.getDiagnosticSnapshot()).toMatchObject({
+      flushWaiterCount: 0,
+      queueLength: 0,
+      timeoutState: false,
+      abortState: false,
+    });
     consoleError.mockRestore();
   });
 

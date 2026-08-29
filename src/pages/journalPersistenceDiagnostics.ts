@@ -176,6 +176,23 @@ export interface JournalSaveFailureDiagnostic {
   isTimeout: boolean;
   isAbort: boolean;
   isNetwork: boolean;
+  queueRuntime?: {
+    persistedRevision: number;
+    pendingRevision: number | null;
+    inFlightRevision: number | null;
+    latestQueuedRevision: number;
+    queueLength: number;
+    debouncePending: boolean;
+    flushTargetRevision: number | null;
+    flushWaiterCount: number;
+    autosaveRequestId: string | null;
+    latestServerVersion: number;
+    savingDurationMs: number | null;
+    lastSuccessfulSaveTimestamp: string | null;
+    lastTransition: string;
+    abortState: boolean;
+    timeoutState: boolean;
+  };
 }
 
 const SAFE_SERVER_MESSAGES = new Map<string, JournalValidationAssertionKey>([
@@ -278,6 +295,7 @@ const diagnosticValue = (value: string | number | boolean | null) => value === n
 
 export function formatJournalFailureDiagnostic(diagnostic: JournalSaveFailureDiagnostic) {
   const shape = diagnostic.validationShape;
+  const runtime = diagnostic.queueRuntime;
   return [
     ["DIAGNOSTIC_ID", diagnostic.diagnosticId],
     ["TIMESTAMP", diagnostic.endedAt],
@@ -299,6 +317,21 @@ export function formatJournalFailureDiagnostic(diagnostic: JournalSaveFailureDia
     ["TIMEOUT", diagnostic.isTimeout],
     ["ABORT", diagnostic.isAbort],
     ["NETWORK", diagnostic.isNetwork],
+    ["PERSISTED_REVISION", runtime?.persistedRevision ?? null],
+    ["PENDING_REVISION", runtime?.pendingRevision ?? null],
+    ["IN_FLIGHT_REVISION", runtime?.inFlightRevision ?? null],
+    ["LATEST_QUEUED_REVISION", runtime?.latestQueuedRevision ?? diagnostic.localDraftRevision],
+    ["QUEUE_LENGTH", runtime?.queueLength ?? null],
+    ["DEBOUNCE_PENDING", runtime?.debouncePending ?? null],
+    ["FLUSH_TARGET_REVISION", runtime?.flushTargetRevision ?? null],
+    ["FLUSH_WAITER_COUNT", runtime?.flushWaiterCount ?? null],
+    ["AUTOSAVE_REQUEST_ID", runtime?.autosaveRequestId ?? diagnostic.requestId],
+    ["LATEST_SERVER_VERSION", runtime?.latestServerVersion ?? diagnostic.serverExpectedVersion],
+    ["SAVING_DURATION_MS", runtime?.savingDurationMs ?? diagnostic.durationMs],
+    ["LAST_SUCCESSFUL_SAVE_TIMESTAMP", runtime?.lastSuccessfulSaveTimestamp ?? null],
+    ["LAST_TRANSITION", runtime?.lastTransition ?? null],
+    ["ABORT_STATE", runtime?.abortState ?? diagnostic.isAbort],
+    ["TIMEOUT_STATE", runtime?.timeoutState ?? diagnostic.isTimeout],
     ["CONDITION_COUNT", shape.conditionCount],
     ["URINE_SELECTED", shape.urineSelected],
     ["STOOL_SELECTED", shape.stoolSelected],
@@ -434,6 +467,7 @@ export function logJournalSaveFailure(
     isTimeout: diagnostic.isTimeout,
     isAbort: diagnostic.isAbort,
     isNetwork: diagnostic.isNetwork,
+    queueRuntime: diagnostic.queueRuntime,
   };
   console.error("[journal-autosave]", safeDiagnostic);
 }

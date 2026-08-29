@@ -252,13 +252,14 @@ export function updateJournalEntryDraft(
 export function completeJournalEntry(
   entryId: string,
   expectedVersion: number,
-  requestId = crypto.randomUUID(),
+  requestId: string = crypto.randomUUID(),
+  signal?: AbortSignal,
 ) {
   return rpc<JournalRosterEntry>("complete_journal_entry", {
     p_entry_id: entryId,
     p_expected_version: expectedVersion,
     p_request_id: requestId,
-  });
+  }, signal);
 }
 
 export async function fetchJournalDogDirectory(): Promise<JournalDirectoryDog[]> {

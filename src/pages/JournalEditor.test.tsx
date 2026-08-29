@@ -429,7 +429,7 @@ describe("Journal Editor", () => {
     const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
     fireEvent.change(comment, { target: { value: "마지막 입력" } });
     fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
-    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 6));
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 6, expect.any(String), expect.any(AbortSignal)));
     expect(mocks.update).toHaveBeenCalledTimes(1);
     expect(mocks.update.mock.invocationCallOrder[0]).toBeLessThan(mocks.complete.mock.invocationCallOrder[0]);
   });
@@ -447,7 +447,7 @@ describe("Journal Editor", () => {
     fireEvent.change(await screen.findByRole("textbox", { name: "선생님의 한마디" }), { target: { value: "🐶".repeat(500) } });
     fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
 
-    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 6));
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 6, expect.any(String), expect.any(AbortSignal)));
     expect(mocks.update.mock.calls[0][2].teacherComment).toBe("🐶".repeat(500));
     expect(screen.getByText("크리미 일지 완료")).toBeTruthy();
   });
@@ -473,6 +473,84 @@ describe("Journal Editor", () => {
     consoleError.mockRestore();
   });
 
+  it("bounds a permanently pending completion request, unlocks the editor, and exposes a diagnostic ID", async () => {
+    const loaded = entry({
+      status: "IN_PROGRESS", version: 5, conditionCodes: ["active"], urination: true,
+      defecation: false, teacherRelationship: "loves_teacher", friendRelationship: "loves_friends",
+      teacherComment: "완료 직전 한마디",
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.complete
+      .mockImplementationOnce((_id, _version, _requestId, signal: AbortSignal) => new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), { once: true });
+      }))
+      .mockResolvedValueOnce(entry({ ...loaded, status: "COMPLETED", version: 6 }));
+    renderEditor(loaded);
+    await screen.findByRole("heading", { name: "크리미" });
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
+    expect((screen.getByRole("button", { name: "작성 완료" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByText("완료 처리 중...").length).toBeGreaterThan(0);
+    await act(async () => { await vi.advanceTimersByTimeAsync(20_000); });
+    expect(screen.getByText(/작성 완료 요청 시간이 초과되었습니다. · JRN-COMPLETE-/)).toBeTruthy();
+    expect(screen.getAllByText("완료 처리 시간 초과 · 다시 시도").length).toBeGreaterThan(0);
+    expect((screen.getByRole("button", { name: "작성 완료" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("textbox", { name: "선생님의 한마디" }) as HTMLTextAreaElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "다음" }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByRole("button", { name: /진단 정보 복사/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(screen.getByText("크리미 일지 완료")).toBeTruthy();
+    expect(mocks.complete.mock.calls[1][2]).toBe(mocks.complete.mock.calls[0][2]);
+    consoleError.mockRestore();
+  });
+
+  it("coalesces rapid completion clicks into one RPC and one request ID", async () => {
+    let resolveCompletion!: (value: JournalRosterEntry) => void;
+    const pending = new Promise<JournalRosterEntry>((resolve) => { resolveCompletion = resolve; });
+    const loaded = entry({ status: "IN_PROGRESS", version: 5, teacherComment: "완료할 내용" });
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.complete.mockReturnValue(pending);
+    renderEditor(loaded);
+    await screen.findByRole("heading", { name: "크리미" });
+    const completeButton = screen.getByRole("button", { name: "작성 완료" });
+    fireEvent.click(completeButton);
+    fireEvent.click(completeButton);
+    fireEvent.click(completeButton);
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledTimes(1));
+    expect(mocks.complete.mock.calls[0][2]).toEqual(expect.any(String));
+    resolveCompletion(entry({ ...loaded, status: "COMPLETED", version: 6 }));
+    await waitFor(() => expect(screen.getByText("크리미 일지 완료")).toBeTruthy());
+    expect(mocks.complete).toHaveBeenCalledTimes(1);
+  });
+
+  it("aborts an outstanding completion on unmount without applying its late result", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let requestSignal: AbortSignal | undefined;
+    let resolveLate!: (value: JournalRosterEntry) => void;
+    const pending = new Promise<JournalRosterEntry>((resolve) => { resolveLate = resolve; });
+    const loaded = entry({ status: "IN_PROGRESS", version: 5, teacherComment: "완료할 내용" });
+    const onEntryUpdate = vi.fn();
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.complete.mockImplementation((_id, _version, _requestId, signal: AbortSignal) => {
+      requestSignal = signal;
+      return pending;
+    });
+    const rendered = render(
+      <JournalEditor entry={loaded} rosterEntries={roster} onEntryUpdate={onEntryUpdate} onNavigate={vi.fn()} onClose={vi.fn()} />,
+    );
+    await screen.findByRole("heading", { name: "크리미" });
+    fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledTimes(1));
+    rendered.unmount();
+    expect(requestSignal?.aborted).toBe(true);
+    resolveLate(entry({ ...loaded, status: "COMPLETED", version: 6 }));
+    await act(async () => { await Promise.resolve(); });
+    expect(onEntryUpdate).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
   it("keeps autosave and business completion available while blocking image export on presentation overflow", async () => {
     const loaded = entry({ status: "IN_PROGRESS", version: 5, teacherComment: "가".repeat(500) });
     mocks.fontPreference.fontSize = 24;
@@ -485,7 +563,7 @@ describe("Journal Editor", () => {
     expect((screen.getByRole("button", { name: "PNG 저장" }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("button", { name: "JPG 저장" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
-    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 5));
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 5, expect.any(String), expect.any(AbortSignal)));
   });
 
   it("keeps business completion available while a selected system font requires reconnection", async () => {
@@ -499,7 +577,7 @@ describe("Journal Editor", () => {
     expect((screen.getByRole("button", { name: "작성 완료" }) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole("button", { name: "PNG 저장" }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
-    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 7));
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 7, expect.any(String), expect.any(AbortSignal)));
   });
 
   it("locks editing during completion so a stale draft cannot overwrite the completed result", async () => {
@@ -513,7 +591,7 @@ describe("Journal Editor", () => {
     const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
     fireEvent.change(comment, { target: { value: "완료할 내용" } });
     fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
-    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 4));
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 4, expect.any(String), expect.any(AbortSignal)));
     expect((comment.closest("fieldset") as HTMLFieldSetElement).disabled).toBe(true);
     fireEvent.change(comment, { target: { value: "완료 중 stale 입력" } });
     expect(mocks.update).toHaveBeenCalledTimes(1);
