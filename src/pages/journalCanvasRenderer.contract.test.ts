@@ -82,7 +82,8 @@ describe("Journal Canvas renderer contract", () => {
     expect(journalBestFriendFontSize(19)).toBe(28);
     expect(journalBestFriendFontSize(25)).toBe(24);
     expect(journalActivityFontSize(51)).toBe(17);
-    expect(journalCommentTypography(1)).toEqual({ density: "fixed", size: 20, lineHeight: 1.36, textWidth: 724, availableHeight: 290 });
+    expect(journalCommentTypography(1)).toEqual({ density: "fixed", size: 20, lineHeight: 1.36, textWidth: 724, availableHeight: 290, letterSpacing: -0.2 });
+    expect(journalCommentTypography(500, 24)).toEqual({ density: "fixed", size: 24, lineHeight: 1.36, textWidth: 724, availableHeight: 290, letterSpacing: -0.24 });
     expect(journalCommentTypography(500)).toEqual(journalCommentTypography(1));
     expect(journalTeacherCommentDogSlot(500)).toEqual({ x: 865, y: 1213, width: 158, height: 174 });
     expect(journalTeacherCommentDogSlot(20)).toEqual({ x: 865, y: 1213, width: 158, height: 174 });

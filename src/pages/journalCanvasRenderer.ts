@@ -5,7 +5,6 @@ import {
   JOURNAL_REPORT_VISUAL_REGIONS,
   JOURNAL_REQUIRED_VISUAL_ELEMENT_IDS,
   journalActivityFontSize,
-  journalCommentTypography,
   journalDogNameFontSize,
   journalTeacherCommentDogSlot,
   type JournalReportScene,
@@ -422,7 +421,7 @@ function renderScene(context: CanvasRenderingContext2D, scene: JournalReportScen
   visualFingerprints["comment-quote"] = verifyDrawing(context, JOURNAL_REPORT_VISUAL_REGIONS["comment-quote"], "comment-quote", () => {
     setFont(context, 50, 900, family); context.globalAlpha = 0.58; context.fillStyle = "#ffb8bc"; drawTextAtVisualCenter(context, "“", 76, 1087, "left"); context.globalAlpha = 1;
   });
-  const commentStyle = journalCommentTypography(vm.teacherComment.length); setFont(context, commentStyle.size, 400, teacherCommentFontFamily, -commentStyle.size * 0.01); context.fillStyle = colors.ink;
+  const commentStyle = scene.teacherCommentTypography; setFont(context, commentStyle.size, 400, teacherCommentFontFamily, commentStyle.letterSpacing); context.fillStyle = colors.ink;
   const commentArea = { x: 110.32, y: 1081.89, width: commentStyle.textWidth, height: commentStyle.availableHeight }; const lineHeight = commentStyle.size * commentStyle.lineHeight;
   const lines = wrapLines(context, vm.teacherComment, commentArea.width, Math.floor(commentArea.height / lineHeight));
   lines.forEach((line, index) => { const metrics = context.measureText(line || "가"); const ascent = metrics.actualBoundingBoxAscent || commentStyle.size * 0.8; const baseline = commentArea.y + ascent + index * lineHeight; context.textAlign = "left"; context.fillText(line, commentArea.x, baseline); if (index === 0) textLandmarks["comment-first-line"] = textLandmarkAtBaseline(context, line, commentArea.x, baseline); });

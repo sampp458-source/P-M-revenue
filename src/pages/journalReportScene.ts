@@ -73,7 +73,20 @@ export const JOURNAL_TEACHER_COMMENT_FIXED_TYPOGRAPHY = {
   lineHeight: 1.36,
   textWidth: 724,
   availableHeight: 290,
+  letterSpacing: -0.2,
 } as const;
+
+export const JOURNAL_TEACHER_COMMENT_FONT_SIZES = [18, 20, 22, 24] as const;
+export type JournalTeacherCommentFontSize = typeof JOURNAL_TEACHER_COMMENT_FONT_SIZES[number];
+
+export type JournalTeacherCommentTypography = {
+  density: "fixed";
+  size: JournalTeacherCommentFontSize;
+  lineHeight: 1.36;
+  textWidth: 724;
+  availableHeight: 290;
+  letterSpacing: number;
+};
 
 export type JournalReportScene = {
   width: typeof JOURNAL_REPORT_WIDTH;
@@ -84,11 +97,13 @@ export type JournalReportScene = {
   palette: typeof JOURNAL_REPORT_PALETTE;
   fontFamily: typeof JOURNAL_REPORT_FONT_FAMILY;
   teacherCommentFontFamily: string;
+  teacherCommentTypography: JournalTeacherCommentTypography;
 };
 
 export function buildJournalReportScene(
   viewModel: JournalPreviewViewModel,
   teacherCommentFontFamily = JOURNAL_REPORT_FONT_FAMILY,
+  teacherCommentFontSize: JournalTeacherCommentFontSize = 20,
 ): JournalReportScene {
   return {
     width: JOURNAL_REPORT_WIDTH,
@@ -99,12 +114,17 @@ export function buildJournalReportScene(
     palette: JOURNAL_REPORT_PALETTE,
     fontFamily: JOURNAL_REPORT_FONT_FAMILY,
     teacherCommentFontFamily,
+    teacherCommentTypography: journalCommentTypography((viewModel.teacherComment ?? "").length, teacherCommentFontSize),
   };
 }
 
-export function journalCommentTypography(length: number) {
+export function journalCommentTypography(length: number, size: JournalTeacherCommentFontSize = 20): JournalTeacherCommentTypography {
   void length;
-  return JOURNAL_TEACHER_COMMENT_FIXED_TYPOGRAPHY;
+  return {
+    ...JOURNAL_TEACHER_COMMENT_FIXED_TYPOGRAPHY,
+    size,
+    letterSpacing: -size * 0.01,
+  };
 }
 
 export function journalDogNameFontSize(length: number) {

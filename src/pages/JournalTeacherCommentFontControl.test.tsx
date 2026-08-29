@@ -10,11 +10,19 @@ const mocks = vi.hoisted(() => ({
   add: vi.fn(),
   remove: vi.fn(),
   select: vi.fn(),
+  connect: vi.fn(),
+  selectSystem: vi.fn(),
+  selectSize: vi.fn(),
   preference: {
     status: "ready",
     fonts: [] as Array<{ id: string; displayName: string; family: string; fileName: string; mimeType: string; fileSize: number; createdAt: string }>,
     activeFontId: null as string | null,
     activeFontFamily: "Pretendard, sans-serif",
+    activeSource: "DEFAULT",
+    activeSystemFont: null,
+    systemFonts: [] as Array<{ postscriptName: string; fullName: string; family: string; style: string }>,
+    systemFontStatus: "unsupported",
+    fontSize: 20,
     error: "",
   },
 }));
@@ -24,6 +32,9 @@ vi.mock("./journalCustomFont", () => ({
   addJournalCustomFont: mocks.add,
   deleteJournalCustomFont: mocks.remove,
   selectJournalCustomFont: mocks.select,
+  connectJournalSystemFonts: mocks.connect,
+  selectJournalSystemFont: mocks.selectSystem,
+  selectJournalTeacherCommentFontSize: mocks.selectSize,
   journalCustomFontDisplayName: (value: string) => value.replace(/([a-z\d])([A-Z])/g, "$1 $2"),
   journalCustomFontPreviewFamily: (id: string) => id === "font-1" ? '"preview-font", sans-serif' : undefined,
   useJournalCustomFontPreference: () => mocks.preference,
@@ -43,10 +54,18 @@ beforeEach(() => {
   mocks.add.mockReset().mockResolvedValue(undefined);
   mocks.remove.mockReset().mockResolvedValue(undefined);
   mocks.select.mockReset().mockResolvedValue(undefined);
+  mocks.connect.mockReset().mockResolvedValue([]);
+  mocks.selectSystem.mockReset().mockResolvedValue(undefined);
+  mocks.selectSize.mockReset().mockResolvedValue(undefined);
   mocks.preference.status = "ready";
   mocks.preference.fonts = [];
   mocks.preference.activeFontId = null;
   mocks.preference.activeFontFamily = "Pretendard, sans-serif";
+  mocks.preference.activeSource = "DEFAULT";
+  mocks.preference.activeSystemFont = null;
+  mocks.preference.systemFonts = [];
+  mocks.preference.systemFontStatus = "unsupported";
+  mocks.preference.fontSize = 20;
   mocks.preference.error = "";
 });
 
@@ -57,17 +76,18 @@ describe("Journal Teacher Comment font control", () => {
     render(<JournalTeacherCommentFontControl />);
     const trigger = screen.getByRole("button", { name: "기본 글꼴" });
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.queryByRole("button", { name: "내 글꼴 추가" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "글꼴 파일 추가" })).toBeNull();
 
     fireEvent.click(trigger);
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getByRole("listbox", { name: "선생님의 한마디 글꼴" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "내 글꼴 추가" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "글꼴 파일 추가" })).toBeTruthy();
   });
 
   it("shows readable custom names, loaded previews, selected state, and per-font delete actions", () => {
     mocks.preference.fonts = [font("font-1", "NanumPenScript"), font("font-2", "My_Font")];
     mocks.preference.activeFontId = "font-1";
+    mocks.preference.activeSource = "FILE";
     mocks.preference.activeFontFamily = '"preview-font", sans-serif';
     render(<JournalTeacherCommentFontControl />);
 
@@ -81,11 +101,41 @@ describe("Journal Teacher Comment font control", () => {
   it("keeps active deletion inside the menu and delegates the safe fallback to the existing engine", async () => {
     mocks.preference.fonts = [font("font-1", "NanumPenScript")];
     mocks.preference.activeFontId = "font-1";
+    mocks.preference.activeSource = "FILE";
     mocks.preference.activeFontFamily = '"preview-font", sans-serif';
     render(<JournalTeacherCommentFontControl />);
     fireEvent.click(screen.getByRole("button", { name: "Nanum Pen Script" }));
     fireEvent.click(screen.getByRole("button", { name: "Nanum Pen Script 삭제" }));
     expect(mocks.remove).toHaveBeenCalledWith("font-1");
+  });
+
+  it("offers 18/20/22/24 presentation sizes without owning Journal persistence", () => {
+    render(<JournalTeacherCommentFontControl />);
+    expect(screen.getByRole("button", { name: "20" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "24" }));
+    expect(mocks.selectSize).toHaveBeenCalledWith(24);
+  });
+
+  it("shows searchable system fonts only after explicit connection", () => {
+    mocks.preference.systemFontStatus = "ready";
+    mocks.preference.systemFonts = [{ postscriptName: "NanumPen", fullName: "나눔손글씨 펜", family: "Nanum Pen", style: "Regular" }];
+    render(<JournalTeacherCommentFontControl />);
+    fireEvent.click(screen.getByRole("button", { name: "기본 글꼴" }));
+    fireEvent.change(screen.getByPlaceholderText("컴퓨터 글꼴 검색"), { target: { value: "나눔" } });
+    fireEvent.click(screen.getByRole("option", { name: /나눔손글씨 펜/ }));
+    expect(mocks.selectSystem).toHaveBeenCalledWith("NanumPen");
+  });
+
+  it.each([
+    ["unsupported", "이 브라우저에서는 컴퓨터 글꼴 연결을 지원하지 않습니다"],
+    ["denied", "컴퓨터 글꼴 권한이 허용되지 않았습니다"],
+    ["reconnect-required", "이전에 선택한 컴퓨터 글꼴을 사용하려면 다시 연결해 주세요"],
+  ])("shows the %s system-font state without removing file-font fallback", (status, message) => {
+    mocks.preference.systemFontStatus = status;
+    render(<JournalTeacherCommentFontControl />);
+    fireEvent.click(screen.getByRole("button", { name: "기본 글꼴" }));
+    expect(screen.getByText(new RegExp(message))).toBeTruthy();
+    expect(screen.getByRole("button", { name: "글꼴 파일 추가" })).toBeTruthy();
   });
 
   it("does not own Journal persistence, version, audit, or request contracts", () => {

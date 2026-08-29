@@ -47,7 +47,9 @@ describe("Journal Teacher Comment custom font contract", () => {
     expect(source).toContain("indexedDB.open");
     expect(source).toContain("crypto.subtle.digest(\"SHA-256\"");
     expect(source).toContain("new FontFace");
-    expect(source).toContain("선생님의 한마디 500자를 현재 일지 영역에 안전하게 표시할 수 없어 등록할 수 없습니다.");
+    expect(source).toContain("assertJournalCustomFontBasicMetrics");
+    expect(source).toContain("queryLocalFonts");
+    expect(source).toContain("JOURNAL_SYSTEM_FONT_RECONNECT_REQUIRED");
     expect(source).not.toMatch(/supabase|fetch\(|XMLHttpRequest|localStorage/);
   });
 });

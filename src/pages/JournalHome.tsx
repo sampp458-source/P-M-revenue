@@ -15,6 +15,7 @@ import {
   type JournalBatchDiagnostic,
 } from "./journalBatchDiagnostics";
 import { renderJournalImageBlob } from "./journalExport";
+import { ensureActiveJournalTeacherCommentPresentation } from "./journalCustomFont";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import {
   fetchJournalEntry,
@@ -239,6 +240,7 @@ export function JournalHomePage() {
     setBatchDiagnosticCopyState("idle");
     setError("");
     try {
+      const teacherCommentPresentation = await ensureActiveJournalTeacherCommentPresentation();
       for (let index = 0; index < targets.length; index += 1) {
         const target = targets[index];
         const context = { ordinal: index + 1, entryId: target.id, dogId: target.dog.id };
@@ -252,7 +254,7 @@ export function JournalHomePage() {
         const blob = await renderJournalImageBlob(viewModel, "png", (event) => {
           if (event.state === "START") diagnostics.start(event.stage, context);
           else diagnostics.ack(event.stage, context, event);
-        });
+        }, teacherCommentPresentation);
         files.push({ filename: filenames[index], blob });
         diagnostics.entryComplete(context, blob.size);
         setBatchProgress({ current: index + 1, total: targets.length });

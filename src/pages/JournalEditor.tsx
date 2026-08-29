@@ -16,6 +16,7 @@ import { exportJournalImage, type JournalExportFormat } from "./journalExport";
 import { JournalReportPreview } from "./JournalReportTemplate";
 import { JournalTeacherCommentFontControl } from "./JournalTeacherCommentFontControl";
 import { useJournalCustomFontPreference } from "./journalCustomFont";
+import { measureJournalTeacherCommentGeometry } from "./journalTeacherCommentGeometry";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import {
   constrainJournalTeacherCommentInput,
@@ -190,6 +191,10 @@ export function JournalEditor({
   const selectedBestFriendTargets = normalizedJournalBestFriendTargets(draft);
   const selectedBestFriendIds = selectedBestFriendTargets.map((target) => target.type === "TEACHER" ? "TEACHER" : `DOG:${target.dogId}`);
   const previewViewModel = useMemo(() => buildJournalPreviewViewModel(entry, draft, rosterEntries), [draft, entry, rosterEntries]);
+  const commentFontSize = customFont.fontSize ?? 20;
+  const commentGeometry = useMemo(() => measureJournalTeacherCommentGeometry(draft.teacherComment, customFont.activeFontFamily, commentFontSize), [commentFontSize, customFont.activeFontFamily, draft.teacherComment]);
+  const systemFontReconnectRequired = customFont.activeSource === "SYSTEM" && customFont.systemFontStatus !== "ready";
+  const exportPresentationReady = commentGeometry.available && !commentGeometry.overflow && !systemFontReconnectRequired;
 
   const update = (change: (current: JournalDraft) => JournalDraft) => {
     if (actionInFlightRef.current) return;
@@ -342,7 +347,11 @@ export function JournalEditor({
     } catch (caught) {
       setExportError(caught instanceof Error && caught.message === "JOURNAL_CUSTOM_FONT_NOT_READY"
         ? "선택한 폰트를 불러오지 못했습니다. 기본 폰트로 변경한 뒤 다시 시도해 주세요."
-        : "이미지를 저장하지 못했습니다. 다시 시도해 주세요.");
+        : caught instanceof Error && caught.message === "JOURNAL_SYSTEM_FONT_RECONNECT_REQUIRED"
+          ? "선택한 컴퓨터 글꼴을 다시 연결한 뒤 저장해 주세요."
+          : caught instanceof Error && caught.message === "JOURNAL_TEACHER_COMMENT_OVERFLOW"
+            ? "선생님의 한마디가 일지 영역을 넘습니다. 글꼴·크기 또는 내용을 조정해 주세요."
+            : "이미지를 저장하지 못했습니다. 다시 시도해 주세요.");
     } finally {
       exportInFlightRef.current = false;
       setExporting(null);
@@ -422,6 +431,7 @@ export function JournalEditor({
             return teacherComment === current.teacherComment ? current : { ...current, teacherComment };
           })} placeholder="오늘 하루의 특별한 모습을 기록해 주세요." className="min-h-36 resize-y" />
           <p className="mt-2 text-right text-xs tabular-nums text-text-muted">{journalTeacherCommentLength(draft.teacherComment)} / {JOURNAL_COMMENT_MAX_LENGTH}</p>
+          {!exportPresentationReady ? <p role="alert" className="mt-2 rounded-xl border border-warning/30 bg-warning-soft px-3 py-2 text-xs leading-5 text-text-primary">{systemFontReconnectRequired ? "선택한 컴퓨터 글꼴을 다시 연결해야 미리보기와 이미지 저장에 정확히 적용됩니다. 작성 내용 저장과 작성 완료는 계속 사용할 수 있습니다." : commentGeometry.overflow ? `현재 내용이 일지 영역을 ${Math.ceil(Math.max(0, -commentGeometry.bottomRemaining))}px 초과합니다.${commentGeometry.recommendedSize && commentGeometry.recommendedSize !== commentFontSize ? ` ${commentGeometry.recommendedSize}px로 바꾸거나 내용을 조정해 주세요.` : " 글꼴·크기 또는 내용을 조정해 주세요."} 작성 내용 저장과 작성 완료는 가능하지만 이미지 저장은 글꼴·크기 또는 내용을 조정한 뒤 사용할 수 있습니다.` : "현재 글꼴의 표시 영역을 확인할 수 없습니다. 작성 내용 저장과 작성 완료는 가능하지만 이미지 저장은 중단됩니다."}</p> : null}
         </EditorSection>
           </fieldset>
         </div>
@@ -474,10 +484,10 @@ export function JournalEditor({
             <div className="mb-2 xl:hidden">
               <Button type="button" variant="secondary" className="w-full" onClick={() => setPreviewOpen(true)}><Eye size={17} />미리보기</Button>
             </div>
-            <JournalExportActions ready exporting={exporting} error={exportError} onExport={exportImage} navigationDesktop />
+            <JournalExportActions ready={exportPresentationReady} exporting={exporting} error={exportError} onExport={exportImage} navigationDesktop />
           </div>
 
-          <DesktopJournalPreview viewModel={previewViewModel} teacherCommentFontFamily={customFont.activeFontFamily} />
+          <DesktopJournalPreview viewModel={previewViewModel} teacherCommentFontFamily={customFont.activeFontFamily} teacherCommentFontSize={commentFontSize} />
 
           <div className="order-5 fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:left-64 xl:static xl:z-auto xl:rounded-2xl xl:border xl:bg-surface xl:p-1.5 xl:backdrop-blur-none" data-testid="journal-editor-final-actions">
           <div className="flex min-w-0 items-center gap-2">
@@ -499,8 +509,8 @@ export function JournalEditor({
       </div>
 
       <Modal open={previewOpen} title="결과 미리보기" description={`${previewViewModel.dogName} · ${previewViewModel.displayDate}`} onClose={() => setPreviewOpen(false)} size="large" resetKey={entry.id}>
-        <JournalExportActions ready exporting={exporting} error={exportError} onExport={exportImage} />
-        <JournalReportPreview viewModel={previewViewModel} teacherCommentFontFamily={customFont.activeFontFamily} className="mx-auto max-w-[calc((100dvh-10rem)*0.75)] rounded-xl bg-[#fffcf8] shadow-[0_12px_36px_rgb(23_36_58_/_0.14)]" />
+        <JournalExportActions ready={exportPresentationReady} exporting={exporting} error={exportError} onExport={exportImage} />
+        <JournalReportPreview viewModel={previewViewModel} teacherCommentFontFamily={customFont.activeFontFamily} teacherCommentFontSize={commentFontSize} className="mx-auto max-w-[calc((100dvh-10rem)*0.75)] rounded-xl bg-[#fffcf8] shadow-[0_12px_36px_rgb(23_36_58_/_0.14)]" />
       </Modal>
 
       <Modal
@@ -522,7 +532,7 @@ export function JournalEditor({
   );
 }
 
-function DesktopJournalPreview({ viewModel, teacherCommentFontFamily }: { viewModel: ReturnType<typeof buildJournalPreviewViewModel>; teacherCommentFontFamily: string }) {
+function DesktopJournalPreview({ viewModel, teacherCommentFontFamily, teacherCommentFontSize }: { viewModel: ReturnType<typeof buildJournalPreviewViewModel>; teacherCommentFontFamily: string; teacherCommentFontSize: 18 | 20 | 22 | 24 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const [previewWidth, setPreviewWidth] = useState<number | null>(null);
 
@@ -544,7 +554,7 @@ function DesktopJournalPreview({ viewModel, teacherCommentFontFamily }: { viewMo
   return (
     <div ref={viewportRef} className="journal-editor-preview-stage order-5 hidden min-h-0 items-center justify-center overflow-hidden xl:order-none xl:flex" aria-label={`${viewModel.dogName} 결과 미리보기`} data-testid="journal-editor-preview-viewport">
       <div className="journal-editor-preview-frame max-w-full rounded-2xl p-1" style={previewWidth ? { width: `${previewWidth + 8}px` } : undefined} data-testid="journal-editor-preview-frame">
-        <JournalReportPreview viewModel={viewModel} teacherCommentFontFamily={teacherCommentFontFamily} className="w-full rounded-xl bg-[#fffcf8] shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
+        <JournalReportPreview viewModel={viewModel} teacherCommentFontFamily={teacherCommentFontFamily} teacherCommentFontSize={teacherCommentFontSize} className="w-full rounded-xl bg-[#fffcf8] shadow-[0_18px_50px_rgb(23_36_58_/_0.16)]" />
       </div>
     </div>
   );

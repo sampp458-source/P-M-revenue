@@ -14,6 +14,31 @@ const mocks = vi.hoisted(() => ({
   complete: vi.fn(),
   renderImage: vi.fn(),
   exportImage: vi.fn(),
+  fontPreference: {
+    status: "ready",
+    fonts: [],
+    activeFontId: null,
+    activeFontFamily: "Pretendard, sans-serif",
+    activeSource: "DEFAULT",
+    activeSystemFont: null,
+    systemFonts: [],
+    systemFontStatus: "unsupported",
+    fontSize: 20,
+    error: "",
+  },
+}));
+
+vi.mock("./journalCustomFont", () => ({
+  JOURNAL_CUSTOM_FONT_ACCEPT: ".ttf,.otf,.woff,.woff2",
+  useJournalCustomFontPreference: () => mocks.fontPreference,
+  addJournalCustomFont: vi.fn(),
+  deleteJournalCustomFont: vi.fn(),
+  selectJournalCustomFont: vi.fn(),
+  connectJournalSystemFonts: vi.fn(),
+  selectJournalSystemFont: vi.fn(),
+  selectJournalTeacherCommentFontSize: vi.fn(),
+  journalCustomFontDisplayName: (value: string) => value,
+  journalCustomFontPreviewFamily: () => undefined,
 }));
 
 vi.mock("./journalRepository", async (importOriginal) => ({
@@ -64,6 +89,9 @@ const roster = [
 beforeEach(() => {
   mocks.renderImage.mockReset();
   mocks.exportImage.mockReset();
+  mocks.fontPreference.fontSize = 20;
+  mocks.fontPreference.activeSource = "DEFAULT";
+  mocks.fontPreference.systemFontStatus = "unsupported";
 });
 
 afterEach(() => {
@@ -364,6 +392,35 @@ describe("Journal Editor", () => {
     await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 6));
     expect(mocks.update).toHaveBeenCalledTimes(1);
     expect(mocks.update.mock.invocationCallOrder[0]).toBeLessThan(mocks.complete.mock.invocationCallOrder[0]);
+  });
+
+  it("keeps autosave and business completion available while blocking image export on presentation overflow", async () => {
+    const loaded = entry({ status: "IN_PROGRESS", version: 5, teacherComment: "가".repeat(500) });
+    mocks.fontPreference.fontSize = 24;
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.complete.mockResolvedValue(entry({ ...loaded, status: "COMPLETED", version: 6 }));
+    renderEditor(loaded);
+    expect(await screen.findByText(/현재 내용이 일지 영역을/)).toBeTruthy();
+    expect(screen.getByText(/작성 내용 저장과 작성 완료는 가능하지만 이미지 저장은/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: "작성 완료" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "PNG 저장" }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "JPG 저장" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 5));
+  });
+
+  it("keeps business completion available while a selected system font requires reconnection", async () => {
+    const loaded = entry({ status: "IN_PROGRESS", version: 7, teacherComment: "오늘도 즐겁게 지냈어요." });
+    mocks.fontPreference.activeSource = "SYSTEM";
+    mocks.fontPreference.systemFontStatus = "reconnect-required";
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.complete.mockResolvedValue(entry({ ...loaded, status: "COMPLETED", version: 8 }));
+    renderEditor(loaded);
+    expect(await screen.findByText(/작성 내용 저장과 작성 완료는 계속 사용할 수 있습니다/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: "작성 완료" }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "PNG 저장" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 7));
   });
 
   it("locks editing during completion so a stale draft cannot overwrite the completed result", async () => {

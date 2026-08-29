@@ -56,8 +56,9 @@ const readyMetrics = (overrides: Record<string, number> = {}) => ({
 describe("Journal Canvas export", () => {
   it("resolves the device-local Teacher Comment font before building the Canvas scene", () => {
     const source = readFileSync(resolve(process.cwd(), "src/pages/journalExport.ts"), "utf8");
-    expect(source).toContain("await ensureActiveJournalTeacherCommentFont()");
-    expect(source).toContain("buildJournalReportScene(viewModel, teacherCommentFontFamily)");
+    expect(source).toContain("await ensureActiveJournalTeacherCommentPresentation()");
+    expect(source).toContain("assertJournalTeacherCommentGeometry(viewModel.teacherComment, presentation.fontFamily, presentation.fontSize)");
+    expect(source).toContain("buildJournalReportScene(viewModel, presentation.fontFamily, presentation.fontSize)");
   });
   beforeEach(() => {
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:journal") });

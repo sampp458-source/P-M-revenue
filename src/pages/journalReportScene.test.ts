@@ -20,7 +20,7 @@ describe("Journal report scene contracts", () => {
 
   it("keeps the verified fixed text and decorative-dog geometry", () => {
     expect(JOURNAL_TEACHER_COMMENT_FIXED_TYPOGRAPHY).toEqual({
-      density: "fixed", size: 20, lineHeight: 1.36, textWidth: 724, availableHeight: 290,
+      density: "fixed", size: 20, lineHeight: 1.36, textWidth: 724, availableHeight: 290, letterSpacing: -0.2,
     });
     expect(JOURNAL_TEACHER_COMMENT_FIXED_TYPOGRAPHY.textWidth).toBe(724);
     expect(journalTeacherCommentDogSlot(1)).toEqual({ x: 865, y: 1213, width: 158, height: 174 });

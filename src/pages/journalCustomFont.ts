@@ -1,7 +1,8 @@
 import { useEffect, useSyncExternalStore } from "react";
 import {
   JOURNAL_REPORT_FONT_FAMILY,
-  JOURNAL_TEACHER_COMMENT_FIXED_TYPOGRAPHY,
+  JOURNAL_TEACHER_COMMENT_FONT_SIZES,
+  type JournalTeacherCommentFontSize,
 } from "./journalReportScene";
 
 export const JOURNAL_CUSTOM_FONT_MAX_FILE_SIZE = 20 * 1024 * 1024;
@@ -13,6 +14,9 @@ const DATABASE_VERSION = 1;
 const FONT_STORE = "teacher-comment-fonts";
 const PREFERENCE_STORE = "preferences";
 const ACTIVE_FONT_KEY = "active-teacher-comment-font";
+const ACTIVE_SOURCE_KEY = "active-teacher-comment-font-source";
+const ACTIVE_SYSTEM_FONT_KEY = "active-teacher-comment-system-font";
+const FONT_SIZE_KEY = "teacher-comment-font-size";
 const SUPPORTED_EXTENSIONS = new Set(["ttf", "otf", "woff", "woff2"]);
 const SUPPORTED_MIME_TYPES = new Set([
   "",
@@ -39,11 +43,24 @@ export type JournalCustomFontMetadata = {
 
 type JournalCustomFontRecord = JournalCustomFontMetadata & { data: Blob };
 type JournalCustomFontStatus = "loading" | "ready" | "unsupported";
-type JournalCustomFontSnapshot = {
+export type JournalTeacherCommentFontSource = "DEFAULT" | "FILE" | "SYSTEM";
+export type JournalSystemFontMetadata = {
+  postscriptName: string;
+  fullName: string;
+  family: string;
+  style: string;
+};
+type LocalFontData = JournalSystemFontMetadata & { blob: () => Promise<Blob> };
+export type JournalCustomFontSnapshot = {
   status: JournalCustomFontStatus;
   fonts: JournalCustomFontMetadata[];
   activeFontId: string | null;
   activeFontFamily: string;
+  activeSource: JournalTeacherCommentFontSource;
+  activeSystemFont: JournalSystemFontMetadata | null;
+  systemFonts: JournalSystemFontMetadata[];
+  systemFontStatus: "unsupported" | "idle" | "loading" | "ready" | "denied" | "reconnect-required";
+  fontSize: JournalTeacherCommentFontSize;
   error: string;
 };
 
@@ -52,6 +69,11 @@ const defaultSnapshot: JournalCustomFontSnapshot = {
   fonts: [],
   activeFontId: null,
   activeFontFamily: JOURNAL_REPORT_FONT_FAMILY,
+  activeSource: "DEFAULT",
+  activeSystemFont: null,
+  systemFonts: [],
+  systemFontStatus: "idle",
+  fontSize: 20,
   error: "",
 };
 
@@ -59,6 +81,8 @@ let snapshot = defaultSnapshot;
 let initialization: Promise<void> | null = null;
 const listeners = new Set<() => void>();
 const loadedFaces = new Map<string, FontFace>();
+const availableSystemFontData = new Map<string, LocalFontData>();
+let loadedSystemFace: FontFace | null = null;
 
 function emit(next: JournalCustomFontSnapshot) {
   snapshot = next;
@@ -90,12 +114,19 @@ async function readStoredState() {
   try {
     const transaction = database.transaction([FONT_STORE, PREFERENCE_STORE], "readonly");
     const recordsRequest = transaction.objectStore(FONT_STORE).getAll();
-    const activeFontRequest = transaction.objectStore(PREFERENCE_STORE).get(ACTIVE_FONT_KEY);
-    const [records, activeFontId] = await Promise.all([
+    const preferences = transaction.objectStore(PREFERENCE_STORE);
+    const activeFontRequest = preferences.get(ACTIVE_FONT_KEY);
+    const activeSourceRequest = preferences.get(ACTIVE_SOURCE_KEY);
+    const activeSystemFontRequest = preferences.get(ACTIVE_SYSTEM_FONT_KEY);
+    const fontSizeRequest = preferences.get(FONT_SIZE_KEY);
+    const [records, activeFontId, activeSource, activeSystemFont, fontSize] = await Promise.all([
       requestResult(recordsRequest) as Promise<JournalCustomFontRecord[]>,
       requestResult(activeFontRequest) as Promise<string | undefined>,
+      requestResult(activeSourceRequest) as Promise<JournalTeacherCommentFontSource | undefined>,
+      requestResult(activeSystemFontRequest) as Promise<JournalSystemFontMetadata | undefined>,
+      requestResult(fontSizeRequest) as Promise<JournalTeacherCommentFontSize | undefined>,
     ]);
-    return { records, activeFontId: activeFontId ?? null };
+    return { records, activeFontId: activeFontId ?? null, activeSource, activeSystemFont: activeSystemFont ?? null, fontSize };
   } finally {
     database.close();
   }
@@ -118,6 +149,18 @@ async function writeActiveFontId(activeFontId: string | null) {
     const store = transaction.objectStore(PREFERENCE_STORE);
     if (activeFontId) await requestResult(store.put(activeFontId, ACTIVE_FONT_KEY));
     else await requestResult(store.delete(ACTIVE_FONT_KEY));
+  } finally {
+    database.close();
+  }
+}
+
+async function writePreference(key: string, value: unknown | null) {
+  const database = await openDatabase();
+  try {
+    const transaction = database.transaction(PREFERENCE_STORE, "readwrite");
+    const store = transaction.objectStore(PREFERENCE_STORE);
+    if (value === null) await requestResult(store.delete(key));
+    else await requestResult(store.put(value, key));
   } finally {
     database.close();
   }
@@ -183,20 +226,6 @@ export function journalCustomFontPreviewFamily(id: string) {
   return font && loadedFaces.get(id)?.status === "loaded" ? journalTeacherCommentFontFamily(font.family) : undefined;
 }
 
-function wrapLineCount(context: CanvasRenderingContext2D, value: string, width: number) {
-  let count = 0;
-  value.replaceAll("\r\n", "\n").split("\n").forEach((paragraph) => {
-    let current = "";
-    Array.from(paragraph).forEach((character) => {
-      const next = current + character;
-      if (current && context.measureText(next).width > width) { count += 1; current = character; }
-      else current = next;
-    });
-    if (current || paragraph === "") count += 1;
-  });
-  return count;
-}
-
 function textFingerprint(fontFamily: string) {
   const canvas = document.createElement("canvas");
   canvas.width = 420;
@@ -224,23 +253,15 @@ function assertJournalCustomFontKoreanGlyphs(family: string) {
   if (custom === fallback) throw new Error("한글 글리프가 포함된 폰트 파일을 선택해 주세요.");
 }
 
-export function assertJournalCustomFontGeometry(family: string) {
+export function assertJournalCustomFontBasicMetrics(family: string) {
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
   if (!context) throw new Error("폰트 표시 안전성을 확인할 수 없습니다.");
-  const typography = JOURNAL_TEACHER_COMMENT_FIXED_TYPOGRAPHY;
-  const safetyFixture = Array.from({ length: 500 }, (_, index) => index % 5 < 3 ? "가" : " ").join("");
-  const maxLines = Math.floor(typography.availableHeight / (typography.size * typography.lineHeight));
-  context.font = `400 ${typography.size}px ${JOURNAL_REPORT_FONT_FAMILY}`;
-  const defaultLines = wrapLineCount(context, safetyFixture, typography.textWidth);
-  context.font = `400 ${typography.size}px ${journalTeacherCommentFontFamily(family)}`;
-  const customLines = wrapLineCount(context, safetyFixture, typography.textWidth);
+  context.font = `400 20px ${journalTeacherCommentFontFamily(family)}`;
   const metrics = context.measureText("한글 ABC 123 ♡ 👏");
   canvas.width = 1;
   canvas.height = 1;
-  if (!Number.isFinite(metrics.width) || metrics.width <= 0 || customLines > maxLines || customLines > defaultLines) {
-    throw new Error("이 글꼴은 선생님의 한마디 500자를 현재 일지 영역에 안전하게 표시할 수 없어 등록할 수 없습니다.");
-  }
+  if (!Number.isFinite(metrics.width) || metrics.width <= 0) throw new Error("이 글꼴의 기본 표시 정보를 확인할 수 없습니다.");
 }
 
 async function loadRecord(record: JournalCustomFontRecord) {
@@ -250,12 +271,16 @@ async function loadRecord(record: JournalCustomFontRecord) {
   const face = new FontFace(record.family, data, { style: "normal", weight: "400" });
   const loaded = await face.load();
   document.fonts.add(loaded);
-  if (!document.fonts.check(`20px "${record.family}"`, "한글 ABC 123 ♡")) {
+  try {
+    if (!document.fonts.check(`20px "${record.family}"`, "한글 ABC 123 ♡")) {
+      throw new Error("선택한 폰트에서 한글을 불러올 수 없습니다.");
+    }
+    assertJournalCustomFontKoreanGlyphs(record.family);
+    assertJournalCustomFontBasicMetrics(record.family);
+  } catch (caught) {
     document.fonts.delete(loaded);
-    throw new Error("선택한 폰트에서 한글을 불러올 수 없습니다.");
+    throw caught;
   }
-  assertJournalCustomFontKoreanGlyphs(record.family);
-  assertJournalCustomFontGeometry(record.family);
   loadedFaces.set(record.id, loaded);
   return loaded;
 }
@@ -272,9 +297,10 @@ export async function initializeJournalCustomFonts() {
       return;
     }
     try {
-      const { records, activeFontId } = await readStoredState();
+      const { records, activeFontId, activeSource, activeSystemFont, fontSize } = await readStoredState();
       const sorted = records.sort((left, right) => left.createdAt.localeCompare(right.createdAt));
-      let active = sorted.find((record) => record.id === activeFontId) ?? null;
+      const source: JournalTeacherCommentFontSource = activeSource === "SYSTEM" && activeSystemFont ? "SYSTEM" : activeSource === "FILE" || activeFontId ? "FILE" : "DEFAULT";
+      let active = source === "FILE" ? sorted.find((record) => record.id === activeFontId) ?? null : null;
       let error = activeFontId && !active ? "저장된 폰트를 찾지 못해 기본 폰트를 사용합니다." : "";
       if (active) {
         try { await loadRecord(active); }
@@ -285,11 +311,16 @@ export async function initializeJournalCustomFonts() {
         fonts: sorted.map(fontMetadata),
         activeFontId: active?.id ?? null,
         activeFontFamily: journalTeacherCommentFontFamily(active?.family),
+        activeSource: source === "SYSTEM" ? "SYSTEM" : active ? "FILE" : "DEFAULT",
+        activeSystemFont: source === "SYSTEM" ? activeSystemFont : null,
+        systemFonts: [],
+        systemFontStatus: source === "SYSTEM" ? "reconnect-required" : typeof window !== "undefined" && "queryLocalFonts" in window ? "idle" : "unsupported",
+        fontSize: JOURNAL_TEACHER_COMMENT_FONT_SIZES.includes(fontSize as JournalTeacherCommentFontSize) ? fontSize as JournalTeacherCommentFontSize : 20,
         error,
       });
       if (activeFontId && !active) await writeActiveFontId(null);
     } catch {
-      emit({ ...defaultSnapshot, status: "ready", error: "저장된 폰트를 불러오지 못해 기본 폰트를 사용합니다." });
+      emit({ ...defaultSnapshot, status: "ready", systemFontStatus: typeof window !== "undefined" && "queryLocalFonts" in window ? "idle" : "unsupported", error: "저장된 폰트를 불러오지 못해 기본 폰트를 사용합니다." });
     }
   })();
   return initialization;
@@ -331,7 +362,9 @@ export async function addJournalCustomFont(file: File) {
   await writeFont(record);
   await writeActiveFontId(record.id);
   const metadata = fontMetadata(record);
-  emit({ status: "ready", fonts: [...snapshot.fonts, metadata], activeFontId: record.id, activeFontFamily: journalTeacherCommentFontFamily(record.family), error: "" });
+  await writePreference(ACTIVE_SOURCE_KEY, "FILE");
+  await writePreference(ACTIVE_SYSTEM_FONT_KEY, null);
+  emit({ ...snapshot, status: "ready", fonts: [...snapshot.fonts, metadata], activeFontId: record.id, activeFontFamily: journalTeacherCommentFontFamily(record.family), activeSource: "FILE", activeSystemFont: null, error: "" });
   return metadata;
 }
 
@@ -339,7 +372,9 @@ export async function selectJournalCustomFont(id: string | null) {
   await initializeJournalCustomFonts();
   if (!id) {
     await writeActiveFontId(null);
-    emit({ ...snapshot, activeFontId: null, activeFontFamily: JOURNAL_REPORT_FONT_FAMILY, error: "" });
+    await writePreference(ACTIVE_SOURCE_KEY, "DEFAULT");
+    await writePreference(ACTIVE_SYSTEM_FONT_KEY, null);
+    emit({ ...snapshot, activeFontId: null, activeFontFamily: JOURNAL_REPORT_FONT_FAMILY, activeSource: "DEFAULT", activeSystemFont: null, error: "" });
     return;
   }
   const { records } = await readStoredState();
@@ -347,7 +382,9 @@ export async function selectJournalCustomFont(id: string | null) {
   if (!record) throw new Error("선택한 폰트를 찾을 수 없습니다.");
   await loadRecord(record);
   await writeActiveFontId(id);
-  emit({ ...snapshot, activeFontId: id, activeFontFamily: journalTeacherCommentFontFamily(record.family), error: "" });
+  await writePreference(ACTIVE_SOURCE_KEY, "FILE");
+  await writePreference(ACTIVE_SYSTEM_FONT_KEY, null);
+  emit({ ...snapshot, activeFontId: id, activeFontFamily: journalTeacherCommentFontFamily(record.family), activeSource: "FILE", activeSystemFont: null, error: "" });
 }
 
 export async function deleteJournalCustomFont(id: string) {
@@ -362,22 +399,103 @@ export async function deleteJournalCustomFont(id: string) {
     fonts: snapshot.fonts.filter((font) => font.id !== id),
     activeFontId: wasActive ? null : snapshot.activeFontId,
     activeFontFamily: wasActive ? JOURNAL_REPORT_FONT_FAMILY : snapshot.activeFontFamily,
+    activeSource: wasActive ? "DEFAULT" : snapshot.activeSource,
+    activeSystemFont: wasActive ? null : snapshot.activeSystemFont,
     error: "",
   });
+  if (wasActive) await writePreference(ACTIVE_SOURCE_KEY, "DEFAULT");
 }
 
-export async function ensureActiveJournalTeacherCommentFont() {
+function localFontQuery() {
+  return (window as Window & { queryLocalFonts?: () => Promise<LocalFontData[]> }).queryLocalFonts;
+}
+
+export async function connectJournalSystemFonts() {
   await initializeJournalCustomFonts();
-  if (!snapshot.activeFontId) return JOURNAL_REPORT_FONT_FAMILY;
+  const query = localFontQuery();
+  if (!query) {
+    emit({ ...snapshot, systemFontStatus: "unsupported", error: "이 브라우저에서는 컴퓨터 글꼴 연결을 지원하지 않습니다." });
+    return [];
+  }
+  emit({ ...snapshot, systemFontStatus: "loading", error: "" });
+  try {
+    const records = await query.call(window);
+    availableSystemFontData.clear();
+    records.forEach((record) => availableSystemFontData.set(record.postscriptName, record));
+    const fonts = records.map(({ postscriptName, fullName, family, style }) => ({ postscriptName, fullName, family, style }))
+      .sort((left, right) => {
+        const familyOrder = left.family.localeCompare(right.family, "ko");
+        if (familyOrder) return familyOrder;
+        const regularRank = (style: string) => /^(regular|normal|book)$/i.test(style.trim()) ? 0 : 1;
+        return regularRank(left.style) - regularRank(right.style) || left.fullName.localeCompare(right.fullName, "ko");
+      });
+    emit({ ...snapshot, systemFonts: fonts, systemFontStatus: "ready", error: "" });
+    return fonts;
+  } catch (caught) {
+    const denied = caught instanceof DOMException && (caught.name === "NotAllowedError" || caught.name === "SecurityError");
+    emit({ ...snapshot, systemFonts: [], systemFontStatus: denied ? "denied" : "idle", error: denied ? "컴퓨터 글꼴 접근이 허용되지 않았습니다. 브라우저 권한을 확인해 주세요." : "컴퓨터 글꼴 목록을 불러오지 못했습니다." });
+    return [];
+  }
+}
+
+export async function selectJournalSystemFont(postscriptName: string) {
+  await initializeJournalCustomFonts();
+  const record = availableSystemFontData.get(postscriptName);
+  if (!record) throw new Error("컴퓨터 글꼴을 다시 연결한 뒤 선택해 주세요.");
+  const blob = await record.blob();
+  const data = await blob.arrayBuffer();
+  const hash = await sha256(data);
+  const family = `pnm-journal-system-font-${hash.slice(0, 20)}`;
+  const face = await new FontFace(family, data, { style: "normal", weight: "400" }).load();
+  document.fonts.add(face);
+  try {
+    assertJournalCustomFontKoreanGlyphs(family);
+    assertJournalCustomFontBasicMetrics(family);
+  } catch (caught) {
+    document.fonts.delete(face);
+    throw caught;
+  }
+  if (loadedSystemFace) document.fonts.delete(loadedSystemFace);
+  loadedSystemFace = face;
+  const metadata: JournalSystemFontMetadata = { postscriptName: record.postscriptName, fullName: record.fullName, family: record.family, style: record.style };
+  await writeActiveFontId(null);
+  await writePreference(ACTIVE_SOURCE_KEY, "SYSTEM");
+  await writePreference(ACTIVE_SYSTEM_FONT_KEY, metadata);
+  emit({ ...snapshot, activeFontId: null, activeFontFamily: journalTeacherCommentFontFamily(family), activeSource: "SYSTEM", activeSystemFont: metadata, systemFontStatus: "ready", error: "" });
+}
+
+export async function selectJournalTeacherCommentFontSize(fontSize: JournalTeacherCommentFontSize) {
+  if (!JOURNAL_TEACHER_COMMENT_FONT_SIZES.includes(fontSize)) throw new Error("지원하지 않는 글자 크기입니다.");
+  await initializeJournalCustomFonts();
+  await writePreference(FONT_SIZE_KEY, fontSize);
+  emit({ ...snapshot, fontSize, error: "" });
+}
+
+export type JournalTeacherCommentPresentation = {
+  fontFamily: string;
+  fontSize: JournalTeacherCommentFontSize;
+};
+
+export async function ensureActiveJournalTeacherCommentPresentation(): Promise<JournalTeacherCommentPresentation> {
+  await initializeJournalCustomFonts();
+  if (snapshot.activeSource === "SYSTEM") {
+    if (snapshot.systemFontStatus !== "ready" || !loadedSystemFace) throw new Error("JOURNAL_SYSTEM_FONT_RECONNECT_REQUIRED");
+    return { fontFamily: snapshot.activeFontFamily, fontSize: snapshot.fontSize };
+  }
+  if (!snapshot.activeFontId) return { fontFamily: JOURNAL_REPORT_FONT_FAMILY, fontSize: snapshot.fontSize };
   const { records } = await readStoredState();
   const record = records.find((candidate) => candidate.id === snapshot.activeFontId);
   if (!record) throw new Error("JOURNAL_CUSTOM_FONT_NOT_READY");
   try {
     await loadRecord(record);
-    return journalTeacherCommentFontFamily(record.family);
+    return { fontFamily: journalTeacherCommentFontFamily(record.family), fontSize: snapshot.fontSize };
   } catch {
     throw new Error("JOURNAL_CUSTOM_FONT_NOT_READY");
   }
+}
+
+export async function ensureActiveJournalTeacherCommentFont() {
+  return (await ensureActiveJournalTeacherCommentPresentation()).fontFamily;
 }
 
 export function useJournalCustomFontPreference() {
