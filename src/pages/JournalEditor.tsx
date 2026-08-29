@@ -99,6 +99,7 @@ export function JournalEditor({
 }) {
   const [entry, setEntry] = useState(rosterEntry);
   const [draft, setDraft] = useState<JournalDraft>(() => journalEntryToDraft(rosterEntry));
+  const [teacherCommentInput, setTeacherCommentInput] = useState(() => journalEntryToDraft(rosterEntry).teacherComment);
   const [loading, setLoading] = useState(true);
   const [saveState, setSaveState] = useState<JournalSaveState>("idle");
   const [saveFailure, setSaveFailure] = useState<JournalSaveFailureDiagnostic | null>(null);
@@ -122,6 +123,7 @@ export function JournalEditor({
   const navigationInFlightRef = useRef(false);
   const pendingNavigationRef = useRef<{ intent: "list" | string; navigate: () => void } | null>(null);
   const actionInFlightRef = useRef(false);
+  const teacherCommentCompositionRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -132,7 +134,9 @@ export function JournalEditor({
       .then((loaded) => {
         if (cancelled) return;
         setEntry(loaded);
-        setDraft(journalEntryToDraft(loaded));
+        const loadedDraft = journalEntryToDraft(loaded);
+        setDraft(loadedDraft);
+        setTeacherCommentInput(loadedDraft.teacherComment);
         versionRef.current = loaded.version;
         entryStatusRef.current = loaded.status;
         queueRef.current = new JournalAutosaveQueue(
@@ -205,6 +209,16 @@ export function JournalEditor({
       setError("");
       return nextDraft;
     });
+  };
+
+  useEffect(() => {
+    if (!teacherCommentCompositionRef.current) setTeacherCommentInput(draft.teacherComment);
+  }, [draft.teacherComment]);
+
+  const commitTeacherCommentInput = (value: string) => {
+    const teacherComment = constrainJournalTeacherCommentInput(draft.teacherComment, value);
+    setTeacherCommentInput(teacherComment);
+    update((current) => teacherComment === current.teacherComment ? current : { ...current, teacherComment });
   };
 
   const flush = async () => {
@@ -426,10 +440,22 @@ export function JournalEditor({
 
         <EditorSection title="선생님의 한마디" description="작성 완료를 위해 한마디를 입력해 주세요." desktopWide>
           <JournalTeacherCommentFontControl />
-          <Textarea aria-label="선생님의 한마디" rows={6} value={draft.teacherComment} onChange={(event) => update((current) => {
-            const teacherComment = constrainJournalTeacherCommentInput(current.teacherComment, event.target.value);
-            return teacherComment === current.teacherComment ? current : { ...current, teacherComment };
-          })} placeholder="오늘 하루의 특별한 모습을 기록해 주세요." className="min-h-36 resize-y" />
+          <Textarea
+            aria-label="선생님의 한마디"
+            rows={6}
+            value={teacherCommentInput}
+            onCompositionStart={() => { teacherCommentCompositionRef.current = true; }}
+            onCompositionEnd={(event) => {
+              teacherCommentCompositionRef.current = false;
+              commitTeacherCommentInput(event.currentTarget.value);
+            }}
+            onChange={(event) => {
+              if (teacherCommentCompositionRef.current) setTeacherCommentInput(event.target.value);
+              else commitTeacherCommentInput(event.target.value);
+            }}
+            placeholder="오늘 하루의 특별한 모습을 기록해 주세요."
+            className="min-h-36 resize-y"
+          />
           <p className="mt-2 text-right text-xs tabular-nums text-text-muted">{journalTeacherCommentLength(draft.teacherComment)} / {JOURNAL_COMMENT_MAX_LENGTH}</p>
           {!exportPresentationReady ? <p role="alert" className="mt-2 rounded-xl border border-warning/30 bg-warning-soft px-3 py-2 text-xs leading-5 text-text-primary">{systemFontReconnectRequired ? "선택한 컴퓨터 글꼴을 다시 연결해야 미리보기와 이미지 저장에 정확히 적용됩니다. 작성 내용 저장과 작성 완료는 계속 사용할 수 있습니다." : commentGeometry.overflow ? `현재 내용이 일지 영역을 ${Math.ceil(Math.max(0, -commentGeometry.bottomRemaining))}px 초과합니다.${commentGeometry.recommendedSize && commentGeometry.recommendedSize !== commentFontSize ? ` ${commentGeometry.recommendedSize}px로 바꾸거나 내용을 조정해 주세요.` : " 글꼴·크기 또는 내용을 조정해 주세요."} 작성 내용 저장과 작성 완료는 가능하지만 이미지 저장은 글꼴·크기 또는 내용을 조정한 뒤 사용할 수 있습니다.` : "현재 글꼴의 표시 영역을 확인할 수 없습니다. 작성 내용 저장과 작성 완료는 가능하지만 이미지 저장은 중단됩니다."}</p> : null}
         </EditorSection>

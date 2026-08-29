@@ -51,9 +51,28 @@ describe("Journal teacher comment normalization", () => {
       expect(journalTeacherCommentLength(value501)).toBe(501);
       expect(journalTeacherCommentLength(constrainJournalTeacherCommentInput("", value499))).toBe(499);
       expect(journalTeacherCommentLength(constrainJournalTeacherCommentInput("", value500))).toBe(500);
-      expect(constrainJournalTeacherCommentInput(current500, value501)).toBe(current500);
+      const constrained501 = constrainJournalTeacherCommentInput(current500, value501);
+      expect(journalTeacherCommentLength(constrained501)).toBe(500);
     },
   );
+
+  it.each([
+    ["simple emoji", "🐶"],
+    ["emoji with variation selector", "❤️"],
+    ["surrogate pair", "𠮷"],
+    ["ZWJ emoji", "👨‍👩‍👧‍👦"],
+    ["mixed Korean and emoji", "가🐶"],
+  ])("accepts the remaining canonical capacity from an oversized %s paste", (_name, token) => {
+    const current = "가".repeat(484);
+    const result = constrainJournalTeacherCommentInput(current, `${current}${token.repeat(20)}`);
+    expect(journalTeacherCommentLength(result)).toBe(500);
+    expect(result.startsWith(current)).toBe(true);
+  });
+
+  it("blocks an insertion at the full boundary without dropping existing suffix content", () => {
+    const current = `${"가".repeat(250)}${"나".repeat(250)}`;
+    expect(constrainJournalTeacherCommentInput(current, `${"가".repeat(250)}🐶${"나".repeat(250)}`)).toBe(current);
+  });
 
   it("matches server btrim semantics for leading and trailing spaces without removing newlines", () => {
     const input = `  ${"가".repeat(499)}\n  `;

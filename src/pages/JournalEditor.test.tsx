@@ -197,6 +197,46 @@ describe("Journal Editor", () => {
     expect(mocks.update).toHaveBeenCalledTimes(1);
   });
 
+  it("fills the remaining canonical capacity from an emoji-heavy paste without native maxlength", async () => {
+    const loaded = entry({ status: "IN_PROGRESS", version: 2, teacherComment: "가".repeat(484) });
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.update.mockImplementation(async (_id, version, savedDraft) => entry({
+      ...loaded,
+      teacherComment: savedDraft.teacherComment,
+      version: version + 1,
+    }));
+    renderEditor(loaded);
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" }) as HTMLTextAreaElement;
+
+    expect(comment.hasAttribute("maxlength")).toBe(false);
+    fireEvent.change(comment, { target: { value: `${"가".repeat(484)}${"👨‍👩‍👧‍👦❤️🐶".repeat(10)}` } });
+
+    expect(screen.getByText("500 / 500")).toBeTruthy();
+    expect(Array.from(comment.value).length).toBe(500);
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1), { timeout: JOURNAL_AUTOSAVE_DELAY + 1_000 });
+    expect(Array.from(mocks.update.mock.calls[0][2].teacherComment).length).toBe(500);
+  });
+
+  it("keeps IME composition out of business autosave until the canonical value is committed", async () => {
+    const loaded = entry({ status: "IN_PROGRESS", version: 2, teacherComment: "가".repeat(499) });
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.update.mockImplementation(async (_id, version, savedDraft) => entry({ ...loaded, ...savedDraft, version: version + 1 }));
+    renderEditor(loaded);
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" }) as HTMLTextAreaElement;
+
+    fireEvent.compositionStart(comment);
+    fireEvent.change(comment, { target: { value: `${"가".repeat(499)}한글` } });
+    expect(comment.value).toBe(`${"가".repeat(499)}한글`);
+    expect(screen.getByText("499 / 500")).toBeTruthy();
+    expect(mocks.update).not.toHaveBeenCalled();
+
+    fireEvent.compositionEnd(comment, { data: "글" });
+    expect(comment.value).toBe(`${"가".repeat(499)}한`);
+    expect(screen.getByText("500 / 500")).toBeTruthy();
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1), { timeout: JOURNAL_AUTOSAVE_DELAY + 1_000 });
+    expect(mocks.update.mock.calls[0][2].teacherComment).toBe(`${"가".repeat(499)}한`);
+  });
+
   it("renders the mobile-first typed controls and clears stool when defecation is NO", async () => {
     mocks.fetch.mockResolvedValue(entry());
     mocks.update.mockImplementation(async (_id, version, draft) => entry({ ...draft, status: "IN_PROGRESS", version: version + 1 }));
@@ -392,6 +432,45 @@ describe("Journal Editor", () => {
     await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 6));
     expect(mocks.update).toHaveBeenCalledTimes(1);
     expect(mocks.update.mock.invocationCallOrder[0]).toBeLessThan(mocks.complete.mock.invocationCallOrder[0]);
+  });
+
+  it("persists and completes an exact 500-code-point emoji comment", async () => {
+    const loaded = entry({
+      status: "IN_PROGRESS", version: 5, conditionCodes: ["active"], urination: true,
+      defecation: false, teacherRelationship: "loves_teacher", friendRelationship: "loves_friends",
+      teacherComment: "기존 한마디",
+    });
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.update.mockImplementation(async (_id, version, draft) => entry({ ...loaded, ...draft, version: version + 1 }));
+    mocks.complete.mockImplementation(async (_id, version) => entry({ ...loaded, teacherComment: "🐶".repeat(500), status: "COMPLETED", version: version + 1 }));
+    renderEditor(loaded);
+    fireEvent.change(await screen.findByRole("textbox", { name: "선생님의 한마디" }), { target: { value: "🐶".repeat(500) } });
+    fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
+
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 6));
+    expect(mocks.update.mock.calls[0][2].teacherComment).toBe("🐶".repeat(500));
+    expect(screen.getByText("크리미 일지 완료")).toBeTruthy();
+  });
+
+  it("settles completion with an explicit save failure when repository validation throws synchronously", async () => {
+    const loaded = entry({
+      status: "IN_PROGRESS", version: 5, conditionCodes: ["active"], urination: true,
+      defecation: false, teacherRelationship: "loves_teacher", friendRelationship: "loves_friends",
+      teacherComment: "기존 한마디",
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.update.mockImplementation(() => { throw new Error("COMMENT_TOO_LONG"); });
+    renderEditor(loaded);
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+    fireEvent.change(comment, { target: { value: "가".repeat(500) } });
+    fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
+
+    expect(await screen.findByText("저장 중 오류가 발생했습니다.")).toBeTruthy();
+    await waitFor(() => expect((screen.getByRole("button", { name: "작성 완료" }) as HTMLButtonElement).disabled).toBe(false));
+    expect(screen.getAllByText(/저장 실패/).length).toBeGreaterThan(0);
+    expect(mocks.complete).not.toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 
   it("keeps autosave and business completion available while blocking image export on presentation overflow", async () => {

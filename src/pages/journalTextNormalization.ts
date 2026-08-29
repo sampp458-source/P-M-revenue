@@ -26,8 +26,40 @@ export function journalTeacherCommentLength(value: string) {
 }
 
 export function constrainJournalTeacherCommentInput(current: string, next: string) {
+  const normalizedCurrent = normalizeJournalTeacherComment(current);
   const normalized = normalizeJournalTeacherComment(next);
-  return journalTeacherCommentLength(normalized) <= JOURNAL_TEACHER_COMMENT_MAX_LENGTH
-    ? normalized
-    : current;
+  if (journalTeacherCommentLength(normalized) <= JOURNAL_TEACHER_COMMENT_MAX_LENGTH) return normalized;
+
+  const currentCodePoints = Array.from(normalizedCurrent);
+  const nextCodePoints = Array.from(normalized);
+  let prefixLength = 0;
+  while (
+    prefixLength < currentCodePoints.length
+    && prefixLength < nextCodePoints.length
+    && currentCodePoints[prefixLength] === nextCodePoints[prefixLength]
+  ) prefixLength += 1;
+
+  let currentSuffixStart = currentCodePoints.length;
+  let nextSuffixStart = nextCodePoints.length;
+  while (
+    currentSuffixStart > prefixLength
+    && nextSuffixStart > prefixLength
+    && currentCodePoints[currentSuffixStart - 1] === nextCodePoints[nextSuffixStart - 1]
+  ) {
+    currentSuffixStart -= 1;
+    nextSuffixStart -= 1;
+  }
+
+  const prefix = nextCodePoints.slice(0, prefixLength);
+  const inserted = nextCodePoints.slice(prefixLength, nextSuffixStart);
+  const suffix = currentCodePoints.slice(currentSuffixStart);
+  let low = 0;
+  let high = inserted.length;
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2);
+    if (journalTeacherCommentLength([...prefix, ...inserted.slice(0, middle), ...suffix].join("")) <= JOURNAL_TEACHER_COMMENT_MAX_LENGTH) low = middle;
+    else high = middle - 1;
+  }
+  const constrained = [...prefix, ...inserted.slice(0, low), ...suffix].join("");
+  return journalTeacherCommentLength(constrained) <= JOURNAL_TEACHER_COMMENT_MAX_LENGTH ? constrained : current;
 }

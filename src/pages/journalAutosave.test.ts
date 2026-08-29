@@ -95,6 +95,25 @@ describe("Journal revision autosave queue", () => {
     expect(queue.getSavedRevision()).toBe(0);
   });
 
+  it("settles and recovers when repository validation throws synchronously", async () => {
+    const validation = new Error("COMMENT_TOO_LONG");
+    const save = vi.fn()
+      .mockImplementationOnce(() => { throw validation; })
+      .mockResolvedValueOnce({ version: 2 });
+    const states: string[] = [];
+    const queue = new JournalAutosaveQueue(1, save, vi.fn(), (state) => states.push(state), 800, 20_000, 8_000, () => "request-1");
+    queue.schedule("exact 500 characters");
+
+    await expect(queue.flush(1)).rejects.toThrow("COMMENT_TOO_LONG");
+    expect(queue.getPendingRevision()).toBe(1);
+    expect(states.at(-1)).toBe("error");
+
+    await expect(queue.flush(1)).resolves.toBe(1);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(queue.isSynchronized()).toBe(true);
+    expect(states.at(-1)).toBe("saved");
+  });
+
   it("reconciles an ambiguous timed-out revision before saving an edit made during that request", async () => {
     vi.useFakeTimers();
     const save = vi.fn()
