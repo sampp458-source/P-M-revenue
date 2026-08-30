@@ -6,11 +6,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildJournalExportFilename, exportJournalImage, renderJournalImageBlob } from "./journalExport";
 import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
 
-const mocks = vi.hoisted(() => ({ renderCanvas: vi.fn(), validateBlob: vi.fn() }));
+const mocks = vi.hoisted(() => ({ renderCanvas: vi.fn(), validateBlob: vi.fn(), resolvePresentation: vi.fn() }));
 
 vi.mock("./journalCanvasRenderer", () => ({
   renderJournalReportToCanvas: mocks.renderCanvas,
   validateJournalEncodedBlob: mocks.validateBlob,
+}));
+vi.mock("./journalCustomFont", () => ({
+  resolveJournalTeacherCommentPresentation: mocks.resolvePresentation,
 }));
 
 const viewModel = {
@@ -56,11 +59,12 @@ const readyMetrics = (overrides: Record<string, number> = {}) => ({
 describe("Journal Canvas export", () => {
   it("resolves the device-local Teacher Comment font before building the Canvas scene", () => {
     const source = readFileSync(resolve(process.cwd(), "src/pages/journalExport.ts"), "utf8");
-    expect(source).toContain("await ensureActiveJournalTeacherCommentPresentation()");
+    expect(source).toContain("await resolveJournalTeacherCommentPresentation(viewModel.entryId)");
     expect(source).toContain("assertJournalTeacherCommentGeometry(viewModel.teacherComment, presentation.fontFamily, presentation.fontSize)");
     expect(source).toContain("buildJournalReportScene(viewModel, presentation.fontFamily, presentation.fontSize)");
   });
   beforeEach(() => {
+    mocks.resolvePresentation.mockReset().mockResolvedValue({ fontFamily: "Pretendard, sans-serif", fontSize: 20, source: "DEFAULT", fontFingerprint: "DEFAULT" });
     Object.defineProperty(URL, "createObjectURL", { configurable: true, value: vi.fn(() => "blob:journal") });
     Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: vi.fn() });
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
@@ -94,6 +98,23 @@ describe("Journal Canvas export", () => {
     expect(result.blob.type).toBe(mimeType);
     expect(mocks.validateBlob).toHaveBeenCalledWith(result.blob, expect.objectContaining({ viewModel }), expect.objectContaining({ verifiedAssetSlots: 7 }));
     expect(HTMLAnchorElement.prototype.click).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses each entry's resolved font and size for PNG and JPG without a global snapshot", async () => {
+    const presentations = {
+      "entry-a": { fontFamily: "file-font-x", fontSize: 18, source: "FILE", fontFingerprint: "font-x" },
+      "entry-b": { fontFamily: "default-font", fontSize: 20, source: "DEFAULT", fontFingerprint: "DEFAULT" },
+      "entry-c": { fontFamily: "system-font-c", fontSize: 22, source: "SYSTEM", fontFingerprint: "system-c" },
+    } as const;
+    mocks.resolvePresentation.mockImplementation(async (entryId: keyof typeof presentations) => presentations[entryId]);
+    mocks.renderCanvas.mockImplementation(async () => ({ canvas: renderedCanvas(), metrics: readyMetrics() }));
+    await exportJournalImage({ ...viewModel, entryId: "entry-a" }, "png");
+    await exportJournalImage({ ...viewModel, entryId: "entry-b" }, "jpg");
+    await exportJournalImage({ ...viewModel, entryId: "entry-c" }, "png");
+    expect(mocks.resolvePresentation.mock.calls.map(([entryId]) => entryId)).toEqual(["entry-a", "entry-b", "entry-c"]);
+    expect(mocks.renderCanvas.mock.calls.map(([scene]) => [scene.teacherCommentFontFamily, scene.teacherCommentTypography.size])).toEqual([
+      ["file-font-x", 18], ["default-font", 20], ["system-font-c", 22],
+    ]);
   });
 
   it("fails closed when any approved illustration pixel slot is unverified", async () => {

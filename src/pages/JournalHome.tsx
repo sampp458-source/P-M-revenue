@@ -16,7 +16,7 @@ import {
 } from "./journalBatchDiagnostics";
 import { renderJournalImageBlob } from "./journalExport";
 import { inspectJournalExportPresentation, journalExportOverflowMessage, type JournalExportPresentationIssue } from "./journalExportReadiness";
-import { ensureActiveJournalTeacherCommentPresentation, reconnectActiveJournalSystemFont, useJournalCustomFontPreference } from "./journalCustomFont";
+import { reconnectJournalSystemFontsForEntries, resolveJournalTeacherCommentPresentation, useJournalCustomFontPreference, type JournalTeacherCommentPresentation } from "./journalCustomFont";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import {
   fetchJournalEntry,
@@ -250,9 +250,10 @@ export function JournalHomePage() {
     try {
       const batchContext = { ordinal: null, entryId: null, dogId: null };
       diagnostics.start("PREPARE", batchContext);
-      const teacherCommentPresentation = await ensureActiveJournalTeacherCommentPresentation();
+      const presentations = new Map<string, JournalTeacherCommentPresentation>();
+      for (const target of targets) presentations.set(target.id, await resolveJournalTeacherCommentPresentation(target.id));
       diagnostics.ack("PREPARE", batchContext);
-      const prepared: Array<{ context: { ordinal: number; entryId: string; dogId: string }; viewModel: ReturnType<typeof buildJournalPreviewViewModel> }> = [];
+      const prepared: Array<{ context: { ordinal: number; entryId: string; dogId: string }; viewModel: ReturnType<typeof buildJournalPreviewViewModel>; presentation: JournalTeacherCommentPresentation }> = [];
       const presentationIssues: JournalExportPresentationIssue[] = [];
       for (let index = 0; index < targets.length; index += 1) {
         const target = targets[index];
@@ -264,13 +265,14 @@ export function JournalHomePage() {
           throw new Error("JOURNAL_BATCH_TARGET_CHANGED");
         }
         const viewModel = buildJournalPreviewViewModel(persisted, journalEntryToDraft(persisted), rosterSnapshot);
-        prepared.push({ context, viewModel });
+        const presentation = presentations.get(target.id)!;
+        prepared.push({ context, viewModel, presentation });
         const issue = inspectJournalExportPresentation({
           ordinal: context.ordinal,
           entryId: context.entryId,
           dogId: context.dogId,
           viewModel,
-          presentation: teacherCommentPresentation,
+          presentation,
         });
         if (issue) presentationIssues.push(issue);
         setBatchProgress({ current: index + 1, total: targets.length });
@@ -289,11 +291,11 @@ export function JournalHomePage() {
       setBatchPhase("render");
       setBatchProgress({ current: 0, total: targets.length });
       for (let index = 0; index < prepared.length; index += 1) {
-        const { context, viewModel } = prepared[index];
+        const { context, viewModel, presentation } = prepared[index];
         const blob = await renderJournalImageBlob(viewModel, "png", (event) => {
           if (event.state === "START") diagnostics.start(event.stage, context);
           else diagnostics.ack(event.stage, context, event);
-        }, teacherCommentPresentation);
+        }, presentation);
         files.push({ filename: filenames[index], blob });
         diagnostics.entryComplete(context, blob.size);
         setBatchProgress({ current: index + 1, total: targets.length });
@@ -318,7 +320,7 @@ export function JournalHomePage() {
     setReconnectingSystemFont(true);
     setError("");
     try {
-      await reconnectActiveJournalSystemFont();
+      await reconnectJournalSystemFontsForEntries(completedEntries.map((entry) => entry.id));
       setBatchFailure(null);
       setBatchPresentationIssues([]);
     } catch (caught) {

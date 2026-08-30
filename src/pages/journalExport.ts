@@ -1,7 +1,7 @@
 import { renderJournalReportToCanvas, validateJournalEncodedBlob, type JournalCanvasRenderMetrics } from "./journalCanvasRenderer";
 import { buildJournalReportScene, JOURNAL_REPORT_HEIGHT, JOURNAL_REPORT_WIDTH } from "./journalReportScene";
 import type { JournalPreviewViewModel } from "./journalPreviewViewModel";
-import { ensureActiveJournalTeacherCommentPresentation, type JournalTeacherCommentPresentation } from "./journalCustomFont";
+import { resolveJournalTeacherCommentPresentation, type JournalTeacherCommentPresentation } from "./journalCustomFont";
 import { assertJournalTeacherCommentGeometry } from "./journalTeacherCommentGeometry";
 
 export type JournalExportFormat = "png" | "jpg";
@@ -58,7 +58,7 @@ export async function renderJournalImageBlob(
   resolvedPresentation?: JournalTeacherCommentPresentation,
 ) {
   return runSerializedExport(async () => {
-    const presentation = resolvedPresentation ?? await ensureActiveJournalTeacherCommentPresentation();
+    const presentation = resolvedPresentation ?? await resolveJournalTeacherCommentPresentation(viewModel.entryId);
     assertJournalTeacherCommentGeometry(viewModel.teacherComment, presentation.fontFamily, presentation.fontSize);
     const scene = buildJournalReportScene(viewModel, presentation.fontFamily, presentation.fontSize);
     let canvas: HTMLCanvasElement | null = null;

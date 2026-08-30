@@ -28,7 +28,7 @@ import { journalDeleteConfirmationDetail } from "./journalDeletePresentation";
 import { exportJournalImage, type JournalExportFormat } from "./journalExport";
 import { JournalReportPreview } from "./JournalReportTemplate";
 import { JournalTeacherCommentFontControl } from "./JournalTeacherCommentFontControl";
-import { reconnectActiveJournalSystemFont, useJournalCustomFontPreference } from "./journalCustomFont";
+import { reconnectJournalEntrySystemFont, useJournalEntryTeacherCommentPreference } from "./journalCustomFont";
 import { measureJournalTeacherCommentGeometry } from "./journalTeacherCommentGeometry";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import {
@@ -131,7 +131,7 @@ export function JournalEditor({
   const [exporting, setExporting] = useState<JournalExportFormat | null>(null);
   const [exportError, setExportError] = useState("");
   const [reconnectingSystemFont, setReconnectingSystemFont] = useState(false);
-  const customFont = useJournalCustomFontPreference();
+  const customFont = useJournalEntryTeacherCommentPreference(rosterEntry.id);
   const versionRef = useRef(rosterEntry.version);
   const baseVersionRef = useRef(rosterEntry.version);
   const baseStatusRef = useRef(rosterEntry.status);
@@ -298,7 +298,8 @@ export function JournalEditor({
   const commentFontSize = customFont.fontSize ?? 20;
   const commentGeometry = useMemo(() => measureJournalTeacherCommentGeometry(draft.teacherComment, customFont.activeFontFamily, commentFontSize), [commentFontSize, customFont.activeFontFamily, draft.teacherComment]);
   const systemFontReconnectRequired = customFont.activeSource === "SYSTEM" && customFont.systemFontStatus !== "ready";
-  const exportPresentationReady = commentGeometry.available && !commentGeometry.overflow && !systemFontReconnectRequired;
+  const fileFontMissing = customFont.activeSource === "FILE" && !customFont.fonts.some((font) => font.id === customFont.activeFontId);
+  const exportPresentationReady = commentGeometry.available && !commentGeometry.overflow && !systemFontReconnectRequired && !fileFontMissing;
 
   useEffect(() => {
     if (loading || !focusTeacherComment) return;
@@ -591,7 +592,7 @@ export function JournalEditor({
     setReconnectingSystemFont(true);
     setExportError("");
     try {
-      await reconnectActiveJournalSystemFont();
+      await reconnectJournalEntrySystemFont(entry.id);
     } catch (caught) {
       setExportError(caught instanceof Error ? caught.message : "컴퓨터 글꼴을 다시 연결하지 못했습니다.");
     } finally {
@@ -666,7 +667,7 @@ export function JournalEditor({
         <ActivitySection title="체육" activity={draft.physicalActivityName} evaluation={draft.physicalEvaluation} options={physicalOptions} onActivity={(physicalActivityName) => update((current) => ({ ...current, physicalActivityName }))} onEvaluation={(physicalEvaluation) => update((current) => ({ ...current, physicalEvaluation }))} />
 
         <EditorSection title="선생님의 한마디" description="작성 완료를 위해 한마디를 입력해 주세요." desktopWide>
-          <JournalTeacherCommentFontControl />
+          <JournalTeacherCommentFontControl journalEntryId={entry.id} />
           <Textarea
             id={`journal-teacher-comment-${entry.id}`}
             aria-label="선생님의 한마디"
@@ -687,7 +688,7 @@ export function JournalEditor({
             className="min-h-36 resize-y"
           />
           <p className="mt-2 text-right text-xs tabular-nums text-text-muted">{journalTeacherCommentLength(draft.teacherComment)} / {JOURNAL_COMMENT_MAX_LENGTH}</p>
-          {!exportPresentationReady ? <div role="alert" className="mt-2 rounded-xl border border-warning/30 bg-warning-soft px-3 py-2 text-xs leading-5 text-text-primary">{systemFontReconnectRequired ? <div className="flex flex-wrap items-center justify-between gap-2"><span>사용 중인 컴퓨터 글꼴을 다시 연결해야 이미지를 저장할 수 있습니다. 작성 내용 저장과 작성 완료는 계속 사용할 수 있습니다.</span><Button type="button" variant="secondary" className="min-h-10 shrink-0 px-3 text-xs" disabled={reconnectingSystemFont} onClick={() => void reconnectSystemFont()}>{reconnectingSystemFont ? <LoaderCircle className="animate-spin" size={15} /> : null}컴퓨터 글꼴 다시 연결</Button></div> : commentGeometry.overflow ? `현재 내용이 일지 영역을 ${Math.ceil(Math.max(0, -commentGeometry.bottomRemaining))}px 초과합니다.${commentGeometry.recommendedSize && commentGeometry.recommendedSize !== commentFontSize ? ` ${commentGeometry.recommendedSize}px로 바꾸거나 내용을 조정해 주세요.` : " 글꼴·크기 또는 내용을 조정해 주세요."} 작성 내용 저장과 작성 완료는 가능하지만 이미지 저장은 글꼴·크기 또는 내용을 조정한 뒤 사용할 수 있습니다.` : "현재 글꼴의 표시 영역을 확인할 수 없습니다. 작성 내용 저장과 작성 완료는 가능하지만 이미지 저장은 중단됩니다."}</div> : null}
+          {!exportPresentationReady ? <div role="alert" className="mt-2 rounded-xl border border-warning/30 bg-warning-soft px-3 py-2 text-xs leading-5 text-text-primary">{fileFontMissing ? "이 일지에서 사용한 글꼴 파일을 찾을 수 없습니다. 다른 글꼴을 선택하거나 기본 설정을 사용해 주세요. 작성 내용 저장과 작성 완료는 계속 사용할 수 있지만 이미지 저장은 중단됩니다." : systemFontReconnectRequired ? <div className="flex flex-wrap items-center justify-between gap-2"><span>사용 중인 컴퓨터 글꼴을 다시 연결해야 이미지를 저장할 수 있습니다. 작성 내용 저장과 작성 완료는 계속 사용할 수 있습니다.</span><Button type="button" variant="secondary" className="min-h-10 shrink-0 px-3 text-xs" disabled={reconnectingSystemFont} onClick={() => void reconnectSystemFont()}>{reconnectingSystemFont ? <LoaderCircle className="animate-spin" size={15} /> : null}컴퓨터 글꼴 다시 연결</Button></div> : commentGeometry.overflow ? `현재 내용이 일지 영역을 ${Math.ceil(Math.max(0, -commentGeometry.bottomRemaining))}px 초과합니다.${commentGeometry.recommendedSize && commentGeometry.recommendedSize !== commentFontSize ? ` ${commentGeometry.recommendedSize}px로 바꾸거나 내용을 조정해 주세요.` : " 글꼴·크기 또는 내용을 조정해 주세요."} 작성 내용 저장과 작성 완료는 가능하지만 이미지 저장은 글꼴·크기 또는 내용을 조정한 뒤 사용할 수 있습니다.` : "현재 글꼴의 표시 영역을 확인할 수 없습니다. 작성 내용 저장과 작성 완료는 가능하지만 이미지 저장은 중단됩니다."}</div> : null}
         </EditorSection>
           </fieldset>
         </div>

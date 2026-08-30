@@ -41,14 +41,15 @@ vi.mock("./journalConflictRecovery", async (importOriginal) => ({
 
 vi.mock("./journalCustomFont", () => ({
   JOURNAL_CUSTOM_FONT_ACCEPT: ".ttf,.otf,.woff,.woff2",
-  useJournalCustomFontPreference: () => mocks.fontPreference,
+  useJournalEntryTeacherCommentPreference: () => mocks.fontPreference,
   addJournalCustomFont: vi.fn(),
   deleteJournalCustomFont: vi.fn(),
-  selectJournalCustomFont: vi.fn(),
+  selectJournalEntryCustomFont: vi.fn(),
   connectJournalSystemFonts: vi.fn(),
-  reconnectActiveJournalSystemFont: mocks.reconnectSystemFont,
-  selectJournalSystemFont: vi.fn(),
-  selectJournalTeacherCommentFontSize: vi.fn(),
+  reconnectJournalEntrySystemFont: mocks.reconnectSystemFont,
+  resetJournalEntryTeacherCommentPresentation: vi.fn(),
+  selectJournalEntrySystemFont: vi.fn(),
+  selectJournalEntryTeacherCommentFontSize: vi.fn(),
   journalCustomFontDisplayName: (value: string) => value,
   journalCustomFontPreviewFamily: () => undefined,
 }));

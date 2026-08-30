@@ -59,8 +59,8 @@ vi.mock("./journalBatchExport", async (importOriginal) => ({
   downloadJournalBatchZip: mocks.downloadBatch,
 }));
 vi.mock("./journalCustomFont", () => ({
-  ensureActiveJournalTeacherCommentPresentation: mocks.ensurePresentation,
-  reconnectActiveJournalSystemFont: mocks.reconnectSystemFont,
+  resolveJournalTeacherCommentPresentation: mocks.ensurePresentation,
+  reconnectJournalSystemFontsForEntries: mocks.reconnectSystemFont,
   useJournalCustomFontPreference: () => mocks.fontPreference,
 }));
 const roster = {
@@ -169,19 +169,24 @@ describe("Journal Home roster", () => {
     await waitFor(() => expect(mocks.reconnectSystemFont).toHaveBeenCalledTimes(1));
   });
 
-  it("renders every completed entry only after one successful presentation preflight", async () => {
+  it("resolves every completed entry presentation before rendering", async () => {
     const completed = Array.from({ length: 5 }, (_, index) => ({ ...roster.entries[0], id: `entry-${index + 1}`, dog: { id: `dog-${index + 1}`, name: `강아지${index + 1}` } }));
     mocks.fetchRoster.mockResolvedValue({ ...roster, summary: { total: 5, notStarted: 0, inProgress: 0, completed: 5 }, entries: completed });
     mocks.fetchEntry.mockImplementation(async (id: string) => completed.find((entry) => entry.id === id));
+    const sizes = [18, 20, 22, 18, 20] as const;
+    mocks.ensurePresentation.mockImplementation(async (entryId: string) => ({ fontFamily: `font-${entryId}`, fontSize: sizes[Number(entryId.split("-")[1]) - 1] }));
     mocks.renderImage.mockResolvedValue(new Blob(["png"], { type: "image/png" }));
     mocks.downloadBatch.mockResolvedValue({ blob: new Blob(), filename: "P&M_하루일지_2026-08-15.zip" });
     render(<JournalHomePage />);
     await screen.findByText("강아지1");
     fireEvent.click(screen.getByRole("button", { name: "2026-08-15 완료 일지 전체 저장" }));
     await waitFor(() => expect(mocks.downloadBatch).toHaveBeenCalledTimes(1));
-    expect(mocks.ensurePresentation).toHaveBeenCalledTimes(1);
+    expect(mocks.ensurePresentation).toHaveBeenCalledTimes(5);
+    expect(mocks.ensurePresentation.mock.calls.map(([entryId]) => entryId)).toEqual(completed.map((entry) => entry.id));
     expect(mocks.fetchEntry).toHaveBeenCalledTimes(5);
     expect(mocks.renderImage).toHaveBeenCalledTimes(5);
+    expect(mocks.renderImage.mock.calls.map((call) => call[3]?.fontSize)).toEqual(sizes);
+    expect(mocks.renderImage.mock.calls.map((call) => call[3]?.fontFamily)).toEqual(completed.map((entry) => `font-${entry.id}`));
     expect(mocks.downloadBatch.mock.calls[0][0]).toHaveLength(5);
   });
 
