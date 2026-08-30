@@ -10,6 +10,7 @@ import {
   journalCustomFontInternalFamily,
   journalCustomFontDisplayName,
   journalTeacherCommentFontFamily,
+  matchJournalSystemFontDescriptor,
   validateJournalCustomFontFile,
 } from "./journalCustomFont";
 import { JOURNAL_REPORT_FONT_FAMILY } from "./journalReportScene";
@@ -50,6 +51,17 @@ describe("Journal Teacher Comment custom font contract", () => {
     expect(source).toContain("assertJournalCustomFontBasicMetrics");
     expect(source).toContain("queryLocalFonts");
     expect(source).toContain("JOURNAL_SYSTEM_FONT_RECONNECT_REQUIRED");
+    expect(source).toContain('source === "SYSTEM" ? "reconnect-required"');
+    expect(source).toContain("reconnectActiveJournalSystemFont");
     expect(source).not.toMatch(/supabase|fetch\(|XMLHttpRequest|localStorage/);
+  });
+
+  it("matches a persisted system-font descriptor by PostScript identity before exact metadata fallback", () => {
+    const descriptor = { postscriptName: "NanumPen-Regular", fullName: "나눔손글씨 펜", family: "Nanum Pen", style: "Regular" };
+    const samePostscript = { ...descriptor, fullName: "표시 이름 변경" };
+    expect(matchJournalSystemFontDescriptor(descriptor, [samePostscript])).toBe(samePostscript);
+    const exactMetadata = { ...descriptor, postscriptName: "NanumPen-New" };
+    expect(matchJournalSystemFontDescriptor(descriptor, [exactMetadata])).toBe(exactMetadata);
+    expect(matchJournalSystemFontDescriptor(descriptor, [{ ...exactMetadata, style: "Bold" }])).toBeNull();
   });
 });

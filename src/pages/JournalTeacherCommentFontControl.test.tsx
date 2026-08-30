@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   select: vi.fn(),
   connect: vi.fn(),
+  reconnect: vi.fn(),
   selectSystem: vi.fn(),
   selectSize: vi.fn(),
   preference: {
@@ -19,7 +20,7 @@ const mocks = vi.hoisted(() => ({
     activeFontId: null as string | null,
     activeFontFamily: "Pretendard, sans-serif",
     activeSource: "DEFAULT",
-    activeSystemFont: null,
+    activeSystemFont: null as null | { postscriptName: string; fullName: string; family: string; style: string },
     systemFonts: [] as Array<{ postscriptName: string; fullName: string; family: string; style: string }>,
     systemFontStatus: "unsupported",
     fontSize: 20,
@@ -33,6 +34,7 @@ vi.mock("./journalCustomFont", () => ({
   deleteJournalCustomFont: mocks.remove,
   selectJournalCustomFont: mocks.select,
   connectJournalSystemFonts: mocks.connect,
+  reconnectActiveJournalSystemFont: mocks.reconnect,
   selectJournalSystemFont: mocks.selectSystem,
   selectJournalTeacherCommentFontSize: mocks.selectSize,
   journalCustomFontDisplayName: (value: string) => value.replace(/([a-z\d])([A-Z])/g, "$1 $2"),
@@ -55,6 +57,7 @@ beforeEach(() => {
   mocks.remove.mockReset().mockResolvedValue(undefined);
   mocks.select.mockReset().mockResolvedValue(undefined);
   mocks.connect.mockReset().mockResolvedValue([]);
+  mocks.reconnect.mockReset().mockResolvedValue(undefined);
   mocks.selectSystem.mockReset().mockResolvedValue(undefined);
   mocks.selectSize.mockReset().mockResolvedValue(undefined);
   mocks.preference.status = "ready";
@@ -129,6 +132,7 @@ describe("Journal Teacher Comment font control", () => {
   it.each([
     ["unsupported", "이 브라우저에서는 컴퓨터 글꼴 연결을 지원하지 않습니다"],
     ["denied", "컴퓨터 글꼴 권한이 허용되지 않았습니다"],
+    ["missing", "이전에 사용한 컴퓨터 글꼴을 찾을 수 없습니다"],
     ["reconnect-required", "이전에 선택한 컴퓨터 글꼴을 사용하려면 다시 연결해 주세요"],
   ])("shows the %s system-font state without removing file-font fallback", (status, message) => {
     mocks.preference.systemFontStatus = status;
@@ -136,6 +140,17 @@ describe("Journal Teacher Comment font control", () => {
     fireEvent.click(screen.getByRole("button", { name: "기본 글꼴" }));
     expect(screen.getByText(new RegExp(message))).toBeTruthy();
     expect(screen.getByRole("button", { name: "글꼴 파일 추가" })).toBeTruthy();
+  });
+
+  it("reconnects the persisted active system font from an explicit user action", () => {
+    mocks.preference.activeSource = "SYSTEM";
+    mocks.preference.activeSystemFont = { postscriptName: "NanumPen", fullName: "나눔손글씨 펜", family: "Nanum Pen", style: "Regular" };
+    mocks.preference.systemFontStatus = "reconnect-required";
+    render(<JournalTeacherCommentFontControl />);
+    fireEvent.click(screen.getByRole("button", { name: "나눔손글씨 펜" }));
+    fireEvent.click(screen.getByRole("button", { name: "컴퓨터 글꼴 다시 연결" }));
+    expect(mocks.reconnect).toHaveBeenCalledTimes(1);
+    expect(mocks.connect).not.toHaveBeenCalled();
   });
 
   it("does not own Journal persistence, version, audit, or request contracts", () => {

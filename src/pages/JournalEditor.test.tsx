@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   complete: vi.fn(),
   renderImage: vi.fn(),
   exportImage: vi.fn(),
+  reconnectSystemFont: vi.fn(),
   loadConflict: vi.fn(),
   saveConflict: vi.fn(),
   deleteConflict: vi.fn(),
@@ -45,6 +46,7 @@ vi.mock("./journalCustomFont", () => ({
   deleteJournalCustomFont: vi.fn(),
   selectJournalCustomFont: vi.fn(),
   connectJournalSystemFonts: vi.fn(),
+  reconnectActiveJournalSystemFont: mocks.reconnectSystemFont,
   selectJournalSystemFont: vi.fn(),
   selectJournalTeacherCommentFontSize: vi.fn(),
   journalCustomFontDisplayName: (value: string) => value,
@@ -108,6 +110,7 @@ const draftFrom = (source: JournalRosterEntry, overrides: Partial<JournalDraft> 
 beforeEach(() => {
   mocks.renderImage.mockReset();
   mocks.exportImage.mockReset();
+  mocks.reconnectSystemFont.mockReset().mockResolvedValue(undefined);
   mocks.fontPreference.fontSize = 20;
   mocks.fontPreference.activeSource = "DEFAULT";
   mocks.fontPreference.systemFontStatus = "unsupported";
@@ -801,6 +804,9 @@ describe("Journal Editor", () => {
     expect(await screen.findByText(/작성 내용 저장과 작성 완료는 계속 사용할 수 있습니다/)).toBeTruthy();
     expect((screen.getByRole("button", { name: "작성 완료" }) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole("button", { name: "PNG 저장" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "컴퓨터 글꼴 다시 연결" }));
+    await waitFor(() => expect(mocks.reconnectSystemFont).toHaveBeenCalledTimes(1));
+    expect(mocks.update).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
     await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 7, expect.any(String), expect.any(AbortSignal)));
   });

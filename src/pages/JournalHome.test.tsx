@@ -13,6 +13,9 @@ const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   renderImage: vi.fn(),
   downloadBatch: vi.fn(),
+  ensurePresentation: vi.fn().mockResolvedValue({ fontFamily: "Pretendard, sans-serif", fontSize: 20 }),
+  reconnectSystemFont: vi.fn().mockResolvedValue(undefined),
+  fontPreference: { status: "ready", activeSource: "DEFAULT", systemFontStatus: "idle" },
 }));
 
 vi.mock("./operationsScheduleRepository", async (importOriginal) => ({
@@ -36,6 +39,11 @@ vi.mock("./journalBatchExport", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./journalBatchExport")>()),
   downloadJournalBatchZip: mocks.downloadBatch,
 }));
+vi.mock("./journalCustomFont", () => ({
+  ensureActiveJournalTeacherCommentPresentation: mocks.ensurePresentation,
+  reconnectActiveJournalSystemFont: mocks.reconnectSystemFont,
+  useJournalCustomFontPreference: () => mocks.fontPreference,
+}));
 const roster = {
   businessDate: "2026-08-15",
   journalDayId: "day-1",
@@ -48,7 +56,14 @@ const roster = {
   ],
 };
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+  mocks.ensurePresentation.mockResolvedValue({ fontFamily: "Pretendard, sans-serif", fontSize: 20 });
+  mocks.reconnectSystemFont.mockResolvedValue(undefined);
+  mocks.fontPreference.activeSource = "DEFAULT";
+  mocks.fontPreference.systemFontStatus = "idle";
+});
 
 describe("Journal Home roster", () => {
   it("shows the empty-day registration state", async () => {
@@ -114,6 +129,41 @@ describe("Journal Home roster", () => {
       expect.objectContaining({ filename: "P&M_하루일지_크리미_2026-08-15.png", blob: expect.objectContaining({ type: "image/png" }) }),
     ]);
     expect(mocks.downloadBatch.mock.calls[0][1]).toBe("2026-08-15");
+  });
+
+  it("fails batch presentation preflight before entry fetch and offers an explicit system-font reconnect", async () => {
+    mocks.fetchRoster.mockResolvedValue(roster);
+    mocks.fontPreference.activeSource = "SYSTEM";
+    mocks.fontPreference.systemFontStatus = "reconnect-required";
+    mocks.ensurePresentation.mockRejectedValue(new Error("JOURNAL_SYSTEM_FONT_RECONNECT_REQUIRED"));
+    render(<JournalHomePage />);
+    await screen.findByText("크리미");
+    fireEvent.click(screen.getByRole("button", { name: "2026-08-15 완료 일지 전체 저장" }));
+    expect(await screen.findByText("사용 중인 컴퓨터 글꼴을 다시 연결해야 이미지를 저장할 수 있습니다.")).not.toBeNull();
+    expect(mocks.fetchEntry).not.toHaveBeenCalled();
+    expect(mocks.renderImage).not.toHaveBeenCalled();
+    expect(mocks.downloadBatch).not.toHaveBeenCalled();
+    expect(mocks.register).not.toHaveBeenCalled();
+    expect(mocks.updateDefaults).not.toHaveBeenCalled();
+    expect(mocks.remove).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "컴퓨터 글꼴 다시 연결" }));
+    await waitFor(() => expect(mocks.reconnectSystemFont).toHaveBeenCalledTimes(1));
+  });
+
+  it("renders every completed entry only after one successful presentation preflight", async () => {
+    const completed = Array.from({ length: 5 }, (_, index) => ({ ...roster.entries[0], id: `entry-${index + 1}`, dog: { id: `dog-${index + 1}`, name: `강아지${index + 1}` } }));
+    mocks.fetchRoster.mockResolvedValue({ ...roster, summary: { total: 5, notStarted: 0, inProgress: 0, completed: 5 }, entries: completed });
+    mocks.fetchEntry.mockImplementation(async (id: string) => completed.find((entry) => entry.id === id));
+    mocks.renderImage.mockResolvedValue(new Blob(["png"], { type: "image/png" }));
+    mocks.downloadBatch.mockResolvedValue({ blob: new Blob(), filename: "P&M_하루일지_2026-08-15.zip" });
+    render(<JournalHomePage />);
+    await screen.findByText("강아지1");
+    fireEvent.click(screen.getByRole("button", { name: "2026-08-15 완료 일지 전체 저장" }));
+    await waitFor(() => expect(mocks.downloadBatch).toHaveBeenCalledTimes(1));
+    expect(mocks.ensurePresentation).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchEntry).toHaveBeenCalledTimes(5);
+    expect(mocks.renderImage).toHaveBeenCalledTimes(5);
+    expect(mocks.downloadBatch.mock.calls[0][0]).toHaveLength(5);
   });
 
   it.each(["RENDER", "ENCODE", "VALIDATION"] as const)(

@@ -16,11 +16,11 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("Journal batch diagnostics", () => {
-  it.each(["RENDER", "ENCODE", "VALIDATION", "ZIP", "DOWNLOAD"] as const)(
+  it.each(["PREPARE", "RENDER", "ENCODE", "VALIDATION", "ZIP", "DOWNLOAD"] as const)(
     "preserves an injected %s failure as the exact safe stage",
     (stage) => {
       const session = new JournalBatchDiagnosticSession(5);
-      const entry = stage === "ZIP" || stage === "DOWNLOAD"
+      const entry = stage === "PREPARE" || stage === "ZIP" || stage === "DOWNLOAD"
         ? { ordinal: null, entryId: null, dogId: null }
         : { ordinal: 4, entryId: "entry-4", dogId: "dog-4" };
       session.start(stage, entry);
@@ -62,6 +62,7 @@ describe("Journal batch diagnostics", () => {
   });
 
   it.each([
+    ["PREPARE", "이미지 저장 준비 중 문제가 발생했습니다."],
     ["FETCH", "3번째 일지 이미지 생성 중 문제가 발생했습니다."],
     ["ZIP", "일지 파일 묶음을 만드는 중 문제가 발생했습니다."],
     ["DOWNLOAD", "일지 파일 다운로드를 준비하는 중 문제가 발생했습니다."],
@@ -73,5 +74,15 @@ describe("Journal batch diagnostics", () => {
     session.start(stage as Exclude<JournalBatchStage, "ENTRY_COMPLETE">, context);
     const diagnostic = session.fail(new Error(`JOURNAL_${stage}_FAILED`)).diagnostic;
     expect(journalBatchFailureMessage(diagnostic.failure!)).toBe(expected);
+  });
+
+  it("never invents an entry ordinal for a presentation preparation failure", () => {
+    const session = new JournalBatchDiagnosticSession(5);
+    const context = { ordinal: null, entryId: null, dogId: null };
+    session.start("PREPARE", context);
+    const diagnostic = session.fail(new Error("JOURNAL_SYSTEM_FONT_RECONNECT_REQUIRED")).diagnostic;
+    expect(diagnostic.failure).toMatchObject({ stage: "PREPARE", ordinal: null, accumulatedEntryCount: 0 });
+    expect(journalBatchFailureMessage(diagnostic.failure!)).toBe("사용 중인 컴퓨터 글꼴을 다시 연결해야 이미지를 저장할 수 있습니다.");
+    expect(formatJournalBatchDiagnostic(diagnostic)).toContain("FAILURE_ORDINAL: NONE");
   });
 });

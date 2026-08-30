@@ -15,7 +15,7 @@ import {
   type JournalBatchDiagnostic,
 } from "./journalBatchDiagnostics";
 import { renderJournalImageBlob } from "./journalExport";
-import { ensureActiveJournalTeacherCommentPresentation } from "./journalCustomFont";
+import { ensureActiveJournalTeacherCommentPresentation, reconnectActiveJournalSystemFont, useJournalCustomFontPreference } from "./journalCustomFont";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import {
   fetchJournalEntry,
@@ -79,7 +79,9 @@ export function JournalHomePage() {
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [batchFailure, setBatchFailure] = useState<JournalBatchDiagnostic | null>(null);
   const [batchDiagnosticCopyState, setBatchDiagnosticCopyState] = useState<"idle" | "copied" | "error">("idle");
+  const [reconnectingSystemFont, setReconnectingSystemFont] = useState(false);
   const batchInFlightRef = useRef(false);
+  const fontPreference = useJournalCustomFontPreference();
 
   useEffect(() => {
     let cancelled = false;
@@ -240,7 +242,10 @@ export function JournalHomePage() {
     setBatchDiagnosticCopyState("idle");
     setError("");
     try {
+      const batchContext = { ordinal: null, entryId: null, dogId: null };
+      diagnostics.start("PREPARE", batchContext);
       const teacherCommentPresentation = await ensureActiveJournalTeacherCommentPresentation();
+      diagnostics.ack("PREPARE", batchContext);
       for (let index = 0; index < targets.length; index += 1) {
         const target = targets[index];
         const context = { ordinal: index + 1, entryId: target.id, dogId: target.dog.id };
@@ -259,7 +264,6 @@ export function JournalHomePage() {
         diagnostics.entryComplete(context, blob.size);
         setBatchProgress({ current: index + 1, total: targets.length });
       }
-      const batchContext = { ordinal: null, entryId: null, dogId: null };
       await downloadJournalBatchZip(files, businessDate, (event) => {
         if (event.state === "START") diagnostics.start(event.stage, batchContext);
         else diagnostics.ack(event.stage, batchContext, event);
@@ -272,6 +276,20 @@ export function JournalHomePage() {
     } finally {
       setBatching(false);
       batchInFlightRef.current = false;
+    }
+  };
+
+  const reconnectSystemFont = async () => {
+    if (reconnectingSystemFont) return;
+    setReconnectingSystemFont(true);
+    setError("");
+    try {
+      await reconnectActiveJournalSystemFont();
+      setBatchFailure(null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "컴퓨터 글꼴을 다시 연결하지 못했습니다.");
+    } finally {
+      setReconnectingSystemFont(false);
     }
   };
 
@@ -374,10 +392,18 @@ export function JournalHomePage() {
         <div className="mt-4 space-y-2">
           <FormAlert>{error}</FormAlert>
           {batchFailure ? (
-            <Button type="button" variant="secondary" onClick={() => void copyBatchDiagnostic()}>
-              <Clipboard size={16} />
-              {batchDiagnosticCopyState === "copied" ? "진단 정보 복사됨" : batchDiagnosticCopyState === "error" ? "진단 정보 복사 실패" : "진단 정보 복사"}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {batchFailure.failure?.safeErrorMessage === "JOURNAL_SYSTEM_FONT_RECONNECT_REQUIRED" && fontPreference.systemFontStatus !== "unsupported" ? (
+                <Button type="button" onClick={() => void reconnectSystemFont()} disabled={reconnectingSystemFont}>
+                  {reconnectingSystemFont ? <LoaderCircle className="animate-spin" size={16} /> : null}
+                  컴퓨터 글꼴 다시 연결
+                </Button>
+              ) : null}
+              <Button type="button" variant="secondary" onClick={() => void copyBatchDiagnostic()}>
+                <Clipboard size={16} />
+                {batchDiagnosticCopyState === "copied" ? "진단 정보 복사됨" : batchDiagnosticCopyState === "error" ? "진단 정보 복사 실패" : "진단 정보 복사"}
+              </Button>
+            </div>
           ) : null}
         </div>
       ) : null}

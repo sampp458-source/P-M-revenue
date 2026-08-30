@@ -59,7 +59,7 @@ export type JournalCustomFontSnapshot = {
   activeSource: JournalTeacherCommentFontSource;
   activeSystemFont: JournalSystemFontMetadata | null;
   systemFonts: JournalSystemFontMetadata[];
-  systemFontStatus: "unsupported" | "idle" | "loading" | "ready" | "denied" | "reconnect-required";
+  systemFontStatus: "unsupported" | "idle" | "loading" | "ready" | "denied" | "missing" | "reconnect-required";
   fontSize: JournalTeacherCommentFontSize;
   error: string;
 };
@@ -410,6 +410,19 @@ function localFontQuery() {
   return (window as Window & { queryLocalFonts?: () => Promise<LocalFontData[]> }).queryLocalFonts;
 }
 
+export function matchJournalSystemFontDescriptor(
+  descriptor: JournalSystemFontMetadata,
+  candidates: JournalSystemFontMetadata[],
+) {
+  return candidates.find((candidate) => candidate.postscriptName === descriptor.postscriptName)
+    ?? candidates.find((candidate) => (
+      candidate.fullName === descriptor.fullName
+      && candidate.family === descriptor.family
+      && candidate.style === descriptor.style
+    ))
+    ?? null;
+}
+
 export async function connectJournalSystemFonts() {
   await initializeJournalCustomFonts();
   const query = localFontQuery();
@@ -462,6 +475,27 @@ export async function selectJournalSystemFont(postscriptName: string) {
   await writePreference(ACTIVE_SOURCE_KEY, "SYSTEM");
   await writePreference(ACTIVE_SYSTEM_FONT_KEY, metadata);
   emit({ ...snapshot, activeFontId: null, activeFontFamily: journalTeacherCommentFontFamily(family), activeSource: "SYSTEM", activeSystemFont: metadata, systemFontStatus: "ready", error: "" });
+}
+
+export async function reconnectActiveJournalSystemFont() {
+  await initializeJournalCustomFonts();
+  const descriptor = snapshot.activeSource === "SYSTEM" ? snapshot.activeSystemFont : null;
+  if (!descriptor) throw new Error("다시 연결할 컴퓨터 글꼴 정보가 없습니다. 다른 글꼴을 선택해 주세요.");
+  const fonts = await connectJournalSystemFonts();
+  if (snapshot.systemFontStatus !== "ready") {
+    throw new Error(snapshot.error || "컴퓨터 글꼴을 다시 연결하지 못했습니다.");
+  }
+  const match = matchJournalSystemFontDescriptor(descriptor, fonts);
+  if (!match) {
+    emit({
+      ...snapshot,
+      systemFontStatus: "missing",
+      error: "이전에 사용한 컴퓨터 글꼴을 찾을 수 없습니다. 다른 글꼴이나 기본 글꼴을 선택해 주세요.",
+    });
+    throw new Error("이전에 사용한 컴퓨터 글꼴을 찾을 수 없습니다. 다른 글꼴이나 기본 글꼴을 선택해 주세요.");
+  }
+  await selectJournalSystemFont(match.postscriptName);
+  return match;
 }
 
 export async function selectJournalTeacherCommentFontSize(fontSize: JournalTeacherCommentFontSize) {

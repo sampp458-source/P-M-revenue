@@ -1,4 +1,5 @@
 export type JournalBatchStage =
+  | "PREPARE"
   | "FETCH"
   | "RENDER"
   | "ENCODE"
@@ -8,6 +9,8 @@ export type JournalBatchStage =
   | "DOWNLOAD";
 
 export type JournalBatchStageEventName =
+  | "PREPARE_START"
+  | "PREPARE_ACK"
   | "FETCH_START"
   | "FETCH_ACK"
   | "RENDER_START"
@@ -106,7 +109,7 @@ export class JournalBatchDiagnosticSession {
   readonly diagnostic: JournalBatchDiagnostic;
   private readonly batchStartedAt = now();
   private readonly stageStartedAt = new Map<string, number>();
-  private currentStage: JournalBatchStage = "FETCH";
+  private currentStage: JournalBatchStage = "PREPARE";
   private currentEntry: JournalBatchEntryContext = { ordinal: null, entryId: null, dogId: null };
   private canvasWidth: number | null = null;
   private canvasHeight: number | null = null;
@@ -266,8 +269,11 @@ export function formatJournalBatchDiagnostic(diagnostic: JournalBatchDiagnostic)
 }
 
 export function journalBatchFailureMessage(failure: JournalBatchFailure) {
+  if (failure.safeErrorMessage === "JOURNAL_SYSTEM_FONT_RECONNECT_REQUIRED") {
+    return "사용 중인 컴퓨터 글꼴을 다시 연결해야 이미지를 저장할 수 있습니다.";
+  }
   if (failure.stage === "ZIP") return "일지 파일 묶음을 만드는 중 문제가 발생했습니다.";
   if (failure.stage === "DOWNLOAD") return "일지 파일 다운로드를 준비하는 중 문제가 발생했습니다.";
-  const ordinal = failure.ordinal ?? failure.accumulatedEntryCount + 1;
-  return `${ordinal}번째 일지 이미지 생성 중 문제가 발생했습니다.`;
+  if (failure.stage === "PREPARE" || failure.ordinal === null) return "이미지 저장 준비 중 문제가 발생했습니다.";
+  return `${failure.ordinal}번째 일지 이미지 생성 중 문제가 발생했습니다.`;
 }
