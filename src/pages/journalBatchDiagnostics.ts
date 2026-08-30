@@ -64,6 +64,23 @@ export type JournalBatchDiagnostic = {
   targetCount: number;
   events: JournalBatchStageEvent[];
   failure: JournalBatchFailure | null;
+  presentationIssues: JournalBatchPresentationIssue[];
+};
+
+export type JournalBatchPresentationIssue = {
+  ordinal: number;
+  entryId: string;
+  dogId: string;
+  fontSource: "DEFAULT" | "FILE" | "SYSTEM";
+  fontFingerprint: string;
+  fontSize: number;
+  commentLength: number;
+  measuredLines: number;
+  maxLines: number;
+  requiredHeight: number;
+  availableHeight: number;
+  overflowAmount: number;
+  recommendedSize: number | null;
 };
 
 type ErrorLike = {
@@ -125,6 +142,7 @@ export class JournalBatchDiagnosticSession {
       targetCount,
       events: [],
       failure: null,
+      presentationIssues: [],
     };
   }
 
@@ -181,6 +199,10 @@ export class JournalBatchDiagnosticSession {
     this.accumulatedEntryCount += 1;
     this.accumulatedByteSize += encodedByteSize;
     this.append("ENTRY_COMPLETE", context, null);
+  }
+
+  presentationIssues(issues: JournalBatchPresentationIssue[]) {
+    this.diagnostic.presentationIssues = issues.map((issue) => ({ ...issue }));
   }
 
   complete() {
@@ -265,12 +287,19 @@ export function formatJournalBatchDiagnostic(diagnostic: JournalBatchDiagnostic)
     `ACCUMULATED_ENTRIES=${event.accumulatedEntryCount}`,
     `ACCUMULATED_BYTES=${event.accumulatedByteSize}`,
   ].join(" | "));
-  return [...header, "TIMELINE:", ...timeline].join("\n");
+  const presentationIssues = diagnostic.presentationIssues.flatMap((issue, index) => [
+    `PRESENTATION_ISSUE_${index + 1}: ORDINAL=${issue.ordinal} | ENTRY_ID=${issue.entryId} | DOG_ID=${issue.dogId}`,
+    `PRESENTATION_METRICS_${index + 1}: FONT_SOURCE=${issue.fontSource} | FONT_FINGERPRINT=${issue.fontFingerprint} | FONT_SIZE=${issue.fontSize} | COMMENT_LENGTH=${issue.commentLength} | MEASURED_LINES=${issue.measuredLines} | MAX_LINES=${issue.maxLines} | REQUIRED_HEIGHT=${issue.requiredHeight} | AVAILABLE_HEIGHT=${issue.availableHeight} | OVERFLOW_AMOUNT=${issue.overflowAmount} | RECOMMENDED_SIZE=${value(issue.recommendedSize)}`,
+  ]);
+  return [...header, ...presentationIssues, "TIMELINE:", ...timeline].join("\n");
 }
 
 export function journalBatchFailureMessage(failure: JournalBatchFailure) {
   if (failure.safeErrorMessage === "JOURNAL_SYSTEM_FONT_RECONNECT_REQUIRED") {
     return "사용 중인 컴퓨터 글꼴을 다시 연결해야 이미지를 저장할 수 있습니다.";
+  }
+  if (failure.safeErrorMessage === "JOURNAL_BATCH_PRESENTATION_OVERFLOW") {
+    return "이미지에 글이 모두 들어가지 않는 일지가 있습니다.";
   }
   if (failure.stage === "ZIP") return "일지 파일 묶음을 만드는 중 문제가 발생했습니다.";
   if (failure.stage === "DOWNLOAD") return "일지 파일 다운로드를 준비하는 중 문제가 발생했습니다.";

@@ -85,4 +85,22 @@ describe("Journal batch diagnostics", () => {
     expect(journalBatchFailureMessage(diagnostic.failure!)).toBe("사용 중인 컴퓨터 글꼴을 다시 연결해야 이미지를 저장할 수 있습니다.");
     expect(formatJournalBatchDiagnostic(diagnostic)).toContain("FAILURE_ORDINAL: NONE");
   });
+
+  it("records every overflow target with safe presentation metrics and no comment content", () => {
+    const session = new JournalBatchDiagnosticSession(5);
+    session.presentationIssues([
+      { ordinal: 1, entryId: "entry-1", dogId: "dog-1", fontSource: "SYSTEM", fontFingerprint: "pnm-journal-system-font-safe", fontSize: 20, commentLength: 420, measuredLines: 11, maxLines: 10, requiredHeight: 299.2, availableHeight: 290, overflowAmount: 10, recommendedSize: 18 },
+      { ordinal: 4, entryId: "entry-4", dogId: "dog-4", fontSource: "SYSTEM", fontFingerprint: "pnm-journal-system-font-safe", fontSize: 20, commentLength: 500, measuredLines: 13, maxLines: 10, requiredHeight: 353.6, availableHeight: 290, overflowAmount: 64, recommendedSize: null },
+    ]);
+    session.start("PREPARE", { ordinal: 1, entryId: "entry-1", dogId: "dog-1" });
+    const diagnostic = session.fail(new Error("JOURNAL_BATCH_PRESENTATION_OVERFLOW")).diagnostic;
+    const text = formatJournalBatchDiagnostic(diagnostic);
+    expect(journalBatchFailureMessage(diagnostic.failure!)).toBe("이미지에 글이 모두 들어가지 않는 일지가 있습니다.");
+    expect(text).toContain("PRESENTATION_ISSUE_1: ORDINAL=1 | ENTRY_ID=entry-1 | DOG_ID=dog-1");
+    expect(text).toContain("PRESENTATION_ISSUE_2: ORDINAL=4 | ENTRY_ID=entry-4 | DOG_ID=dog-4");
+    expect(text).toContain("COMMENT_LENGTH=420");
+    expect(text).toContain("RECOMMENDED_SIZE=18");
+    expect(text).toContain("OVERFLOW_AMOUNT=10");
+    expect(text).not.toContain("teacher comment");
+  });
 });

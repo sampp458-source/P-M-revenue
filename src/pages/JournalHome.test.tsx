@@ -15,12 +15,31 @@ const mocks = vi.hoisted(() => ({
   downloadBatch: vi.fn(),
   ensurePresentation: vi.fn().mockResolvedValue({ fontFamily: "Pretendard, sans-serif", fontSize: 20 }),
   reconnectSystemFont: vi.fn().mockResolvedValue(undefined),
-  fontPreference: { status: "ready", activeSource: "DEFAULT", systemFontStatus: "idle" },
+  fontPreference: {
+    status: "ready",
+    fonts: [],
+    activeFontId: null,
+    activeFontFamily: "Pretendard, sans-serif",
+    activeSource: "DEFAULT",
+    activeSystemFont: null,
+    systemFonts: [],
+    systemFontStatus: "idle",
+    fontSize: 20,
+    error: "",
+  },
 }));
 
 vi.mock("./operationsScheduleRepository", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./operationsScheduleRepository")>()),
   seoulDateKey: () => "2026-08-15",
+}));
+vi.mock("./JournalEditor", () => ({
+  JournalEditor: ({ entry, focusTeacherComment }: { entry: { dog: { name: string } }; focusTeacherComment?: boolean }) => (
+    <section>
+      <h1>{entry.dog.name}</h1>
+      <textarea aria-label="선생님의 한마디" autoFocus={focusTeacherComment} />
+    </section>
+  ),
 }));
 vi.mock("./journalRepository", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./journalRepository")>()),
@@ -164,6 +183,47 @@ describe("Journal Home roster", () => {
     expect(mocks.fetchEntry).toHaveBeenCalledTimes(5);
     expect(mocks.renderImage).toHaveBeenCalledTimes(5);
     expect(mocks.downloadBatch.mock.calls[0][0]).toHaveLength(5);
+  });
+
+  it("discovers every overflowing completed entry before rendering and opens the selected Dog editor", async () => {
+    const completed = [
+      { ...roster.entries[0], id: "entry-safe", dog: { id: "dog-safe", name: "가을" }, teacherComment: "오늘도 즐거웠어요." },
+      { ...roster.entries[0], id: "entry-recommended", dog: { id: "dog-recommended", name: "감자" }, teacherComment: "가".repeat(420) },
+      { ...roster.entries[0], id: "entry-too-long", dog: { id: "dog-too-long", name: "먼지" }, teacherComment: "가".repeat(500) },
+    ];
+    mocks.fetchRoster.mockResolvedValue({ ...roster, summary: { total: 3, notStarted: 0, inProgress: 0, completed: 3 }, entries: completed });
+    mocks.fetchEntry.mockImplementation(async (id: string) => completed.find((entry) => entry.id === id));
+    mocks.ensurePresentation.mockResolvedValue({ fontFamily: "Pretendard, sans-serif", fontSize: 20, source: "SYSTEM", fontFingerprint: "pnm-journal-system-font-safe" });
+    render(<JournalHomePage />);
+    await screen.findByText("가을");
+    fireEvent.click(screen.getByRole("button", { name: "2026-08-15 완료 일지 전체 저장" }));
+    expect(await screen.findByText("이미지에 글이 모두 들어가지 않는 일지가 있습니다.")).not.toBeNull();
+    const repairList = screen.getByLabelText("이미지 저장 수정 대상");
+    expect(within(repairList).getByText("수정이 필요한 일지 2건")).not.toBeNull();
+    expect(within(repairList).getByText("감자").parentElement?.textContent).toContain("18px로 줄이면 이미지를 저장할 수 있습니다.");
+    expect(within(repairList).getByText("먼지").parentElement?.textContent).toContain("18px에서도 영역을 초과합니다");
+    expect(mocks.fetchEntry).toHaveBeenCalledTimes(3);
+    expect(mocks.renderImage).not.toHaveBeenCalled();
+    expect(mocks.downloadBatch).not.toHaveBeenCalled();
+    const repairButtons = screen.getAllByRole("button", { name: "일지 수정하기" });
+    fireEvent.click(repairButtons[0]);
+    expect(await screen.findByRole("heading", { name: "감자" })).not.toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("선생님의 한마디")));
+  });
+
+  it("requires system-font reconnect before geometry preflight and performs no partial render", async () => {
+    const completed = [{ ...roster.entries[0], teacherComment: "가".repeat(420) }];
+    mocks.fetchRoster.mockResolvedValue({ ...roster, entries: completed });
+    mocks.fontPreference.activeSource = "SYSTEM";
+    mocks.fontPreference.systemFontStatus = "reconnect-required";
+    mocks.ensurePresentation.mockRejectedValueOnce(new Error("JOURNAL_SYSTEM_FONT_RECONNECT_REQUIRED"));
+    render(<JournalHomePage />);
+    await screen.findByText("크리미");
+    fireEvent.click(screen.getByRole("button", { name: "2026-08-15 완료 일지 전체 저장" }));
+    expect(await screen.findByText("사용 중인 컴퓨터 글꼴을 다시 연결해야 이미지를 저장할 수 있습니다.")).not.toBeNull();
+    expect(mocks.fetchEntry).not.toHaveBeenCalled();
+    expect(mocks.renderImage).not.toHaveBeenCalled();
+    expect(mocks.downloadBatch).not.toHaveBeenCalled();
   });
 
   it.each(["RENDER", "ENCODE", "VALIDATION"] as const)(

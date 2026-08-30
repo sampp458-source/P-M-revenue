@@ -508,21 +508,23 @@ export async function selectJournalTeacherCommentFontSize(fontSize: JournalTeach
 export type JournalTeacherCommentPresentation = {
   fontFamily: string;
   fontSize: JournalTeacherCommentFontSize;
+  source?: JournalTeacherCommentFontSource;
+  fontFingerprint?: string;
 };
 
 export async function ensureActiveJournalTeacherCommentPresentation(): Promise<JournalTeacherCommentPresentation> {
   await initializeJournalCustomFonts();
   if (snapshot.activeSource === "SYSTEM") {
     if (snapshot.systemFontStatus !== "ready" || !loadedSystemFace) throw new Error("JOURNAL_SYSTEM_FONT_RECONNECT_REQUIRED");
-    return { fontFamily: snapshot.activeFontFamily, fontSize: snapshot.fontSize };
+    return { fontFamily: snapshot.activeFontFamily, fontSize: snapshot.fontSize, source: "SYSTEM", fontFingerprint: snapshot.activeFontFamily.match(/pnm-journal-system-font-[a-f0-9-]+/i)?.[0] ?? "SYSTEM_SESSION_FONT" };
   }
-  if (!snapshot.activeFontId) return { fontFamily: JOURNAL_REPORT_FONT_FAMILY, fontSize: snapshot.fontSize };
+  if (!snapshot.activeFontId) return { fontFamily: JOURNAL_REPORT_FONT_FAMILY, fontSize: snapshot.fontSize, source: "DEFAULT", fontFingerprint: "DEFAULT" };
   const { records } = await readStoredState();
   const record = records.find((candidate) => candidate.id === snapshot.activeFontId);
   if (!record) throw new Error("JOURNAL_CUSTOM_FONT_NOT_READY");
   try {
     await loadRecord(record);
-    return { fontFamily: journalTeacherCommentFontFamily(record.family), fontSize: snapshot.fontSize };
+    return { fontFamily: journalTeacherCommentFontFamily(record.family), fontSize: snapshot.fontSize, source: "FILE", fontFingerprint: record.id };
   } catch {
     throw new Error("JOURNAL_CUSTOM_FONT_NOT_READY");
   }

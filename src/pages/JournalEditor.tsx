@@ -102,6 +102,7 @@ export function JournalEditor({
   onEntryUpdate,
   onNavigate,
   onClose,
+  focusTeacherComment = false,
 }: {
   entry: JournalRosterEntry;
   rosterEntries: JournalRosterEntry[];
@@ -109,6 +110,7 @@ export function JournalEditor({
   onEntryUpdate: (entry: JournalRosterEntry) => void;
   onNavigate: (entryId: string) => void;
   onClose: () => void;
+  focusTeacherComment?: boolean;
 }) {
   const [entry, setEntry] = useState(rosterEntry);
   const [draft, setDraft] = useState<JournalDraft>(() => journalEntryToDraft(rosterEntry));
@@ -297,6 +299,13 @@ export function JournalEditor({
   const commentGeometry = useMemo(() => measureJournalTeacherCommentGeometry(draft.teacherComment, customFont.activeFontFamily, commentFontSize), [commentFontSize, customFont.activeFontFamily, draft.teacherComment]);
   const systemFontReconnectRequired = customFont.activeSource === "SYSTEM" && customFont.systemFontStatus !== "ready";
   const exportPresentationReady = commentGeometry.available && !commentGeometry.overflow && !systemFontReconnectRequired;
+
+  useEffect(() => {
+    if (loading || !focusTeacherComment) return;
+    const textarea = document.getElementById(`journal-teacher-comment-${entry.id}`) as HTMLTextAreaElement | null;
+    textarea?.scrollIntoView?.({ block: "center" });
+    textarea?.focus({ preventScroll: true });
+  }, [entry.id, focusTeacherComment, loading]);
 
   const update = (change: (current: JournalDraft) => JournalDraft) => {
     if (actionInFlightRef.current || completionInputFreezeRef.current) return;
@@ -659,6 +668,7 @@ export function JournalEditor({
         <EditorSection title="선생님의 한마디" description="작성 완료를 위해 한마디를 입력해 주세요." desktopWide>
           <JournalTeacherCommentFontControl />
           <Textarea
+            id={`journal-teacher-comment-${entry.id}`}
             aria-label="선생님의 한마디"
             rows={6}
             value={teacherCommentInput}

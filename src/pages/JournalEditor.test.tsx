@@ -127,7 +127,7 @@ afterEach(() => {
 
 const renderEditor = (
   target = roster[0],
-  options: { onNavigate?: (entryId: string) => void; onClose?: () => void; onDelete?: (expectedVersion: number) => Promise<void>; rosterEntries?: JournalRosterEntry[] } = {},
+  options: { onNavigate?: (entryId: string) => void; onClose?: () => void; onDelete?: (expectedVersion: number) => Promise<void>; rosterEntries?: JournalRosterEntry[]; focusTeacherComment?: boolean } = {},
 ) => render(
   <JournalEditor
     entry={target}
@@ -136,6 +136,7 @@ const renderEditor = (
     onEntryUpdate={vi.fn()}
     onNavigate={options.onNavigate ?? vi.fn()}
     onClose={options.onClose ?? vi.fn()}
+    focusTeacherComment={options.focusTeacherComment}
   />,
 );
 
@@ -159,6 +160,29 @@ function liveReport(dogName: string) {
 }
 
 describe("Journal Editor", () => {
+  it("focuses the Teacher Comment control when opened from export recovery", async () => {
+    const loaded = entry({ status: "COMPLETED", teacherComment: "가".repeat(420) });
+    mocks.fetch.mockResolvedValue(loaded);
+    const rendered = renderEditor(loaded, { focusTeacherComment: true });
+    const textarea = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+    await waitFor(() => expect(document.activeElement).toBe(textarea));
+    const reportAt20 = liveReport("크리미");
+    expect(reportAt20.querySelectorAll("[data-journal-section]").length).toBeGreaterThan(1);
+    expect(within(reportAt20).getByTestId("journal-report-comment").getAttribute("data-comment-font-size")).toBe("20");
+    mocks.fontPreference.fontSize = 18;
+    rendered.rerender(
+      <JournalEditor
+        entry={loaded}
+        rosterEntries={roster}
+        onEntryUpdate={vi.fn()}
+        onNavigate={vi.fn()}
+        onClose={vi.fn()}
+        focusTeacherComment
+      />,
+    );
+    await waitFor(() => expect(within(liveReport("크리미")).getByTestId("journal-report-comment").getAttribute("data-comment-font-size")).toBe("18"));
+  });
+
   it("hydrates server-created default selections without scheduling an initial autosave", async () => {
     const initialized = entry({
       conditionCodes: ["active"],

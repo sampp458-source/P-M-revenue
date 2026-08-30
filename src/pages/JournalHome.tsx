@@ -15,6 +15,7 @@ import {
   type JournalBatchDiagnostic,
 } from "./journalBatchDiagnostics";
 import { renderJournalImageBlob } from "./journalExport";
+import { inspectJournalExportPresentation, journalExportOverflowMessage, type JournalExportPresentationIssue } from "./journalExportReadiness";
 import { ensureActiveJournalTeacherCommentPresentation, reconnectActiveJournalSystemFont, useJournalCustomFontPreference } from "./journalCustomFont";
 import { buildJournalPreviewViewModel, journalEntryToDraft } from "./journalPreviewViewModel";
 import {
@@ -79,6 +80,9 @@ export function JournalHomePage() {
   const [batchProgress, setBatchProgress] = useState({ current: 0, total: 0 });
   const [batchFailure, setBatchFailure] = useState<JournalBatchDiagnostic | null>(null);
   const [batchDiagnosticCopyState, setBatchDiagnosticCopyState] = useState<"idle" | "copied" | "error">("idle");
+  const [batchPresentationIssues, setBatchPresentationIssues] = useState<JournalExportPresentationIssue[]>([]);
+  const [batchPhase, setBatchPhase] = useState<"preflight" | "render">("preflight");
+  const [teacherCommentFocusEntryId, setTeacherCommentFocusEntryId] = useState<string | null>(null);
   const [reconnectingSystemFont, setReconnectingSystemFont] = useState(false);
   const batchInFlightRef = useRef(false);
   const fontPreference = useJournalCustomFontPreference();
@@ -239,6 +243,8 @@ export function JournalHomePage() {
     setBatching(true);
     setBatchProgress({ current: 0, total: targets.length });
     setBatchFailure(null);
+    setBatchPresentationIssues([]);
+    setBatchPhase("preflight");
     setBatchDiagnosticCopyState("idle");
     setError("");
     try {
@@ -246,6 +252,8 @@ export function JournalHomePage() {
       diagnostics.start("PREPARE", batchContext);
       const teacherCommentPresentation = await ensureActiveJournalTeacherCommentPresentation();
       diagnostics.ack("PREPARE", batchContext);
+      const prepared: Array<{ context: { ordinal: number; entryId: string; dogId: string }; viewModel: ReturnType<typeof buildJournalPreviewViewModel> }> = [];
+      const presentationIssues: JournalExportPresentationIssue[] = [];
       for (let index = 0; index < targets.length; index += 1) {
         const target = targets[index];
         const context = { ordinal: index + 1, entryId: target.id, dogId: target.dog.id };
@@ -256,6 +264,32 @@ export function JournalHomePage() {
           throw new Error("JOURNAL_BATCH_TARGET_CHANGED");
         }
         const viewModel = buildJournalPreviewViewModel(persisted, journalEntryToDraft(persisted), rosterSnapshot);
+        prepared.push({ context, viewModel });
+        const issue = inspectJournalExportPresentation({
+          ordinal: context.ordinal,
+          entryId: context.entryId,
+          dogId: context.dogId,
+          viewModel,
+          presentation: teacherCommentPresentation,
+        });
+        if (issue) presentationIssues.push(issue);
+        setBatchProgress({ current: index + 1, total: targets.length });
+      }
+      if (presentationIssues.length) {
+        diagnostics.presentationIssues(presentationIssues.map((issue) => {
+          const { dogName, ...diagnosticIssue } = issue;
+          void dogName;
+          return diagnosticIssue;
+        }));
+        setBatchPresentationIssues(presentationIssues);
+        const first = presentationIssues[0];
+        diagnostics.start("PREPARE", { ordinal: first.ordinal, entryId: first.entryId, dogId: first.dogId });
+        throw new Error("JOURNAL_BATCH_PRESENTATION_OVERFLOW");
+      }
+      setBatchPhase("render");
+      setBatchProgress({ current: 0, total: targets.length });
+      for (let index = 0; index < prepared.length; index += 1) {
+        const { context, viewModel } = prepared[index];
         const blob = await renderJournalImageBlob(viewModel, "png", (event) => {
           if (event.state === "START") diagnostics.start(event.stage, context);
           else diagnostics.ack(event.stage, context, event);
@@ -286,6 +320,7 @@ export function JournalHomePage() {
     try {
       await reconnectActiveJournalSystemFont();
       setBatchFailure(null);
+      setBatchPresentationIssues([]);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "컴퓨터 글꼴을 다시 연결하지 못했습니다.");
     } finally {
@@ -328,6 +363,7 @@ export function JournalHomePage() {
         onEntryUpdate={applyEntryUpdate}
         onNavigate={setSelectedEntryId}
         onClose={() => setSelectedEntryId(null)}
+        focusTeacherComment={teacherCommentFocusEntryId === selectedEntry.id}
       />
     );
   }
@@ -364,7 +400,9 @@ export function JournalHomePage() {
           >
             {batching ? <LoaderCircle className="animate-spin" size={17} /> : <Archive size={17} />}
             {batching
-              ? `일지 이미지 만드는 중 ${batchProgress.current} / ${batchProgress.total}`
+              ? batchPhase === "preflight"
+                ? `저장 가능 여부 확인 중 ${batchProgress.current} / ${batchProgress.total}`
+                : `일지 이미지 만드는 중 ${batchProgress.current} / ${batchProgress.total}`
               : `완료 일지 전체 저장 · ${completedEntries.length}건`}
           </Button>
           <Button type="button" className="flex-1 sm:flex-none" onClick={openRegister}><Plus size={17} />{roster.summary.total ? "등원 추가" : "오늘 등원 등록"}</Button>
@@ -392,7 +430,26 @@ export function JournalHomePage() {
         <div className="mt-4 space-y-2">
           <FormAlert>{error}</FormAlert>
           {batchFailure ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="space-y-3">
+              {batchPresentationIssues.length ? (
+                <div className="rounded-xl border border-warning/30 bg-warning-soft p-3" aria-label="이미지 저장 수정 대상">
+                  <p className="text-sm font-bold text-text-primary">수정이 필요한 일지 {batchPresentationIssues.length}건</p>
+                  <ul className="mt-2 space-y-2">
+                    {batchPresentationIssues.map((issue) => (
+                      <li key={issue.entryId} className="flex flex-col gap-2 rounded-lg bg-surface px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 text-sm text-text-primary">
+                          <strong>{issue.dogName}</strong>
+                          <span className="ml-1 text-text-secondary">· 현재 {issue.fontSize}px · {journalExportOverflowMessage(issue)}</span>
+                        </div>
+                        <Button type="button" variant="secondary" className="min-h-10 shrink-0" onClick={() => { setTeacherCommentFocusEntryId(issue.entryId); setSelectedEntryId(issue.entryId); }}>
+                          <Pencil size={15} />일지 수정하기
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <div className="flex flex-wrap gap-2">
               {batchFailure.failure?.safeErrorMessage === "JOURNAL_SYSTEM_FONT_RECONNECT_REQUIRED" && fontPreference.systemFontStatus !== "unsupported" ? (
                 <Button type="button" onClick={() => void reconnectSystemFont()} disabled={reconnectingSystemFont}>
                   {reconnectingSystemFont ? <LoaderCircle className="animate-spin" size={16} /> : null}
@@ -403,6 +460,7 @@ export function JournalHomePage() {
                 <Clipboard size={16} />
                 {batchDiagnosticCopyState === "copied" ? "진단 정보 복사됨" : batchDiagnosticCopyState === "error" ? "진단 정보 복사 실패" : "진단 정보 복사"}
               </Button>
+              </div>
             </div>
           ) : null}
         </div>
