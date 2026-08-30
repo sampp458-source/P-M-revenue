@@ -18,6 +18,7 @@ export const JOURNAL_AUTOSAVE_TIMEOUT_MS = 20_000;
 export const JOURNAL_AUTOSAVE_SLOW_MS = 8_000;
 
 export interface JournalAutosaveQueueSnapshot {
+  baseVersion: number;
   draftRevision: number;
   persistedRevision: number;
   pendingRevision: number | null;
@@ -28,12 +29,70 @@ export interface JournalAutosaveQueueSnapshot {
   flushTargetRevision: number | null;
   flushWaiterCount: number;
   autosaveRequestId: string | null;
+  lastSuccessfulAutosaveRequestId: string | null;
   expectedVersion: number;
   savingDurationMs: number | null;
   lastSuccessfulSaveTimestamp: string | null;
   lastTransition: string;
   abortState: boolean;
   timeoutState: boolean;
+}
+
+export type JournalExternalVersionSource = "completion_response" | "server_refetch" | "roster_refresh" | "subscription" | "unknown";
+export type JournalExternalVersionClassification =
+  | "SELF_ORIGINATED_WITH_LOCAL_PENDING"
+  | "TRUE_EXTERNAL_WITH_LOCAL_PENDING"
+  | "STALE_REFRESH_IGNORED";
+
+export interface JournalExternalVersionConflictDiagnostic {
+  diagnosticId: string;
+  entryId: string;
+  localExpectedVersion: number;
+  latestServerVersion: number;
+  baseVersion: number;
+  draftRevision: number;
+  persistedRevision: number;
+  pendingRevision: number | null;
+  inFlightRevision: number | null;
+  latestQueuedRevision: number;
+  pendingSave: boolean;
+  externalUpdateSource: JournalExternalVersionSource;
+  lastSuccessfulAutosaveRequestId: string | null;
+  currentAutosaveRequestId: string | null;
+  lastSuccessfulSaveTimestamp: string | null;
+  lastServerRefreshTimestamp: string;
+  conflictClassification: JournalExternalVersionClassification;
+  selfOriginated: boolean;
+}
+
+export class JournalExternalVersionConflictError extends Error {
+  constructor(readonly diagnostic: JournalExternalVersionConflictDiagnostic) {
+    super("JOURNAL_AUTOSAVE_EXTERNAL_VERSION_WITH_PENDING_SAVE");
+    this.name = "JournalExternalVersionConflictError";
+  }
+}
+
+export function formatJournalExternalVersionConflictDiagnostic(diagnostic: JournalExternalVersionConflictDiagnostic) {
+  return Object.entries({
+    DIAGNOSTIC_ID: diagnostic.diagnosticId,
+    ENTRY_ID: diagnostic.entryId,
+    LOCAL_EXPECTED_VERSION: diagnostic.localExpectedVersion,
+    LATEST_SERVER_VERSION: diagnostic.latestServerVersion,
+    BASE_VERSION: diagnostic.baseVersion,
+    DRAFT_REVISION: diagnostic.draftRevision,
+    PERSISTED_REVISION: diagnostic.persistedRevision,
+    PENDING_REVISION: diagnostic.pendingRevision,
+    IN_FLIGHT_REVISION: diagnostic.inFlightRevision,
+    LATEST_QUEUED_REVISION: diagnostic.latestQueuedRevision,
+    PENDING_SAVE: diagnostic.pendingSave,
+    EXTERNAL_UPDATE_SOURCE: diagnostic.externalUpdateSource,
+    LAST_SUCCESSFUL_AUTOSAVE_REQUEST_ID: diagnostic.lastSuccessfulAutosaveRequestId,
+    CURRENT_AUTOSAVE_REQUEST_ID: diagnostic.currentAutosaveRequestId,
+    LAST_SUCCESSFUL_SAVE_TIMESTAMP: diagnostic.lastSuccessfulSaveTimestamp,
+    LAST_SERVER_REFRESH_TIMESTAMP: diagnostic.lastServerRefreshTimestamp,
+    CONFLICT_CLASSIFICATION: diagnostic.conflictClassification,
+    SELF_ORIGINATED: diagnostic.selfOriginated,
+  }).map(([key, value]) => `${key}: ${value === null ? "NONE" : String(value)}`).join("\n");
 }
 
 type SaveRevision<TSnapshot> = { revision: number; requestId: string; snapshot: TSnapshot; attemptNumber: number };
@@ -52,6 +111,7 @@ export class JournalAutosaveQueueError extends Error {
 }
 
 export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSnapshot> {
+  private baseVersion: number;
   private draftRevision = 0;
   private savedRevision = 0;
   private pending: SaveRevision<TSnapshot> | null = null;
@@ -63,8 +123,10 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
   private waiters: RevisionWaiter[] = [];
   private disposed = false;
   private blockedFailure: Error | null = null;
+  private externalConflictFailure: JournalExternalVersionConflictError | null = null;
   private savingStartedAt: number | null = null;
   private lastSuccessfulSaveTimestamp: string | null = null;
+  private lastSuccessfulAutosaveRequestId: string | null = null;
   private lastTransition = "initialized";
   private abortState = false;
   private timeoutState = false;
@@ -91,7 +153,9 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
       diagnosticIdFactory?: () => string;
     },
     private readonly flushTimeoutMs = Math.max(timeoutMs * 2 + delay, timeoutMs + 1_000),
-  ) {}
+  ) {
+    this.baseVersion = version;
+  }
 
   private emitState(state: JournalSaveState, transition: string = state) {
     this.lastTransition = transition;
@@ -155,9 +219,56 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
     this.emitState(this.pending || this.retryPending ? "pending" : this.savedRevision === this.draftRevision ? "saved" : "idle", "error_dismissed");
   }
 
-  acknowledgeExternalVersion(version: number) {
-    if (this.pending || this.retryPending || this.running) throw new Error("JOURNAL_AUTOSAVE_EXTERNAL_VERSION_WITH_PENDING_SAVE");
+  acknowledgeExternalVersion(version: number, options: {
+    entryId?: string;
+    source?: JournalExternalVersionSource;
+    selfOriginated?: boolean;
+    detectedAt?: string;
+    diagnosticIdFactory?: () => string;
+  } = {}) {
+    if (version <= this.version) {
+      this.lastTransition = "stale_external_version_ignored";
+      return "STALE_REFRESH_IGNORED" as const;
+    }
+    if (this.pending || this.retryPending || this.running) {
+      const snapshot = this.getDiagnosticSnapshot();
+      const diagnostic: JournalExternalVersionConflictDiagnostic = {
+        diagnosticId: options.diagnosticIdFactory?.() ?? `JRN-VERSION-${crypto.randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase()}`,
+        entryId: options.entryId ?? this.diagnostics?.context().entryId ?? "unknown-entry",
+        localExpectedVersion: this.version,
+        latestServerVersion: version,
+        baseVersion: this.baseVersion,
+        draftRevision: snapshot.draftRevision,
+        persistedRevision: snapshot.persistedRevision,
+        pendingRevision: snapshot.pendingRevision,
+        inFlightRevision: snapshot.inFlightRevision,
+        latestQueuedRevision: snapshot.latestQueuedRevision,
+        pendingSave: true,
+        externalUpdateSource: options.source ?? "unknown",
+        lastSuccessfulAutosaveRequestId: this.lastSuccessfulAutosaveRequestId,
+        currentAutosaveRequestId: snapshot.autosaveRequestId,
+        lastSuccessfulSaveTimestamp: this.lastSuccessfulSaveTimestamp,
+        lastServerRefreshTimestamp: options.detectedAt ?? new Date(this.diagnostics?.now?.() ?? Date.now()).toISOString(),
+        conflictClassification: options.selfOriginated
+          ? "SELF_ORIGINATED_WITH_LOCAL_PENDING"
+          : "TRUE_EXTERNAL_WITH_LOCAL_PENDING",
+        selfOriginated: options.selfOriginated ?? false,
+      };
+      console.error("[journal-version-conflict]", diagnostic);
+      const conflict = new JournalExternalVersionConflictError(diagnostic);
+      this.externalConflictFailure = conflict;
+      this.blockedFailure = conflict;
+      if (this.timer) clearTimeout(this.timer);
+      this.timer = null;
+      this.activeController?.abort();
+      this.emitState("error", "external_version_conflict_blocked");
+      this.settleWaiters(conflict);
+      throw conflict;
+    }
     this.version = version;
+    this.baseVersion = version;
+    this.lastTransition = "external_version_acknowledged";
+    return "ACKNOWLEDGED" as const;
   }
 
   getDraftRevision() { return this.draftRevision; }
@@ -168,6 +279,7 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
   getDiagnosticSnapshot(): JournalAutosaveQueueSnapshot {
     const now = this.diagnostics?.now?.() ?? Date.now();
     return {
+      baseVersion: this.baseVersion,
       draftRevision: this.draftRevision,
       persistedRevision: this.savedRevision,
       pendingRevision: this.getPendingRevision(),
@@ -178,6 +290,7 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
       flushTargetRevision: this.waiters.length ? Math.max(...this.waiters.map((waiter) => waiter.targetRevision)) : null,
       flushWaiterCount: this.waiters.length,
       autosaveRequestId: this.runningRevision?.requestId ?? this.retryPending?.requestId ?? this.pending?.requestId ?? null,
+      lastSuccessfulAutosaveRequestId: this.lastSuccessfulAutosaveRequestId,
       expectedVersion: this.version,
       savingDurationMs: this.savingStartedAt === null ? null : Math.max(0, now - this.savingStartedAt),
       lastSuccessfulSaveTimestamp: this.lastSuccessfulSaveTimestamp,
@@ -263,17 +376,30 @@ export class JournalAutosaveQueue<TSnapshot, TResult extends VersionedJournalSna
           try {
             const result = await this.saveWithDeadline(item, expectedVersion);
             if (this.disposed) return;
+            if (this.externalConflictFailure) {
+              this.pending = item;
+              this.emitState("error", "external_version_conflict_result_ignored");
+              return;
+            }
             this.blockedFailure = null;
             this.diagnostics?.onFailure(null);
             this.version = result.version;
+            this.baseVersion = result.version;
             this.savedRevision = Math.max(this.savedRevision, item.revision);
             this.lastSuccessfulSaveTimestamp = new Date(this.diagnostics?.now?.() ?? Date.now()).toISOString();
+            this.lastSuccessfulAutosaveRequestId = item.requestId;
             this.timeoutState = false;
             this.abortState = false;
             this.onResult(result);
             this.settleWaiters();
           } catch (error) {
             if (this.disposed) return;
+            if (this.externalConflictFailure) {
+              this.pending = item;
+              this.retryPending = null;
+              this.emitState("error", "external_version_conflict_request_stopped");
+              return;
+            }
             const contextValue = this.diagnostics?.context();
             const context: JournalPersistenceContext = {
               operation: "update_journal_entry_draft",

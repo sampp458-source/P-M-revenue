@@ -2,7 +2,19 @@ import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clipboard, Download, Eye, 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, Card, FormAlert, Input, Modal, ModalActions, Textarea } from "../components/ui";
 import { SearchSelect } from "../components/SearchSelect";
-import { JournalAutosaveQueue, type JournalSaveState } from "./journalAutosave";
+import {
+  createJournalConflictBufferRecord,
+  deleteJournalConflictBuffer,
+  loadJournalConflictBuffer,
+  saveJournalConflictBuffer,
+  type JournalConflictBufferRecord,
+} from "./journalConflictRecovery";
+import {
+  formatJournalExternalVersionConflictDiagnostic,
+  JournalAutosaveQueue,
+  JournalExternalVersionConflictError,
+  type JournalSaveState,
+} from "./journalAutosave";
 import { completeJournalWithDeadline, formatJournalCompletionDiagnostic, JournalCompletionError } from "./journalCompletion";
 import {
   JournalPersistenceError,
@@ -105,6 +117,9 @@ export function JournalEditor({
   const [saveState, setSaveState] = useState<JournalSaveState>("idle");
   const [saveFailure, setSaveFailure] = useState<JournalSaveFailureDiagnostic | null>(null);
   const [completionFailure, setCompletionFailure] = useState<JournalCompletionError | null>(null);
+  const [externalVersionFailure, setExternalVersionFailure] = useState<JournalExternalVersionConflictError | null>(null);
+  const [conflictRecord, setConflictRecord] = useState<JournalConflictBufferRecord | null>(null);
+  const [entryReloadGeneration, setEntryReloadGeneration] = useState(0);
   const [diagnosticCopyState, setDiagnosticCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [error, setError] = useState("");
   const [completing, setCompleting] = useState(false);
@@ -115,6 +130,14 @@ export function JournalEditor({
   const [exportError, setExportError] = useState("");
   const customFont = useJournalCustomFontPreference();
   const versionRef = useRef(rosterEntry.version);
+  const baseVersionRef = useRef(rosterEntry.version);
+  const baseStatusRef = useRef(rosterEntry.status);
+  const draftRef = useRef(journalEntryToDraft(rosterEntry));
+  const baseDraftRef = useRef(journalEntryToDraft(rosterEntry));
+  const conflictRecordRef = useRef<JournalConflictBufferRecord | null>(null);
+  conflictRecordRef.current = conflictRecord;
+  const teacherCommentInputRef = useRef(journalEntryToDraft(rosterEntry).teacherComment);
+  const completionInputFreezeRef = useRef(false);
   const entryStatusRef = useRef(rosterEntry.status);
   const rosterEntriesRef = useRef(rosterEntries);
   rosterEntriesRef.current = rosterEntries;
@@ -137,14 +160,23 @@ export function JournalEditor({
     setError("");
     setSaveFailure(null);
     setCompletionFailure(null);
+    setExternalVersionFailure(null);
     completionAttemptRef.current = null;
     void fetchJournalEntry(rosterEntry.id)
-      .then((loaded) => {
+      .then(async (loaded) => {
+        const recovered = await loadJournalConflictBuffer(loaded.id).catch(() => null);
         if (cancelled) return;
         setEntry(loaded);
         const loadedDraft = journalEntryToDraft(loaded);
-        setDraft(loadedDraft);
-        setTeacherCommentInput(loadedDraft.teacherComment);
+        const activeDraft = recovered?.localDraft ?? loadedDraft;
+        draftRef.current = activeDraft;
+        baseDraftRef.current = recovered?.baseSnapshot ?? loadedDraft;
+        baseVersionRef.current = recovered?.baseVersion ?? loaded.version;
+        baseStatusRef.current = recovered?.baseStatus ?? loaded.status;
+        teacherCommentInputRef.current = activeDraft.teacherComment;
+        setDraft(activeDraft);
+        setTeacherCommentInput(activeDraft.teacherComment);
+        setConflictRecord(recovered);
         versionRef.current = loaded.version;
         entryStatusRef.current = loaded.status;
         queueRef.current = new JournalAutosaveQueue(
@@ -152,10 +184,16 @@ export function JournalEditor({
           (snapshot, expectedVersion, requestId, signal) =>
             updateJournalEntryDraft(loaded.id, expectedVersion, snapshot, requestId, signal, entryStatusRef.current),
           (result) => {
+            const persistedDraft = journalEntryToDraft(result);
+            draftRef.current = persistedDraft;
+            baseDraftRef.current = persistedDraft;
+            baseVersionRef.current = result.version;
+            baseStatusRef.current = result.status;
             versionRef.current = result.version;
             entryStatusRef.current = result.status;
             setEntry(result);
             onEntryUpdate(result);
+            void deleteJournalConflictBuffer(result.id).catch(() => undefined);
           },
           setSaveState,
           JOURNAL_AUTOSAVE_DELAY,
@@ -167,6 +205,55 @@ export function JournalEditor({
             onFailure: (diagnostic) => {
               setSaveFailure(diagnostic);
               if (diagnostic) setDiagnosticCopyState("idle");
+              if (diagnostic?.failureKind === "VERSION_CONFLICT") {
+                void (async () => {
+                  const provisional = createJournalConflictBufferRecord({
+                    entryId: loaded.id,
+                    baseVersion: baseVersionRef.current,
+                    latestServerVersion: baseVersionRef.current,
+                    baseStatus: baseStatusRef.current,
+                    localStatus: entryStatusRef.current,
+                    latestServerStatus: baseStatusRef.current,
+                    latestServerCaptured: false,
+                    baseSnapshot: baseDraftRef.current,
+                    localDraft: draftRef.current,
+                    latestServerSnapshot: baseDraftRef.current,
+                    timestamp: new Date().toISOString(),
+                    classification: "TRUE_EXTERNAL_CONFLICT",
+                  });
+                  await saveJournalConflictBuffer(provisional).catch(() => undefined);
+                  if (cancelled) return;
+                  setConflictRecord(provisional);
+                  try {
+                    const latest = await fetchJournalEntry(loaded.id);
+                    if (cancelled) return;
+                    try {
+                      queueRef.current?.acknowledgeExternalVersion(latest.version, {
+                        entryId: loaded.id,
+                        source: "server_refetch",
+                        selfOriginated: false,
+                      });
+                    } catch (caught) {
+                      if (caught instanceof JournalExternalVersionConflictError) {
+                        setExternalVersionFailure(caught);
+                        setDiagnosticCopyState("idle");
+                      }
+                    }
+                    const record = createJournalConflictBufferRecord({
+                      ...provisional,
+                      latestServerVersion: latest.version,
+                      latestServerStatus: latest.status,
+                      latestServerCaptured: true,
+                      latestServerSnapshot: journalEntryToDraft(latest),
+                      timestamp: new Date().toISOString(),
+                    });
+                    await saveJournalConflictBuffer(record).catch(() => undefined);
+                    if (!cancelled) setConflictRecord(record);
+                  } catch {
+                    // The local draft is already durable. The server snapshot can be retried on the next explicit recovery action.
+                  }
+                })();
+              }
             },
             validationShape: (snapshot) => journalValidationShape(
               snapshot,
@@ -184,7 +271,7 @@ export function JournalEditor({
       queueRef.current?.dispose();
       queueRef.current = null;
     };
-  }, [onEntryUpdate, rosterEntry.id]);
+  }, [entryReloadGeneration, onEntryUpdate, rosterEntry.id]);
 
   const position = rosterEntries.findIndex((item) => item.id === rosterEntry.id);
   const previous = position > 0 ? rosterEntries[position - 1] : null;
@@ -211,24 +298,42 @@ export function JournalEditor({
   const exportPresentationReady = commentGeometry.available && !commentGeometry.overflow && !systemFontReconnectRequired;
 
   const update = (change: (current: JournalDraft) => JournalDraft) => {
-    if (actionInFlightRef.current) return;
+    if (actionInFlightRef.current || completionInputFreezeRef.current) return;
     setCompletionFailure(null);
-    setDraft((current) => {
-      const nextDraft = change(current);
-      if (nextDraft === current) return current;
+    const current = draftRef.current;
+    const nextDraft = change(current);
+    if (nextDraft === current) return;
+    draftRef.current = nextDraft;
+    setDraft(nextDraft);
+    setError("");
+    const activeConflict = conflictRecordRef.current;
+    if (activeConflict) {
+      const nextConflict = createJournalConflictBufferRecord({ ...activeConflict, localDraft: nextDraft, timestamp: new Date().toISOString() });
+      conflictRecordRef.current = nextConflict;
+      setConflictRecord(nextConflict);
+      void saveJournalConflictBuffer(nextConflict).catch(() => undefined);
+    } else {
       queueRef.current?.schedule(nextDraft);
-      setError("");
-      return nextDraft;
-    });
+    }
   };
 
   useEffect(() => {
     if (!teacherCommentCompositionRef.current) setTeacherCommentInput(draft.teacherComment);
   }, [draft.teacherComment]);
 
-  const commitTeacherCommentInput = (value: string) => {
-    const teacherComment = constrainJournalTeacherCommentInput(draft.teacherComment, value);
+  const commitTeacherCommentInput = (value: string, force = false) => {
+    const teacherComment = constrainJournalTeacherCommentInput(draftRef.current.teacherComment, value);
+    teacherCommentInputRef.current = teacherComment;
     setTeacherCommentInput(teacherComment);
+    if (force) {
+      const current = draftRef.current;
+      if (teacherComment === current.teacherComment) return;
+      const nextDraft = { ...current, teacherComment };
+      draftRef.current = nextDraft;
+      setDraft(nextDraft);
+      queueRef.current?.schedule(nextDraft);
+      return;
+    }
     update((current) => teacherComment === current.teacherComment ? current : { ...current, teacherComment });
   };
 
@@ -289,8 +394,10 @@ export function JournalEditor({
   };
 
   const copyFailureDiagnostic = async () => {
-    if (!saveFailure && !completionFailure) return;
-    const text = completionFailure
+    if (!saveFailure && !completionFailure && !externalVersionFailure) return;
+    const text = externalVersionFailure
+      ? formatJournalExternalVersionConflictDiagnostic(externalVersionFailure.diagnostic)
+      : completionFailure
       ? formatJournalCompletionDiagnostic(completionFailure.diagnostic)
       : formatJournalFailureDiagnostic(getJournalFailureDiagnostic(saveFailure!.diagnosticId) ?? saveFailure!);
     try {
@@ -314,6 +421,21 @@ export function JournalEditor({
     }
   };
 
+  const discardLocalConflict = async () => {
+    const activeConflict = conflictRecordRef.current;
+    if (!activeConflict) return;
+    const confirmed = window.confirm("이 기기의 작성 내용을 버릴까요?\n\n현재 기기에 보존된 작성 내용이 삭제되고, 저장되어 있는 최신 내용을 불러옵니다. 이 작업은 되돌릴 수 없습니다.");
+    if (!confirmed) return;
+    await deleteJournalConflictBuffer(activeConflict.entryId);
+    queueRef.current?.dispose();
+    conflictRecordRef.current = null;
+    setConflictRecord(null);
+    setExternalVersionFailure(null);
+    setSaveFailure(null);
+    setError("");
+    setEntryReloadGeneration((current) => current + 1);
+  };
+
   const move = async (targetId: string) => {
     await navigateAfterSave(targetId, () => onNavigate(targetId));
   };
@@ -323,12 +445,16 @@ export function JournalEditor({
   };
 
   const complete = async () => {
-    if (actionInFlightRef.current) return;
+    if (actionInFlightRef.current || conflictRecordRef.current) return;
+    completionInputFreezeRef.current = true;
+    teacherCommentCompositionRef.current = false;
+    commitTeacherCommentInput(teacherCommentInputRef.current, true);
     actionInFlightRef.current = true;
     setCompleting(true);
     setError("");
     setCompletionFailure(null);
     let completionLifecycle: AbortController | null = null;
+    let completionServerResult: JournalRosterEntry | null = null;
     try {
       if (!(await flush())) return;
       const queue = queueRef.current;
@@ -351,26 +477,59 @@ export function JournalEditor({
         queueSnapshot: () => queue.getDiagnosticSnapshot(),
         request: (requestId, signal) => completeJournalEntry(entry.id, expectedVersion, requestId, signal),
       });
+      completionServerResult = completed;
       if (completionLifecycle.signal.aborted || activeEntryIdRef.current !== entry.id) return;
+      queueRef.current?.acknowledgeExternalVersion(completed.version, {
+        entryId: entry.id,
+        source: "completion_response",
+        selfOriginated: true,
+      });
       completionAttemptRef.current = null;
       versionRef.current = completed.version;
       entryStatusRef.current = completed.status;
-      queueRef.current?.acknowledgeExternalVersion(completed.version);
       setEntry(completed);
       onEntryUpdate(completed);
       setSaveState("saved");
+      baseDraftRef.current = journalEntryToDraft(completed);
+      baseVersionRef.current = completed.version;
+      baseStatusRef.current = completed.status;
+      void deleteJournalConflictBuffer(completed.id).catch(() => undefined);
     } catch (caught) {
       if (completionLifecycle?.signal.aborted || activeEntryIdRef.current !== entry.id) return;
       if (caught instanceof JournalCompletionError) {
         setCompletionFailure(caught);
         setDiagnosticCopyState("idle");
         setError(`${caught.message} · ${caught.diagnostic.diagnosticId}`);
+      } else if (caught instanceof JournalExternalVersionConflictError) {
+        const latest = completionServerResult;
+        if (latest) {
+          const record = createJournalConflictBufferRecord({
+            entryId: entry.id,
+            baseVersion: baseVersionRef.current,
+            latestServerVersion: latest.version,
+            baseStatus: baseStatusRef.current,
+            localStatus: entryStatusRef.current,
+            latestServerStatus: latest.status,
+            latestServerCaptured: true,
+            baseSnapshot: baseDraftRef.current,
+            localDraft: draftRef.current,
+            latestServerSnapshot: journalEntryToDraft(latest),
+            timestamp: new Date().toISOString(),
+            classification: "SELF_ORIGINATED_WITH_LOCAL_PENDING",
+          });
+          await saveJournalConflictBuffer(record).catch(() => undefined);
+          setConflictRecord(record);
+        }
+        setExternalVersionFailure(caught);
+        setDiagnosticCopyState("idle");
+        setError(`작성 완료 응답과 아직 저장되지 않은 로컬 변경이 충돌했습니다. 현재 작성 내용은 이 화면에 보존되어 있습니다. · ${caught.diagnostic.diagnosticId}`);
       } else {
         setError(caught instanceof Error ? caught.message : "작성 완료 처리에 실패했습니다.");
       }
     } finally {
       if (completionLifecycleRef.current === completionLifecycle) completionLifecycleRef.current = null;
       if (!completionLifecycle?.signal.aborted && activeEntryIdRef.current === entry.id) {
+        completionInputFreezeRef.current = false;
         setCompleting(false);
         actionInFlightRef.current = false;
       }
@@ -492,9 +651,11 @@ export function JournalEditor({
             onCompositionStart={() => { teacherCommentCompositionRef.current = true; }}
             onCompositionEnd={(event) => {
               teacherCommentCompositionRef.current = false;
+              teacherCommentInputRef.current = event.currentTarget.value;
               commitTeacherCommentInput(event.currentTarget.value);
             }}
             onChange={(event) => {
+              teacherCommentInputRef.current = event.target.value;
               if (teacherCommentCompositionRef.current) setTeacherCommentInput(event.target.value);
               else commitTeacherCommentInput(event.target.value);
             }}
@@ -513,7 +674,7 @@ export function JournalEditor({
               <button type="button" aria-busy={navigationIntent === "list"} disabled={completing || deleting} onClick={() => void close()} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-text-secondary hover:bg-primary-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 xl:min-h-9 xl:py-1">{navigationIntent === "list" ? <LoaderCircle className="animate-spin" size={18} /> : <ArrowLeft size={18} />}목록</button>
               <div className="min-w-0 flex-1 border-l border-border pl-3">
                 <h1 className="truncate text-lg font-bold text-text-primary sm:text-xl">{entry.dog.name}</h1>
-                <p className="truncate text-xs text-text-secondary sm:text-sm">{displayDate(entry.businessDate)} · {entry.status === "COMPLETED" ? "완료" : entry.status === "IN_PROGRESS" ? "작성중" : "미작성"} · <EditorPersistenceStatus state={saveState} failure={saveFailure} completing={completing} completionFailure={completionFailure} /></p>
+                <p className="truncate text-xs text-text-secondary sm:text-sm">{displayDate(entry.businessDate)} · {entry.status === "COMPLETED" ? "완료" : entry.status === "IN_PROGRESS" ? "작성중" : "미작성"} · <EditorPersistenceStatus state={saveState} failure={saveFailure} completing={completing} completionFailure={completionFailure} externalVersionFailure={externalVersionFailure} /></p>
               </div>
             </div>
             <nav className="mt-2 grid grid-cols-3 items-center gap-2 border-t border-border pt-2 xl:mt-1 xl:gap-1.5 xl:pt-1" aria-label="일지 대상 이동">
@@ -525,6 +686,13 @@ export function JournalEditor({
 
           <div className="order-2 space-y-2 xl:order-none" data-testid="journal-editor-status-region">
           {error ? <FormAlert>{error}</FormAlert> : null}
+          {conflictRecord ? (
+            <div role="alert" className="rounded-xl border border-warning/40 bg-warning-soft p-3 text-sm text-text-primary">
+              <p className="font-semibold">{conflictRecord.classification === "TRUE_EXTERNAL_CONFLICT" ? "다른 기기에서 이 일지가 변경되었습니다." : "완료 처리 중 입력된 내용이 별도로 보존되었습니다."}</p>
+              <p className="mt-1 text-text-secondary">{conflictRecord.latestServerCaptured ? "현재 작성 내용과 서버 최신본을 모두 보존했습니다." : "현재 작성 내용은 이 기기에 보존했으며 서버 최신본을 다시 확인해야 합니다."} 자동 덮어쓰기는 중단되며, 서버 최신본으로 전환하기 전까지 현재 내용을 계속 확인할 수 있습니다.</p>
+              <Button type="button" variant="ghost" className="mt-2 min-h-9 px-2 text-error" onClick={() => void discardLocalConflict()}>현재 작성 내용 버리고 저장된 내용 불러오기</Button>
+            </div>
+          ) : null}
           {navigationRecovery ? (
             <div role="alert" className="rounded-xl border border-error/30 bg-error-soft p-3 text-sm text-text-primary">
               <p className="font-semibold">저장을 완료하지 못했습니다.</p>
@@ -562,8 +730,8 @@ export function JournalEditor({
 
           <div className="order-5 fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:left-64 xl:static xl:z-auto xl:rounded-2xl xl:border xl:bg-surface xl:p-1.5 xl:backdrop-blur-none" data-testid="journal-editor-final-actions">
           <div className="flex min-w-0 items-center gap-2">
-            <span className="min-w-0 flex-1 text-xs text-text-secondary"><EditorPersistenceStatus state={saveState} failure={saveFailure} completing={completing} completionFailure={completionFailure} /></span>
-            {saveFailure || completionFailure ? (
+            <span className="min-w-0 flex-1 text-xs text-text-secondary"><EditorPersistenceStatus state={saveState} failure={saveFailure} completing={completing} completionFailure={completionFailure} externalVersionFailure={externalVersionFailure} /></span>
+            {saveFailure || completionFailure || externalVersionFailure ? (
               <Button type="button" variant="ghost" className="min-h-11 px-2" onClick={() => void copyFailureDiagnostic()}>
                 <Clipboard size={16} /><span className="hidden sm:inline">{diagnosticCopyState === "copied" ? "복사됨" : diagnosticCopyState === "error" ? "복사 실패" : "진단 정보 복사"}</span>
               </Button>
@@ -573,7 +741,7 @@ export function JournalEditor({
                 <Trash2 size={17} /><span className="hidden sm:inline">일지 삭제</span>
               </Button>
             ) : null}
-            <Button type="button" className="min-h-11 min-w-28" disabled={completing || deleting || saveState === "saving" || saveState === "slow"} onClick={() => void complete()}>{completing ? <LoaderCircle className="animate-spin" size={17} /> : <Check size={17} />}작성 완료</Button>
+            <Button type="button" className="min-h-11 min-w-28" disabled={Boolean(conflictRecord) || completing || deleting || saveState === "saving" || saveState === "slow"} onClick={() => void complete()}>{completing ? <LoaderCircle className="animate-spin" size={17} /> : <Check size={17} />}작성 완료</Button>
           </div>
           </div>
         </aside>
@@ -675,14 +843,17 @@ function EditorPersistenceStatus({
   failure,
   completing,
   completionFailure,
+  externalVersionFailure,
 }: {
   state: JournalSaveState;
   failure: JournalSaveFailureDiagnostic | null;
   completing: boolean;
   completionFailure: JournalCompletionError | null;
+  externalVersionFailure: JournalExternalVersionConflictError | null;
 }) {
   if (completing) return <span className="inline-flex items-center gap-1"><LoaderCircle className="animate-spin" size={13} />완료 처리 중...</span>;
   if (completionFailure) return <span className="text-error">{completionFailure.kind === "timeout" ? "완료 처리 시간 초과 · 다시 시도" : "완료 처리 실패 · 다시 시도"}</span>;
+  if (externalVersionFailure) return <span className="text-error">저장 충돌 · 로컬 내용 보존됨</span>;
   return <SaveState state={state} failure={failure} />;
 }
 

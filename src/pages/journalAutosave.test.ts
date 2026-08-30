@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { JournalAutosaveQueue, JournalAutosaveQueueError } from "./journalAutosave";
+import {
+  formatJournalExternalVersionConflictDiagnostic,
+  JournalAutosaveQueue,
+  JournalAutosaveQueueError,
+  JournalExternalVersionConflictError,
+} from "./journalAutosave";
 import { JournalPersistenceError, type JournalSaveFailureDiagnostic } from "./journalPersistenceDiagnostics";
 
 const signal = expect.any(AbortSignal);
@@ -330,5 +335,110 @@ describe("Journal revision autosave queue", () => {
     expect(queue.getSavedRevision()).toBe(0);
     expect(save).toHaveBeenCalledTimes(1);
     consoleError.mockRestore();
+  });
+
+  it("reproduces two-PC or two-tab optimistic conflict and preserves both server and second-client drafts", async () => {
+    let serverVersion = 7;
+    let serverValue = "base";
+    const save = vi.fn(async (value: string, expectedVersion: number) => {
+      if (expectedVersion !== serverVersion) {
+        throw new JournalPersistenceError(
+          "VERSION_CONFLICT", "update_journal_entry_draft", "entry-shared", "IN_PROGRESS",
+          expectedVersion, "pc-b-request", { httpStatus: 409, postgresCode: "PT409", message: "다른 사용자가 먼저 변경했습니다." },
+        );
+      }
+      serverValue = value;
+      serverVersion += 1;
+      return { version: serverVersion };
+    });
+    const pcA = new JournalAutosaveQueue(7, save, vi.fn(), vi.fn(), 0, 20_000, 8_000, () => "pc-a-request");
+    const pcB = new JournalAutosaveQueue(7, save, vi.fn(), vi.fn(), 0, 20_000, 8_000, () => "pc-b-request");
+    pcA.schedule("PC A server draft");
+    await pcA.flush(1);
+    pcB.schedule("PC B local draft");
+    await expect(pcB.flush(1)).rejects.toMatchObject({ kind: "VERSION_CONFLICT", postgresCode: "PT409" });
+    expect(serverValue).toBe("PC A server draft");
+    expect(pcB.getPendingRevision()).toBe(1);
+    expect(pcB.getSavedRevision()).toBe(0);
+    await expect(pcB.flush(1)).rejects.toMatchObject({ kind: "VERSION_CONFLICT" });
+    expect(save).toHaveBeenCalledTimes(2);
+  });
+
+  it("captures a self-originated completion version that arrives while a debounced local revision is pending", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const queue = new JournalAutosaveQueue(8, vi.fn(), vi.fn(), vi.fn(), 800, 20_000, 8_000, () => "late-local-request", {
+      context: () => ({ entryId: "entry-windows", entryStatus: "IN_PROGRESS" }),
+      onFailure: vi.fn(),
+      now: () => Date.parse("2026-08-29T12:00:00.000Z"),
+    });
+    queue.schedule("late local draft");
+    let failure: JournalExternalVersionConflictError | null = null;
+    try {
+      queue.acknowledgeExternalVersion(9, {
+        entryId: "entry-windows",
+        source: "completion_response",
+        selfOriginated: true,
+        detectedAt: "2026-08-29T12:00:00.000Z",
+        diagnosticIdFactory: () => "JRN-VERSION-WINDOWS",
+      });
+    } catch (caught) {
+      failure = caught as JournalExternalVersionConflictError;
+    }
+    expect(failure).toBeInstanceOf(JournalExternalVersionConflictError);
+    expect(failure?.diagnostic).toMatchObject({
+      diagnosticId: "JRN-VERSION-WINDOWS",
+      entryId: "entry-windows",
+      localExpectedVersion: 8,
+      latestServerVersion: 9,
+      baseVersion: 8,
+      draftRevision: 1,
+      persistedRevision: 0,
+      pendingRevision: 1,
+      inFlightRevision: null,
+      latestQueuedRevision: 1,
+      pendingSave: true,
+      externalUpdateSource: "completion_response",
+      currentAutosaveRequestId: "late-local-request",
+      conflictClassification: "SELF_ORIGINATED_WITH_LOCAL_PENDING",
+      selfOriginated: true,
+    });
+    expect(queue.getPendingRevision()).toBe(1);
+    expect(queue.getDiagnosticSnapshot()).toMatchObject({ debouncePending: false, lastTransition: "external_version_conflict_blocked" });
+    await expect(queue.flush(1)).rejects.toBe(failure);
+    const formatted = formatJournalExternalVersionConflictDiagnostic(failure!.diagnostic);
+    expect(formatted).toContain("CONFLICT_CLASSIFICATION: SELF_ORIGINATED_WITH_LOCAL_PENDING");
+    expect(formatted).not.toContain("late local draft");
+    consoleError.mockRestore();
+  });
+
+  it("captures an in-flight external update without advancing the local expected version", async () => {
+    let resolveSave!: (value: { version: number }) => void;
+    const save = vi.fn(() => new Promise<{ version: number }>((resolve) => { resolveSave = resolve; }));
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const queue = new JournalAutosaveQueue(12, save, vi.fn(), vi.fn(), 0, 20_000, 8_000, () => "in-flight-request", {
+      context: () => ({ entryId: "entry-shared", entryStatus: "IN_PROGRESS" }), onFailure: vi.fn(),
+    });
+    queue.schedule("local in flight");
+    const flushing = queue.flush(1);
+    const stopped = expect(flushing).rejects.toBeInstanceOf(JournalExternalVersionConflictError);
+    await Promise.resolve();
+    expect(() => queue.acknowledgeExternalVersion(13, {
+      entryId: "entry-shared", source: "subscription", selfOriginated: false,
+      diagnosticIdFactory: () => "JRN-VERSION-EXTERNAL",
+    })).toThrow(JournalExternalVersionConflictError);
+    expect(queue.getDiagnosticSnapshot()).toMatchObject({ expectedVersion: 12, inFlightRevision: 1 });
+    resolveSave({ version: 13 });
+    await stopped;
+    await Promise.resolve();
+    expect(queue.getDiagnosticSnapshot()).toMatchObject({ expectedVersion: 12, pendingRevision: 1 });
+    consoleError.mockRestore();
+  });
+
+  it("ignores a stale self refresh after autosave success instead of misclassifying it as an external conflict", async () => {
+    const queue = new JournalAutosaveQueue(20, vi.fn().mockResolvedValue({ version: 21 }), vi.fn(), vi.fn(), 0, 20_000, 8_000, () => "self-save");
+    queue.schedule("saved locally");
+    await queue.flush(1);
+    expect(queue.acknowledgeExternalVersion(21, { source: "server_refetch", selfOriginated: true })).toBe("STALE_REFRESH_IGNORED");
+    expect(queue.getDiagnosticSnapshot()).toMatchObject({ expectedVersion: 21, pendingRevision: null, inFlightRevision: null });
   });
 });

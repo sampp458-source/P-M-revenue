@@ -3,6 +3,7 @@ import type { JournalAutosaveQueueSnapshot } from "./journalAutosave";
 import { completeJournalWithDeadline, formatJournalCompletionDiagnostic, JournalCompletionError } from "./journalCompletion";
 
 const synchronizedQueue = (overrides: Partial<JournalAutosaveQueueSnapshot> = {}): JournalAutosaveQueueSnapshot => ({
+  baseVersion: 8,
   draftRevision: 4,
   persistedRevision: 4,
   pendingRevision: null,
@@ -13,6 +14,7 @@ const synchronizedQueue = (overrides: Partial<JournalAutosaveQueueSnapshot> = {}
   flushTargetRevision: null,
   flushWaiterCount: 0,
   autosaveRequestId: null,
+  lastSuccessfulAutosaveRequestId: "autosave-request-4",
   expectedVersion: 8,
   savingDurationMs: null,
   lastSuccessfulSaveTimestamp: "2026-08-29T10:00:00.000Z",

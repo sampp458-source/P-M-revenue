@@ -14,6 +14,9 @@ const mocks = vi.hoisted(() => ({
   complete: vi.fn(),
   renderImage: vi.fn(),
   exportImage: vi.fn(),
+  loadConflict: vi.fn(),
+  saveConflict: vi.fn(),
+  deleteConflict: vi.fn(),
   fontPreference: {
     status: "ready",
     fonts: [],
@@ -26,6 +29,13 @@ const mocks = vi.hoisted(() => ({
     fontSize: 20,
     error: "",
   },
+}));
+
+vi.mock("./journalConflictRecovery", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./journalConflictRecovery")>()),
+  loadJournalConflictBuffer: mocks.loadConflict,
+  saveJournalConflictBuffer: mocks.saveConflict,
+  deleteJournalConflictBuffer: mocks.deleteConflict,
 }));
 
 vi.mock("./journalCustomFont", () => ({
@@ -86,12 +96,24 @@ const roster = [
   entry({ id: "entry-3", dog: { id: "dog-3", name: "초코" }, status: "COMPLETED" }),
 ];
 
+const draftFrom = (source: JournalRosterEntry, overrides: Partial<JournalDraft> = {}): JournalDraft => ({
+  conditionCodes: [...source.conditionCodes], urination: source.urination, defecation: source.defecation,
+  stoolCondition: source.stoolCondition, mealCodes: [...source.mealCodes], teacherRelationship: source.teacherRelationship,
+  friendRelationship: source.friendRelationship, bestFriendTargets: source.bestFriendTargets ?? [],
+  bestFriendDogId: source.bestFriendDogId, mannersActivityName: source.mannersActivityName ?? "",
+  mannersEvaluation: source.mannersEvaluation, physicalActivityName: source.physicalActivityName ?? "",
+  physicalEvaluation: source.physicalEvaluation, teacherComment: source.teacherComment ?? "", ...overrides,
+});
+
 beforeEach(() => {
   mocks.renderImage.mockReset();
   mocks.exportImage.mockReset();
   mocks.fontPreference.fontSize = 20;
   mocks.fontPreference.activeSource = "DEFAULT";
   mocks.fontPreference.systemFontStatus = "unsupported";
+  mocks.loadConflict.mockReset().mockResolvedValue(null);
+  mocks.saveConflict.mockReset().mockResolvedValue(undefined);
+  mocks.deleteConflict.mockReset().mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -159,6 +181,8 @@ describe("Journal Editor", () => {
     await screen.findByRole("heading", { name: "크리미" });
     await waitFor(() => expect(liveReport("크리미")).toBeTruthy());
     expect(screen.getByRole("button", { name: "활발해요" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.queryByText("다른 기기에서 이 일지가 변경되었습니다.")).toBeNull();
+    expect(screen.queryByText("완료 처리 중 입력된 내용이 별도로 보존되었습니다.")).toBeNull();
     expect(screen.getByRole("button", { name: "가져온 사료" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "선생님 너무 좋아요" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "친구 너무 좋아요" }).getAttribute("aria-pressed")).toBe("true");
@@ -235,6 +259,152 @@ describe("Journal Editor", () => {
     expect(screen.getByText("500 / 500")).toBeTruthy();
     await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1), { timeout: JOURNAL_AUTOSAVE_DELAY + 1_000 });
     expect(mocks.update.mock.calls[0][2].teacherComment).toBe(`${"가".repeat(499)}한`);
+  });
+
+  it("commits an IME composition synchronously before an immediate completion click", async () => {
+    const loaded = entry({
+      status: "IN_PROGRESS", version: 4, conditionCodes: ["active"], urination: true, defecation: false,
+      teacherRelationship: "loves_teacher", friendRelationship: "loves_friends", teacherComment: "완료 전",
+    });
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.update.mockImplementation(async (_id, version, savedDraft) => entry({ ...loaded, ...savedDraft, version: version + 1 }));
+    mocks.complete.mockImplementation(async (_id, version) => entry({ ...loaded, teacherComment: "완료 직전 입력", status: "COMPLETED", version: version + 1 }));
+    renderEditor(loaded);
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+
+    fireEvent.compositionStart(comment);
+    fireEvent.change(comment, { target: { value: "완료 직전 입력" } });
+    expect(mocks.update).not.toHaveBeenCalled();
+    fireEvent.compositionEnd(comment, { data: "력" });
+    fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
+
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 5, expect.any(String), expect.any(AbortSignal)));
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+    expect(mocks.update.mock.calls[0][2].teacherComment).toBe("완료 직전 입력");
+  });
+
+  it("restores a durable local conflict draft after reload without blind autosave or completion", async () => {
+    const server = entry({ status: "COMPLETED", version: 9, teacherComment: "서버 완료 내용" });
+    const localDraft = draftFrom(server, { teacherComment: "로컬에 보존된 내용" });
+    mocks.fetch.mockResolvedValue(server);
+    const recovered = {
+      entryId: server.id, baseVersion: 8, latestServerVersion: 9,
+      baseStatus: "IN_PROGRESS", localStatus: "IN_PROGRESS", latestServerStatus: "COMPLETED",
+      latestServerCaptured: true,
+      baseSnapshot: draftFrom(server, { teacherComment: "충돌 전 내용" }), localDraft,
+      latestServerSnapshot: draftFrom(server), timestamp: new Date().toISOString(),
+      classification: "SELF_ORIGINATED_WITH_LOCAL_PENDING",
+    } as const;
+    mocks.loadConflict.mockResolvedValueOnce(recovered).mockResolvedValueOnce(null);
+    renderEditor(server);
+
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" }) as HTMLTextAreaElement;
+    expect(comment.value).toBe("로컬에 보존된 내용");
+    expect(screen.getByText("완료 처리 중 입력된 내용이 별도로 보존되었습니다.")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "작성 완료" }) as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, JOURNAL_AUTOSAVE_DELAY + 20)); });
+    expect(mocks.update).not.toHaveBeenCalled();
+
+    fireEvent.change(comment, { target: { value: "로컬 보존 내용을 계속 편집" } });
+    await waitFor(() => expect(mocks.saveConflict).toHaveBeenCalled());
+    expect(mocks.saveConflict.mock.calls.at(-1)?.[0]).toMatchObject({
+      entryId: server.id,
+      localDraft: expect.objectContaining({ teacherComment: "로컬 보존 내용을 계속 편집" }),
+    });
+    expect(mocks.update).not.toHaveBeenCalled();
+
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole("button", { name: "현재 작성 내용 버리고 저장된 내용 불러오기" }));
+    expect(confirm).toHaveBeenLastCalledWith("이 기기의 작성 내용을 버릴까요?\n\n현재 기기에 보존된 작성 내용이 삭제되고, 저장되어 있는 최신 내용을 불러옵니다. 이 작업은 되돌릴 수 없습니다.");
+    expect(mocks.deleteConflict).not.toHaveBeenCalled();
+    expect((screen.getByRole("textbox", { name: "선생님의 한마디" }) as HTMLTextAreaElement).value).toBe("로컬 보존 내용을 계속 편집");
+    expect(screen.getByText("완료 처리 중 입력된 내용이 별도로 보존되었습니다.")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "현재 작성 내용 버리고 저장된 내용 불러오기" }));
+    await waitFor(() => expect(mocks.deleteConflict).toHaveBeenCalledWith(server.id));
+    await waitFor(() => expect((screen.getByRole("textbox", { name: "선생님의 한마디" }) as HTMLTextAreaElement).value).toBe("서버 완료 내용"));
+    expect(screen.queryByText("완료 처리 중 입력된 내용이 별도로 보존되었습니다.")).toBeNull();
+    confirm.mockRestore();
+  });
+
+  it("captures a true PT409 conflict with both local and latest server drafts", async () => {
+    const loaded = entry({ status: "IN_PROGRESS", version: 7, teacherComment: "공통 기준" });
+    const latest = entry({ status: "IN_PROGRESS", version: 8, teacherComment: "다른 PC 저장 내용" });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const onNavigate = vi.fn();
+    mocks.fetch.mockResolvedValueOnce(loaded).mockResolvedValueOnce(latest);
+    mocks.update.mockRejectedValue(new JournalPersistenceError(
+      "VERSION_CONFLICT", "update_journal_entry_draft", loaded.id, loaded.status, 7, "request-conflict",
+      { httpStatus: 409, postgresCode: "PT409", message: "stale" },
+    ));
+    renderEditor(loaded, { onNavigate });
+    fireEvent.change(await screen.findByRole("textbox", { name: "선생님의 한마디" }), { target: { value: "이 PC의 미저장 내용" } });
+
+    expect(await screen.findByText("다른 기기에서 이 일지가 변경되었습니다.", {}, { timeout: 10_000 })).toBeTruthy();
+    await waitFor(() => expect(mocks.saveConflict).toHaveBeenCalledWith(expect.objectContaining({ latestServerCaptured: true })));
+    expect(mocks.saveConflict.mock.calls.at(-1)?.[0]).toMatchObject({
+      entryId: loaded.id, baseVersion: 7, latestServerVersion: 8, classification: "TRUE_EXTERNAL_CONFLICT",
+      latestServerCaptured: true,
+      localDraft: expect.objectContaining({ teacherComment: "이 PC의 미저장 내용" }),
+      latestServerSnapshot: expect.objectContaining({ teacherComment: "다른 PC 저장 내용" }),
+    });
+    expect((screen.getByRole("button", { name: "작성 완료" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getAllByText("저장 충돌 · 로컬 내용 보존됨").length).toBeGreaterThan(0);
+    expect(screen.getByRole("button", { name: /진단 정보 복사/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "다음" }));
+    expect(await screen.findByText("저장을 완료하지 못했습니다.")).toBeTruthy();
+    expect(onNavigate).not.toHaveBeenCalled();
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
+  });
+
+  it("durably preserves the local PT409 draft even when the latest server refetch is unavailable", async () => {
+    const loaded = entry({ status: "IN_PROGRESS", version: 7, teacherComment: "공통 기준" });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.fetch.mockResolvedValueOnce(loaded).mockRejectedValueOnce(new TypeError("network unavailable"));
+    mocks.update.mockRejectedValue(new JournalPersistenceError(
+      "VERSION_CONFLICT", "update_journal_entry_draft", loaded.id, loaded.status, 7, "request-conflict",
+      { httpStatus: 409, postgresCode: "PT409", message: "stale" },
+    ));
+    renderEditor(loaded);
+    fireEvent.change(await screen.findByRole("textbox", { name: "선생님의 한마디" }), { target: { value: "네트워크 중에도 보존할 로컬 내용" } });
+
+    expect(await screen.findByText("다른 기기에서 이 일지가 변경되었습니다.", {}, { timeout: 10_000 })).toBeTruthy();
+    await waitFor(() => expect(mocks.saveConflict).toHaveBeenCalledWith(expect.objectContaining({
+      entryId: loaded.id, latestServerCaptured: false,
+      localDraft: expect.objectContaining({ teacherComment: "네트워크 중에도 보존할 로컬 내용" }),
+    })));
+    expect(screen.getByText(/현재 작성 내용은 이 기기에 보존했으며 서버 최신본을 다시 확인해야 합니다/)).toBeTruthy();
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+    consoleError.mockRestore();
+  });
+
+  it("ignores a late stale conflict refetch after explicit discard has reloaded the server entry", async () => {
+    let resolveStaleRefetch!: (value: JournalRosterEntry) => void;
+    const staleRefetch = new Promise<JournalRosterEntry>((resolve) => { resolveStaleRefetch = resolve; });
+    const loaded = entry({ status: "IN_PROGRESS", version: 7, teacherComment: "공통 기준" });
+    const latestAfterDiscard = entry({ status: "IN_PROGRESS", version: 9, teacherComment: "서버 최신본" });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    mocks.fetch.mockResolvedValueOnce(loaded).mockReturnValueOnce(staleRefetch).mockResolvedValueOnce(latestAfterDiscard);
+    mocks.update.mockRejectedValue(new JournalPersistenceError(
+      "VERSION_CONFLICT", "update_journal_entry_draft", loaded.id, loaded.status, 7, "request-conflict",
+      { httpStatus: 409, postgresCode: "PT409", message: "stale" },
+    ));
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderEditor(loaded);
+    fireEvent.change(await screen.findByRole("textbox", { name: "선생님의 한마디" }), { target: { value: "폐기할 로컬 내용" } });
+    expect(await screen.findByText("다른 기기에서 이 일지가 변경되었습니다.", {}, { timeout: 10_000 })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "현재 작성 내용 버리고 저장된 내용 불러오기" }));
+    await waitFor(() => expect((screen.getByRole("textbox", { name: "선생님의 한마디" }) as HTMLTextAreaElement).value).toBe("서버 최신본"));
+    resolveStaleRefetch(entry({ status: "IN_PROGRESS", version: 8, teacherComment: "늦게 도착한 구버전" }));
+    await act(async () => { await Promise.resolve(); });
+
+    expect((screen.getByRole("textbox", { name: "선생님의 한마디" }) as HTMLTextAreaElement).value).toBe("서버 최신본");
+    expect(screen.queryByText("다른 기기에서 이 일지가 변경되었습니다.")).toBeNull();
+    expect(mocks.deleteConflict).toHaveBeenCalledWith(loaded.id);
+    confirm.mockRestore();
+    consoleError.mockRestore();
   });
 
   it("renders the mobile-first typed controls and clears stool when defecation is NO", async () => {
@@ -432,6 +602,61 @@ describe("Journal Editor", () => {
     await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 6, expect.any(String), expect.any(AbortSignal)));
     expect(mocks.update).toHaveBeenCalledTimes(1);
     expect(mocks.update.mock.invocationCallOrder[0]).toBeLessThan(mocks.complete.mock.invocationCallOrder[0]);
+  });
+
+  it("commits a paste event's canonical value before an immediate completion click", async () => {
+    const loaded = entry({
+      status: "IN_PROGRESS", version: 5, conditionCodes: ["active"], urination: true,
+      defecation: false, teacherRelationship: "loves_teacher", friendRelationship: "loves_friends",
+      teacherComment: "기존 한마디",
+    });
+    const pasted = `${"가".repeat(480)}${"🐶".repeat(30)}`;
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.update.mockImplementation(async (_id, version, savedDraft) => entry({ ...loaded, ...savedDraft, version: version + 1 }));
+    mocks.complete.mockImplementation(async (_id, version) => entry({ ...loaded, teacherComment: `${"가".repeat(480)}${"🐶".repeat(20)}`, status: "COMPLETED", version: version + 1 }));
+    renderEditor(loaded);
+    const comment = await screen.findByRole("textbox", { name: "선생님의 한마디" });
+
+    fireEvent.change(comment, { target: { value: pasted } });
+    fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
+
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledWith("entry-1", 6, expect.any(String), expect.any(AbortSignal)));
+    expect(Array.from(mocks.update.mock.calls[0][2].teacherComment)).toHaveLength(500);
+    expect(mocks.update.mock.calls[0][2].teacherComment).toBe(`${"가".repeat(480)}${"🐶".repeat(20)}`);
+  });
+
+  it("waits for an in-flight autosave before completion without creating another completion mutation", async () => {
+    let finishSave!: (value: JournalRosterEntry) => void;
+    const loaded = entry({
+      status: "IN_PROGRESS", version: 5, conditionCodes: ["active"], urination: true,
+      defecation: false, teacherRelationship: "loves_teacher", friendRelationship: "loves_friends",
+      teacherComment: "기존 한마디",
+    });
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.update.mockReturnValue(new Promise((resolve) => { finishSave = resolve; }));
+    mocks.complete.mockImplementation(async (_id, version) => entry({ ...loaded, teacherComment: "in-flight 내용", status: "COMPLETED", version: version + 1 }));
+    renderEditor(loaded);
+    fireEvent.change(await screen.findByRole("textbox", { name: "선생님의 한마디" }), { target: { value: "in-flight 내용" } });
+    fireEvent.click(screen.getByRole("button", { name: "작성 완료" }));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1));
+    expect(mocks.complete).not.toHaveBeenCalled();
+    expect((screen.getByRole("button", { name: "작성 완료" }) as HTMLButtonElement).disabled).toBe(true);
+
+    finishSave(entry({ ...loaded, teacherComment: "in-flight 내용", version: 6 }));
+    await waitFor(() => expect(mocks.complete).toHaveBeenCalledTimes(1));
+    expect(mocks.complete).toHaveBeenCalledWith("entry-1", 6, expect.any(String), expect.any(AbortSignal));
+    expect(screen.getByText("크리미 일지 완료")).toBeTruthy();
+  });
+
+  it("clears any entry-scoped recovery buffer after a normal autosave succeeds", async () => {
+    const loaded = entry({ status: "IN_PROGRESS", version: 2, teacherComment: "기존" });
+    mocks.fetch.mockResolvedValue(loaded);
+    mocks.update.mockImplementation(async (_id, version, savedDraft) => entry({ ...loaded, ...savedDraft, version: version + 1 }));
+    renderEditor(loaded);
+    fireEvent.change(await screen.findByRole("textbox", { name: "선생님의 한마디" }), { target: { value: "정상 저장" } });
+
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1), { timeout: JOURNAL_AUTOSAVE_DELAY + 1_000 });
+    await waitFor(() => expect(mocks.deleteConflict).toHaveBeenCalledWith(loaded.id));
   });
 
   it("persists and completes an exact 500-code-point emoji comment", async () => {
