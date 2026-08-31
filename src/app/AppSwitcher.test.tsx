@@ -48,6 +48,16 @@ describe("AppSwitcher 접근성", () => {
     expect(onSwitch).toHaveBeenCalledWith("journal");
   });
 
+  it("현재 workspace를 다시 선택해도 canonical home 이동을 요청한다", () => {
+    const onSwitch = vi.fn();
+    render(<AppSwitcher module="operations" onSwitch={onSwitch} />);
+    fireEvent.click(screen.getByRole("button", { name: /스케줄 관리/ }));
+    fireEvent.click(
+      screen.getByRole("menuitemradio", { name: /수업과 회사 일정/ }),
+    );
+    expect(onSwitch).toHaveBeenCalledWith("operations");
+  });
+
   it("방향키로 이동하고 ESC로 닫은 뒤 Trigger에 Focus를 돌려준다", async () => {
     render(<AppSwitcher module="operations" onSwitch={vi.fn()} />);
     const trigger = screen.getByRole("button", { name: /스케줄 관리/ });

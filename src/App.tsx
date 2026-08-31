@@ -44,7 +44,7 @@ import { safeReturnTo } from "./auth/authStateLogic";
 import { useModule } from "./app/ModuleContext";
 import { AppSwitcher as AppSwitcherMenu } from "./app/AppSwitcher";
 import { operationsFeatures } from "./app/operationsFeatures";
-import type { AppModule } from "./app/moduleState";
+import { moduleHome, type AppModule } from "./app/moduleState";
 import { journalMenus, workspaceOptions } from "./app/workspaceNavigation";
 import { ReportsPage } from "./pages/ReportsDB";
 import { DashboardPage } from "./pages/DashboardDB";
@@ -114,6 +114,19 @@ function BrandLogo({
         className={`pointer-events-none absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain ${imageClassName}`}
       />
     </span>
+  );
+}
+
+function SidebarHomeLogo({ onNavigate }: { onNavigate: () => void }) {
+  return (
+    <Link
+      to="/select-module"
+      onClick={onNavigate}
+      aria-label="P&M OS 홈"
+      className="flex h-[68px] w-[140px] translate-x-px items-center rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
+    >
+      <BrandLogo className="h-[68px] w-[140px]" imageClassName="h-32 w-32" />
+    </Link>
   );
 }
 
@@ -302,7 +315,7 @@ function ModuleGateRoute({ loggedIn }: { loggedIn: boolean }) {
       />
     );
   }
-  return <ModuleGatePage pendingReturnTo={pendingReturnTo} />;
+  return <ModuleGatePage />;
 }
 
 function LoginPage() {
@@ -603,11 +616,7 @@ function BrandCapability({
   );
 }
 
-function ModuleGatePage({
-  pendingReturnTo,
-}: {
-  pendingReturnTo?: unknown;
-}) {
+function ModuleGatePage() {
   const { chooseModule } = useModule();
   const modules = workspaceOptions;
   return (
@@ -637,7 +646,7 @@ function ModuleGatePage({
               <button
                 key={module.id}
                 type="button"
-                onClick={() => chooseModule(module.id, pendingReturnTo)}
+                onClick={() => chooseModule(module.id, moduleHome[module.id])}
                 className={`module-gate-card group relative min-h-[190px] overflow-hidden rounded-[26px] border border-border bg-gradient-to-br ${module.accent} p-6 text-left shadow-[0_12px_36px_rgba(23,36,58,0.055)] transition duration-200 hover:-translate-y-1 hover:border-primary/35 hover:shadow-[0_20px_48px_rgba(23,36,58,0.11)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 sm:min-h-[230px] sm:p-9`}
               >
                 <div
@@ -681,7 +690,7 @@ function JournalAppLayout() {
         className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-[68px] shrink-0 items-center justify-start border-b border-white/[0.035]">
-          <BrandLogo className="h-[68px] w-[140px] translate-x-px" imageClassName="h-32 w-32" />
+          <SidebarHomeLogo onNavigate={() => setOpen(false)} />
           <button
             className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-xl text-blue-100/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:hidden"
             onClick={() => setOpen(false)}
@@ -797,7 +806,7 @@ function AppLayout() {
         className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-[68px] shrink-0 items-center justify-start border-b border-white/[0.035]">
-          <BrandLogo className="h-[68px] w-[140px] translate-x-px" imageClassName="h-32 w-32" />
+          <SidebarHomeLogo onNavigate={() => setOpen(false)} />
           <button
             className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-xl text-blue-100/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:hidden"
             onClick={() => setOpen(false)}
@@ -887,10 +896,7 @@ function OperationsAppLayout() {
         className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-[68px] shrink-0 items-center justify-start border-b border-white/[0.035]">
-          <BrandLogo
-            className="h-[68px] w-[140px] translate-x-px"
-            imageClassName="h-32 w-32"
-          />
+          <SidebarHomeLogo onNavigate={() => setOpen(false)} />
           <button
             className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-xl text-blue-100/70 transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70 lg:hidden"
             onClick={() => setOpen(false)}

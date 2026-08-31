@@ -13,6 +13,7 @@ import {
   getModuleFromPath,
   hasCompletedModuleGate,
   markModuleGateComplete,
+  moduleHome,
   readLastModulePath,
   readPendingReturnTo,
   resolveModuleDestination,
@@ -125,10 +126,10 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
 
   const switchModule = useCallback(
     (target: AppModule) => {
-      if (!user || target === currentModule) return;
-      navigate(destinationFor(target));
+      if (!user) return;
+      navigate(moduleHome[target]);
     },
-    [currentModule, destinationFor, navigate, user],
+    [navigate, user],
   );
 
   const value = useMemo<ModuleContextValue>(

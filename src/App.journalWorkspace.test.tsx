@@ -2,7 +2,7 @@
 
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import App from "./App";
 
 const moduleMocks = vi.hoisted(() => ({
@@ -42,6 +42,10 @@ vi.mock("./pages/DashboardDB", () => ({
   DashboardPage: () => <div>SALES_DASHBOARD_RENDERED</div>,
 }));
 
+vi.mock("./pages/HotelOperations", () => ({
+  HotelOperationsPage: () => <div>HOTEL_OPERATIONS_RENDERED</div>,
+}));
+
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
@@ -50,6 +54,19 @@ afterEach(() => {
 const renderPath = (path: string) =>
   render(
     <MemoryRouter initialEntries={[path]}>
+      <App />
+    </MemoryRouter>,
+  );
+
+function CurrentPath() {
+  const location = useLocation();
+  return <output aria-label="현재 URL">{location.pathname}</output>;
+}
+
+const renderPathWithLocation = (path: string) =>
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <CurrentPath />
       <App />
     </MemoryRouter>,
   );
@@ -65,11 +82,11 @@ describe("Journal workspace IA", () => {
     expect(schedule.parentElement?.className).toContain("md:grid-cols-3");
 
     fireEvent.click(schedule);
-    expect(moduleMocks.chooseModule).toHaveBeenLastCalledWith("operations", undefined);
+    expect(moduleMocks.chooseModule).toHaveBeenLastCalledWith("operations", "/operations/today");
     fireEvent.click(screen.getByRole("button", { name: /매출 관리/ }));
-    expect(moduleMocks.chooseModule).toHaveBeenLastCalledWith("finance", undefined);
+    expect(moduleMocks.chooseModule).toHaveBeenLastCalledWith("finance", "/dashboard");
     fireEvent.click(screen.getByRole("button", { name: /일지 관리/ }));
-    expect(moduleMocks.chooseModule).toHaveBeenLastCalledWith("journal", undefined);
+    expect(moduleMocks.chooseModule).toHaveBeenLastCalledWith("journal", "/journal/today");
   });
 
   it("Journal 전용 sidebar와 breadcrumb에서 오늘의 일지를 렌더한다", () => {
@@ -106,5 +123,41 @@ describe("Journal workspace IA", () => {
 
     renderPath("/journal/today");
     expect(screen.getByText("JOURNAL_HOME_RENDERED")).toBeTruthy();
+  });
+
+  it.each([
+    ["/operations/hotel", "HOTEL_OPERATIONS_RENDERED"],
+    ["/journal/today", "JOURNAL_HOME_RENDERED"],
+    ["/dashboard", "SALES_DASHBOARD_RENDERED"],
+  ])("%s Sidebar 로고가 기존 OS Home으로 이동한다", async (path, marker) => {
+    renderPathWithLocation(path);
+    expect(screen.getByText(marker)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("link", { name: "P&M OS 홈" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("현재 URL").textContent).toBe(
+        "/select-module",
+      ),
+    );
+    expect(screen.getByRole("heading", { name: "어떤 업무를 시작할까요?" })).toBeTruthy();
+  });
+
+  it("Mobile drawer에서도 Sidebar 로고로 OS Home에 이동한다", async () => {
+    Object.defineProperty(window, "innerWidth", {
+      configurable: true,
+      value: 375,
+    });
+    renderPathWithLocation("/journal/today");
+
+    fireEvent.click(screen.getByRole("button", { name: "메뉴 열기" }));
+    fireEvent.click(screen.getByRole("link", { name: "P&M OS 홈" }));
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("현재 URL").textContent).toBe(
+        "/select-module",
+      ),
+    );
+    expect(screen.getByRole("heading", { name: "어떤 업무를 시작할까요?" })).toBeTruthy();
   });
 });

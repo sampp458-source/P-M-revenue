@@ -43,7 +43,7 @@ export function AppSwitcher({
 
   const selectModule = (target: AppModule) => {
     setOpen(false);
-    if (target !== module) onSwitch(target);
+    onSwitch(target);
     requestAnimationFrame(() => triggerRef.current?.focus());
   };
 
