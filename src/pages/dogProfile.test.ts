@@ -139,6 +139,13 @@ describe("dog profile audit and Customer Master connection", () => {
     new URL("../components/ui.tsx", import.meta.url),
     "utf8",
   );
+  const daycareMigration = readFileSync(
+    new URL(
+      "../../supabase/migrations/202608310001_journal_daycare_student_v1.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  ).toLowerCase();
   const migration = readFileSync(
     new URL(
       "../../supabase/migrations/202607280004_dog_master_audit.sql",
@@ -163,6 +170,14 @@ describe("dog profile audit and Customer Master connection", () => {
     expect(managementUi).toContain(
       'title={editing?.id ? "반려견 수정" : "반려견 등록"}',
     );
+  });
+
+  it("adds an explicit daycare-student control to the existing Dog edit path", () => {
+    expect(managementUi).toContain("checked={editing.isDaycareStudent}");
+    expect(managementUi).toContain("is_daycare_student: editing.isDaycareStudent");
+    expect(profileUi).toContain("dog.isDaycareStudent");
+    expect(profileUi).toContain("<DaycareStudentBadge />");
+    expect(daycareMigration).toContain("default false");
   });
 
   it("opens directly on the dog list without the redundant customer-list tab", () => {

@@ -61,6 +61,8 @@ import {
 } from "./customerDogArchitecture";
 import { loadCurrentCustomerDogServices } from "./customerDogDirectory";
 import { DogCurrentService } from "../components/CustomerDogServiceSummary";
+import { DaycareStudentBadge } from "../components/DaycareStudentBadge";
+import { dashboardThemeStyle } from "./dashboard/dashboardTheme";
 
 interface OwnerOption {
   id: string;
@@ -84,6 +86,7 @@ interface DogRow {
   neutered: boolean | null;
   memo: string | null;
   active: boolean;
+  isDaycareStudent: boolean;
 }
 
 interface DogForm {
@@ -96,6 +99,7 @@ interface DogForm {
   weight: string;
   neutered: "" | "yes" | "no";
   memo: string;
+  isDaycareStudent: boolean;
 }
 
 interface OwnerForm {
@@ -122,6 +126,7 @@ const emptyForm = (): DogForm => ({
   weight: "",
   neutered: "",
   memo: "",
+  isDaycareStudent: false,
 });
 
 function dogListSecondary(dog: DogRow) {
@@ -353,7 +358,7 @@ export function PetManagementPage() {
     const [dogsResult, ownersResult, serviceResult] = await Promise.all([
       supabase
         .from("dogs")
-        .select("id, customer_id, name, breed, sex, birth_date, weight, neutered, memo, is_active, customers(id, name, phone, is_active)")
+        .select("id, customer_id, name, breed, sex, birth_date, weight, neutered, memo, is_active, is_daycare_student, customers(id, name, phone, is_active)")
         .order("name"),
       loadOwnerOptions(),
       loadCurrentCustomerDogServices().catch(() => ({
@@ -387,6 +392,7 @@ export function PetManagementPage() {
             neutered: dog.neutered,
             memo: dog.memo,
             active: dog.is_active,
+            isDaycareStudent: dog.is_daycare_student === true,
           };
         }),
       );
@@ -551,6 +557,7 @@ export function PetManagementPage() {
       neutered:
         dog.neutered === null ? "" : dog.neutered ? "yes" : "no",
       memo: dog.memo ?? "",
+      isDaycareStudent: dog.isDaycareStudent,
     });
   };
 
@@ -750,6 +757,7 @@ export function PetManagementPage() {
       neutered:
         editing.neutered === "" ? null : editing.neutered === "yes",
       memo: editing.memo.trim() || null,
+      is_daycare_student: editing.isDaycareStudent,
     };
     setSaving(true);
     setFormError("");
@@ -869,8 +877,9 @@ export function PetManagementPage() {
                             className="block min-w-0 rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                             onClick={() => openProfile(dog.id)}
                           >
-                            <span className="block font-semibold text-text-primary transition hover:text-primary">
-                              {dog.name}
+                            <span className="flex flex-wrap items-center gap-1.5 font-semibold text-text-primary transition hover:text-primary">
+                              <span>{dog.name}</span>
+                              {dog.isDaycareStudent ? <DaycareStudentBadge compact /> : null}
                             </span>
                             {!isSingleDogProfileName(dog.name) ? (
                               <Badge tone="amber">Legacy · 다견 이름</Badge>
@@ -955,8 +964,9 @@ export function PetManagementPage() {
                         className="min-w-0 rounded-md text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         onClick={() => openProfile(dog.id)}
                       >
-                        <strong className="block text-base text-text-primary">
-                          {dog.name}
+                        <strong className="flex flex-wrap items-center gap-1.5 text-base text-text-primary">
+                          <span>{dog.name}</span>
+                          {dog.isDaycareStudent ? <DaycareStudentBadge compact /> : null}
                         </strong>
                         {!isSingleDogProfileName(dog.name) ? (
                           <span className="mt-1 inline-flex">
@@ -1127,6 +1137,16 @@ export function PetManagementPage() {
           <Field label="생년월일"><Input type="date" value={editing.birthDate} disabled={saving} onChange={(e) => setEditing({ ...editing, birthDate: e.target.value })} /></Field>
           <Field label="체중(kg)"><Input name="weight" aria-describedby={formError ? "dog-form-error" : undefined} type="number" min="0.01" step="0.01" value={editing.weight} disabled={saving} onChange={(e) => setEditing({ ...editing, weight: e.target.value })} /></Field>
           <Field label="중성화"><Select value={editing.neutered} disabled={saving} onChange={(e) => setEditing({ ...editing, neutered: e.target.value as DogForm["neutered"] })}><option value="">미등록</option><option value="yes">완료</option><option value="no">미완료</option></Select></Field>
+          <label style={dashboardThemeStyle("daycare")} className="flex min-h-11 items-center gap-3 rounded-xl border border-border bg-surface px-3.5 py-2 text-sm font-medium text-text-primary">
+            <input
+              type="checkbox"
+              checked={editing.isDaycareStudent}
+              disabled={saving}
+              onChange={(event) => setEditing({ ...editing, isDaycareStudent: event.target.checked })}
+              className="h-4 w-4 accent-[var(--pm-theme-accent)]"
+            />
+            <span className="flex items-center gap-2">유치원생 <DaycareStudentBadge compact /></span>
+          </label>
           <div className="sm:col-span-2"><Field label="메모"><Textarea rows={3} value={editing.memo} disabled={saving} onChange={(e) => setEditing({ ...editing, memo: e.target.value })} /></Field></div>
           {duplicateDog && !allowDuplicateDog && <div className="rounded-xl bg-warning-soft p-3 text-sm text-text-secondary sm:col-span-2"><p>같은 보호자에게 <strong className="text-text-primary">{duplicateDog.name}</strong>이(가) 이미 등록되어 있습니다.</p><div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => { setQuery(duplicateDog.name); setEditing(null); setDuplicateDog(null); }}>기존 반려견 보기</Button><Button type="button" variant="ghost" onClick={() => { setAllowDuplicateDog(true); setFormError(""); }}>그래도 새로 등록</Button></div></div>}
           {formError && <p id="dog-form-error" role="alert" className="text-sm text-error sm:col-span-2">{formError}</p>}<Button className="sm:col-span-2" disabled={saving}>{saving ? "저장 중..." : "저장"}</Button>

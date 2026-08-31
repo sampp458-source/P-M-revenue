@@ -23,6 +23,7 @@ import {
   ResponsiveActionGroup,
   StatusBadge,
 } from "../components/ui";
+import { DaycareStudentBadge } from "../components/DaycareStudentBadge";
 import { koDate } from "../lib/format";
 import { formatPhoneForDisplay } from "../lib/phone";
 import {
@@ -50,6 +51,7 @@ export interface DogProfileDog {
   neutered: boolean | null;
   memo: string | null;
   active: boolean;
+  isDaycareStudent: boolean;
 }
 
 export interface DogProfileOwner {
@@ -114,6 +116,7 @@ export function DogProfileModal({
           className="pt-1"
           title={dog.name}
           status={<StatusBadge status={dog.active ? "active" : "inactive"} />}
+          tags={dog.isDaycareStudent ? <DaycareStudentBadge /> : undefined}
           summary={
             <>
               {dog.breed || "품종 미등록"} · 보호자 {owner?.name || "미등록"} ·{" "}
@@ -213,6 +216,10 @@ export function DogProfileModal({
             <ProfileField
               label="중성화"
               value={dog.neutered === null ? "미등록" : dog.neutered ? "완료" : "미완료"}
+            />
+            <ProfileField
+              label="유치원생"
+              value={dog.isDaycareStudent ? <DaycareStudentBadge compact /> : "미지정"}
             />
           </ProfileInfoGrid>
         </ProfileSection>

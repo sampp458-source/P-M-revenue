@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SearchSelect } from "../components/SearchSelect";
 import { Badge, Button, Card, FormAlert, Input, Modal, ModalActions } from "../components/ui";
 import { formatPhoneForDisplay } from "../lib/phone";
+import { DaycareStudentBadge } from "../components/DaycareStudentBadge";
 import { seoulDateKey } from "./operationsScheduleRepository";
 import { JournalEditor } from "./JournalEditor";
 import { journalDeleteConfirmationDetail } from "./journalDeletePresentation";
@@ -30,6 +31,7 @@ import {
   type JournalRosterEntry,
   type JournalStatus,
 } from "./journalRepository";
+import { rankJournalDogDirectory } from "./journalDaycareStudent";
 
 type Filter = "ALL" | JournalStatus;
 
@@ -499,11 +501,12 @@ export function JournalHomePage() {
             label="반려견 선택"
             labelAccessory={<span className="shrink-0 text-xs font-semibold text-text-secondary">선택 {selectedDogIds.length}마리</span>}
             items={availableDogs}
+            loadOptions={(query) => Promise.resolve(rankJournalDogDirectory(availableDogs, query))}
             selectedIds={selectedDogIds}
             onChange={setSelectedDogIds}
             getItemId={(dog) => dog.id}
             getSearchText={(dog) => `${dog.name} ${dog.customerName ?? ""} ${dog.customerPhone ?? ""}`}
-            renderOption={(dog) => <span className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"><Dog size={18} /></span><span className="min-w-0"><strong className="block truncate text-sm text-text-primary">{dog.name}</strong><span className="mt-0.5 block truncate text-xs text-text-secondary">{dog.customerName || "보호자 이름 미등록"} · {formatPhoneForDisplay(dog.customerPhone) || "전화번호 미등록"}</span></span></span>}
+            renderOption={(dog) => <span className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"><Dog size={18} /></span><span className="min-w-0"><strong className="flex min-w-0 items-center gap-1.5 text-sm text-text-primary"><span className="truncate">{dog.name}</span>{dog.isDaycareStudent ? <DaycareStudentBadge compact /> : null}</strong><span className="mt-0.5 block truncate text-xs text-text-secondary">{dog.customerName || "보호자 이름 미등록"} · {formatPhoneForDisplay(dog.customerPhone) || "전화번호 미등록"}</span></span></span>}
             renderSelected={(dog) => `${dog.name} · ${dog.customerName || "보호자 미등록"}`}
             placeholder="반려견, 보호자 또는 전화번호 검색"
             emptyMessage="검색어를 입력하거나 최근 반려견을 선택하세요."

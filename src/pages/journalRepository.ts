@@ -91,6 +91,7 @@ export interface JournalDirectoryDog {
   customerName: string | null;
   customerPhone: string | null;
   breed: string | null;
+  isDaycareStudent: boolean;
 }
 
 export class JournalRepositoryError extends Error {
@@ -264,7 +265,7 @@ export function completeJournalEntry(
 
 export async function fetchJournalDogDirectory(): Promise<JournalDirectoryDog[]> {
   const [dogResult, customerResult] = await Promise.all([
-    supabase.from("dogs").select("id,name,customer_id,breed,is_active").eq("is_active", true).order("name"),
+    supabase.from("dogs").select("id,name,customer_id,breed,is_active,is_daycare_student").eq("is_active", true).order("name"),
     supabase.from("customers").select("id,name,phone,is_active").eq("is_active", true).order("name"),
   ]);
   throwError(dogResult.error ?? customerResult.error);
@@ -279,6 +280,7 @@ export async function fetchJournalDogDirectory(): Promise<JournalDirectoryDog[]>
       customerName: customer.name,
       customerPhone: customer.phone,
       breed: dog.breed,
+      isDaycareStudent: dog.is_daycare_student === true,
     }];
   });
 }

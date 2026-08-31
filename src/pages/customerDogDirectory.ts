@@ -26,6 +26,7 @@ export interface CustomerDirectoryCustomer {
   address: string | null;
   memo: string | null;
   active: boolean;
+  isDaycareStudent: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -73,6 +74,7 @@ interface CustomerRow {
   address?: string | null;
   memo: string | null;
   is_active: boolean;
+  is_daycare_student: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -142,7 +144,7 @@ async function fetchDogs() {
   const result = await supabase
     .from("dogs")
     .select(
-      "id, customer_id, name, breed, sex, birth_date, weight, neutered, memo, is_active",
+      "id, customer_id, name, breed, sex, birth_date, weight, neutered, memo, is_active, is_daycare_student",
     )
     .order("name");
   if (result.error) throw result.error;
@@ -315,6 +317,7 @@ export async function loadCustomerDogDirectory(): Promise<CustomerDogDirectoryDa
     address: row.address ?? null,
     memo: row.memo,
     active: row.is_active,
+    isDaycareStudent: row.is_daycare_student === true,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));

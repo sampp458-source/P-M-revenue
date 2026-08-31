@@ -295,8 +295,8 @@ describe("Journal Home roster", () => {
   it("reuses multi-search by Dog, Customer, and phone and registers selected Dogs", async () => {
     mocks.fetchRoster.mockResolvedValue({ ...roster, journalDayId: null, defaults: { mannersActivityName: null, physicalActivityName: null, version: null }, summary: { total: 0, notStarted: 0, inProgress: 0, completed: 0 }, entries: [] });
     mocks.fetchDirectory.mockResolvedValue([
-      { id: "dog-1", name: "크리미", customerId: "customer-1", customerName: "박보호", customerPhone: "01012345678", breed: null },
-      { id: "dog-2", name: "몽이", customerId: "customer-2", customerName: "김보호", customerPhone: "01087654321", breed: null },
+      { id: "dog-1", name: "크리미", customerId: "customer-1", customerName: "박보호", customerPhone: "01012345678", breed: null, isDaycareStudent: true },
+      { id: "dog-2", name: "몽이", customerId: "customer-2", customerName: "김보호", customerPhone: "01087654321", breed: null, isDaycareStudent: false },
     ]);
     mocks.register.mockResolvedValue(roster);
     render(<JournalHomePage />);
@@ -307,6 +307,7 @@ describe("Journal Home roster", () => {
     const search = within(dialog).getByPlaceholderText("반려견, 보호자 또는 전화번호 검색");
     fireEvent.change(search, { target: { value: "0101234" } });
     await waitFor(() => expect(within(dialog).getByText("크리미")).not.toBeNull());
+    expect(within(dialog).getByText("유치원생")).not.toBeNull();
     fireEvent.click(within(dialog).getByRole("option", { name: /크리미/ }));
     expect(within(dialog).getByText("선택 1마리")).not.toBeNull();
     fireEvent.change(within(dialog).getByPlaceholderText("예절교육 활동명 입력"), { target: { value: "  기다려  " } });
@@ -357,7 +358,7 @@ describe("Journal Home roster", () => {
 
   it("uses edited current defaults only for a subsequently registered Dog", async () => {
     const updated = { ...roster, defaults: { mannersActivityName: "매트", physicalActivityName: "터널", version: 4 } };
-    const dog = { id: "dog-4", name: "보리", customerId: "customer-4", customerName: "최보호", customerPhone: "01022223333", breed: null };
+    const dog = { id: "dog-4", name: "보리", customerId: "customer-4", customerName: "최보호", customerPhone: "01022223333", breed: null, isDaycareStudent: false };
     mocks.fetchRoster.mockResolvedValue(roster);
     mocks.fetchDirectory.mockResolvedValue([dog]);
     mocks.updateDefaults.mockResolvedValue(updated);
