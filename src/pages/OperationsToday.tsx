@@ -1625,6 +1625,13 @@ export function ScheduleFormModal({
         room.isActive && room.roomTypeCode.trim().toUpperCase() === "DELUXE",
     )
     .sort((left, right) => left.sortOrder - right.sortOrder);
+  const canonicalDogDirectory = options?.dogs ?? [];
+  const selectedHotelCustomerId = hotelMode ? form.customerIds[0] : undefined;
+  const selectableDogs = selectedHotelCustomerId
+    ? canonicalDogDirectory.filter(
+        (dog) => dog.customerId === selectedHotelCustomerId,
+      )
+    : canonicalDogDirectory;
   const patchWithAutoTitle = (values: Partial<ScheduleForm>) => {
     const nextForm = { ...form, ...values };
     if (editing === "new" && !titleManuallyEdited) {
@@ -1644,21 +1651,36 @@ export function ScheduleFormModal({
   const changeDogs = (dogIds: string[]) => {
     const normalizedDogIds =
       hotelMode && !hotelMultiDogAllowed ? dogIds.slice(-1) : dogIds;
-    const customerIds = suggestOperationCustomerIds(
+    const suggestedCustomerIds = suggestOperationCustomerIds(
       form.customerIds,
       form.dogIds,
       normalizedDogIds,
-      options?.dogs ?? [],
+      canonicalDogDirectory,
     );
+    const hotelCustomerId = hotelMode
+      ? form.customerIds[0] ?? suggestedCustomerIds[0]
+      : undefined;
+    const customerScopedDogIds =
+      hotelMode && hotelCustomerId
+        ? normalizedDogIds.filter(
+            (dogId) =>
+              canonicalDogDirectory.find((dog) => dog.id === dogId)
+                ?.customerId === hotelCustomerId,
+          )
+        : normalizedDogIds;
     patchWithAutoTitle({
-      dogIds: normalizedDogIds,
-      customerIds: hotelMode ? form.customerIds.slice(0, 1) : customerIds,
+      dogIds: customerScopedDogIds,
+      customerIds: hotelMode
+        ? hotelCustomerId
+          ? [hotelCustomerId]
+          : []
+        : suggestedCustomerIds,
       hotelRoomUsageIntent:
-        hotelMode && normalizedDogIds.length < 2
+        hotelMode && customerScopedDogIds.length < 2
           ? "independent"
           : form.hotelRoomUsageIntent,
       hotelSharedRoomId:
-        hotelMode && normalizedDogIds.length < 2
+        hotelMode && customerScopedDogIds.length < 2
           ? ""
           : form.hotelSharedRoomId,
     });
@@ -2132,15 +2154,8 @@ export function ScheduleFormModal({
         />
         <CustomerDogSearchFields
           customers={options?.customers ?? []}
-          dogs={
-            hotelMode
-              ? form.customerIds[0]
-                ? (options?.dogs ?? []).filter(
-                    (dog) => dog.customerId === form.customerIds[0],
-                  )
-                : []
-              : options?.dogs ?? []
-          }
+          dogs={hotelMode ? selectableDogs : canonicalDogDirectory}
+          canonicalDogs={canonicalDogDirectory}
           customerIds={form.customerIds}
           dogIds={form.dogIds}
           onDogIdsChange={changeDogs}
@@ -2149,10 +2164,14 @@ export function ScheduleFormModal({
             patch({
               customerIds: normalizedCustomerIds,
               dogIds:
-                hotelMode && normalizedCustomerIds[0]
-                  ? form.dogIds.filter(
-                      (dogId) => options?.dogs.find((dog) => dog.id === dogId)?.customerId === normalizedCustomerIds[0],
-                    )
+                hotelMode
+                  ? normalizedCustomerIds[0]
+                    ? form.dogIds.filter(
+                        (dogId) =>
+                          canonicalDogDirectory.find((dog) => dog.id === dogId)
+                            ?.customerId === normalizedCustomerIds[0],
+                      )
+                    : []
                   : form.dogIds,
               hotelRoomUsageIntent: "independent",
               hotelSharedRoomId: "",
@@ -2166,7 +2185,7 @@ export function ScheduleFormModal({
         />
         {hotelMode && form.customerIds.length === 0 ? (
           <p className="-mt-3 text-xs text-text-muted">
-            보호자를 먼저 선택하면 해당 보호자의 반려견을 선택할 수 있습니다.
+            보호자 또는 반려견을 먼저 선택할 수 있습니다. 첫 반려견을 선택하면 보호자가 자동으로 연결됩니다.
           </p>
         ) : null}
         {hotelMode && form.dogIds.length > 0 ? (

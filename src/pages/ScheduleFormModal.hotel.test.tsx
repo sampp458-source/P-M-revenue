@@ -1,6 +1,13 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
@@ -193,7 +200,65 @@ function Harness({
 
 afterEach(cleanup);
 
+const searchAndSelect = async (label: "보호자" | "반려견", query: string, name: string) => {
+  const input = screen.getByRole("combobox", { name: label });
+  fireEvent.change(input, { target: { value: query } });
+  const listbox = screen.getByRole("listbox", { name: `${label} 검색 결과` });
+  const option = await within(listbox).findByRole("option", { name: new RegExp(name) });
+  fireEvent.click(option);
+};
+
 describe("shared ScheduleFormModal Hotel mode", () => {
+  it("restores Dog-first search and auto-selects the first Dog's Customer", async () => {
+    render(<Harness initialHotel />);
+
+    await searchAndSelect("반려견", "토리", "토리");
+
+    expect(screen.getByLabelText("반려견 선택됨").textContent).toContain("토리");
+    expect(screen.getByLabelText("보호자 선택됨").textContent).toContain("보호자");
+
+    await searchAndSelect("반려견", "보리", "보리");
+    expect(screen.getByLabelText("반려견 선택됨").textContent).toContain("보리");
+    expect(screen.getByText("2마리 선택됨")).toBeTruthy();
+
+    const dogInput = screen.getByRole("combobox", { name: "반려견" });
+    fireEvent.change(dogInput, { target: { value: "구름" } });
+    expect(await screen.findByText("검색 결과가 없습니다.")).toBeTruthy();
+  });
+
+  it("projects linked Dogs from the canonical directory before Customer selection", async () => {
+    render(<Harness initialHotel />);
+
+    const customerInput = screen.getByRole("combobox", { name: "보호자" });
+    fireEvent.change(customerInput, { target: { value: "01012345678" } });
+    const listbox = screen.getByRole("listbox", { name: "보호자 검색 결과" });
+    const option = await within(listbox).findByRole("option", { name: /보호자/ });
+
+    expect(option.textContent).toContain("토리, 보리, 몽이");
+    expect(option.textContent).not.toContain("연결된 반려견 없음");
+  });
+
+  it("keeps Customer-first Dogs scoped and clears selections when Customer changes", async () => {
+    const form = initializeHotelScheduleForm(generalForm(), options, snapshot);
+    form.customerIds = ["customer-1"];
+    form.dogIds = ["dog-1", "dog-2"];
+    render(<Harness initialForm={form} />);
+
+    await searchAndSelect("보호자", "01098765432", "다른 보호자");
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("반려견 선택됨")).toBeNull();
+    });
+    const dogInput = screen.getByRole("combobox", { name: "반려견" });
+    fireEvent.change(dogInput, { target: { value: "토리" } });
+    expect(await screen.findByText("검색 결과가 없습니다.")).toBeTruthy();
+    fireEvent.change(dogInput, { target: { value: "구름" } });
+    expect(
+      await within(screen.getByRole("listbox", { name: "반려견 검색 결과" }))
+        .findByRole("option", { name: /구름/ }),
+    ).toBeTruthy();
+  });
+
   it("renders Hotel fields and the exact stay type on its first render", () => {
     render(<Harness initialHotel />);
 

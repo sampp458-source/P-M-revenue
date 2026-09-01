@@ -20,6 +20,7 @@ export interface DogSearchOption {
 export function CustomerDogSearchFields({
   customers,
   dogs,
+  canonicalDogs,
   customerIds,
   dogIds,
   onCustomerIdsChange,
@@ -33,6 +34,7 @@ export function CustomerDogSearchFields({
 }: {
   customers: readonly CustomerSearchOption[];
   dogs: readonly DogSearchOption[];
+  canonicalDogs?: readonly DogSearchOption[];
   customerIds: readonly string[];
   dogIds: readonly string[];
   onCustomerIdsChange: (ids: string[]) => void;
@@ -46,7 +48,7 @@ export function CustomerDogSearchFields({
 }) {
   const customerById = new Map(customers.map((customer) => [customer.id, customer]));
   const dogsByCustomer = new Map<string, string[]>();
-  dogs.forEach((dog) => {
+  (canonicalDogs ?? dogs).forEach((dog) => {
     if (!dog.customerId) return;
     dogsByCustomer.set(dog.customerId, [
       ...(dogsByCustomer.get(dog.customerId) ?? []),
