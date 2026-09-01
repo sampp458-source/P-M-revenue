@@ -25,6 +25,9 @@ export function CustomerDogSearchFields({
   onCustomerIdsChange,
   onDogIdsChange,
   multiple = false,
+  customerFirst = false,
+  dogMultiple = multiple,
+  customerMultiple = multiple,
   disabled = false,
   recentScope,
 }: {
@@ -35,6 +38,9 @@ export function CustomerDogSearchFields({
   onCustomerIdsChange: (ids: string[]) => void;
   onDogIdsChange: (ids: string[]) => void;
   multiple?: boolean;
+  customerFirst?: boolean;
+  dogMultiple?: boolean;
+  customerMultiple?: boolean;
   disabled?: boolean;
   recentScope: string;
 }) {
@@ -48,15 +54,14 @@ export function CustomerDogSearchFields({
     ]);
   });
 
-  return (
-    <>
+  const dogField = (
       <SearchSelect
         label="반려견"
         required
         items={dogs}
         selectedIds={dogIds}
         onChange={onDogIdsChange}
-        multiple={multiple}
+        multiple={dogMultiple}
         disabled={disabled}
         getItemId={(row) => row.id}
         getSearchText={(row) => {
@@ -98,13 +103,15 @@ export function CustomerDogSearchFields({
         emptyMessage="최근 선택한 반려견이 없습니다."
         recentStorageKey={`pm-os:${recentScope}:dogs`}
       />
+  );
+  const customerField = (
       <SearchSelect
         label="보호자"
         required
         items={customers}
         selectedIds={customerIds}
         onChange={onCustomerIdsChange}
-        multiple={multiple}
+        multiple={customerMultiple}
         disabled={disabled}
         getItemId={(row) => row.id}
         getSearchText={(row) =>
@@ -131,6 +138,12 @@ export function CustomerDogSearchFields({
         emptyMessage="최근 선택한 보호자가 없습니다."
         recentStorageKey={`pm-os:${recentScope}:customers`}
       />
+  );
+
+  return (
+    <>
+      {customerFirst ? customerField : dogField}
+      {customerFirst ? dogField : customerField}
     </>
   );
 }

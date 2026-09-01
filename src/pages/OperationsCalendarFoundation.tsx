@@ -12,6 +12,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
 } from "react";
@@ -34,7 +35,9 @@ import {
   emptyForm,
   formFromSchedule,
   initializeHotelScheduleForm,
+  resolveScheduleCreateAttempt,
   scheduleInputFromForm,
+  type ScheduleCreateAttempt,
   type CalendarCreateProduct,
   type ScheduleForm,
 } from "./OperationsToday";
@@ -185,6 +188,8 @@ export function OperationsCalendarFoundationPage() {
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  const createAttemptRef = useRef<ScheduleCreateAttempt | null>(null);
+  const createInFlightRef = useRef(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(
     null,
   );
@@ -300,6 +305,8 @@ export function OperationsCalendarFoundationPage() {
   };
 
   const openNew = async () => {
+    createAttemptRef.current = null;
+    createInFlightRef.current = false;
     if (!options) {
       showNotice("일정 등록 정보를 불러오는 중입니다.", "warning");
       return;
@@ -361,13 +368,20 @@ export function OperationsCalendarFoundationPage() {
     event.preventDefault();
     setFormError("");
     if (editing === "new") {
+      if (createInFlightRef.current) return;
+      const attempt = resolveScheduleCreateAttempt(
+        createAttemptRef.current,
+        form,
+      );
+      createAttemptRef.current = attempt;
+      createInFlightRef.current = true;
       setSaving(true);
       try {
         const created = await createNewScheduleFromForm(
           form,
           options,
           hotelSnapshot,
-          crypto.randomUUID(),
+          attempt.requestId,
         );
         if (created.kind === "hotel") {
           await loadMonth();
@@ -383,6 +397,7 @@ export function OperationsCalendarFoundationPage() {
           showNotice("새 일정을 등록했습니다.");
         }
         setEditing(null);
+        createAttemptRef.current = null;
         setCalendarCreateProduct(null);
         setSelectedDate(form.date);
       } catch (error) {
@@ -392,6 +407,7 @@ export function OperationsCalendarFoundationPage() {
             : "일정을 저장하지 못했습니다.",
         );
       } finally {
+        createInFlightRef.current = false;
         setSaving(false);
       }
       return;
@@ -684,6 +700,9 @@ export function OperationsCalendarFoundationPage() {
         onChange={setForm}
         onSubmit={save}
         onClose={() => {
+          if (saving) return;
+          createAttemptRef.current = null;
+          createInFlightRef.current = false;
           setEditing(null);
           setCalendarCreateProduct(null);
         }}

@@ -72,6 +72,24 @@ export interface CreateFamilyBookingRpcArgs {
   p_request_id: string;
 }
 
+export interface CreateSharedRoomFamilyBookingInput
+  extends CreateFamilyBookingInput {
+  roomTypeId: string;
+  roomId: string;
+  sharedRoomIntent: true;
+}
+
+export interface CreateSharedRoomFamilyBookingRpcArgs {
+  p_customer_id: string;
+  p_common_memo: string | null;
+  p_payment_bundle_requested: boolean;
+  p_members: readonly CreateFamilyBookingMemberInput[];
+  p_room_type_id: string;
+  p_room_id: string;
+  p_shared_room_intent: true;
+  p_request_id: string;
+}
+
 export interface FamilyBookingMemberRecord {
   id: string;
   stableMemberKey: string;

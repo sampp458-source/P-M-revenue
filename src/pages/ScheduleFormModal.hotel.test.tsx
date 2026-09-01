@@ -14,7 +14,9 @@ import {
   emptyForm,
   halfHourTimeOptions,
   hotelReservationInputFromForm,
+  hotelMultiDogCreationFromForm,
   initializeHotelScheduleForm,
+  resolveScheduleCreateAttempt,
   transitionScheduleFormCalendar,
   type ScheduleForm,
 } from "./OperationsToday";
@@ -23,6 +25,10 @@ import type {
   OperationScheduleInput,
   OperationScheduleOptions,
 } from "./operationsScheduleRepository";
+import {
+  sharedRoomFamilyBookingErrorMessage,
+  sharedRoomFamilyBookingRpcArgs,
+} from "../platform/familyBookingRepository";
 
 const options: OperationScheduleOptions = {
   calendars: [
@@ -71,9 +77,13 @@ const options: OperationScheduleOptions = {
   assignees: [{ id: "staff-1", name: "담당자" }],
   customers: [
     { id: "customer-1", name: "보호자", phone: "01012345678" },
+    { id: "customer-2", name: "다른 보호자", phone: "01098765432" },
   ],
   dogs: [
     { id: "dog-1", name: "토리", customerId: "customer-1" },
+    { id: "dog-2", name: "보리", customerId: "customer-1" },
+    { id: "dog-4", name: "몽이", customerId: "customer-1" },
+    { id: "dog-3", name: "구름", customerId: "customer-2" },
   ],
 };
 
@@ -92,8 +102,30 @@ const snapshot: HotelOperationsSnapshot = {
       unassignedNow: 0,
       physicallyEmpty: 5,
     },
+    {
+      id: "deluxe",
+      code: "DELUXE",
+      name: "DELUXE",
+      activeRooms: 3,
+      reservedPeak: 0,
+      checkedInNow: 0,
+      allocatedNow: 0,
+      reservedNow: 0,
+      unassignedNow: 0,
+      physicallyEmpty: 3,
+    },
   ],
-  rooms: [],
+  rooms: [
+    {
+      id: "deluxe-room-1",
+      name: "디럭스 1",
+      roomTypeId: "deluxe",
+      roomTypeCode: "DELUXE",
+      roomTypeName: "DELUXE",
+      isActive: true,
+      sortOrder: 1,
+    },
+  ],
   settings: {
     id: "settings-1",
     version: 1,
@@ -113,10 +145,16 @@ const generalForm = () => {
   return form;
 };
 
-function Harness({ initialHotel = false }: { initialHotel?: boolean }) {
-  const initial = initialHotel
+function Harness({
+  initialHotel = false,
+  initialForm,
+}: {
+  initialHotel?: boolean;
+  initialForm?: ScheduleForm;
+}) {
+  const initial = initialForm ?? (initialHotel
     ? initializeHotelScheduleForm(generalForm(), options, snapshot)
-    : generalForm();
+    : generalForm());
   const [form, setForm] = useState<ScheduleForm>(initial);
   const [open, setOpen] = useState(true);
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
@@ -424,5 +462,297 @@ describe("shared ScheduleFormModal Hotel mode", () => {
     form.hotelCheckOutTimeUnspecified = true;
     const flexible = hotelReservationInputFromForm(form, options, snapshot);
     expect(flexible.error).toBe("");
+  });
+
+  it("shows customer-first multi-Dog selection and explicit room intent", () => {
+    const form = initializeHotelScheduleForm(generalForm(), options, snapshot);
+    form.customerIds = ["customer-1"];
+    form.dogIds = ["dog-1", "dog-2"];
+    render(<Harness initialForm={form} />);
+
+    const labels = screen.getAllByText(/^(보호자|반려견)$/);
+    expect(labels[0].textContent).toContain("보호자");
+    expect(screen.getByText("2마리 선택됨")).toBeTruthy();
+    expect(screen.getByText("객실 사용 방식")).toBeTruthy();
+    expect(screen.getByText("각각 다른 객실 사용")).toBeTruthy();
+    expect(screen.getByText("같은 객실에서 함께 투숙")).toBeTruthy();
+
+    fireEvent.click(screen.getByText("같은 객실에서 함께 투숙"));
+    expect(screen.getByText("같은 객실 투숙은 디럭스 객실에서만 가능합니다.")).toBeTruthy();
+    expect(screen.getByText("함께 투숙할 객실")).toBeTruthy();
+  });
+
+  it("maps two independent Dogs to one atomic Family Booking call", async () => {
+    const form = initializeHotelScheduleForm(generalForm(), options, snapshot);
+    form.customerIds = ["customer-1"];
+    form.dogIds = ["dog-1", "dog-2"];
+    const createHotel = vi.fn();
+    const createOperation = vi.fn();
+    const createIndependentHotelFamily = vi.fn().mockResolvedValue({
+      members: [
+        { hotelStayId: "stay-1" },
+        { hotelStayId: "stay-2" },
+      ],
+    });
+    const createSharedHotelFamily = vi.fn();
+
+    const result = await createNewScheduleFromForm(
+      form,
+      options,
+      snapshot,
+      "request-independent",
+      {
+        createHotel,
+        createOperation,
+        createIndependentHotelFamily,
+        createSharedHotelFamily,
+      },
+    );
+
+    expect(result).toEqual(expect.objectContaining({
+      kind: "hotel",
+      creationMode: "independent",
+      hotelStayId: "stay-1",
+    }));
+    expect(createIndependentHotelFamily).toHaveBeenCalledTimes(1);
+    expect(createIndependentHotelFamily.mock.calls[0][0].members).toHaveLength(2);
+    expect(createIndependentHotelFamily.mock.calls[0][0].members.every(
+      (member: { sharedRoomGroupKey: string | null }) => member.sharedRoomGroupKey === null,
+    )).toBe(true);
+    expect(createHotel).not.toHaveBeenCalled();
+    expect(createSharedHotelFamily).not.toHaveBeenCalled();
+  });
+
+  it("calls the shared-room facade exactly once with DELUXE room intent", async () => {
+    const form = initializeHotelScheduleForm(generalForm(), options, snapshot);
+    form.customerIds = ["customer-1"];
+    form.dogIds = ["dog-1", "dog-2"];
+    form.hotelRoomUsageIntent = "shared";
+    form.hotelRoomTypeId = "deluxe";
+    form.hotelSharedRoomId = "deluxe-room-1";
+    form.memo = "함께 투숙 메모";
+    const createSharedHotelFamily = vi.fn().mockResolvedValue({
+      familyBooking: {
+        members: [
+          { hotelStayId: "stay-1" },
+          { hotelStayId: "stay-2" },
+        ],
+      },
+      occupancy: { dogCount: 2 },
+      replayed: false,
+    });
+    const createHotel = vi.fn();
+    const createOperation = vi.fn();
+
+    const result = await createNewScheduleFromForm(
+      form,
+      options,
+      snapshot,
+      "request-shared",
+      { createHotel, createOperation, createSharedHotelFamily },
+    );
+
+    expect(result).toEqual(expect.objectContaining({
+      kind: "hotel",
+      creationMode: "shared",
+      hotelStayId: "stay-1",
+    }));
+    expect(createSharedHotelFamily).toHaveBeenCalledTimes(1);
+    expect(createSharedHotelFamily.mock.calls[0][0]).toEqual(
+      expect.objectContaining({
+        requestId: "request-shared",
+        roomTypeId: "deluxe",
+        roomId: "deluxe-room-1",
+        sharedRoomIntent: true,
+      }),
+    );
+    expect(createSharedHotelFamily.mock.calls[0][0].members).toHaveLength(2);
+    expect(createSharedHotelFamily.mock.calls[0][0].members.every(
+      (member: { memo: string | null }) => member.memo === form.memo,
+    )).toBe(true);
+    expect(createSharedHotelFamily.mock.calls[0][0].members.every(
+      (member: { sharedRoomGroupKey: string | null }) => member.sharedRoomGroupKey === "shared-room",
+    )).toBe(true);
+    expect(createHotel).not.toHaveBeenCalled();
+  });
+
+  it("keeps an empty memo empty for shared-room creation", () => {
+    const form = initializeHotelScheduleForm(generalForm(), options, snapshot);
+    form.customerIds = ["customer-1"];
+    form.dogIds = ["dog-1", "dog-2"];
+    form.hotelRoomUsageIntent = "shared";
+    form.hotelRoomTypeId = "deluxe";
+    form.hotelSharedRoomId = "deluxe-room-1";
+    form.memo = "";
+
+    const result = hotelMultiDogCreationFromForm(
+      form,
+      options,
+      snapshot,
+      "request-empty-memo",
+    );
+
+    expect(result.error).toBe("");
+    expect(result.creation?.input.commonMemo).toBeNull();
+    expect(result.creation?.input.members.every((member) => member.memo === null)).toBe(true);
+    expect(JSON.stringify(result.creation)).not.toContain("두 반려견");
+  });
+
+  it("preserves only the exact user memo across room intent and Dog-count changes", () => {
+    const form = initializeHotelScheduleForm(generalForm(), options, snapshot);
+    form.customerIds = ["customer-1"];
+    form.dogIds = ["dog-1", "dog-2"];
+    form.hotelRoomTypeId = "deluxe";
+    form.hotelSharedRoomId = "deluxe-room-1";
+    form.memo = "복약 후 저녁 식사를 확인해 주세요.";
+
+    for (const [intent, dogIds] of [
+      ["shared", ["dog-1", "dog-2"]],
+      ["independent", ["dog-1", "dog-2"]],
+      ["shared", ["dog-1", "dog-2", "dog-4"]],
+    ] as const) {
+      form.hotelRoomUsageIntent = intent;
+      form.dogIds = [...dogIds];
+      const result = hotelMultiDogCreationFromForm(
+        form,
+        options,
+        snapshot,
+        `request-${intent}-${dogIds.length}`,
+      );
+      expect(result.error).toBe("");
+      expect(result.creation?.input.commonMemo).toBe(form.memo);
+      expect(result.creation?.input.members).toHaveLength(dogIds.length);
+      expect(result.creation?.input.members.every((member) => member.memo === form.memo)).toBe(true);
+    }
+  });
+
+  it("creates a three-Dog shared reservation through one facade call", async () => {
+    const form = initializeHotelScheduleForm(generalForm(), options, snapshot);
+    form.customerIds = ["customer-1"];
+    form.dogIds = ["dog-1", "dog-2", "dog-4"];
+    form.hotelRoomUsageIntent = "shared";
+    form.hotelRoomTypeId = "deluxe";
+    form.hotelSharedRoomId = "deluxe-room-1";
+    const createSharedHotelFamily = vi.fn().mockResolvedValue({
+      familyBooking: {
+        members: [
+          { hotelStayId: "stay-1" },
+          { hotelStayId: "stay-2" },
+          { hotelStayId: "stay-3" },
+        ],
+      },
+      occupancy: { dogCount: 3, allocationCount: 1, sharedCapacityQuantity: 1 },
+      replayed: false,
+    });
+
+    await createNewScheduleFromForm(
+      form,
+      options,
+      snapshot,
+      "request-shared-three",
+      {
+        createHotel: vi.fn(),
+        createOperation: vi.fn(),
+        createSharedHotelFamily,
+      },
+    );
+
+    expect(createSharedHotelFamily).toHaveBeenCalledTimes(1);
+    expect(createSharedHotelFamily.mock.calls[0][0].members).toHaveLength(3);
+    expect(createSharedHotelFamily.mock.calls[0][0].commonMemo).toBeNull();
+  });
+
+  it("rejects non-DELUXE, missing-room and cross-customer shared requests before mutation", () => {
+    const form = initializeHotelScheduleForm(generalForm(), options, snapshot);
+    form.customerIds = ["customer-1"];
+    form.dogIds = ["dog-1", "dog-2"];
+    form.hotelRoomUsageIntent = "shared";
+    form.hotelRoomTypeId = "standard";
+
+    expect(hotelMultiDogCreationFromForm(
+      form,
+      options,
+      snapshot,
+      "request-standard",
+    ).error).toContain("디럭스");
+
+    form.hotelRoomTypeId = "deluxe";
+    expect(hotelMultiDogCreationFromForm(
+      form,
+      options,
+      snapshot,
+      "request-room-missing",
+    ).error).toContain("객실을 선택");
+
+    form.dogIds = ["dog-1", "dog-3"];
+    form.hotelSharedRoomId = "deluxe-room-1";
+    expect(hotelMultiDogCreationFromForm(
+      form,
+      options,
+      snapshot,
+      "request-cross-customer",
+    ).error).toContain("같은 보호자");
+  });
+
+  it("reuses a request ID only for the exact same retry payload", () => {
+    const form = initializeHotelScheduleForm(generalForm(), options, snapshot);
+    const ids = ["request-1", "request-2"];
+    const createId = vi.fn(() => ids.shift()!);
+    const first = resolveScheduleCreateAttempt(null, form, createId);
+    const retry = resolveScheduleCreateAttempt(first, form, createId);
+    const changed = resolveScheduleCreateAttempt(
+      retry,
+      { ...form, memo: "changed" },
+      createId,
+    );
+
+    expect(retry.requestId).toBe("request-1");
+    expect(changed.requestId).toBe("request-2");
+    expect(createId).toHaveBeenCalledTimes(2);
+  });
+
+  it("maps the approved facade signature in its exact argument order and meaning", () => {
+    const args = sharedRoomFamilyBookingRpcArgs({
+      customerId: "customer-1",
+      commonMemo: "memo",
+      paymentBundleRequested: false,
+      members: [],
+      roomTypeId: "deluxe",
+      roomId: "deluxe-room-1",
+      sharedRoomIntent: true,
+      requestId: "request-shared",
+    });
+
+    expect(Object.keys(args)).toEqual([
+      "p_customer_id",
+      "p_common_memo",
+      "p_payment_bundle_requested",
+      "p_members",
+      "p_room_type_id",
+      "p_room_id",
+      "p_shared_room_intent",
+      "p_request_id",
+    ]);
+    expect(args).toEqual(expect.objectContaining({
+      p_customer_id: "customer-1",
+      p_room_type_id: "deluxe",
+      p_room_id: "deluxe-room-1",
+      p_shared_room_intent: true,
+      p_request_id: "request-shared",
+    }));
+  });
+
+  it("presents room, capacity and generic facade errors without SQL details", () => {
+    expect(sharedRoomFamilyBookingErrorMessage({ code: "23P01" })).toContain(
+      "다른 예약이 먼저 사용",
+    );
+    expect(sharedRoomFamilyBookingErrorMessage({
+      code: "23514",
+      message: "capacity unavailable",
+    })).toContain("이용 가능한 디럭스 객실이 없습니다");
+    expect(sharedRoomFamilyBookingErrorMessage({
+      code: "P0001",
+      message: "internal sql detail",
+    })).toBe("호텔 예약을 완료하지 못했습니다. 다시 시도해 주세요.");
   });
 });

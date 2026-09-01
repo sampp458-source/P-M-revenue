@@ -11,6 +11,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
@@ -83,6 +84,19 @@ import {
   type OperationRole,
 } from "./operationsScheduleRepository";
 import { LegacyHotelConversionModal } from "./LegacyHotelConversionModal";
+import {
+  createSharedRoomFamilyBooking,
+  familyBookingErrorMessage,
+  familyBookingRepository,
+  sharedRoomFamilyBookingErrorMessage,
+  type CreateSharedRoomFamilyBookingResult,
+} from "../platform/familyBookingRepository";
+import type {
+  CreateFamilyBookingInput,
+  CreateFamilyHotelMemberInput,
+  CreateSharedRoomFamilyBookingInput,
+  FamilyBookingRecord,
+} from "../platform/familyBookingRepositoryContract";
 
 export interface ScheduleForm {
   hotelScheduleMode: "reservation" | "operation";
@@ -100,6 +114,8 @@ export interface ScheduleForm {
   title: string;
   memo: string;
   hotelRoomTypeId: string;
+  hotelRoomUsageIntent: "independent" | "shared";
+  hotelSharedRoomId: string;
   hotelCheckInTimeUnspecified: boolean;
   hotelCheckOutDate: string;
   hotelCheckOutTime: string;
@@ -128,6 +144,8 @@ export const emptyForm = (): ScheduleForm => {
     title: "",
     memo: "",
     hotelRoomTypeId: "",
+    hotelRoomUsageIntent: "independent",
+    hotelSharedRoomId: "",
     hotelCheckInTimeUnspecified: false,
     hotelCheckOutDate: scheduleWindow.endDate,
     hotelCheckOutTime: "11:00",
@@ -172,6 +190,8 @@ export const formFromSchedule = (schedule: OperationSchedule): ScheduleForm => {
     title: schedule.title,
     memo: schedule.memo ?? "",
     hotelRoomTypeId: "",
+    hotelRoomUsageIntent: "independent",
+    hotelSharedRoomId: "",
     hotelCheckInTimeUnspecified: false,
     hotelCheckOutDate: end.date,
     hotelCheckOutTime: end.time,
@@ -235,6 +255,8 @@ export function initializeHotelScheduleForm(
     hotelCheckOutTime:
       snapshot.settings?.defaultCheckOutTime.slice(0, 5) || "11:00",
     hotelRoomTypeId: snapshot.roomTypes[0]?.id ?? "",
+    hotelRoomUsageIntent: "independent",
+    hotelSharedRoomId: "",
     hotelCheckOutTimeUnspecified: false,
     dogIds: form.dogIds.slice(0, 1),
     customerIds: form.customerIds.slice(0, 1),
@@ -266,6 +288,8 @@ export function transitionScheduleFormCalendar(
       timeUnspecified: false,
       hotelCheckInTimeUnspecified: false,
       hotelRoomTypeId: "",
+      hotelRoomUsageIntent: "independent",
+      hotelSharedRoomId: "",
       hotelCheckOutDate: nextSeoulDate(form.date),
       hotelCheckOutTimeUnspecified: false,
       dogIds: form.dogIds.slice(0, 1),
@@ -281,6 +305,8 @@ export function transitionScheduleFormCalendar(
     calendarId,
     scheduleTypeId: defaultOperationScheduleTypeId(allowedTypes),
     hotelRoomTypeId: "",
+    hotelRoomUsageIntent: "independent",
+    hotelSharedRoomId: "",
     hotelCheckInTimeUnspecified: false,
     hotelCheckOutDate: "",
     hotelCheckOutTime: "",
@@ -379,6 +405,111 @@ export function hotelReservationInputFromForm(
   };
 }
 
+export type HotelMultiDogCreation =
+  | { mode: "independent"; input: CreateFamilyBookingInput }
+  | { mode: "shared"; input: CreateSharedRoomFamilyBookingInput };
+
+export function hotelMultiDogCreationFromForm(
+  form: ScheduleForm,
+  options: OperationScheduleOptions | null,
+  snapshot: HotelOperationsSnapshot | null,
+  requestId: string,
+): { creation: HotelMultiDogCreation | null; error: string } {
+  if (form.dogIds.length < 2) {
+    return { creation: null, error: "반려견을 두 마리 이상 선택해 주세요." };
+  }
+  const firstDogForm = { ...form, dogIds: [form.dogIds[0]] };
+  const prepared = hotelReservationInputFromForm(firstDogForm, options, snapshot);
+  if (!prepared.input || !snapshot) {
+    return { creation: null, error: prepared.error };
+  }
+  const selectedDogs = form.dogIds.map((dogId) =>
+    options?.dogs.find((dog) => dog.id === dogId),
+  );
+  if (
+    selectedDogs.some(
+      (dog) => !dog || dog.customerId !== prepared.input?.customerId,
+    )
+  ) {
+    return {
+      creation: null,
+      error: "같은 보호자의 반려견만 같은 예약에 등록할 수 있습니다.",
+    };
+  }
+
+  const shared = form.hotelRoomUsageIntent === "shared";
+  const selectedRoomType = snapshot.roomTypes.find(
+    (roomType) => roomType.id === form.hotelRoomTypeId,
+  );
+  if (shared && selectedRoomType?.code.trim().toUpperCase() !== "DELUXE") {
+    return {
+      creation: null,
+      error: "같은 객실 투숙은 디럭스 객실에서만 가능합니다.",
+    };
+  }
+  if (
+    shared &&
+    (form.hotelCheckInTimeUnspecified || form.hotelCheckOutTimeUnspecified)
+  ) {
+    return {
+      creation: null,
+      error: "같은 객실 투숙은 입실·퇴실 시간을 모두 선택해 주세요.",
+    };
+  }
+  const selectedRoom = snapshot.rooms.find(
+    (room) =>
+      room.id === form.hotelSharedRoomId &&
+      room.isActive &&
+      room.roomTypeId === form.hotelRoomTypeId &&
+      room.roomTypeCode.trim().toUpperCase() === "DELUXE",
+  );
+  if (shared && !selectedRoom) {
+    return {
+      creation: null,
+      error: "함께 투숙할 디럭스 객실을 선택해 주세요.",
+    };
+  }
+
+  const members: CreateFamilyHotelMemberInput[] = form.dogIds.map((dogId) => ({
+    stableMemberKey: dogId,
+    dogId,
+    serviceType: "hotel",
+    assigneeIds: prepared.input!.assigneeIds,
+    memo: prepared.input!.memo || null,
+    sharedRoomGroupKey: shared ? "shared-room" : null,
+    calendarId: prepared.input!.calendarId,
+    scheduleTypeId: prepared.input!.scheduleTypeId,
+    checkInDate: prepared.input!.checkInDate,
+    checkInTime: prepared.input!.checkInTime,
+    checkInTimeUnspecified: prepared.input!.checkInTimeUnspecified,
+    checkOutDate: prepared.input!.checkOutDate,
+    checkOutTime: prepared.input!.checkOutTime,
+    checkOutTimeUnspecified: prepared.input!.checkOutTimeUnspecified,
+    roomTypeId: prepared.input!.roomTypeId,
+  }));
+  const familyInput: CreateFamilyBookingInput = {
+    customerId: prepared.input.customerId!,
+    commonMemo: prepared.input.memo || null,
+    paymentBundleRequested: false,
+    members,
+    requestId,
+  };
+  return shared
+    ? {
+        creation: {
+          mode: "shared",
+          input: {
+            ...familyInput,
+            roomTypeId: selectedRoomType!.id,
+            roomId: selectedRoom!.id,
+            sharedRoomIntent: true,
+          },
+        },
+        error: "",
+      }
+    : { creation: { mode: "independent", input: familyInput }, error: "" };
+}
+
 export function scheduleInputFromForm(
   form: ScheduleForm,
   options: OperationScheduleOptions | null,
@@ -457,11 +588,45 @@ export interface NewScheduleCreateDependencies {
     input: OperationScheduleInput,
     requestId: string,
   ) => Promise<OperationSchedule>;
+  createIndependentHotelFamily?: (
+    input: CreateFamilyBookingInput,
+  ) => Promise<FamilyBookingRecord>;
+  createSharedHotelFamily?: (
+    input: CreateSharedRoomFamilyBookingInput,
+  ) => Promise<CreateSharedRoomFamilyBookingResult>;
 }
 
 export type NewScheduleCreateResult =
-  | { kind: "hotel"; value: HotelStay }
+  | {
+      kind: "hotel";
+      creationMode: "single" | "independent" | "shared";
+      hotelStayId: string;
+      value:
+        | HotelStay
+        | FamilyBookingRecord
+        | CreateSharedRoomFamilyBookingResult;
+    }
   | { kind: "operation"; value: OperationSchedule };
+
+export interface ScheduleCreateAttempt {
+  fingerprint: string;
+  requestId: string;
+}
+
+export function scheduleCreateFingerprint(form: ScheduleForm) {
+  return JSON.stringify(form);
+}
+
+export function resolveScheduleCreateAttempt(
+  current: ScheduleCreateAttempt | null,
+  form: ScheduleForm,
+  createRequestId: () => string = () => crypto.randomUUID(),
+): ScheduleCreateAttempt {
+  const fingerprint = scheduleCreateFingerprint(form);
+  return current?.fingerprint === fingerprint
+    ? current
+    : { fingerprint, requestId: createRequestId() };
+}
 
 export async function createNewScheduleFromForm(
   form: ScheduleForm,
@@ -477,11 +642,61 @@ export async function createNewScheduleFromForm(
     isHotelScheduleCalendar(form.calendarId, options) &&
     form.hotelScheduleMode === "reservation"
   ) {
+    if (form.dogIds.length > 1) {
+      const prepared = hotelMultiDogCreationFromForm(
+        form,
+        options,
+        snapshot,
+        requestId,
+      );
+      if (!prepared.creation) throw new Error(prepared.error);
+      if (prepared.creation.mode === "shared") {
+        try {
+          const value = await (
+            dependencies.createSharedHotelFamily ??
+            createSharedRoomFamilyBooking
+          )(prepared.creation.input);
+          const hotelStayId = value.familyBooking.members[0]?.hotelStayId;
+          if (!hotelStayId) {
+            throw new Error("생성된 호텔 예약을 확인하지 못했습니다.");
+          }
+          return {
+            kind: "hotel",
+            creationMode: "shared",
+            hotelStayId,
+            value,
+          };
+        } catch (error) {
+          throw new Error(sharedRoomFamilyBookingErrorMessage(error));
+        }
+      }
+      try {
+        const value = await (
+          dependencies.createIndependentHotelFamily ??
+          familyBookingRepository.create
+        )(prepared.creation.input);
+        const hotelStayId = value.members[0]?.hotelStayId;
+        if (!hotelStayId) {
+          throw new Error("생성된 호텔 예약을 확인하지 못했습니다.");
+        }
+        return {
+          kind: "hotel",
+          creationMode: "independent",
+          hotelStayId,
+          value,
+        };
+      } catch (error) {
+        throw new Error(familyBookingErrorMessage(error));
+      }
+    }
     const prepared = hotelReservationInputFromForm(form, options, snapshot);
     if (!prepared.input) throw new Error(prepared.error);
+    const value = await dependencies.createHotel(prepared.input, requestId);
     return {
       kind: "hotel",
-      value: await dependencies.createHotel(prepared.input, requestId),
+      creationMode: "single",
+      hotelStayId: value.id,
+      value,
     };
   }
   const prepared = scheduleInputFromForm(form, options);
@@ -525,6 +740,8 @@ export function OperationsTodayPage() {
   const [titleManuallyEdited, setTitleManuallyEdited] = useState(false);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
+  const createAttemptRef = useRef<ScheduleCreateAttempt | null>(null);
+  const createInFlightRef = useRef(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [hotelManagementGuideOpen, setHotelManagementGuideOpen] =
     useState(false);
@@ -612,6 +829,8 @@ export function OperationsTodayPage() {
   };
 
   const openNew = async () => {
+    createAttemptRef.current = null;
+    createInFlightRef.current = false;
     const availableOptions = options ?? (await loadOptions());
     if (!availableOptions) {
       showNotice("일정 등록 정보를 불러오지 못했습니다. 다시 시도해 주세요.", "error");
@@ -653,13 +872,20 @@ export function OperationsTodayPage() {
     event.preventDefault();
     setFormError("");
     if (editing === "new") {
+      if (createInFlightRef.current) return;
+      const attempt = resolveScheduleCreateAttempt(
+        createAttemptRef.current,
+        form,
+      );
+      createAttemptRef.current = attempt;
+      createInFlightRef.current = true;
       setSaving(true);
       try {
         const created = await createNewScheduleFromForm(
           form,
           options,
           hotelSnapshot,
-          crypto.randomUUID(),
+          attempt.requestId,
         );
         if (created.kind === "hotel") {
           await loadSchedules();
@@ -675,6 +901,7 @@ export function OperationsTodayPage() {
           showNotice("새 일정을 등록했습니다.");
         }
         setEditing(null);
+        createAttemptRef.current = null;
       } catch (error) {
         setFormError(
           error instanceof Error
@@ -682,6 +909,7 @@ export function OperationsTodayPage() {
             : "일정을 저장하지 못했습니다.",
         );
       } finally {
+        createInFlightRef.current = false;
         setSaving(false);
       }
       return;
@@ -948,7 +1176,12 @@ export function OperationsTodayPage() {
         onTitleManuallyEdited={setTitleManuallyEdited}
         onChange={setForm}
         onSubmit={save}
-        onClose={() => !saving && setEditing(null)}
+        onClose={() => {
+          if (saving) return;
+          createAttemptRef.current = null;
+          createInFlightRef.current = false;
+          setEditing(null);
+        }}
         currentUserName={profile?.name}
         hotelSnapshot={hotelSnapshot}
       />
@@ -1347,6 +1580,7 @@ export function ScheduleFormModal({
   onCalendarCreateProductChange,
   createProductContent,
   longStayAllowed = true,
+  hotelMultiDogAllowed = true,
 }: {
   open: boolean;
   editing: OperationSchedule | "new" | null;
@@ -1369,6 +1603,7 @@ export function ScheduleFormModal({
   onCalendarCreateProductChange?: (value: CalendarCreateProduct | null) => void;
   createProductContent?: ReactNode;
   longStayAllowed?: boolean;
+  hotelMultiDogAllowed?: boolean;
 }) {
   const patch = (values: Partial<ScheduleForm>) => onChange({ ...form, ...values });
   const selectedCalendar = selectedOperationCalendar(form.calendarId, options);
@@ -1381,6 +1616,15 @@ export function ScheduleFormModal({
   const hotelScheduleType = hotelMode
     ? hotelScheduleTypeForCalendar(form.calendarId, options)
     : null;
+  const deluxeRoomType = hotelSnapshot?.roomTypes.find(
+    (roomType) => roomType.code.trim().toUpperCase() === "DELUXE",
+  );
+  const activeDeluxeRooms = (hotelSnapshot?.rooms ?? [])
+    .filter(
+      (room) =>
+        room.isActive && room.roomTypeCode.trim().toUpperCase() === "DELUXE",
+    )
+    .sort((left, right) => left.sortOrder - right.sortOrder);
   const patchWithAutoTitle = (values: Partial<ScheduleForm>) => {
     const nextForm = { ...form, ...values };
     if (editing === "new" && !titleManuallyEdited) {
@@ -1398,7 +1642,8 @@ export function ScheduleFormModal({
     onChange(nextForm);
   };
   const changeDogs = (dogIds: string[]) => {
-    const normalizedDogIds = hotelMode ? dogIds.slice(-1) : dogIds;
+    const normalizedDogIds =
+      hotelMode && !hotelMultiDogAllowed ? dogIds.slice(-1) : dogIds;
     const customerIds = suggestOperationCustomerIds(
       form.customerIds,
       form.dogIds,
@@ -1407,7 +1652,15 @@ export function ScheduleFormModal({
     );
     patchWithAutoTitle({
       dogIds: normalizedDogIds,
-      customerIds: hotelMode ? customerIds.slice(-1) : customerIds,
+      customerIds: hotelMode ? form.customerIds.slice(0, 1) : customerIds,
+      hotelRoomUsageIntent:
+        hotelMode && normalizedDogIds.length < 2
+          ? "independent"
+          : form.hotelRoomUsageIntent,
+      hotelSharedRoomId:
+        hotelMode && normalizedDogIds.length < 2
+          ? ""
+          : form.hotelSharedRoomId,
     });
   };
   const creatorName =
@@ -1432,6 +1685,8 @@ export function ScheduleFormModal({
         hotelScheduleMode: "operation",
         scheduleTypeId: defaultOperationScheduleTypeId(generalTypes),
         hotelRoomTypeId: "",
+        hotelRoomUsageIntent: "independent",
+        hotelSharedRoomId: "",
       });
     }
     onCalendarCreateProductChange?.(product);
@@ -1566,6 +1821,8 @@ export function ScheduleFormModal({
                         hotelScheduleMode: value,
                         scheduleTypeId: defaultOperationScheduleTypeId(generalTypes),
                         hotelRoomTypeId: "",
+                        hotelRoomUsageIntent: "independent",
+                        hotelSharedRoomId: "",
                       });
                     }}
                   >
@@ -1680,9 +1937,16 @@ export function ScheduleFormModal({
             <div className="sm:col-span-2">
               <Field label="객실 유형">
                 <Select
+                  disabled={
+                    form.dogIds.length > 1 &&
+                    form.hotelRoomUsageIntent === "shared"
+                  }
                   value={form.hotelRoomTypeId}
                   onChange={(event) =>
-                    patch({ hotelRoomTypeId: event.target.value })
+                    patch({
+                      hotelRoomTypeId: event.target.value,
+                      hotelSharedRoomId: "",
+                    })
                   }
                 >
                   <option value="">객실 미정</option>
@@ -1869,8 +2133,12 @@ export function ScheduleFormModal({
         <CustomerDogSearchFields
           customers={options?.customers ?? []}
           dogs={
-            hotelMode && form.customerIds[0]
-              ? (options?.dogs ?? []).filter((dog) => dog.customerId === form.customerIds[0])
+            hotelMode
+              ? form.customerIds[0]
+                ? (options?.dogs ?? []).filter(
+                    (dog) => dog.customerId === form.customerIds[0],
+                  )
+                : []
               : options?.dogs ?? []
           }
           customerIds={form.customerIds}
@@ -1886,11 +2154,103 @@ export function ScheduleFormModal({
                       (dogId) => options?.dogs.find((dog) => dog.id === dogId)?.customerId === normalizedCustomerIds[0],
                     )
                   : form.dogIds,
+              hotelRoomUsageIntent: "independent",
+              hotelSharedRoomId: "",
             });
           }}
           multiple={!hotelMode}
           recentScope={`${recentScope}:schedule`}
+          customerFirst={hotelMode}
+          dogMultiple={(hotelMode && hotelMultiDogAllowed) || undefined}
+          customerMultiple={hotelMode ? false : undefined}
         />
+        {hotelMode && form.customerIds.length === 0 ? (
+          <p className="-mt-3 text-xs text-text-muted">
+            보호자를 먼저 선택하면 해당 보호자의 반려견을 선택할 수 있습니다.
+          </p>
+        ) : null}
+        {hotelMode && form.dogIds.length > 0 ? (
+          <p className="-mt-3 text-xs font-semibold text-text-secondary">
+            {form.dogIds.length}마리 선택됨
+          </p>
+        ) : null}
+        {hotelMode && hotelMultiDogAllowed && form.dogIds.length > 1 ? (
+          <fieldset className="space-y-3 rounded-xl border border-border bg-surface-secondary p-3.5">
+            <legend className="px-1 text-sm font-semibold text-text-primary">
+              객실 사용 방식
+            </legend>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {([
+                ["independent", "각각 다른 객실 사용"],
+                ["shared", "같은 객실에서 함께 투숙"],
+              ] as const).map(([value, label]) => (
+                <label
+                  key={value}
+                  className={cn(
+                    "flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm font-semibold",
+                    form.hotelRoomUsageIntent === value
+                      ? "border-primary bg-primary-soft text-primary"
+                      : "border-border bg-surface text-text-primary",
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="hotel-room-usage-intent"
+                    value={value}
+                    checked={form.hotelRoomUsageIntent === value}
+                    onChange={() =>
+                      patch({
+                        hotelRoomUsageIntent: value,
+                        hotelRoomTypeId:
+                          value === "shared"
+                            ? deluxeRoomType?.id ?? ""
+                            : form.hotelRoomTypeId,
+                        hotelSharedRoomId: "",
+                        hotelCheckInTimeUnspecified:
+                          value === "shared"
+                            ? false
+                            : form.hotelCheckInTimeUnspecified,
+                        hotelCheckOutTimeUnspecified:
+                          value === "shared"
+                            ? false
+                            : form.hotelCheckOutTimeUnspecified,
+                      })
+                    }
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+            {form.hotelRoomUsageIntent === "shared" ? (
+              <div className="space-y-3">
+                <p className="text-xs font-medium text-text-secondary">
+                  같은 객실 투숙은 디럭스 객실에서만 가능합니다.
+                </p>
+                <Field label="함께 투숙할 객실" required>
+                  <Select
+                    aria-label="함께 투숙할 객실"
+                    value={form.hotelSharedRoomId}
+                    onChange={(event) =>
+                      patch({ hotelSharedRoomId: event.target.value })
+                    }
+                  >
+                    <option value="">디럭스 객실 선택</option>
+                    {activeDeluxeRooms.map((room) => (
+                      <option key={room.id} value={room.id}>
+                        {room.roomTypeName} · {room.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                {activeDeluxeRooms.length === 0 ? (
+                  <p className="text-xs font-medium text-error">
+                    선택 가능한 활성 디럭스 객실이 없습니다.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </fieldset>
+        ) : null}
         <Field label="메모">
           <Textarea
             rows={2}

@@ -107,6 +107,8 @@ import {
   emptyForm,
   hotelReservationInputFromForm,
   initializeHotelScheduleForm,
+  resolveScheduleCreateAttempt,
+  type ScheduleCreateAttempt,
   type ScheduleForm,
 } from "./OperationsToday";
 import {
@@ -319,6 +321,8 @@ export function HotelOperationsPage() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [modal, setModal] = useState<ModalName>(null);
   const [processing, setProcessing] = useState(false);
+  const createAttemptRef = useRef<ScheduleCreateAttempt | null>(null);
+  const createInFlightRef = useRef(false);
   const [processingStayId, setProcessingStayId] = useState<string | null>(null);
   const [pendingRoomBoardAction, setPendingRoomBoardAction] =
     useState<PendingRoomBoardAction | null>(null);
@@ -580,6 +584,8 @@ export function HotelOperationsPage() {
   };
 
   const openNewSchedule = () => {
+    createAttemptRef.current = null;
+    createInFlightRef.current = false;
     const initial = emptyForm();
     initial.date = selectedDate;
     initial.endDate = selectedDate;
@@ -623,20 +629,28 @@ export function HotelOperationsPage() {
     event.preventDefault();
     setFormError("");
     if (!detail) {
+      if (createInFlightRef.current) return;
+      const attempt = resolveScheduleCreateAttempt(
+        createAttemptRef.current,
+        scheduleForm,
+      );
+      createAttemptRef.current = attempt;
+      createInFlightRef.current = true;
       setProcessing(true);
       void createNewScheduleFromForm(
         scheduleForm,
         options,
         snapshot,
-        requestId(),
+        attempt.requestId,
       )
         .then(async (created) => {
           if (created.kind === "hotel") {
             await refreshAfterMutation(
-              created.value.id,
+              created.hotelStayId,
               "호텔 예약과 입·퇴실 일정을 등록했습니다.",
             );
             setDetail(null);
+            createAttemptRef.current = null;
           } else {
             setToast({ message: "새 일정을 등록했습니다.", tone: "success" });
             setModal(null);
@@ -649,7 +663,10 @@ export function HotelOperationsPage() {
               : "일정을 저장하지 못했습니다.",
           ),
         )
-        .finally(() => setProcessing(false));
+        .finally(() => {
+          createInFlightRef.current = false;
+          setProcessing(false);
+        });
       return;
     }
     const prepared = hotelReservationInputFromForm(
@@ -1252,6 +1269,8 @@ export function HotelOperationsPage() {
         onSubmit={saveReservation}
         onClose={() => {
           if (processing) return;
+          createAttemptRef.current = null;
+          createInFlightRef.current = false;
           setRoomTypeChangeConfirmationOpen(false);
           setModal(null);
         }}
@@ -1262,6 +1281,7 @@ export function HotelOperationsPage() {
             : profile?.name
         }
         hotelSnapshot={snapshot}
+        hotelMultiDogAllowed={!detail}
         modalTitle={detail ? "호텔 예약 수정" : "새 일정"}
         modalResetKey={detail?.id ?? `hotel-new-${selectedDate}`}
         calendarLocked={Boolean(detail)}

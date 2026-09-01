@@ -4,9 +4,11 @@ import type { FamilyBookingDraft } from "../pages/customerDogArchitecture";
 import type {
   CreateFamilyBookingInput,
   CreateFamilyBookingMemberInput,
+  CreateSharedRoomFamilyBookingInput,
   FamilyBookingRecord,
   FamilyBookingRepositoryContract,
 } from "./familyBookingRepositoryContract";
+import type { SharedHotelOccupancy } from "./multiDogSharedRoomContract";
 
 type RoomTypeRow = { id: string; code: "STANDARD" | "DELUXE" };
 
@@ -127,6 +129,36 @@ const rpcArgs = (input: CreateFamilyBookingInput) => ({
   p_request_id: input.requestId,
 });
 
+export interface CreateSharedRoomFamilyBookingResult {
+  familyBooking: FamilyBookingRecord;
+  occupancy: SharedHotelOccupancy;
+  replayed: boolean;
+}
+
+export const sharedRoomFamilyBookingRpcArgs = (
+  input: CreateSharedRoomFamilyBookingInput,
+) => ({
+  p_customer_id: input.customerId,
+  p_common_memo: input.commonMemo,
+  p_payment_bundle_requested: input.paymentBundleRequested,
+  p_members: input.members,
+  p_room_type_id: input.roomTypeId,
+  p_room_id: input.roomId,
+  p_shared_room_intent: input.sharedRoomIntent,
+  p_request_id: input.requestId,
+});
+
+export async function createSharedRoomFamilyBooking(
+  input: CreateSharedRoomFamilyBookingInput,
+) {
+  const result = await supabase.rpc(
+    "create_shared_room_family_booking",
+    sharedRoomFamilyBookingRpcArgs(input),
+  );
+  if (result.error) throw result.error;
+  return result.data as CreateSharedRoomFamilyBookingResult;
+}
+
 export const familyBookingRepository: FamilyBookingRepositoryContract = {
   async create(input) {
     const result = await supabase.rpc("create_family_booking", rpcArgs(input));
@@ -178,4 +210,30 @@ export function familyBookingErrorMessage(error: unknown) {
     return "예약 정보가 변경되었습니다. 최신 정보를 확인한 뒤 다시 시도해 주세요.";
   }
   return message || "Family Booking을 생성하지 못했습니다.";
+}
+
+export function sharedRoomFamilyBookingErrorMessage(error: unknown) {
+  const source = error as { code?: string; message?: string } | null;
+  const code = source?.code ?? "";
+  const message = source?.message ?? "";
+  if (code === "23P01" || /이미 사용|점유|room.*conflict/i.test(message)) {
+    return "선택한 객실을 다른 예약이 먼저 사용했습니다. 다른 객실을 선택해 주세요.";
+  }
+  if (code === "23514" && /capacity|객실.*부족|이용 가능/i.test(message)) {
+    return "선택한 기간에 이용 가능한 디럭스 객실이 없습니다.";
+  }
+  if (code === "23514" && /DELUXE|디럭스/i.test(message)) {
+    return "같은 객실 투숙은 디럭스 객실에서만 가능합니다.";
+  }
+  if (code === "23514" && /customer|보호자/i.test(message)) {
+    return "같은 보호자의 반려견만 같은 객실에 예약할 수 있습니다.";
+  }
+  if (code === "42501") return "호텔 예약을 생성할 권한이 없습니다.";
+  if (code === "40001" || code === "PT409") {
+    return "예약 정보가 변경되었습니다. 최신 객실 상태를 확인한 뒤 다시 시도해 주세요.";
+  }
+  if (/request_id|request/i.test(message)) {
+    return "이미 처리된 예약 요청과 입력 내용이 다릅니다. 입력을 확인해 주세요.";
+  }
+  return "호텔 예약을 완료하지 못했습니다. 다시 시도해 주세요.";
 }
