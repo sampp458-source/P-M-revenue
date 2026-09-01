@@ -33,15 +33,26 @@ describe("Multi-Dog Shared Room frontend contract", () => {
     expect(repository).not.toContain('.from("hotel_physical_occupancy_requests")');
   });
 
-  it("reads requested shared groups once and keeps their member Stay identities for suppression", () => {
+  it("reads requested shared groups through one canonical RPC without direct Family table access", () => {
     const repository = source("./multiDogSharedRoomRepository.ts");
-    expect(repository).toContain('.from("family_shared_room_groups")');
-    expect(repository).toContain('.eq("status", "requested")');
-    expect(repository).toContain('.eq("source_kind", "shared_group")');
-    expect(repository).toContain('.lt("normalized_starts_at", selectedNextDayStart.toISOString())');
-    expect(repository).toContain('.gt("normalized_ends_at", selectedDayStart.toISOString())');
-    expect(repository).toContain("hotelStayId: member.hotel_stay_id");
-    expect(repository).toContain("group.requested_capacity !== dogMembers.length");
+    expect(repository).toContain('"get_unassigned_shared_hotel_room_groups"');
+    expect(repository).toContain("{ p_date: date }");
+    expect(repository).not.toContain('.from("family_shared_room_groups")');
+    expect(repository).not.toContain('.from("family_bookings")');
+    expect(repository).not.toContain('.from("family_booking_members")');
+  });
+
+  it("keeps the core Hotel load independent from the optional Shared Group read", () => {
+    const operations = source("../pages/HotelOperations.tsx");
+    const coreLoad = operations.slice(
+      operations.indexOf("const loadPage = useCallback"),
+      operations.indexOf("useEffect(() =>", operations.indexOf("const loadPage = useCallback")),
+    );
+    expect(coreLoad).toContain("void loadUnassignedSharedGroups(selectedDate)");
+    expect(coreLoad).toContain("fetchHotelOperationsSnapshot(selectedDate)");
+    expect(coreLoad).not.toContain("sharedHotelRoomRepository.listUnassigned(selectedDate)");
+    expect(operations).toContain("unassignedSharedGroupsError={unassignedSharedGroupsError}");
+    expect(operations).toContain("onRetryUnassignedSharedGroups");
   });
 
   it("sends explicit intent and existing Stay identities to one atomic merge RPC", () => {

@@ -310,6 +310,7 @@ export function HotelOperationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const directStayHandledRef = useRef<string | null>(null);
   const roomBoardLoadSequenceRef = useRef(0);
+  const sharedGroupLoadSequenceRef = useRef(0);
   const [selectedDate, setSelectedDate] = useState(() => seoulDateKey());
   const [quickFilter, setQuickFilter] = useState<HotelQuickFilter>("all");
   const [showSupportDetails, setShowSupportDetails] = useState(false);
@@ -318,6 +319,8 @@ export function HotelOperationsPage() {
     useState<DaycareReservation[]>([]);
   const [sharedOccupancies, setSharedOccupancies] = useState<readonly SharedHotelOccupancy[]>([]);
   const [unassignedSharedGroups, setUnassignedSharedGroups] = useState<readonly UnassignedSharedRoomGroup[]>([]);
+  const [unassignedSharedGroupsError, setUnassignedSharedGroupsError] = useState("");
+  const [unassignedSharedGroupsLoading, setUnassignedSharedGroupsLoading] = useState(false);
   const [sharedMemberStays, setSharedMemberStays] = useState<readonly HotelStay[]>([]);
   const [selectedSharedOccupancyId, setSelectedSharedOccupancyId] = useState<string | null>(null);
   const [options, setOptions] = useState<OperationScheduleOptions>(emptyOptions);
@@ -404,33 +407,53 @@ export function HotelOperationsPage() {
     return Promise.all(stayIds.map((stayId) => fetchHotelStay(stayId)));
   }, []);
 
+  const loadUnassignedSharedGroups = useCallback(async (date: string) => {
+    const loadSequence = ++sharedGroupLoadSequenceRef.current;
+    setUnassignedSharedGroups([]);
+    setUnassignedSharedGroupsError("");
+    setUnassignedSharedGroupsLoading(true);
+    try {
+      const groups = await sharedHotelRoomRepository.listUnassigned(date);
+      if (loadSequence !== sharedGroupLoadSequenceRef.current) return;
+      setUnassignedSharedGroups(groups);
+    } catch {
+      if (loadSequence !== sharedGroupLoadSequenceRef.current) return;
+      setUnassignedSharedGroupsError(
+        "함께 투숙 미배정 예약을 불러오지 못했습니다.",
+      );
+    } finally {
+      if (loadSequence === sharedGroupLoadSequenceRef.current) {
+        setUnassignedSharedGroupsLoading(false);
+      }
+    }
+  }, []);
+
   const loadSnapshot = useCallback(async (date: string) => {
     if (!isValidHotelSnapshotDate(date)) return null;
-    const [value, shared, unassignedShared, daycare] = await Promise.all([
+    const [value, shared, daycare] = await Promise.all([
       fetchHotelOperationsSnapshot(date),
       sharedHotelRoomRepository.listForDate(date),
-      sharedHotelRoomRepository.listUnassigned(date),
       fetchDaycareOperationsForDate(date),
     ]);
     const memberStays = await loadSharedMemberStays(shared);
     setSnapshot(value);
     setSharedOccupancies(shared);
-    setUnassignedSharedGroups(unassignedShared);
     setSharedMemberStays(memberStays);
     setDaycareReservations(daycare);
+    await loadUnassignedSharedGroups(date);
     return value;
-  }, [loadSharedMemberStays]);
+  }, [loadSharedMemberStays, loadUnassignedSharedGroups]);
 
   const loadPage = useCallback(async () => {
     if (!profile || !isValidHotelSnapshotDate(selectedDate)) return;
     const loadSequence = ++roomBoardLoadSequenceRef.current;
     setLoading(true);
     setLoadError("");
+    void loadUnassignedSharedGroups(selectedDate);
     try {
-      const [nextSnapshot, nextShared, nextUnassignedShared, nextDaycare, nextOptions, nextRole] = await Promise.all([
+      const [nextSnapshot, nextShared, nextDaycare, nextOptions, nextRole] = await Promise.all([
         fetchHotelOperationsSnapshot(selectedDate),
         sharedHotelRoomRepository.listForDate(selectedDate),
-        sharedHotelRoomRepository.listUnassigned(selectedDate),
         fetchDaycareOperationsForDate(selectedDate),
         fetchOperationScheduleOptions(),
         fetchCurrentOperationRole(profile.id),
@@ -439,7 +462,6 @@ export function HotelOperationsPage() {
       if (loadSequence !== roomBoardLoadSequenceRef.current) return;
       setSnapshot(nextSnapshot);
       setSharedOccupancies(nextShared);
-      setUnassignedSharedGroups(nextUnassignedShared);
       setSharedMemberStays(nextSharedMemberStays);
       setDaycareReservations(nextDaycare);
       setOptions(nextOptions);
@@ -453,7 +475,7 @@ export function HotelOperationsPage() {
         setLoading(false);
       }
     }
-  }, [loadSharedMemberStays, profile, selectedDate]);
+  }, [loadSharedMemberStays, loadUnassignedSharedGroups, profile, selectedDate]);
 
   useEffect(() => {
     void loadPage();
@@ -1139,6 +1161,8 @@ export function HotelOperationsPage() {
         snapshot={snapshot}
         sharedOccupancies={sharedOccupancies}
         unassignedSharedGroups={unassignedSharedGroups}
+        unassignedSharedGroupsError={unassignedSharedGroupsError}
+        unassignedSharedGroupsLoading={unassignedSharedGroupsLoading}
         sharedMemberStays={sharedMemberStays}
         daycareReservations={daycareReservations}
         selectedDate={selectedDate}
@@ -1150,6 +1174,9 @@ export function HotelOperationsPage() {
         onOpenSharedOccupancy={setSelectedSharedOccupancyId}
         onDropStay={dropStayOnRoom}
         onDropSharedGroup={dropSharedGroupOnRoom}
+        onRetryUnassignedSharedGroups={() => {
+          void loadUnassignedSharedGroups(selectedDate);
+        }}
         onUnassignStay={requestUnassignRoom}
       />
 

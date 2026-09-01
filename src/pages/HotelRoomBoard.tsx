@@ -953,6 +953,8 @@ export function HotelRoomBoard({
   snapshot,
   sharedOccupancies = [],
   unassignedSharedGroups = [],
+  unassignedSharedGroupsError = "",
+  unassignedSharedGroupsLoading = false,
   sharedMemberStays = [],
   daycareReservations = [],
   selectedDate,
@@ -964,11 +966,14 @@ export function HotelRoomBoard({
   onOpenSharedOccupancy = () => undefined,
   onDropStay,
   onDropSharedGroup = () => undefined,
+  onRetryUnassignedSharedGroups = () => undefined,
   onUnassignStay,
 }: {
   snapshot: HotelOperationsSnapshot;
   sharedOccupancies?: readonly SharedHotelOccupancy[];
   unassignedSharedGroups?: readonly UnassignedSharedRoomGroup[];
+  unassignedSharedGroupsError?: string;
+  unassignedSharedGroupsLoading?: boolean;
   sharedMemberStays?: readonly HotelStay[];
   daycareReservations?: readonly DaycareReservation[];
   selectedDate: string;
@@ -984,6 +989,7 @@ export function HotelRoomBoard({
     requiresRoomTypeChange: boolean,
   ) => void;
   onDropSharedGroup?: (sharedRoomGroupId: string, roomId: string) => void;
+  onRetryUnassignedSharedGroups?: () => void;
   onUnassignStay: (stayId: string) => void;
 }) {
   const [draggedStayId, setDraggedStayId] = useState<string | null>(null);
@@ -999,6 +1005,7 @@ export function HotelRoomBoard({
     Partial<Record<"DELUXE" | "STANDARD", boolean>>
   >({});
   const mobileProjection = useMobileRoomBoardProjection();
+  const unassignedSharedGroupsUnavailable = Boolean(unassignedSharedGroupsError);
   const boardInstant = selectedDateIsToday
     ? new Date().toISOString()
     : undefined;
@@ -1473,7 +1480,15 @@ export function HotelRoomBoard({
             {[
               ["빈방", boardSummary.empty, "border-slate-200 bg-slate-50 text-slate-700"],
               ["이용중", boardSummary.inHouse, "border-emerald-200 bg-emerald-50 text-emerald-900"],
-              ["미배정", boardSummary.unassigned, "border-amber-200 bg-amber-50 text-amber-900"],
+              [
+                "미배정",
+                unassignedSharedGroupsUnavailable
+                  ? "확인 필요"
+                  : unassignedSharedGroupsLoading
+                    ? "확인 중"
+                    : boardSummary.unassigned,
+                "border-amber-200 bg-amber-50 text-amber-900",
+              ],
               [selectedDateIsToday ? "오늘 입실" : "입실", boardSummary.checkIn, "border-blue-200 bg-blue-50 text-blue-900"],
               [selectedDateIsToday ? "오늘 퇴실" : "퇴실", boardSummary.checkOut, "border-orange-200 bg-orange-50 text-orange-950"],
             ].map(([label, value, className]) => (
@@ -1485,7 +1500,10 @@ export function HotelRoomBoard({
                 )}
               >
                 <dt className="text-xs font-bold">{label}</dt>
-                <dd className="text-lg font-black tabular-nums">{value}</dd>
+                <dd className={cn(
+                  "font-black tabular-nums",
+                  typeof value === "number" ? "text-lg" : "text-xs",
+                )}>{value}</dd>
               </div>
             ))}
           </dl>
@@ -1522,7 +1540,9 @@ export function HotelRoomBoard({
             onPointerUp={commitUnassignDrop}
             className={cn(
               "min-w-0 rounded-2xl border border-amber-200/80 bg-[#fbfaf7] px-4 shadow-[inset_3px_0_0_0_rgb(245_158_11_/_0.5)]",
-              unassigned.length || unassignedSharedGroups.length ? "py-3.5" : "py-2.5",
+              unassigned.length || unassignedSharedGroups.length || unassignedSharedGroupsError || unassignedSharedGroupsLoading
+                ? "py-3.5"
+                : "py-2.5",
               Boolean(
                 draggedStay && canDropHotelStayToUnassigned(draggedStay),
               ) &&
@@ -1532,7 +1552,7 @@ export function HotelRoomBoard({
             <div
               className={cn(
                 "flex items-center justify-between gap-2",
-                (unassigned.length > 0 || unassignedSharedGroups.length > 0) && "mb-3",
+                (unassigned.length > 0 || unassignedSharedGroups.length > 0 || unassignedSharedGroupsError || unassignedSharedGroupsLoading) && "mb-3",
               )}
             >
               <div>
@@ -1540,17 +1560,45 @@ export function HotelRoomBoard({
                   호실 미배정
                 </h3>
                 <p className="mt-0.5 text-xs text-text-secondary">
-                  {unassigned.length || unassignedSharedGroups.length
+                  {unassignedSharedGroupsError
+                    ? "함께 투숙 미배정 예약은 현재 확인이 필요합니다."
+                    : unassignedSharedGroupsLoading
+                      ? "함께 투숙 미배정 예약을 확인하고 있습니다."
+                      : unassigned.length || unassignedSharedGroups.length
                     ? mobileProjection
                       ? "입실 대기 · 이동 아이콘을 누른 뒤 대상 호실을 선택하세요"
                       : "입실 대기 · 호실로 드래그하세요"
                     : "현재 미배정 예약이 없습니다."}
                 </p>
               </div>
-              <Badge tone={unassigned.length || unassignedSharedGroups.length ? "amber" : "gray"}>
-                {unassigned.length + unassignedSharedGroups.length}건
+              <Badge tone={unassigned.length || unassignedSharedGroups.length || unassignedSharedGroupsError ? "amber" : "gray"}>
+                {unassignedSharedGroupsError
+                  ? "확인 필요"
+                  : unassignedSharedGroupsLoading
+                    ? "확인 중"
+                    : `${unassigned.length + unassignedSharedGroups.length}건`}
               </Badge>
             </div>
+            {unassignedSharedGroupsError ? (
+              <div
+                role="alert"
+                className="mb-3 flex flex-col gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-900 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="font-extrabold">{unassignedSharedGroupsError}</p>
+                  <p className="mt-0.5 text-xs font-medium text-red-800">
+                    기존 객실 현황은 계속 사용할 수 있습니다. 함께 투숙 예약만 다시 확인해 주세요.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onRetryUnassignedSharedGroups}
+                  className="min-h-10 shrink-0 rounded-lg border border-red-300 bg-white px-3 py-2 text-xs font-extrabold text-red-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                >
+                  다시 시도
+                </button>
+              </div>
+            ) : null}
             {unassignedSharedGroups.length ? (
               <section aria-label="함께 투숙 미배정" className="mb-3">
                 <div className="mb-2 flex items-center gap-2">

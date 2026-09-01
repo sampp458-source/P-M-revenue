@@ -187,6 +187,52 @@ describe("Hotel Room Board operations UX", () => {
     expect(sharedCard).toHaveTextContent("3마리 · 객실 1실");
   });
 
+  it("distinguishes a failed Shared Group read from a real zero result and retries only that read", () => {
+    const retry = vi.fn();
+    const { rerender } = render(
+      <HotelRoomBoard
+        {...boardProps(snapshot([]), "2026-08-13")}
+        unassignedSharedGroupsError="함께 투숙 미배정 예약을 불러오지 못했습니다."
+        onRetryUnassignedSharedGroups={retry}
+      />,
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "함께 투숙 미배정 예약을 불러오지 못했습니다.",
+    );
+    expect(screen.getByText("기존 객실 현황은 계속 사용할 수 있습니다. 함께 투숙 예약만 다시 확인해 주세요.")).toBeVisible();
+    expect(screen.queryByText("현재 미배정 예약이 없습니다.")).toBeNull();
+    expect(screen.getAllByText("확인 필요").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    expect(retry).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("heading", { name: "객실 현황" })).toBeVisible();
+
+    rerender(
+      <HotelRoomBoard
+        {...boardProps(snapshot([]), "2026-08-13")}
+        unassignedSharedGroups={[unassignedSharedGroup()]}
+        onRetryUnassignedSharedGroups={retry}
+      />,
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(
+      screen.getByTestId("hotel-room-board-unassigned-shared-shared-group-1"),
+    ).toBeVisible();
+  });
+
+  it("keeps the canonical empty state when the Shared Group read succeeds with zero rows", () => {
+    render(
+      <HotelRoomBoard
+        {...boardProps(snapshot([]), "2026-08-13")}
+        unassignedSharedGroups={[]}
+      />,
+    );
+
+    expect(screen.getByText("현재 미배정 예약이 없습니다.")).toBeVisible();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("keeps shared-only identity off single and independent unassigned Stay cards", () => {
     const dogA = stay();
     const dogB = stay({ id: "stay-2", dogId: "dog-2", dogName: "먼지" });
