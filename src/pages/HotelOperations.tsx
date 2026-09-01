@@ -58,8 +58,15 @@ import {
   existingStaySharedRoomCandidates,
 } from "./SharedHotelRoomModal";
 import { LongStayOperationsPanel } from "./LongStayOperationsPanel";
-import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
-import { sharedHotelRoomRepository } from "../platform/multiDogSharedRoomRepository";
+import {
+  resolveSharedRoomAssignmentAttempt,
+  type SharedHotelOccupancy,
+  type UnassignedSharedRoomGroup,
+} from "../platform/multiDogSharedRoomContract";
+import {
+  sharedHotelRoomErrorMessage,
+  sharedHotelRoomRepository,
+} from "../platform/multiDogSharedRoomRepository";
 import {
   assignHotelRoom,
   cancelHotelReservation,
@@ -310,6 +317,7 @@ export function HotelOperationsPage() {
   const [daycareReservations, setDaycareReservations] =
     useState<DaycareReservation[]>([]);
   const [sharedOccupancies, setSharedOccupancies] = useState<readonly SharedHotelOccupancy[]>([]);
+  const [unassignedSharedGroups, setUnassignedSharedGroups] = useState<readonly UnassignedSharedRoomGroup[]>([]);
   const [sharedMemberStays, setSharedMemberStays] = useState<readonly HotelStay[]>([]);
   const [selectedSharedOccupancyId, setSelectedSharedOccupancyId] = useState<string | null>(null);
   const [options, setOptions] = useState<OperationScheduleOptions>(emptyOptions);
@@ -341,6 +349,8 @@ export function HotelOperationsPage() {
   const roomBoardUndoTimerRef = useRef<number | null>(null);
   const latestRoomBoardStayRef = useRef<Map<string, HotelStay>>(new Map());
   const roomBoardInFlightRef = useRef<Set<string>>(new Set());
+  const sharedGroupDropInFlightRef = useRef<Set<string>>(new Set());
+  const sharedGroupDropAttemptRef = useRef<Map<string, { roomId: string; requestId: string }>>(new Map());
 
   const rememberLatestRoomBoardStay = useCallback((stay: HotelStay) => {
     const remembered = latestRoomBoardStayRef.current.get(stay.id);
@@ -396,14 +406,16 @@ export function HotelOperationsPage() {
 
   const loadSnapshot = useCallback(async (date: string) => {
     if (!isValidHotelSnapshotDate(date)) return null;
-    const [value, shared, daycare] = await Promise.all([
+    const [value, shared, unassignedShared, daycare] = await Promise.all([
       fetchHotelOperationsSnapshot(date),
       sharedHotelRoomRepository.listForDate(date),
+      sharedHotelRoomRepository.listUnassigned(date),
       fetchDaycareOperationsForDate(date),
     ]);
     const memberStays = await loadSharedMemberStays(shared);
     setSnapshot(value);
     setSharedOccupancies(shared);
+    setUnassignedSharedGroups(unassignedShared);
     setSharedMemberStays(memberStays);
     setDaycareReservations(daycare);
     return value;
@@ -415,9 +427,10 @@ export function HotelOperationsPage() {
     setLoading(true);
     setLoadError("");
     try {
-      const [nextSnapshot, nextShared, nextDaycare, nextOptions, nextRole] = await Promise.all([
+      const [nextSnapshot, nextShared, nextUnassignedShared, nextDaycare, nextOptions, nextRole] = await Promise.all([
         fetchHotelOperationsSnapshot(selectedDate),
         sharedHotelRoomRepository.listForDate(selectedDate),
+        sharedHotelRoomRepository.listUnassigned(selectedDate),
         fetchDaycareOperationsForDate(selectedDate),
         fetchOperationScheduleOptions(),
         fetchCurrentOperationRole(profile.id),
@@ -426,6 +439,7 @@ export function HotelOperationsPage() {
       if (loadSequence !== roomBoardLoadSequenceRef.current) return;
       setSnapshot(nextSnapshot);
       setSharedOccupancies(nextShared);
+      setUnassignedSharedGroups(nextUnassignedShared);
       setSharedMemberStays(nextSharedMemberStays);
       setDaycareReservations(nextDaycare);
       setOptions(nextOptions);
@@ -821,6 +835,59 @@ export function HotelOperationsPage() {
     );
   };
 
+  const dropSharedGroupOnRoom = (sharedRoomGroupId: string, roomId: string) => {
+    const group = unassignedSharedGroups.find(
+      (item) => item.sharedRoomGroupId === sharedRoomGroupId,
+    );
+    const room = snapshot?.rooms.find((item) => item.id === roomId);
+    if (!group || !room || processing || sharedGroupDropInFlightRef.current.has(sharedRoomGroupId)) {
+      return;
+    }
+    if (
+      room.roomTypeCode.trim().toUpperCase() !== "DELUXE" ||
+      room.roomTypeId !== group.roomTypeId
+    ) {
+      setToast({
+        tone: "error",
+        message: "같은 객실 투숙은 디럭스 객실에만 배정할 수 있습니다.",
+      });
+      return;
+    }
+    const attempt = resolveSharedRoomAssignmentAttempt(
+      sharedGroupDropAttemptRef.current.get(sharedRoomGroupId),
+      roomId,
+      requestId,
+    );
+    sharedGroupDropAttemptRef.current.set(sharedRoomGroupId, attempt);
+    sharedGroupDropInFlightRef.current.add(sharedRoomGroupId);
+    setProcessing(true);
+    void (async () => {
+      try {
+        await sharedHotelRoomRepository.create(
+          sharedRoomGroupId,
+          roomId,
+          attempt.requestId,
+        );
+        sharedGroupDropAttemptRef.current.delete(sharedRoomGroupId);
+        await loadSnapshot(selectedDate);
+        setToast({
+          tone: "success",
+          title: group.dogMembers.map((member) => member.dogName).join(" · "),
+          message: `${room.name}에 함께 투숙하도록 배정했습니다.`,
+        });
+      } catch (error) {
+        await loadSnapshot(selectedDate).catch(() => undefined);
+        setToast({
+          tone: "error",
+          message: sharedHotelRoomErrorMessage(error),
+        });
+      } finally {
+        sharedGroupDropInFlightRef.current.delete(sharedRoomGroupId);
+        setProcessing(false);
+      }
+    })();
+  };
+
   const requestUnassignRoom = (stayId: string) => {
     const stay = currentRoomBoardStay(stayId);
     if (
@@ -1071,6 +1138,7 @@ export function HotelOperationsPage() {
       <HotelRoomBoard
         snapshot={snapshot}
         sharedOccupancies={sharedOccupancies}
+        unassignedSharedGroups={unassignedSharedGroups}
         sharedMemberStays={sharedMemberStays}
         daycareReservations={daycareReservations}
         selectedDate={selectedDate}
@@ -1081,6 +1149,7 @@ export function HotelOperationsPage() {
         onOpenStay={(stayId) => void openStay(stayId)}
         onOpenSharedOccupancy={setSelectedSharedOccupancyId}
         onDropStay={dropStayOnRoom}
+        onDropSharedGroup={dropSharedGroupOnRoom}
         onUnassignStay={requestUnassignRoom}
       />
 

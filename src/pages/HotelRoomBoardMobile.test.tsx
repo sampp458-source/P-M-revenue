@@ -221,7 +221,7 @@ describe("Hotel Room Board mobile projection", () => {
     expect(sharedCard).toHaveTextContent("망치");
     expect(sharedCard).toHaveTextContent("펀치");
     expect(sharedCard).toHaveTextContent("세번째아주긴이름");
-    expect(sharedCard).toHaveTextContent("Shared Room · 3마리");
+    expect(sharedCard).toHaveTextContent("함께 투숙 · 3마리 · 객실 1실");
     expect(sharedCard).not.toHaveTextContent("Capacity");
     expect(screen.getByRole("button", { name: "초코 데이케어" })).toHaveTextContent("데이케어 · 이용중");
     expect(screen.getByTestId("hotel-room-board-room-standard-1")).toHaveAttribute("data-room-phase", "in_house");

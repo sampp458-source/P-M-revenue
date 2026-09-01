@@ -2,11 +2,21 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { sharedHotelRoomErrorMessage } from "./multiDogSharedRoomRepository";
+import { resolveSharedRoomAssignmentAttempt } from "./multiDogSharedRoomContract";
 
 const source = (path: string) => readFileSync(resolve(import.meta.dirname, path), "utf8");
 
 describe("Multi-Dog Shared Room frontend contract", () => {
-  it("uses only approved RPCs and never accesses shared tables directly", () => {
+  it("reuses one assignment request ID only for a retry to the same room", () => {
+    const ids = ["assignment-1", "assignment-2"];
+    const createId = () => ids.shift()!;
+    const first = resolveSharedRoomAssignmentAttempt(undefined, "room-1", createId);
+    const retry = resolveSharedRoomAssignmentAttempt(first, "room-1", createId);
+    const differentRoom = resolveSharedRoomAssignmentAttempt(retry, "room-2", createId);
+    expect(retry.requestId).toBe("assignment-1");
+    expect(differentRoom.requestId).toBe("assignment-2");
+  });
+  it("uses approved mutation RPCs and never queries physical mutation tables directly", () => {
     const repository = source("./multiDogSharedRoomRepository.ts");
     [
       "get_hotel_shared_room_occupancies",
@@ -23,6 +33,17 @@ describe("Multi-Dog Shared Room frontend contract", () => {
     expect(repository).not.toContain('.from("hotel_physical_occupancy_requests")');
   });
 
+  it("reads requested shared groups once and keeps their member Stay identities for suppression", () => {
+    const repository = source("./multiDogSharedRoomRepository.ts");
+    expect(repository).toContain('.from("family_shared_room_groups")');
+    expect(repository).toContain('.eq("status", "requested")');
+    expect(repository).toContain('.eq("source_kind", "shared_group")');
+    expect(repository).toContain('.lt("normalized_starts_at", selectedNextDayStart.toISOString())');
+    expect(repository).toContain('.gt("normalized_ends_at", selectedDayStart.toISOString())');
+    expect(repository).toContain("hotelStayId: member.hotel_stay_id");
+    expect(repository).toContain("group.requested_capacity !== dogMembers.length");
+  });
+
   it("sends explicit intent and existing Stay identities to one atomic merge RPC", () => {
     const repository = source("./multiDogSharedRoomRepository.ts");
     expect(repository).toContain("p_hotel_stay_ids: hotelStayIds");
@@ -35,8 +56,8 @@ describe("Multi-Dog Shared Room frontend contract", () => {
     const board = source("../pages/HotelRoomBoard.tsx");
     expect(board).toContain("sharedByRoom");
     expect(board).toContain("sharedMemberStayIds");
-    expect(board).toContain("객실 1 · Capacity");
-    expect(board).toContain("Shared Room · {activeMembers.length}마리");
+    expect(board).not.toContain("객실 1 · Capacity");
+    expect(board).toContain("함께 투숙 · {activeMembers.length}마리 · 객실 1실");
     expect(board).toContain("...sharedByRoom.keys()");
     expect(board).toContain("occupiedRoomIds.has(room.id)");
   });
@@ -53,9 +74,9 @@ describe("Multi-Dog Shared Room frontend contract", () => {
   });
 
   it("maps policy, room, capacity and replay conflicts to staff-safe messages", () => {
-    expect(sharedHotelRoomErrorMessage({ code: "23P01" })).toContain("이미 사용 중");
-    expect(sharedHotelRoomErrorMessage({ code: "23514", message: "DELUXE" })).toContain("DELUXE");
-    expect(sharedHotelRoomErrorMessage({ code: "PT409" })).toContain("최신 객실 상태");
+    expect(sharedHotelRoomErrorMessage({ code: "23P01" })).toContain("다른 예약이 먼저 사용");
+    expect(sharedHotelRoomErrorMessage({ code: "23514", message: "DELUXE" })).toContain("디럭스 객실에만");
+    expect(sharedHotelRoomErrorMessage({ code: "PT409" })).toContain("다른 객실을 선택");
     expect(sharedHotelRoomErrorMessage({ code: "42501" })).toContain("권한");
   });
 

@@ -5,6 +5,7 @@ import type {
   CreateFamilyBookingInput,
   CreateFamilyBookingMemberInput,
   CreateSharedRoomFamilyBookingInput,
+  CreateUnassignedSharedRoomFamilyBookingInput,
   FamilyBookingRecord,
   FamilyBookingRepositoryContract,
 } from "./familyBookingRepositoryContract";
@@ -135,6 +136,12 @@ export interface CreateSharedRoomFamilyBookingResult {
   replayed: boolean;
 }
 
+export interface CreateUnassignedSharedRoomFamilyBookingResult {
+  familyBooking: FamilyBookingRecord;
+  sharedRoomGroupId: string;
+  replayed: boolean;
+}
+
 export const sharedRoomFamilyBookingRpcArgs = (
   input: CreateSharedRoomFamilyBookingInput,
 ) => ({
@@ -157,6 +164,29 @@ export async function createSharedRoomFamilyBooking(
   );
   if (result.error) throw result.error;
   return result.data as CreateSharedRoomFamilyBookingResult;
+}
+
+export const unassignedSharedRoomFamilyBookingRpcArgs = (
+  input: CreateUnassignedSharedRoomFamilyBookingInput,
+) => ({
+  p_customer_id: input.customerId,
+  p_common_memo: input.commonMemo,
+  p_payment_bundle_requested: input.paymentBundleRequested,
+  p_members: input.members,
+  p_room_type_id: input.roomTypeId,
+  p_shared_room_intent: input.sharedRoomIntent,
+  p_request_id: input.requestId,
+});
+
+export async function createUnassignedSharedRoomFamilyBooking(
+  input: CreateUnassignedSharedRoomFamilyBookingInput,
+) {
+  const result = await supabase.rpc(
+    "create_unassigned_shared_room_family_booking",
+    unassignedSharedRoomFamilyBookingRpcArgs(input),
+  );
+  if (result.error) throw result.error;
+  return result.data as CreateUnassignedSharedRoomFamilyBookingResult;
 }
 
 export const familyBookingRepository: FamilyBookingRepositoryContract = {

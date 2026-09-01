@@ -85,16 +85,16 @@ import {
 } from "./operationsScheduleRepository";
 import { LegacyHotelConversionModal } from "./LegacyHotelConversionModal";
 import {
-  createSharedRoomFamilyBooking,
+  createUnassignedSharedRoomFamilyBooking,
   familyBookingErrorMessage,
   familyBookingRepository,
   sharedRoomFamilyBookingErrorMessage,
-  type CreateSharedRoomFamilyBookingResult,
+  type CreateUnassignedSharedRoomFamilyBookingResult,
 } from "../platform/familyBookingRepository";
 import type {
   CreateFamilyBookingInput,
   CreateFamilyHotelMemberInput,
-  CreateSharedRoomFamilyBookingInput,
+  CreateUnassignedSharedRoomFamilyBookingInput,
   FamilyBookingRecord,
 } from "../platform/familyBookingRepositoryContract";
 
@@ -407,7 +407,7 @@ export function hotelReservationInputFromForm(
 
 export type HotelMultiDogCreation =
   | { mode: "independent"; input: CreateFamilyBookingInput }
-  | { mode: "shared"; input: CreateSharedRoomFamilyBookingInput };
+  | { mode: "shared"; input: CreateUnassignedSharedRoomFamilyBookingInput };
 
 export function hotelMultiDogCreationFromForm(
   form: ScheduleForm,
@@ -447,28 +447,6 @@ export function hotelMultiDogCreationFromForm(
       error: "같은 객실 투숙은 디럭스 객실에서만 가능합니다.",
     };
   }
-  if (
-    shared &&
-    (form.hotelCheckInTimeUnspecified || form.hotelCheckOutTimeUnspecified)
-  ) {
-    return {
-      creation: null,
-      error: "같은 객실 투숙은 입실·퇴실 시간을 모두 선택해 주세요.",
-    };
-  }
-  const selectedRoom = snapshot.rooms.find(
-    (room) =>
-      room.id === form.hotelSharedRoomId &&
-      room.isActive &&
-      room.roomTypeId === form.hotelRoomTypeId &&
-      room.roomTypeCode.trim().toUpperCase() === "DELUXE",
-  );
-  if (shared && !selectedRoom) {
-    return {
-      creation: null,
-      error: "함께 투숙할 디럭스 객실을 선택해 주세요.",
-    };
-  }
 
   const members: CreateFamilyHotelMemberInput[] = form.dogIds.map((dogId) => ({
     stableMemberKey: dogId,
@@ -501,7 +479,6 @@ export function hotelMultiDogCreationFromForm(
           input: {
             ...familyInput,
             roomTypeId: selectedRoomType!.id,
-            roomId: selectedRoom!.id,
             sharedRoomIntent: true,
           },
         },
@@ -592,8 +569,8 @@ export interface NewScheduleCreateDependencies {
     input: CreateFamilyBookingInput,
   ) => Promise<FamilyBookingRecord>;
   createSharedHotelFamily?: (
-    input: CreateSharedRoomFamilyBookingInput,
-  ) => Promise<CreateSharedRoomFamilyBookingResult>;
+    input: CreateUnassignedSharedRoomFamilyBookingInput,
+  ) => Promise<CreateUnassignedSharedRoomFamilyBookingResult>;
 }
 
 export type NewScheduleCreateResult =
@@ -604,7 +581,7 @@ export type NewScheduleCreateResult =
       value:
         | HotelStay
         | FamilyBookingRecord
-        | CreateSharedRoomFamilyBookingResult;
+        | CreateUnassignedSharedRoomFamilyBookingResult;
     }
   | { kind: "operation"; value: OperationSchedule };
 
@@ -654,7 +631,7 @@ export async function createNewScheduleFromForm(
         try {
           const value = await (
             dependencies.createSharedHotelFamily ??
-            createSharedRoomFamilyBooking
+            createUnassignedSharedRoomFamilyBooking
           )(prepared.creation.input);
           const hotelStayId = value.familyBooking.members[0]?.hotelStayId;
           if (!hotelStayId) {
@@ -1619,12 +1596,6 @@ export function ScheduleFormModal({
   const deluxeRoomType = hotelSnapshot?.roomTypes.find(
     (roomType) => roomType.code.trim().toUpperCase() === "DELUXE",
   );
-  const activeDeluxeRooms = (hotelSnapshot?.rooms ?? [])
-    .filter(
-      (room) =>
-        room.isActive && room.roomTypeCode.trim().toUpperCase() === "DELUXE",
-    )
-    .sort((left, right) => left.sortOrder - right.sortOrder);
   const canonicalDogDirectory = options?.dogs ?? [];
   const selectedHotelCustomerId = hotelMode ? form.customerIds[0] : undefined;
   const selectableDogs = selectedHotelCustomerId
@@ -2225,14 +2196,6 @@ export function ScheduleFormModal({
                             ? deluxeRoomType?.id ?? ""
                             : form.hotelRoomTypeId,
                         hotelSharedRoomId: "",
-                        hotelCheckInTimeUnspecified:
-                          value === "shared"
-                            ? false
-                            : form.hotelCheckInTimeUnspecified,
-                        hotelCheckOutTimeUnspecified:
-                          value === "shared"
-                            ? false
-                            : form.hotelCheckOutTimeUnspecified,
                       })
                     }
                   />
@@ -2241,32 +2204,10 @@ export function ScheduleFormModal({
               ))}
             </div>
             {form.hotelRoomUsageIntent === "shared" ? (
-              <div className="space-y-3">
-                <p className="text-xs font-medium text-text-secondary">
-                  같은 객실 투숙은 디럭스 객실에서만 가능합니다.
-                </p>
-                <Field label="함께 투숙할 객실" required>
-                  <Select
-                    aria-label="함께 투숙할 객실"
-                    value={form.hotelSharedRoomId}
-                    onChange={(event) =>
-                      patch({ hotelSharedRoomId: event.target.value })
-                    }
-                  >
-                    <option value="">디럭스 객실 선택</option>
-                    {activeDeluxeRooms.map((room) => (
-                      <option key={room.id} value={room.id}>
-                        {room.roomTypeName} · {room.name}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                {activeDeluxeRooms.length === 0 ? (
-                  <p className="text-xs font-medium text-error">
-                    선택 가능한 활성 디럭스 객실이 없습니다.
-                  </p>
-                ) : null}
-              </div>
+              <p className="rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 text-xs font-semibold leading-5 text-blue-900">
+                같은 객실 투숙은 디럭스 객실에서만 가능합니다.<br />
+                실제 객실은 호텔 운영에서 배정합니다.
+              </p>
             ) : null}
           </fieldset>
         ) : null}

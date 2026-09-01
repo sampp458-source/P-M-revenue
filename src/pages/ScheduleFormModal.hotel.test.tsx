@@ -35,6 +35,7 @@ import type {
 import {
   sharedRoomFamilyBookingErrorMessage,
   sharedRoomFamilyBookingRpcArgs,
+  unassignedSharedRoomFamilyBookingRpcArgs,
 } from "../platform/familyBookingRepository";
 
 const options: OperationScheduleOptions = {
@@ -543,8 +544,9 @@ describe("shared ScheduleFormModal Hotel mode", () => {
     expect(screen.getByText("같은 객실에서 함께 투숙")).toBeTruthy();
 
     fireEvent.click(screen.getByText("같은 객실에서 함께 투숙"));
-    expect(screen.getByText("같은 객실 투숙은 디럭스 객실에서만 가능합니다.")).toBeTruthy();
-    expect(screen.getByText("함께 투숙할 객실")).toBeTruthy();
+    expect(screen.getByText(/같은 객실 투숙은 디럭스 객실에서만 가능합니다/)).toBeTruthy();
+    expect(screen.getByText(/실제 객실은 호텔 운영에서 배정합니다/)).toBeTruthy();
+    expect(screen.queryByText("함께 투숙할 객실")).toBeNull();
   });
 
   it("maps two independent Dogs to one atomic Family Booking call", async () => {
@@ -603,7 +605,7 @@ describe("shared ScheduleFormModal Hotel mode", () => {
           { hotelStayId: "stay-2" },
         ],
       },
-      occupancy: { dogCount: 2 },
+      sharedRoomGroupId: "shared-group-1",
       replayed: false,
     });
     const createHotel = vi.fn();
@@ -627,10 +629,10 @@ describe("shared ScheduleFormModal Hotel mode", () => {
       expect.objectContaining({
         requestId: "request-shared",
         roomTypeId: "deluxe",
-        roomId: "deluxe-room-1",
         sharedRoomIntent: true,
       }),
     );
+    expect(createSharedHotelFamily.mock.calls[0][0]).not.toHaveProperty("roomId");
     expect(createSharedHotelFamily.mock.calls[0][0].members).toHaveLength(2);
     expect(createSharedHotelFamily.mock.calls[0][0].members.every(
       (member: { memo: string | null }) => member.memo === form.memo,
@@ -706,7 +708,7 @@ describe("shared ScheduleFormModal Hotel mode", () => {
           { hotelStayId: "stay-3" },
         ],
       },
-      occupancy: { dogCount: 3, allocationCount: 1, sharedCapacityQuantity: 1 },
+      sharedRoomGroupId: "shared-group-1",
       replayed: false,
     });
 
@@ -727,7 +729,7 @@ describe("shared ScheduleFormModal Hotel mode", () => {
     expect(createSharedHotelFamily.mock.calls[0][0].commonMemo).toBeNull();
   });
 
-  it("rejects non-DELUXE, missing-room and cross-customer shared requests before mutation", () => {
+  it("rejects non-DELUXE and cross-customer shared requests without requiring a physical room", () => {
     const form = initializeHotelScheduleForm(generalForm(), options, snapshot);
     form.customerIds = ["customer-1"];
     form.dogIds = ["dog-1", "dog-2"];
@@ -747,7 +749,7 @@ describe("shared ScheduleFormModal Hotel mode", () => {
       options,
       snapshot,
       "request-room-missing",
-    ).error).toContain("객실을 선택");
+    ).error).toBe("");
 
     form.dogIds = ["dog-1", "dog-3"];
     form.hotelSharedRoomId = "deluxe-room-1";
@@ -757,6 +759,26 @@ describe("shared ScheduleFormModal Hotel mode", () => {
       snapshot,
       "request-cross-customer",
     ).error).toContain("같은 보호자");
+  });
+
+  it("preserves backend-supported unspecified check-in and check-out times", () => {
+    const form = initializeHotelScheduleForm(generalForm(), options, snapshot);
+    form.customerIds = ["customer-1"];
+    form.dogIds = ["dog-1", "dog-2"];
+    form.hotelRoomUsageIntent = "shared";
+    form.hotelRoomTypeId = "deluxe";
+    form.hotelCheckInTimeUnspecified = true;
+    form.hotelCheckOutTimeUnspecified = true;
+
+    const result = hotelMultiDogCreationFromForm(form, options, snapshot, "request-unspecified");
+    expect(result.error).toBe("");
+    expect(result.creation?.input.members.every((member) =>
+      member.serviceType === "hotel" &&
+      member.checkInTime === null &&
+      member.checkOutTime === null &&
+      member.checkInTimeUnspecified &&
+      member.checkOutTimeUnspecified
+    )).toBe(true);
   });
 
   it("reuses a request ID only for the exact same retry payload", () => {
@@ -805,6 +827,28 @@ describe("shared ScheduleFormModal Hotel mode", () => {
       p_shared_room_intent: true,
       p_request_id: "request-shared",
     }));
+  });
+
+  it("maps the unassigned facade without a physical room argument", () => {
+    const args = unassignedSharedRoomFamilyBookingRpcArgs({
+      customerId: "customer-1",
+      commonMemo: null,
+      paymentBundleRequested: false,
+      members: [],
+      roomTypeId: "deluxe",
+      sharedRoomIntent: true,
+      requestId: "request-unassigned",
+    });
+    expect(Object.keys(args)).toEqual([
+      "p_customer_id",
+      "p_common_memo",
+      "p_payment_bundle_requested",
+      "p_members",
+      "p_room_type_id",
+      "p_shared_room_intent",
+      "p_request_id",
+    ]);
+    expect(args).not.toHaveProperty("p_room_id");
   });
 
   it("presents room, capacity and generic facade errors without SQL details", () => {

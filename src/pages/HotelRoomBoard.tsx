@@ -13,7 +13,10 @@ import type {
   HotelRoomSnapshot,
   HotelStay,
 } from "./hotelOperationsRepository";
-import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
+import type {
+  SharedHotelOccupancy,
+  UnassignedSharedRoomGroup,
+} from "../platform/multiDogSharedRoomContract";
 import type { DaycareReservation } from "./daycareOperationsRepository";
 import {
   activeHotelAllocation,
@@ -33,6 +36,41 @@ export type HotelRoomBoardRoomTarget =
   | "same_type"
   | "change_type"
   | "blocked";
+
+export type HotelRoomBoardDragPayload =
+  | { kind: "stay"; stayId: string }
+  | { kind: "shared_group"; sharedRoomGroupId: string };
+
+export function serializeHotelRoomBoardDragPayload(payload: HotelRoomBoardDragPayload) {
+  return JSON.stringify(payload);
+}
+
+export function parseHotelRoomBoardDragPayload(value: string): HotelRoomBoardDragPayload | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value) as Partial<HotelRoomBoardDragPayload>;
+    if (parsed.kind === "stay" && typeof parsed.stayId === "string") {
+      return { kind: "stay", stayId: parsed.stayId };
+    }
+    if (parsed.kind === "shared_group" && typeof parsed.sharedRoomGroupId === "string") {
+      return { kind: "shared_group", sharedRoomGroupId: parsed.sharedRoomGroupId };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export function hotelRoomBoardSharedGroupCanDrop(
+  group: UnassignedSharedRoomGroup,
+  room: HotelRoomSnapshot,
+  occupied: boolean,
+) {
+  return !occupied &&
+    room.isActive &&
+    room.roomTypeCode.trim().toUpperCase() === "DELUXE" &&
+    room.roomTypeId === group.roomTypeId;
+}
 
 const ROOM_BOARD_DRAG_THRESHOLD = 7;
 const MOBILE_ROOM_BOARD_QUERY = "(max-width: 767px)";
@@ -585,9 +623,92 @@ export function SharedRoomCard({
           );
         })}
       </span>
-      <span className={cn("mt-1 block font-semibold", mobile ? "text-xs" : "text-[11px]")}>Shared Room · {activeMembers.length}마리</span>
-      {!mobile ? <span className="mt-0.5 block text-[10px] text-slate-600">객실 1 · Capacity {occupancy.capacityUsed}</span> : null}
+      <span className={cn("mt-1 block font-semibold", mobile ? "text-xs" : "text-[11px]")}>함께 투숙 · {activeMembers.length}마리 · 객실 1실</span>
     </button>
+  );
+}
+
+function UnassignedSharedRoomCard({
+  group,
+  disabled,
+  dragging,
+  mobile,
+  onSelectForDrop,
+  onDragStart,
+  onPointerStart,
+}: {
+  group: UnassignedSharedRoomGroup;
+  disabled: boolean;
+  dragging: boolean;
+  mobile: boolean;
+  onSelectForDrop: (sharedRoomGroupId: string) => void;
+  onDragStart: (event: DragEvent<HTMLDivElement>, sharedRoomGroupId: string) => void;
+  onPointerStart: (sharedRoomGroupId: string) => void;
+}) {
+  const pointerOriginRef = useRef<{ x: number; y: number } | null>(null);
+  const draggable = !disabled;
+  const format = (value: string) => new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(new Date(value));
+  return (
+    <div
+      draggable={draggable}
+      data-testid={`hotel-room-board-unassigned-shared-${group.sharedRoomGroupId}`}
+      onDragStart={(event) => draggable && onDragStart(event, group.sharedRoomGroupId)}
+      onPointerDown={(event) => {
+        if (draggable) pointerOriginRef.current = { x: event.clientX, y: event.clientY };
+      }}
+      onPointerMove={(event) => {
+        const origin = pointerOriginRef.current;
+        if (!origin || !draggable) return;
+        if (isHotelRoomBoardDragGesture(event.clientX - origin.x, event.clientY - origin.y)) {
+          pointerOriginRef.current = null;
+          onPointerStart(group.sharedRoomGroupId);
+        }
+      }}
+      onPointerUp={() => { pointerOriginRef.current = null; }}
+      className={cn(
+        "group relative select-none rounded-xl border border-indigo-300 bg-indigo-50 text-indigo-950 shadow-sm transition",
+        mobile ? "px-3 py-3" : "px-3 py-2.5",
+        draggable && "cursor-grab hover:-translate-y-0.5 hover:shadow-lg active:cursor-grabbing",
+        dragging && "scale-[1.03] opacity-40 ring-2 ring-indigo-300",
+        disabled && "opacity-60",
+      )}
+    >
+      <div className="flex items-start gap-1.5">
+        <button
+          type="button"
+          aria-label={`${group.dogMembers.map((member) => member.dogName).join(" · ")} 객실 배정 시작`}
+          disabled={!draggable}
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => {
+            event.stopPropagation();
+            if (draggable) onSelectForDrop(group.sharedRoomGroupId);
+          }}
+          className="-m-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl opacity-60 hover:bg-white/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+        >
+          <GripVertical size={17} />
+        </button>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <strong className="break-keep text-sm font-extrabold leading-5">
+              {group.dogMembers.map((member) => member.dogName).join(" · ")}
+            </strong>
+            <Badge tone="blue">함께 투숙</Badge>
+          </div>
+          <p className="mt-1 text-xs font-bold text-indigo-800">DELUXE · 미배정</p>
+          <p className="mt-0.5 text-xs font-semibold tabular-nums text-indigo-700">
+            {format(group.reservedFrom)} → {format(group.reservedUntil)}
+          </p>
+          <p className="mt-0.5 text-[11px] font-bold text-indigo-700">{group.dogCount}마리 · 객실 1실</p>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -599,7 +720,9 @@ function RoomCell({
   staysById,
   selectedDate,
   draggedStay,
+  draggedSharedGroup,
   draggedStayId,
+  draggedSharedGroupId,
   returningStayId,
   settlingStayId,
   hoveredRoomId,
@@ -610,6 +733,7 @@ function RoomCell({
   onOpenStay,
   onOpenSharedOccupancy,
   onDropStay,
+  onDropSharedGroup,
   onDragStart,
   onSelectForDrop,
   onPointerDrop,
@@ -624,7 +748,9 @@ function RoomCell({
   staysById: ReadonlyMap<string, HotelStay>;
   selectedDate: string;
   draggedStay: HotelStay | null;
+  draggedSharedGroup: UnassignedSharedRoomGroup | null;
   draggedStayId: string | null;
+  draggedSharedGroupId: string | null;
   returningStayId: string | null;
   settlingStayId: string | null;
   hoveredRoomId: string | null;
@@ -639,6 +765,7 @@ function RoomCell({
     roomId: string,
     requiresRoomTypeChange: boolean,
   ) => void;
+  onDropSharedGroup: (sharedRoomGroupId: string, roomId: string) => void;
   onDragStart: (event: DragEvent<HTMLDivElement>, stayId: string) => void;
   onSelectForDrop: (stayId: string) => void;
   onPointerDrop: (roomId: string) => void;
@@ -649,9 +776,15 @@ function RoomCell({
   const targetState = draggedStay
     ? hotelRoomBoardRoomTarget(draggedStay, room, stays.length > 0 || Boolean(sharedOccupancy) || Boolean(daycareReservation))
     : "blocked";
-  const acceptsDraggedStay =
+  const occupied = stays.length > 0 || Boolean(sharedOccupancy) || Boolean(daycareReservation);
+  const acceptsDraggedSharedGroup = Boolean(
+    draggedSharedGroup &&
+    hotelRoomBoardSharedGroupCanDrop(draggedSharedGroup, room, occupied),
+  );
+  const acceptsDraggedStay = acceptsDraggedSharedGroup || (
     targetState !== "blocked" &&
-    (targetState !== "change_type" || allowCrossTypeChange);
+    (targetState !== "change_type" || allowCrossTypeChange)
+  );
   const requiresRoomTypeChange = targetState === "change_type";
   const isHoveredDropTarget = acceptsDraggedStay && hoveredRoomId === room.id;
   const roomStage = daycareReservation && !mobile
@@ -691,11 +824,21 @@ function RoomCell({
       onDrop={(event) => {
         event.preventDefault();
         onTargetHover(null);
+        const payload = parseHotelRoomBoardDragPayload(
+          event.dataTransfer.getData("application/x-hotel-room-board-drag"),
+        );
+        const sharedRoomGroupId =
+          (payload?.kind === "shared_group" ? payload.sharedRoomGroupId : "") ||
+          event.dataTransfer.getData("application/x-hotel-shared-group-id") ||
+          draggedSharedGroupId;
         const stayId =
+          (payload?.kind === "stay" ? payload.stayId : "") ||
           event.dataTransfer.getData("application/x-hotel-stay-id") ||
           event.dataTransfer.getData("text/plain") ||
           draggedStayId;
-        if (stayId && acceptsDraggedStay) {
+        if (sharedRoomGroupId && acceptsDraggedSharedGroup) {
+          onDropSharedGroup(sharedRoomGroupId, room.id);
+        } else if (stayId && acceptsDraggedStay) {
           onDropStay(stayId, room.id, requiresRoomTypeChange);
         }
       }}
@@ -719,7 +862,7 @@ function RoomCell({
           (requiresRoomTypeChange
             ? "z-10 scale-[1.015] border-2 border-solid border-amber-600 bg-amber-50 shadow-[0_14px_30px_rgb(180_83_9_/_0.22)]"
             : "z-10 scale-[1.015] border-2 border-solid border-primary bg-primary-subtle shadow-[0_14px_30px_rgb(39_76_119_/_0.22),inset_0_0_0_1px_rgb(39_76_119_/_0.22)]"),
-        Boolean(draggedStay) && !acceptsDraggedStay && "opacity-55",
+        Boolean(draggedStay || draggedSharedGroup) && !acceptsDraggedStay && "opacity-55",
         recommended &&
           acceptsDraggedStay &&
           !isHoveredDropTarget &&
@@ -798,7 +941,9 @@ function RoomCell({
             : "scale-95 opacity-0",
         )}
       >
-        {requiresRoomTypeChange ? "유형 변경 후 배정" : "여기에 배정"}
+        {draggedSharedGroup
+          ? "함께 투숙 배정"
+          : requiresRoomTypeChange ? "유형 변경 후 배정" : "여기에 배정"}
       </div>
     </div>
   );
@@ -807,6 +952,7 @@ function RoomCell({
 export function HotelRoomBoard({
   snapshot,
   sharedOccupancies = [],
+  unassignedSharedGroups = [],
   sharedMemberStays = [],
   daycareReservations = [],
   selectedDate,
@@ -817,10 +963,12 @@ export function HotelRoomBoard({
   onOpenStay,
   onOpenSharedOccupancy = () => undefined,
   onDropStay,
+  onDropSharedGroup = () => undefined,
   onUnassignStay,
 }: {
   snapshot: HotelOperationsSnapshot;
   sharedOccupancies?: readonly SharedHotelOccupancy[];
+  unassignedSharedGroups?: readonly UnassignedSharedRoomGroup[];
   sharedMemberStays?: readonly HotelStay[];
   daycareReservations?: readonly DaycareReservation[];
   selectedDate: string;
@@ -835,9 +983,11 @@ export function HotelRoomBoard({
     roomId: string,
     requiresRoomTypeChange: boolean,
   ) => void;
+  onDropSharedGroup?: (sharedRoomGroupId: string, roomId: string) => void;
   onUnassignStay: (stayId: string) => void;
 }) {
   const [draggedStayId, setDraggedStayId] = useState<string | null>(null);
+  const [draggedSharedGroupId, setDraggedSharedGroupId] = useState<string | null>(null);
   const [hoveredRoomId, setHoveredRoomId] = useState<string | null>(null);
   const [settlingRoomId, setSettlingRoomId] = useState<string | null>(null);
   const [settlingStayId, setSettlingStayId] = useState<string | null>(null);
@@ -853,6 +1003,7 @@ export function HotelRoomBoard({
     ? new Date().toISOString()
     : undefined;
   const draggedStayIdRef = useRef<string | null>(null);
+  const draggedSharedGroupIdRef = useRef<string | null>(null);
   const dragModeRef = useRef<"pointer" | "selected" | null>(null);
   const dropCommittedRef = useRef(false);
   const previousRoomByStayRef = useRef<Map<string, string | null> | null>(null);
@@ -877,8 +1028,11 @@ export function HotelRoomBoard({
     [sharedMemberStays, snapshot.stays, snapshot.unassignedFuture],
   );
   const sharedMemberStayIds = useMemo(
-    () => new Set(sharedOccupancies.flatMap((occupancy) => occupancy.members.map((member) => member.hotelStayId))),
-    [sharedOccupancies],
+    () => new Set([
+      ...sharedOccupancies.flatMap((occupancy) => occupancy.members.map((member) => member.hotelStayId)),
+      ...unassignedSharedGroups.flatMap((group) => group.dogMembers.map((member) => member.hotelStayId)),
+    ]),
+    [sharedOccupancies, unassignedSharedGroups],
   );
   const boardStays = useMemo(() => {
     const byId = new Map<string, HotelStay>();
@@ -916,6 +1070,8 @@ export function HotelRoomBoard({
   }, [sharedOccupancies]);
   const draggedStay =
     boardStays.find((stay) => stay.id === draggedStayId) ?? null;
+  const draggedSharedGroup =
+    unassignedSharedGroups.find((group) => group.sharedRoomGroupId === draggedSharedGroupId) ?? null;
   const roomStays = useMemo(() => {
     const entries = new Map<string, HotelStay[]>();
     stays.forEach((stay) => {
@@ -956,7 +1112,7 @@ export function HotelRoomBoard({
     const phases = boardStays.map((stay) => hotelStayDayPhase(stay, selectedDate));
     return {
       empty: Math.max(activeRooms.length - occupiedRoomIds.size, 0),
-      unassigned: unassigned.length,
+      unassigned: unassigned.length + unassignedSharedGroups.length,
       checkIn: phases.filter(
         (phase) => phase === "입실" || phase === "입실·퇴실",
       ).length,
@@ -965,7 +1121,7 @@ export function HotelRoomBoard({
         (phase) => phase === "퇴실" || phase === "입실·퇴실",
       ).length,
     };
-  }, [activeRooms.length, boardStays, occupiedRoomIds.size, selectedDate, sharedOccupancies, unassigned.length]);
+  }, [activeRooms.length, boardStays, occupiedRoomIds.size, selectedDate, sharedOccupancies, unassigned.length, unassignedSharedGroups.length]);
   useEffect(() => {
     const current = new Map(
       stays.map((stay) => [stay.id, stayRoomId(stay, boardInstant)] as const),
@@ -1003,7 +1159,9 @@ export function HotelRoomBoard({
     dropCommittedRef.current = false;
     dragModeRef.current = "pointer";
     draggedStayIdRef.current = stayId;
+    draggedSharedGroupIdRef.current = null;
     setDraggedStayId(stayId);
+    setDraggedSharedGroupId(null);
   };
   const selectForDrop = (stayId: string) => {
     if (
@@ -1018,7 +1176,9 @@ export function HotelRoomBoard({
     dropCommittedRef.current = false;
     dragModeRef.current = "selected";
     draggedStayIdRef.current = stayId;
+    draggedSharedGroupIdRef.current = null;
     setDraggedStayId(stayId);
+    setDraggedSharedGroupId(null);
   };
   const beginNativeDrag = (
     event: DragEvent<HTMLDivElement>,
@@ -1026,6 +1186,10 @@ export function HotelRoomBoard({
   ) => {
     beginPointerDrag(stayId);
     event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(
+      "application/x-hotel-room-board-drag",
+      serializeHotelRoomBoardDragPayload({ kind: "stay", stayId }),
+    );
     event.dataTransfer.setData("application/x-hotel-stay-id", stayId);
     event.dataTransfer.setData("text/plain", stayId);
     const preview = event.currentTarget.cloneNode(true) as HTMLElement;
@@ -1053,6 +1217,44 @@ export function HotelRoomBoard({
     event.dataTransfer.setDragImage(preview, offsetX, offsetY);
     requestAnimationFrame(() => preview.remove());
   };
+  const beginSharedGroupPointerDrag = (sharedRoomGroupId: string) => {
+    dropCommittedRef.current = false;
+    dragModeRef.current = "pointer";
+    draggedStayIdRef.current = null;
+    draggedSharedGroupIdRef.current = sharedRoomGroupId;
+    setDraggedStayId(null);
+    setDraggedSharedGroupId(sharedRoomGroupId);
+  };
+  const selectSharedGroupForDrop = (sharedRoomGroupId: string) => {
+    if (
+      dragModeRef.current === "selected" &&
+      draggedSharedGroupIdRef.current === sharedRoomGroupId
+    ) {
+      dragModeRef.current = null;
+      draggedSharedGroupIdRef.current = null;
+      setDraggedSharedGroupId(null);
+      return;
+    }
+    dropCommittedRef.current = false;
+    dragModeRef.current = "selected";
+    draggedStayIdRef.current = null;
+    draggedSharedGroupIdRef.current = sharedRoomGroupId;
+    setDraggedStayId(null);
+    setDraggedSharedGroupId(sharedRoomGroupId);
+  };
+  const beginSharedGroupNativeDrag = (
+    event: DragEvent<HTMLDivElement>,
+    sharedRoomGroupId: string,
+  ) => {
+    beginSharedGroupPointerDrag(sharedRoomGroupId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(
+      "application/x-hotel-room-board-drag",
+      serializeHotelRoomBoardDragPayload({ kind: "shared_group", sharedRoomGroupId }),
+    );
+    event.dataTransfer.setData("application/x-hotel-shared-group-id", sharedRoomGroupId);
+    event.dataTransfer.setData("text/plain", sharedRoomGroupId);
+  };
   const commitDrop = (stayId: string, roomId: string) => {
     if (dropCommittedRef.current) return;
     dropCommittedRef.current = true;
@@ -1067,7 +1269,24 @@ export function HotelRoomBoard({
     if (targetState === "blocked") return;
     onDropStay(stayId, roomId, targetState === "change_type");
   };
+  const commitSharedGroupDrop = (sharedRoomGroupId: string, roomId: string) => {
+    if (dropCommittedRef.current) return;
+    const group = unassignedSharedGroups.find((item) => item.sharedRoomGroupId === sharedRoomGroupId);
+    const room = activeRooms.find((item) => item.id === roomId);
+    if (!group || !room || !hotelRoomBoardSharedGroupCanDrop(group, room, occupiedRoomIds.has(room.id))) return;
+    dropCommittedRef.current = true;
+    onDropSharedGroup(sharedRoomGroupId, roomId);
+  };
   const commitPointerDrop = (roomId: string) => {
+    const sharedRoomGroupId = draggedSharedGroupIdRef.current;
+    const sharedGroup = unassignedSharedGroups.find((item) => item.sharedRoomGroupId === sharedRoomGroupId);
+    const sharedRoom = activeRooms.find((item) => item.id === roomId);
+    if (sharedRoomGroupId && sharedGroup && sharedRoom) {
+      if (!processing && hotelRoomBoardSharedGroupCanDrop(sharedGroup, sharedRoom, occupiedRoomIds.has(roomId))) {
+        commitSharedGroupDrop(sharedRoomGroupId, roomId);
+      }
+      return;
+    }
     const stayId = draggedStayIdRef.current;
     const stay = boardStays.find((item) => item.id === stayId);
     const room = activeRooms.find((item) => item.id === roomId);
@@ -1109,7 +1328,9 @@ export function HotelRoomBoard({
       : null;
     dragModeRef.current = null;
     draggedStayIdRef.current = null;
+    draggedSharedGroupIdRef.current = null;
     setDraggedStayId(null);
+    setDraggedSharedGroupId(null);
     setHoveredRoomId(null);
     if (returningId) {
       setReturningStayId(returningId);
@@ -1161,6 +1382,33 @@ export function HotelRoomBoard({
       })}
     </div>
   );
+  const renderUnassignedSharedGroups = () => (
+    <div className={cn(
+      mobileProjection
+        ? "grid grid-cols-1 gap-2"
+        : "flex gap-3 overflow-x-auto overscroll-x-contain pb-1.5",
+    )}>
+      {unassignedSharedGroups.map((group) => (
+        <div
+          key={group.sharedRoomGroupId}
+          className={cn(!mobileProjection && "min-w-[260px] max-w-[320px] flex-[0_0_290px]")}
+        >
+          <UnassignedSharedRoomCard
+            group={group}
+            disabled={processing}
+            dragging={draggedSharedGroupId === group.sharedRoomGroupId}
+            mobile={mobileProjection}
+            onSelectForDrop={selectSharedGroupForDrop}
+            onDragStart={beginSharedGroupNativeDrag}
+            onPointerStart={beginSharedGroupPointerDrag}
+          />
+          <p className="mt-1 px-1 text-[11px] font-medium text-indigo-700">
+            함께 투숙 예약은 객실 배정 전 개별 수정할 수 없습니다.
+          </p>
+        </div>
+      ))}
+    </div>
+  );
   const renderRoomCell = (room: HotelRoomSnapshot, mobile = false) => (
     <RoomCell
       key={room.id}
@@ -1171,7 +1419,9 @@ export function HotelRoomBoard({
       staysById={staysById}
       selectedDate={selectedDate}
       draggedStay={draggedStay}
+      draggedSharedGroup={draggedSharedGroup}
       draggedStayId={draggedStayId}
+      draggedSharedGroupId={draggedSharedGroupId}
       returningStayId={returningStayId}
       settlingStayId={settlingStayId}
       hoveredRoomId={hoveredRoomId}
@@ -1185,6 +1435,7 @@ export function HotelRoomBoard({
       onOpenStay={onOpenStay}
       onOpenSharedOccupancy={onOpenSharedOccupancy}
       onDropStay={commitDrop}
+      onDropSharedGroup={commitSharedGroupDrop}
       onDragStart={beginNativeDrag}
       onSelectForDrop={selectForDrop}
       onPointerDrop={commitPointerDrop}
@@ -1243,6 +1494,11 @@ export function HotelRoomBoard({
             <span className="sm:hidden">이동 아이콘을 누른 뒤 대상 호실을 누르세요</span>
             <span className="hidden sm:inline">끌어서 호실 배정·이동</span>
           </div>
+          {draggedSharedGroup ? (
+            <p role="status" className="mt-2 rounded-lg bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800">
+              같은 객실 투숙은 디럭스 객실에만 배정할 수 있습니다.
+            </p>
+          ) : null}
         </div>
 
         <div className="flex flex-col gap-5 p-4 sm:p-5 lg:p-6">
@@ -1266,7 +1522,7 @@ export function HotelRoomBoard({
             onPointerUp={commitUnassignDrop}
             className={cn(
               "min-w-0 rounded-2xl border border-amber-200/80 bg-[#fbfaf7] px-4 shadow-[inset_3px_0_0_0_rgb(245_158_11_/_0.5)]",
-              unassigned.length ? "py-3.5" : "py-2.5",
+              unassigned.length || unassignedSharedGroups.length ? "py-3.5" : "py-2.5",
               Boolean(
                 draggedStay && canDropHotelStayToUnassigned(draggedStay),
               ) &&
@@ -1276,7 +1532,7 @@ export function HotelRoomBoard({
             <div
               className={cn(
                 "flex items-center justify-between gap-2",
-                unassigned.length > 0 && "mb-3",
+                (unassigned.length > 0 || unassignedSharedGroups.length > 0) && "mb-3",
               )}
             >
               <div>
@@ -1284,17 +1540,26 @@ export function HotelRoomBoard({
                   호실 미배정
                 </h3>
                 <p className="mt-0.5 text-xs text-text-secondary">
-                  {unassigned.length
+                  {unassigned.length || unassignedSharedGroups.length
                     ? mobileProjection
                       ? "입실 대기 · 이동 아이콘을 누른 뒤 대상 호실을 선택하세요"
                       : "입실 대기 · 호실로 드래그하세요"
                     : "현재 미배정 예약이 없습니다."}
                 </p>
               </div>
-              <Badge tone={unassigned.length ? "amber" : "gray"}>
-                {unassigned.length}건
+              <Badge tone={unassigned.length || unassignedSharedGroups.length ? "amber" : "gray"}>
+                {unassigned.length + unassignedSharedGroups.length}건
               </Badge>
             </div>
+            {unassignedSharedGroups.length ? (
+              <section aria-label="함께 투숙 미배정" className="mb-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <strong className="text-sm text-indigo-900">함께 투숙</strong>
+                  <Badge tone="blue">{unassignedSharedGroups.length}</Badge>
+                </div>
+                {renderUnassignedSharedGroups()}
+              </section>
+            ) : null}
             {unassignedGroups.today.length ? (
               <section aria-label="오늘 입실 미배정">
                 <div className="mb-2 flex items-center gap-2">
@@ -1352,7 +1617,7 @@ export function HotelRoomBoard({
                     <h3 className="text-base font-extrabold text-text-primary">현재 객실</h3>
                     <p className="mt-0.5 text-xs font-medium text-text-secondary">선택한 날짜의 객실 상태</p>
                   </div>
-                  {draggedStay ? <Badge tone="blue">이동할 호실 선택</Badge> : null}
+                  {draggedStay || draggedSharedGroup ? <Badge tone="blue">이동할 호실 선택</Badge> : null}
                 </div>
                 <div className="grid grid-cols-5 gap-1.5" role="group" aria-label="객실 상태">
                   {([
@@ -1365,15 +1630,15 @@ export function HotelRoomBoard({
                     <button
                       key={value}
                       type="button"
-                      aria-pressed={!draggedStay && mobileFilter === value}
-                      disabled={Boolean(draggedStay)}
+                      aria-pressed={!draggedStay && !draggedSharedGroup && mobileFilter === value}
+                      disabled={Boolean(draggedStay || draggedSharedGroup)}
                       onClick={() => setMobileFilter(value)}
                       className={cn(
                         "min-h-11 rounded-xl border px-1.5 text-xs font-extrabold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                        !draggedStay && mobileFilter === value
+                        !draggedStay && !draggedSharedGroup && mobileFilter === value
                           ? "border-primary bg-primary text-white"
                           : "border-slate-200 bg-white text-slate-700",
-                        Boolean(draggedStay) && "opacity-50",
+                        Boolean(draggedStay || draggedSharedGroup) && "opacity-50",
                       )}
                     >
                       {label}
@@ -1387,9 +1652,9 @@ export function HotelRoomBoard({
                 const occupied = rooms.filter((room) => occupiedRoomIds.has(room.id));
                 const empty = rooms.filter((room) => !occupiedRoomIds.has(room.id));
                 const defaultExpanded = occupied.length > 0;
-                const expanded = Boolean(draggedStay) ||
+                const expanded = Boolean(draggedStay || draggedSharedGroup) ||
                   (mobileAccordionState[roomTypeCode] ?? defaultExpanded);
-                const effectiveFilter = draggedStay ? "all" : mobileFilter;
+                const effectiveFilter = draggedStay || draggedSharedGroup ? "all" : mobileFilter;
                 const visibleOccupied = occupied.filter((room) => {
                   if (effectiveFilter === "all") return true;
                   if (effectiveFilter === "empty") return false;

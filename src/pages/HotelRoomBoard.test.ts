@@ -10,6 +10,8 @@ import type {
   HotelStay,
 } from "./hotelOperationsRepository";
 import {
+  parseHotelRoomBoardDragPayload,
+  serializeHotelRoomBoardDragPayload,
   canDropHotelStayToUnassigned,
   hotelRoomBoardCheckInTime,
   hotelRoomBoardDogStatus,
@@ -123,6 +125,14 @@ const renderBoard = (selectedDate: string, stays: HotelStay[], sharedOccupancies
   }));
 
 describe("Hotel Room Board", () => {
+  it("round-trips discriminated Stay and shared-group drag payloads", () => {
+    const stayPayload = { kind: "stay" as const, stayId: "stay-1" };
+    const groupPayload = { kind: "shared_group" as const, sharedRoomGroupId: "group-1" };
+    expect(parseHotelRoomBoardDragPayload(serializeHotelRoomBoardDragPayload(stayPayload))).toEqual(stayPayload);
+    expect(parseHotelRoomBoardDragPayload(serializeHotelRoomBoardDragPayload(groupPayload))).toEqual(groupPayload);
+    expect(parseHotelRoomBoardDragPayload("not-json")).toBeNull();
+  });
+
   it("uses the selected-date day phase even after check-in or checkout processing", () => {
     expect(hotelRoomBoardDogStatus(stay(), "2026-08-05")).toEqual({ label: "입실", stage: "check_in" });
     expect(hotelRoomBoardDogStatus(stay({ checkedInAt: "2026-08-05T06:05:00Z" }), "2026-08-05")).toEqual({ label: "입실", stage: "check_in" });
@@ -222,7 +232,7 @@ describe("Hotel Room Board", () => {
     expect(august14).toMatch(/망치[\s\S]*이용중/);
     expect(august14).toMatch(/몽치[\s\S]*입실/);
     expect(august14).toContain("아주긴이름의반려견세번째");
-    expect(august14).toContain("Shared Room · 3마리");
+    expect(august14).toContain("함께 투숙 · 3마리 · 객실 1실");
     expect(august14).toContain("truncate");
     expect(august14).not.toMatch(/violet|purple|fuchsia/);
     expect(august14).toContain("border-emerald-300 bg-emerald-50 text-emerald-950");
@@ -290,7 +300,7 @@ describe("Hotel Room Board", () => {
     expect(markup).toContain("망치");
     expect(markup).toContain("이용중");
     expect(markup).not.toContain("몽치");
-    expect(markup).toContain("Shared Room · 1마리");
+    expect(markup).toContain("함께 투숙 · 1마리 · 객실 1실");
   });
   it("separates a short card click from an intentional drag gesture", () => {
     expect(isHotelRoomBoardDragGesture(2, 3)).toBe(false);

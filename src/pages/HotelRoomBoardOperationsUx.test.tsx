@@ -3,7 +3,10 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
+import type {
+  SharedHotelOccupancy,
+  UnassignedSharedRoomGroup,
+} from "../platform/multiDogSharedRoomContract";
 import type {
   HotelOperationsSnapshot,
   HotelStay,
@@ -129,6 +132,103 @@ const boardProps = (value: HotelOperationsSnapshot, selectedDate: string) => ({
 });
 
 describe("Hotel Room Board operations UX", () => {
+  const unassignedSharedGroup = (members = [
+    { familyBookingMemberId: "member-1", hotelStayId: "stay-1", dogId: "dog-1", dogName: "감자" },
+    { familyBookingMemberId: "member-2", hotelStayId: "stay-2", dogId: "dog-2", dogName: "먼지" },
+  ]): UnassignedSharedRoomGroup => ({
+    sharedRoomGroupId: "shared-group-1",
+    familyBookingId: "family-1",
+    customerId: "customer-1",
+    customerName: "보호자",
+    dogMembers: members,
+    dogCount: members.length,
+    roomTypeId: "deluxe",
+    roomTypeCode: "DELUXE",
+    reservedFrom: "2026-08-13T06:00:00Z",
+    reservedUntil: "2026-08-15T02:00:00Z",
+    capacityReservationId: "shared-capacity-1",
+    requestedCapacity: 1,
+    status: "requested",
+    version: 1,
+  });
+
+  it("renders one unassigned shared card and suppresses every member Stay card", () => {
+    const dogA = stay();
+    const dogB = stay({ id: "stay-2", dogId: "dog-2", dogName: "먼지" });
+    render(
+      <HotelRoomBoard
+        {...boardProps(snapshot([dogA, dogB]), "2026-08-13")}
+        unassignedSharedGroups={[unassignedSharedGroup()]}
+      />,
+    );
+    const sharedCard = screen.getByTestId("hotel-room-board-unassigned-shared-shared-group-1");
+    expect(sharedCard).toHaveTextContent("감자 · 먼지");
+    expect(sharedCard).toHaveTextContent("함께 투숙");
+    expect(sharedCard).toHaveTextContent("2마리 · 객실 1실");
+    expect(screen.queryByTestId("hotel-room-board-stay-stay-1")).toBeNull();
+    expect(screen.queryByTestId("hotel-room-board-stay-stay-2")).toBeNull();
+    expect(screen.getByText("함께 투숙 예약은 객실 배정 전 개별 수정할 수 없습니다.")).toBeVisible();
+  });
+
+  it("keeps all three Dog names readable on one shared-group card", () => {
+    const members = [
+      { familyBookingMemberId: "member-1", hotelStayId: "stay-1", dogId: "dog-1", dogName: "감자" },
+      { familyBookingMemberId: "member-2", hotelStayId: "stay-2", dogId: "dog-2", dogName: "먼지" },
+      { familyBookingMemberId: "member-3", hotelStayId: "stay-3", dogId: "dog-3", dogName: "가을" },
+    ];
+    render(
+      <HotelRoomBoard
+        {...boardProps(snapshot([]), "2026-08-13")}
+        unassignedSharedGroups={[unassignedSharedGroup(members)]}
+      />,
+    );
+    const sharedCard = screen.getByTestId("hotel-room-board-unassigned-shared-shared-group-1");
+    expect(sharedCard).toHaveTextContent("감자 · 먼지 · 가을");
+    expect(sharedCard).toHaveTextContent("3마리 · 객실 1실");
+  });
+
+  it("keeps shared-only identity off single and independent unassigned Stay cards", () => {
+    const dogA = stay();
+    const dogB = stay({ id: "stay-2", dogId: "dog-2", dogName: "먼지" });
+    render(<HotelRoomBoard {...boardProps(snapshot([dogA, dogB]), "2026-08-13")} />);
+    ["stay-1", "stay-2"].forEach((stayId) => {
+      const card = screen.getByTestId(`hotel-room-board-stay-${stayId}`);
+      expect(card).not.toHaveTextContent("함께 투숙");
+      expect(card).not.toHaveTextContent("객실 1실");
+    });
+  });
+
+  it("routes a shared group only to an empty DELUXE room", () => {
+    const value = snapshot([]);
+    value.rooms = [
+      ...value.rooms,
+      {
+        id: "standard-1",
+        name: "STANDARD 1",
+        roomTypeId: "standard",
+        roomTypeCode: "STANDARD",
+        roomTypeName: "STANDARD",
+        isActive: true,
+        sortOrder: 2,
+      },
+    ];
+    const onDropSharedGroup = vi.fn();
+    render(
+      <HotelRoomBoard
+        {...boardProps(value, "2026-08-13")}
+        unassignedSharedGroups={[unassignedSharedGroup()]}
+        onDropSharedGroup={onDropSharedGroup}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("감자 · 먼지 객실 배정 시작"));
+    expect(screen.getByRole("status")).toHaveTextContent("디럭스 객실에만");
+    fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-standard-1"));
+    expect(onDropSharedGroup).not.toHaveBeenCalled();
+    fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-room-1"));
+    expect(onDropSharedGroup).toHaveBeenCalledTimes(1);
+    expect(onDropSharedGroup).toHaveBeenCalledWith("shared-group-1", "room-1");
+  });
+
   it("resolves phase-aware times without substituting the opposite schedule", () => {
     const hotelStay = stay();
     expect(hotelRoomBoardPhaseTime(hotelStay, "2026-08-13")).toBe("입실 15:00");
@@ -361,7 +461,8 @@ describe("Hotel Room Board operations UX", () => {
     expect(card).toHaveTextContent("퇴실 8/16 11:00");
     expect(card).not.toHaveTextContent("infinity");
     expect(screen.getByText("아주긴이름의망치")).toHaveClass("truncate");
-    expect(card).toHaveTextContent("Shared Room · 3마리");
+    expect(card).toHaveTextContent("함께 투숙 · 3마리");
+    expect(card).toHaveTextContent("3마리 · 객실 1실");
   });
 
   it("includes a completed Long Stay naturally without inventing a separate color system", () => {
