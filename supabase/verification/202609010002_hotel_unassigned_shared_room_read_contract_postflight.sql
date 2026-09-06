@@ -162,19 +162,26 @@ with function_contract as (
         on room_type.id = capacity.room_type_id
        and room_type.is_active
        and room_type.archived_at is null
+      left join public.hotel_physical_occupancies occupancy
+        on occupancy.id = capacity.physical_occupancy_id
+       and occupancy.archived_at is null
       where capacity.archived_at is null
-        and capacity.source_kind = 'shared_group'
+        and capacity.source_kind in ('shared_group', 'shared_occupancy')
         and (
           capacity.quantity <> 1
           or room_type.id is null
           or upper(btrim(room_type.code)) <> 'DELUXE'
+          or (capacity.source_kind = 'shared_occupancy' and (
+            occupancy.id is null
+            or occupancy.room_type_id is distinct from capacity.room_type_id
+          ))
         ))::bigint as non_deluxe_shared_count,
     (select count(*)
       from public.family_booking_members member
       join public.family_shared_room_groups shared_group
         on shared_group.id = member.shared_room_group_id
        and shared_group.archived_at is null
-       and shared_group.status = 'requested'
+       and shared_group.status in ('requested', 'allocated')
       join public.family_bookings booking
         on booking.id = member.family_booking_id
        and booking.id = shared_group.family_booking_id
