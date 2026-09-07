@@ -18,7 +18,10 @@ import {
   hotelRoomBoardUnassignedGroups,
 } from "./HotelRoomBoard";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  document.querySelectorAll('[style*="left: -1000px"]').forEach((node) => node.remove());
+});
 
 const schedule = (
   eventKind: "check_in" | "check_out",
@@ -129,7 +132,45 @@ const boardProps = (value: HotelOperationsSnapshot, selectedDate: string) => ({
   onOpenStay: vi.fn(),
   onDropStay: vi.fn(),
   onUnassignStay: vi.fn(),
+  onUnassignSharedOccupancy: vi.fn(),
 });
+
+const sharedOccupancy = (
+  overrides: Partial<SharedHotelOccupancy> = {},
+): SharedHotelOccupancy => ({
+  id: "occupancy-1",
+  familyBookingId: "family-1",
+  sharedRoomGroupId: "group-1",
+  customerId: "customer-1",
+  roomTypeId: "deluxe",
+  roomTypeCode: "DELUXE",
+  roomId: "room-1",
+  roomName: "DELUXE 1",
+  occupiedFrom: "2026-08-13T06:00:00Z",
+  occupiedUntil: "2026-08-15T02:00:00Z",
+  status: "active",
+  version: 4,
+  capacityReservationId: "shared-capacity-1",
+  roomAllocationId: "shared-allocation-1",
+  capacityUsed: 1,
+  dogCount: 2,
+  members: [
+    { id: "member-1", familyBookingMemberId: "family-member-1", hotelStayId: "stay-1", dogId: "dog-1", dogName: "감자", status: "active", joinedAt: "2026-08-13T06:00:00Z", leftAt: null },
+    { id: "member-2", familyBookingMemberId: "family-member-2", hotelStayId: "stay-2", dogId: "dog-2", dogName: "먼지", status: "active", joinedAt: "2026-08-13T06:00:00Z", leftAt: null },
+  ],
+  ...overrides,
+});
+
+function dragTransfer() {
+  const values = new Map<string, string>();
+  return {
+    effectAllowed: "none",
+    dropEffect: "none",
+    setData: vi.fn((type: string, value: string) => values.set(type, value)),
+    getData: vi.fn((type: string) => values.get(type) ?? ""),
+    setDragImage: vi.fn(),
+  } as unknown as DataTransfer;
+}
 
 describe("Hotel Room Board operations UX", () => {
   const unassignedSharedGroup = (members = [
@@ -288,6 +329,101 @@ describe("Hotel Room Board operations UX", () => {
     fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-room-1"));
     expect(onDropSharedGroup).toHaveBeenCalledTimes(1);
     expect(onDropSharedGroup).toHaveBeenCalledWith("shared-group-1", "room-1");
+  });
+
+  it("routes a pre-check-in Single card drop on the unassigned zone through one unassign request", () => {
+    const hotelStay = allocatedStay({ checkedInAt: null, checkedInBy: null });
+    const onUnassignStay = vi.fn();
+    render(
+      <HotelRoomBoard
+        {...boardProps(snapshot([hotelStay]), "2026-08-13")}
+        onUnassignStay={onUnassignStay}
+      />,
+    );
+    const transfer = dragTransfer();
+    const card = screen.getByTestId("hotel-room-board-stay-stay-1");
+    fireEvent.dragStart(card, {
+      dataTransfer: transfer,
+    });
+    const zone = screen.getByTestId("hotel-room-board-unassigned-drop-zone");
+    fireEvent.dragOver(zone, { dataTransfer: transfer });
+    expect(zone).toHaveTextContent("여기에 놓으면 객실 배정이 해제됩니다");
+    fireEvent.drop(zone, { dataTransfer: transfer });
+    fireEvent.dragEnd(card, {
+      dataTransfer: transfer,
+    });
+    expect(onUnassignStay).toHaveBeenCalledTimes(1);
+    expect(onUnassignStay).toHaveBeenCalledWith("stay-1");
+  });
+
+  it("routes a pre-check-in Shared card drop through one atomic shared unassign request", () => {
+    const memberA = stay();
+    const memberB = stay({ id: "stay-2", dogId: "dog-2", dogName: "먼지" });
+    const onUnassignSharedOccupancy = vi.fn();
+    render(
+      <HotelRoomBoard
+        {...boardProps(snapshot([]), "2026-08-13")}
+        sharedOccupancies={[sharedOccupancy()]}
+        sharedMemberStays={[memberA, memberB]}
+        onUnassignSharedOccupancy={onUnassignSharedOccupancy}
+      />,
+    );
+    const transfer = dragTransfer();
+    const card = screen.getByTestId("shared-room-card-occupancy-1");
+    const draggableCard = card.parentElement;
+    expect(draggableCard).toHaveAttribute("draggable", "true");
+    fireEvent.dragStart(draggableCard!, { dataTransfer: transfer });
+    const zone = screen.getByTestId("hotel-room-board-unassigned-drop-zone");
+    fireEvent.dragOver(zone, { dataTransfer: transfer });
+    expect(zone).toHaveTextContent("여기에 놓으면 객실 배정이 해제됩니다");
+    fireEvent.drop(zone, { dataTransfer: transfer });
+    fireEvent.dragEnd(draggableCard!, { dataTransfer: transfer });
+    expect(onUnassignSharedOccupancy).toHaveBeenCalledTimes(1);
+    expect(onUnassignSharedOccupancy).toHaveBeenCalledWith("occupancy-1", 4);
+  });
+
+  it("rejects checked-in Single and Shared cards from reverse unassignment", () => {
+    const checkedInSingle = allocatedStay();
+    const onUnassignStay = vi.fn();
+    const singleRender = render(
+      <HotelRoomBoard
+        {...boardProps(snapshot([checkedInSingle]), "2026-08-13")}
+        onUnassignStay={onUnassignStay}
+      />,
+    );
+    const singleTransfer = dragTransfer();
+    const checkedInCard = screen.getByTestId("hotel-room-board-stay-stay-1");
+    fireEvent.dragStart(checkedInCard, {
+      dataTransfer: singleTransfer,
+    });
+    fireEvent.drop(screen.getByTestId("hotel-room-board-unassigned-drop-zone"), {
+      dataTransfer: singleTransfer,
+    });
+    fireEvent.dragEnd(checkedInCard, {
+      dataTransfer: singleTransfer,
+    });
+    expect(onUnassignStay).not.toHaveBeenCalled();
+    singleRender.unmount();
+
+    const checkedInMember = allocatedStay({
+      id: "stay-2",
+      dogId: "dog-2",
+      dogName: "먼지",
+    });
+    const onUnassignSharedOccupancy = vi.fn();
+    render(
+      <HotelRoomBoard
+        {...boardProps(snapshot([]), "2026-08-13")}
+        sharedOccupancies={[sharedOccupancy()]}
+        sharedMemberStays={[stay(), checkedInMember]}
+        onUnassignSharedOccupancy={onUnassignSharedOccupancy}
+      />,
+    );
+    expect(screen.getByTestId("shared-room-card-occupancy-1").parentElement).toHaveAttribute(
+      "draggable",
+      "false",
+    );
+    expect(onUnassignSharedOccupancy).not.toHaveBeenCalled();
   });
 
   it("resolves phase-aware times without substituting the opposite schedule", () => {

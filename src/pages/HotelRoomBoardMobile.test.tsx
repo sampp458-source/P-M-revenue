@@ -218,6 +218,7 @@ describe("Hotel Room Board mobile projection", () => {
     render(<HotelRoomBoard {...props()} />);
 
     const sharedCard = screen.getByTestId("shared-room-card-shared-1");
+    expect(sharedCard.parentElement).toHaveAttribute("draggable", "false");
     expect(sharedCard).toHaveTextContent("망치");
     expect(sharedCard).toHaveTextContent("펀치");
     expect(sharedCard).toHaveTextContent("세번째아주긴이름");

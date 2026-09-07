@@ -18,6 +18,7 @@ import {
 } from "./HotelOperationsModals";
 import { activeHotelAllocation, formatHotelScheduleTime } from "./hotelOperationsUi";
 import { hotelRoomBoardDogStatus } from "./HotelRoomBoard";
+import { canUnassignSharedHotelOccupancyBeforeCheckIn } from "./hotelRoomBoardUnassign";
 
 export interface ExistingStaySharedRoomCandidate {
   stay: HotelStay;
@@ -205,12 +206,10 @@ export function SharedHotelRoomModal({
   const checkoutMember = checkoutMemberId
     ? occupancy.members.find((member) => member.id === checkoutMemberId) ?? null
     : null;
-  const canUnassign = occupancy.status === "active"
-    && occupancy.members.length > 0
-    && occupancy.members.every((member) => {
-      const stay = stays[member.hotelStayId];
-      return Boolean(stay) && !stay.checkedInAt && !stay.checkedOutAt;
-    });
+  const canUnassign = canUnassignSharedHotelOccupancyBeforeCheckIn(
+    occupancy,
+    new Map(Object.values(stays).map((stay) => [stay.id, stay])),
+  );
 
   if (plannedCheckoutStay) {
     return (
@@ -345,7 +344,7 @@ export function SharedHotelRoomModal({
         <ConfirmModal
           open={unassignOpen}
           title="객실 배정을 해제할까요?"
-          description="예약과 입·퇴실 일정은 유지되고, 함께 투숙 예약은 DELUXE 미배정 상태로 돌아갑니다."
+          description="예약은 유지되며 호실 미배정 상태로 이동합니다."
           confirmLabel="객실 배정 해제"
           cancelLabel="돌아가기"
           processing={processingMemberId === "unassign"}

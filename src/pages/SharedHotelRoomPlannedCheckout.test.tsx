@@ -11,21 +11,22 @@ const mocks = vi.hoisted(() => ({
   unassign: vi.fn(),
 }));
 
-vi.mock("./hotelOperationsRepository", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("./hotelOperationsRepository")>()),
+vi.mock("./hotelOperationsRepository", () => ({
   fetchHotelStay: mocks.fetchHotelStay,
 }));
 
-vi.mock("../platform/multiDogSharedRoomRepository", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../platform/multiDogSharedRoomRepository")>();
-  return {
-    ...actual,
-    sharedHotelRoomRepository: {
-      ...actual.sharedHotelRoomRepository,
-      unassign: mocks.unassign,
-    },
-  };
-});
+vi.mock("../platform/multiDogSharedRoomRepository", () => ({
+  sharedHotelRoomErrorMessage: (error: unknown) => error instanceof Error ? error.message : "오류",
+  sharedHotelRoomRepository: {
+    checkIn: vi.fn(),
+    checkOut: vi.fn(),
+    get: vi.fn(),
+    mergeExistingStays: vi.fn(),
+    move: vi.fn(),
+    reverseCompletion: vi.fn(),
+    unassign: mocks.unassign,
+  },
+}));
 
 const stay = (
   id: string,
@@ -188,7 +189,12 @@ describe("Shared Room Dog planned checkout UI", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "객실 배정 해제" }));
     expect(screen.getByRole("dialog", { name: "객실 배정을 해제할까요?" })).not.toBeNull();
-    expect(screen.getByText(/예약과 입·퇴실 일정은 유지되고/)).not.toBeNull();
+    expect(screen.getByText("예약은 유지되며 호실 미배정 상태로 이동합니다.")).not.toBeNull();
+    fireEvent.click(within(screen.getByRole("dialog", { name: "객실 배정을 해제할까요?" }))
+      .getByRole("button", { name: "돌아가기" }));
+    expect(mocks.unassign).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "객실 배정 해제" }));
     fireEvent.click(within(screen.getByRole("dialog", { name: "객실 배정을 해제할까요?" }))
       .getByRole("button", { name: "객실 배정 해제" }));
 

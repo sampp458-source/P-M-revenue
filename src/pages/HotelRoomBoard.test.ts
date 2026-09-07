@@ -125,11 +125,14 @@ const renderBoard = (selectedDate: string, stays: HotelStay[], sharedOccupancies
   }));
 
 describe("Hotel Room Board", () => {
-  it("round-trips discriminated Stay and shared-group drag payloads", () => {
+  it("round-trips discriminated Stay, shared-group, and shared-occupancy drag payloads", () => {
     const stayPayload = { kind: "stay" as const, stayId: "stay-1" };
     const groupPayload = { kind: "shared_group" as const, sharedRoomGroupId: "group-1" };
+    const occupancyPayload = { kind: "shared_occupancy" as const, occupancyId: "occupancy-1", expectedVersion: 4 };
     expect(parseHotelRoomBoardDragPayload(serializeHotelRoomBoardDragPayload(stayPayload))).toEqual(stayPayload);
     expect(parseHotelRoomBoardDragPayload(serializeHotelRoomBoardDragPayload(groupPayload))).toEqual(groupPayload);
+    expect(parseHotelRoomBoardDragPayload(serializeHotelRoomBoardDragPayload(occupancyPayload))).toEqual(occupancyPayload);
+    expect(parseHotelRoomBoardDragPayload('{"kind":"shared_occupancy","occupancyId":"occupancy-1","expectedVersion":-1}')).toBeNull();
     expect(parseHotelRoomBoardDragPayload("not-json")).toBeNull();
   });
 
@@ -480,7 +483,9 @@ describe("Hotel Room Board", () => {
     expect(page).toContain("호실을 변경할 수 없습니다");
     expect(page).toContain("해당 기간에 다른 예약이 있습니다.");
     expect(page).toContain("카드 위치는 변경되지 않았습니다.");
-    expect(page).toContain("호실 배정을 해제할까요?");
+    expect(page).toContain("객실 배정을 해제할까요?");
+    expect(page).toContain("예약은 유지되며 호실 미배정 상태로 이동합니다.");
+    expect(page).toContain("sharedHotelRoomRepository.unassign(");
     expect(page).toContain("객실 유형을 변경할까요?");
     expect(page).toContain("이전 유형");
     expect(page).toContain("새 유형");

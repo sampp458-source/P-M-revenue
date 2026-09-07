@@ -47,6 +47,10 @@ import {
   canChangeCheckedInHotelPlannedCheckout,
 } from "./HotelOperationsModals";
 import { HotelRoomBoard } from "./HotelRoomBoard";
+import {
+  canUnassignHotelStayBeforeCheckIn,
+  canUnassignSharedHotelOccupancyBeforeCheckIn,
+} from "./hotelRoomBoardUnassign";
 import { DaycareOperationsPanel } from "./DaycareOperationsPanel";
 import {
   fetchDaycareOperationsForDate,
@@ -338,6 +342,11 @@ export function HotelOperationsPage() {
   const [processingStayId, setProcessingStayId] = useState<string | null>(null);
   const [pendingRoomBoardAction, setPendingRoomBoardAction] =
     useState<PendingRoomBoardAction | null>(null);
+  const [pendingSharedRoomUnassign, setPendingSharedRoomUnassign] = useState<{
+    occupancyId: string;
+    expectedVersion: number;
+    requestId: string;
+  } | null>(null);
   const [scheduleForm, setScheduleForm] = useState<ScheduleForm>(() =>
     emptyForm(),
   );
@@ -937,8 +946,7 @@ export function HotelOperationsPage() {
     const stay = currentRoomBoardStay(stayId);
     if (
       !stay ||
-      stay.checkedInAt ||
-      !activeHotelAllocation(stay) ||
+      !canUnassignHotelStayBeforeCheckIn(stay) ||
       processing ||
       roomBoardInFlightRef.current.has(stayId)
     ) {
@@ -947,11 +955,80 @@ export function HotelOperationsPage() {
     setPendingRoomBoardAction({ kind: "unassign", stayId });
   };
 
+  const requestUnassignSharedOccupancy = (
+    occupancyId: string,
+    expectedVersion: number,
+  ) => {
+    const occupancy = sharedOccupancies.find((item) => item.id === occupancyId);
+    const staysById = new Map(sharedMemberStays.map((stay) => [stay.id, stay]));
+    if (
+      !occupancy ||
+      occupancy.version !== expectedVersion ||
+      processing ||
+      !canUnassignSharedHotelOccupancyBeforeCheckIn(occupancy, staysById)
+    ) {
+      return;
+    }
+    setPendingSharedRoomUnassign({
+      occupancyId,
+      expectedVersion,
+      requestId: requestId(),
+    });
+  };
+
+  const confirmSharedRoomUnassign = () => {
+    if (!pendingSharedRoomUnassign || processing) return;
+    const occupancy = sharedOccupancies.find(
+      (item) => item.id === pendingSharedRoomUnassign.occupancyId,
+    );
+    const staysById = new Map(sharedMemberStays.map((stay) => [stay.id, stay]));
+    if (
+      !occupancy ||
+      occupancy.version !== pendingSharedRoomUnassign.expectedVersion ||
+      !canUnassignSharedHotelOccupancyBeforeCheckIn(occupancy, staysById)
+    ) {
+      setPendingSharedRoomUnassign(null);
+      setToast({
+        tone: "error",
+        message: "최신 객실 상태를 다시 확인해 주세요.",
+      });
+      void loadSnapshot(selectedDate);
+      return;
+    }
+    setProcessing(true);
+    void sharedHotelRoomRepository.unassign(
+      occupancy.id,
+      occupancy.version,
+      "Room Board 공유 객실 배정 해제",
+      pendingSharedRoomUnassign.requestId,
+    ).then(async () => {
+      setPendingSharedRoomUnassign(null);
+      setSelectedSharedOccupancyId(null);
+      await loadSnapshot(selectedDate);
+      setToast({
+        tone: "success",
+        message: "객실 배정을 해제했습니다. 예약은 미배정 상태로 유지됩니다.",
+      });
+    }).catch(async (error) => {
+      await loadSnapshot(selectedDate).catch(() => undefined);
+      setToast({ tone: "error", message: sharedHotelRoomErrorMessage(error) });
+    }).finally(() => setProcessing(false));
+  };
+
   const confirmPendingRoomBoardAction = () => {
     if (!pendingRoomBoardAction || processing || !snapshot) return;
     const stay = currentRoomBoardStay(pendingRoomBoardAction.stayId);
     if (!stay) return;
     if (pendingRoomBoardAction.kind === "unassign") {
+      if (!canUnassignHotelStayBeforeCheckIn(stay)) {
+        setPendingRoomBoardAction(null);
+        setToast({
+          tone: "error",
+          message: "최신 객실 상태를 다시 확인해 주세요.",
+        });
+        void loadSnapshot(selectedDate);
+        return;
+      }
       const previousAllocation = activeHotelAllocation(stay);
       const previousRoom = previousAllocation?.roomName ?? "현재 호실";
       void executeRoomBoardAction(
@@ -1202,6 +1279,7 @@ export function HotelOperationsPage() {
         }}
         onCancelSharedGroup={setCancelSharedGroupId}
         onUnassignStay={requestUnassignRoom}
+        onUnassignSharedOccupancy={requestUnassignSharedOccupancy}
       />
 
       <DaycareOperationsPanel
@@ -1526,7 +1604,7 @@ export function HotelOperationsPage() {
         open={pendingRoomBoardAction !== null}
         title={
           pendingRoomBoardAction?.kind === "unassign"
-            ? "호실 배정을 해제할까요?"
+            ? "객실 배정을 해제할까요?"
             : "객실 유형을 변경할까요?"
         }
         description={(() => {
@@ -1536,7 +1614,7 @@ export function HotelOperationsPage() {
           );
           if (!stay) return null;
           if (pendingRoomBoardAction.kind === "unassign") {
-            return <p>객실 유형 예약은 유지됩니다.</p>;
+            return <p>예약은 유지되며 호실 미배정 상태로 이동합니다.</p>;
           }
           const room = snapshot.rooms.find(
             (row) => row.id === pendingRoomBoardAction.roomId,
@@ -1602,6 +1680,18 @@ export function HotelOperationsPage() {
         }}
         onConfirm={confirmPendingRoomBoardAction}
       />
+      <ConfirmModal
+        open={pendingSharedRoomUnassign !== null}
+        title="객실 배정을 해제할까요?"
+        description="예약은 유지되며 호실 미배정 상태로 이동합니다."
+        confirmLabel="배정 해제"
+        cancelLabel="돌아가기"
+        processing={processing}
+        onClose={() => {
+          if (!processing) setPendingSharedRoomUnassign(null);
+        }}
+        onConfirm={confirmSharedRoomUnassign}
+      />
       {toast ? <Toast message={toast.message} title={toast.title} description={toast.description} tone={toast.tone} onClose={() => setToast(null)} /> : null}
       {roomBoardUndo ? (
         <button
@@ -1657,6 +1747,7 @@ function StayDetailModal({ open, stay, selectedDate, loading, creatorName, share
   const unspecified = stay
     ? hotelStayUnspecifiedState(stay)
     : { checkInTime: false, checkOutTime: false, roomType: false };
+  const canUnassign = stay ? canUnassignHotelStayBeforeCheckIn(stay) : false;
   return (
     <Modal
       open={open}
@@ -1677,7 +1768,7 @@ function StayDetailModal({ open, stay, selectedDate, loading, creatorName, share
         <ResponsiveActionGroup
           className="justify-end"
           primary={<>{!stay.checkedInAt ? <Button type="button" onClick={onCheckIn}>입실 완료</Button> : null}{stay.checkedInAt && !stay.checkedOutAt ? <Button type="button" onClick={onCheckOut}>퇴실 완료</Button> : null}</>}
-          secondary={<>{!stay.checkedInAt ? <Button type="button" variant="secondary" onClick={onEdit}>예약 수정</Button> : null}{canChangeCheckedInHotelPlannedCheckout(stay) ? <Button type="button" variant="secondary" onClick={onChangePlannedCheckout}>퇴실 예정 변경</Button> : null}{canMergeSharedRoom ? <Button type="button" variant="secondary" onClick={onMergeSharedRoom}><BedDouble size={16} /> 같은 방 투숙</Button> : null}{!stay.checkedInAt && !allocation && !unspecified.roomType ? <Button type="button" variant="secondary" onClick={onAssign}>호실 배정</Button> : null}{!stay.checkedInAt && allocation ? <><Button type="button" variant="secondary" onClick={onReassign}>호실 재배정</Button><Button type="button" variant="secondary" onClick={onUnassign}>배정 해제</Button></> : null}{stay.checkedInAt && !stay.checkedOutAt ? <Button type="button" variant="secondary" onClick={onMove}><MoveRight size={16} /> 객실 이동</Button> : null}</>}
+          secondary={<>{!stay.checkedInAt ? <Button type="button" variant="secondary" onClick={onEdit}>예약 수정</Button> : null}{canChangeCheckedInHotelPlannedCheckout(stay) ? <Button type="button" variant="secondary" onClick={onChangePlannedCheckout}>퇴실 예정 변경</Button> : null}{canMergeSharedRoom ? <Button type="button" variant="secondary" onClick={onMergeSharedRoom}><BedDouble size={16} /> 같은 방 투숙</Button> : null}{!stay.checkedInAt && !allocation && !unspecified.roomType ? <Button type="button" variant="secondary" onClick={onAssign}>호실 배정</Button> : null}{!stay.checkedInAt && allocation ? <Button type="button" variant="secondary" onClick={onReassign}>호실 재배정</Button> : null}{canUnassign ? <Button type="button" variant="secondary" onClick={onUnassign}>배정 해제</Button> : null}{stay.checkedInAt && !stay.checkedOutAt ? <Button type="button" variant="secondary" onClick={onMove}><MoveRight size={16} /> 객실 이동</Button> : null}</>}
           destructive={!stay.checkedInAt ? <Button type="button" variant="danger" onClick={onCancel}>예약 취소</Button> : undefined}
         />
       </div>}
