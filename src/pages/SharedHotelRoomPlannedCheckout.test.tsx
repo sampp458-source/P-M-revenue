@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
 import { SharedHotelRoomModal } from "./SharedHotelRoomModal";
@@ -8,12 +8,24 @@ import type { HotelOperationsSnapshot, HotelStay } from "./hotelOperationsReposi
 
 const mocks = vi.hoisted(() => ({
   fetchHotelStay: vi.fn(),
+  unassign: vi.fn(),
 }));
 
 vi.mock("./hotelOperationsRepository", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./hotelOperationsRepository")>()),
   fetchHotelStay: mocks.fetchHotelStay,
 }));
+
+vi.mock("../platform/multiDogSharedRoomRepository", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../platform/multiDogSharedRoomRepository")>();
+  return {
+    ...actual,
+    sharedHotelRoomRepository: {
+      ...actual.sharedHotelRoomRepository,
+      unassign: mocks.unassign,
+    },
+  };
+});
 
 const stay = (
   id: string,
@@ -149,6 +161,53 @@ function renderSharedRoom(
 }
 
 describe("Shared Room Dog planned checkout UI", () => {
+  it("offers one confirmed group-level unassign only while every Dog is pre-check-in", async () => {
+    const preCheckInA = { ...dogA, checkedInAt: null, checkedInBy: null };
+    const preCheckInB = { ...dogB, checkedInAt: null, checkedInBy: null };
+    mocks.fetchHotelStay.mockImplementation((id: string) => Promise.resolve(
+      id === dogA.id ? preCheckInA : preCheckInB,
+    ));
+    mocks.unassign.mockResolvedValue({
+      sharedRoomGroupId: "group-1",
+      status: "requested",
+      version: 5,
+    });
+    const onUnassigned = vi.fn();
+    render(
+      <SharedHotelRoomModal
+        occupancy={occupancy()}
+        snapshot={snapshot}
+        selectedDate="2026-08-14"
+        operationRole="staff"
+        onClose={vi.fn()}
+        onChanged={vi.fn()}
+        onUnassigned={onUnassigned}
+        onChangePlannedCheckout={vi.fn().mockResolvedValue(true)}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "객실 배정 해제" }));
+    expect(screen.getByRole("dialog", { name: "객실 배정을 해제할까요?" })).not.toBeNull();
+    expect(screen.getByText(/예약과 입·퇴실 일정은 유지되고/)).not.toBeNull();
+    fireEvent.click(within(screen.getByRole("dialog", { name: "객실 배정을 해제할까요?" }))
+      .getByRole("button", { name: "객실 배정 해제" }));
+
+    await waitFor(() => expect(mocks.unassign).toHaveBeenCalledTimes(1));
+    expect(mocks.unassign).toHaveBeenCalledWith(
+      "occupancy-1",
+      4,
+      "공유 객실 배정 해제",
+      expect.any(String),
+    );
+    await waitFor(() => expect(onUnassigned).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not offer unassign after any Dog has checked in", async () => {
+    renderSharedRoom();
+    await screen.findByText("망치");
+    expect(screen.queryByRole("button", { name: "객실 배정 해제" })).toBeNull();
+  });
+
   it("shows independent checkout details/actions and reuses the canonical change modal", async () => {
     const onChange = renderSharedRoom();
     expect(await screen.findAllByRole("button", { name: "퇴실 예정 변경" })).toHaveLength(2);

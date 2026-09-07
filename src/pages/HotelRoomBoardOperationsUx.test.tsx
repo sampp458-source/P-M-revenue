@@ -170,6 +170,21 @@ describe("Hotel Room Board operations UX", () => {
     expect(screen.getByText("함께 투숙 예약은 객실 배정 전 개별 수정할 수 없습니다.")).toBeVisible();
   });
 
+  it("routes requested Shared Room cancellation as one group-level action", () => {
+    const cancel = vi.fn();
+    render(
+      <HotelRoomBoard
+        {...boardProps(snapshot([]), "2026-08-13")}
+        unassignedSharedGroups={[unassignedSharedGroup()]}
+        onCancelSharedGroup={cancel}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "예약 취소" }));
+    expect(cancel).toHaveBeenCalledTimes(1);
+    expect(cancel).toHaveBeenCalledWith("shared-group-1");
+  });
+
   it("keeps all three Dog names readable on one shared-group card", () => {
     const members = [
       { familyBookingMemberId: "member-1", hotelStayId: "stay-1", dogId: "dog-1", dogName: "감자" },

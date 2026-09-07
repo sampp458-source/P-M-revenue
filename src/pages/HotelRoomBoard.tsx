@@ -636,6 +636,7 @@ function UnassignedSharedRoomCard({
   onSelectForDrop,
   onDragStart,
   onPointerStart,
+  onCancel,
 }: {
   group: UnassignedSharedRoomGroup;
   disabled: boolean;
@@ -644,6 +645,7 @@ function UnassignedSharedRoomCard({
   onSelectForDrop: (sharedRoomGroupId: string) => void;
   onDragStart: (event: DragEvent<HTMLDivElement>, sharedRoomGroupId: string) => void;
   onPointerStart: (sharedRoomGroupId: string) => void;
+  onCancel: (sharedRoomGroupId: string) => void;
 }) {
   const pointerOriginRef = useRef<{ x: number; y: number } | null>(null);
   const draggable = !disabled;
@@ -706,6 +708,18 @@ function UnassignedSharedRoomCard({
             {format(group.reservedFrom)} → {format(group.reservedUntil)}
           </p>
           <p className="mt-0.5 text-[11px] font-bold text-indigo-700">{group.dogCount}마리 · 객실 1실</p>
+          <button
+            type="button"
+            disabled={disabled}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              onCancel(group.sharedRoomGroupId);
+            }}
+            className="mt-2 min-h-10 rounded-lg border border-red-300 bg-white px-3 text-xs font-extrabold text-red-700 transition hover:bg-red-50 disabled:opacity-50"
+          >
+            예약 취소
+          </button>
         </div>
       </div>
     </div>
@@ -967,6 +981,7 @@ export function HotelRoomBoard({
   onDropStay,
   onDropSharedGroup = () => undefined,
   onRetryUnassignedSharedGroups = () => undefined,
+  onCancelSharedGroup = () => undefined,
   onUnassignStay,
 }: {
   snapshot: HotelOperationsSnapshot;
@@ -990,6 +1005,7 @@ export function HotelRoomBoard({
   ) => void;
   onDropSharedGroup?: (sharedRoomGroupId: string, roomId: string) => void;
   onRetryUnassignedSharedGroups?: () => void;
+  onCancelSharedGroup?: (sharedRoomGroupId: string) => void;
   onUnassignStay: (stayId: string) => void;
 }) {
   const [draggedStayId, setDraggedStayId] = useState<string | null>(null);
@@ -1408,6 +1424,7 @@ export function HotelRoomBoard({
             onSelectForDrop={selectSharedGroupForDrop}
             onDragStart={beginSharedGroupNativeDrag}
             onPointerStart={beginSharedGroupPointerDrag}
+            onCancel={onCancelSharedGroup}
           />
           <p className="mt-1 px-1 text-[11px] font-medium text-indigo-700">
             함께 투숙 예약은 객실 배정 전 개별 수정할 수 없습니다.

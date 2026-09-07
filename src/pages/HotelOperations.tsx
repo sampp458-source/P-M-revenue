@@ -323,6 +323,7 @@ export function HotelOperationsPage() {
   const [unassignedSharedGroupsLoading, setUnassignedSharedGroupsLoading] = useState(false);
   const [sharedMemberStays, setSharedMemberStays] = useState<readonly HotelStay[]>([]);
   const [selectedSharedOccupancyId, setSelectedSharedOccupancyId] = useState<string | null>(null);
+  const [cancelSharedGroupId, setCancelSharedGroupId] = useState<string | null>(null);
   const [options, setOptions] = useState<OperationScheduleOptions>(emptyOptions);
   const [operationRole, setOperationRole] = useState<OperationRole | null>(null);
   const [loading, setLoading] = useState(true);
@@ -354,6 +355,7 @@ export function HotelOperationsPage() {
   const roomBoardInFlightRef = useRef<Set<string>>(new Set());
   const sharedGroupDropInFlightRef = useRef<Set<string>>(new Set());
   const sharedGroupDropAttemptRef = useRef<Map<string, { roomId: string; requestId: string }>>(new Map());
+  const sharedGroupCancelAttemptRef = useRef<Map<string, string>>(new Map());
 
   const rememberLatestRoomBoardStay = useCallback((stay: HotelStay) => {
     const remembered = latestRoomBoardStayRef.current.get(stay.id);
@@ -910,6 +912,27 @@ export function HotelOperationsPage() {
     })();
   };
 
+  const cancelSharedGroup = () => {
+    const group = unassignedSharedGroups.find((item) => item.sharedRoomGroupId === cancelSharedGroupId);
+    if (!group || processing) return;
+    const operationRequestId = sharedGroupCancelAttemptRef.current.get(group.sharedRoomGroupId) ?? requestId();
+    sharedGroupCancelAttemptRef.current.set(group.sharedRoomGroupId, operationRequestId);
+    setProcessing(true);
+    void sharedHotelRoomRepository.cancel(
+      group.sharedRoomGroupId,
+      group.version,
+      "함께 투숙 예약 취소",
+      operationRequestId,
+    ).then(async () => {
+      sharedGroupCancelAttemptRef.current.delete(group.sharedRoomGroupId);
+      setCancelSharedGroupId(null);
+      await loadSnapshot(selectedDate);
+      setToast({ tone: "success", message: "함께 투숙 예약을 취소했습니다." });
+    }).catch((error) => {
+      setToast({ tone: "error", message: sharedHotelRoomErrorMessage(error) });
+    }).finally(() => setProcessing(false));
+  };
+
   const requestUnassignRoom = (stayId: string) => {
     const stay = currentRoomBoardStay(stayId);
     if (
@@ -1177,6 +1200,7 @@ export function HotelOperationsPage() {
         onRetryUnassignedSharedGroups={() => {
           void loadUnassignedSharedGroups(selectedDate);
         }}
+        onCancelSharedGroup={setCancelSharedGroupId}
         onUnassignStay={requestUnassignRoom}
       />
 
@@ -1210,6 +1234,24 @@ export function HotelOperationsPage() {
             next,
           ]);
         }}
+        onUnassigned={async () => {
+          setSelectedSharedOccupancyId(null);
+          await loadSnapshot(selectedDate);
+          setToast({ tone: "success", message: "객실 배정을 해제했습니다." });
+        }}
+      />
+      <ConfirmModal
+        open={cancelSharedGroupId !== null}
+        title="함께 투숙 예약을 취소할까요?"
+        description="예약된 입·퇴실 일정과 객실 예약이 함께 취소됩니다."
+        confirmLabel="예약 취소"
+        cancelLabel="돌아가기"
+        processing={processing}
+        onClose={() => {
+          if (cancelSharedGroupId) sharedGroupCancelAttemptRef.current.delete(cancelSharedGroupId);
+          setCancelSharedGroupId(null);
+        }}
+        onConfirm={cancelSharedGroup}
       />
 
       <Card className="mb-4 overflow-hidden">

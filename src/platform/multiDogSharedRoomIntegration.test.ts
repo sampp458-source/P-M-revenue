@@ -27,6 +27,8 @@ describe("Multi-Dog Shared Room frontend contract", () => {
       "complete_shared_hotel_member_check_out",
       "reverse_shared_hotel_member_completion",
       "move_shared_hotel_room_occupancy",
+      "unassign_shared_hotel_room_before_check_in",
+      "cancel_shared_hotel_room_family_booking",
     ].forEach((rpc) => expect(repository).toContain(`"${rpc}"`));
     expect(repository).not.toContain('.from("hotel_physical_occupancies")');
     expect(repository).not.toContain('.from("hotel_physical_occupancy_members")');
@@ -89,6 +91,16 @@ describe("Multi-Dog Shared Room frontend contract", () => {
     expect(sharedHotelRoomErrorMessage({ code: "23514", message: "DELUXE" })).toContain("디럭스 객실에만");
     expect(sharedHotelRoomErrorMessage({ code: "PT409" })).toContain("다른 객실을 선택");
     expect(sharedHotelRoomErrorMessage({ code: "42501" })).toContain("권한");
+    expect(sharedHotelRoomErrorMessage({ code: "PT409", message: "입실 전 상태에서만 객실 배정을 해제할 수 있습니다." })).toContain("입실 전");
+  });
+
+  it("sends versioned idempotent group-level reversal mutations through one RPC each", () => {
+    const repository = source("./multiDogSharedRoomRepository.ts");
+    expect(repository).toContain("p_occupancy_id: occupancyId");
+    expect(repository).toContain("p_shared_room_group_id: sharedRoomGroupId");
+    expect(repository).toContain("p_expected_version: occupancyVersion");
+    expect(repository).toContain("p_expected_version: sharedRoomGroupVersion");
+    expect(repository).toContain("p_request_id: requestId");
   });
 
   it("keeps unsupported split and STANDARD moves out of the shared room UI", () => {

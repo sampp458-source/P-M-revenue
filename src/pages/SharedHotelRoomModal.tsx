@@ -1,5 +1,5 @@
 import { BedDouble, LogIn, LogOut, MoveRight, RotateCcw, UsersRound } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, ConfirmModal, Field, Input, LoadingState, Modal, ModalActions, ResponsiveActionGroup, Select } from "../components/ui";
 import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
 import {
@@ -138,6 +138,7 @@ export function SharedHotelRoomModal({
   operationRole,
   onClose,
   onChanged,
+  onUnassigned = () => undefined,
   onChangePlannedCheckout,
 }: {
   occupancy: SharedHotelOccupancy | null;
@@ -146,6 +147,7 @@ export function SharedHotelRoomModal({
   operationRole: OperationRole | null;
   onClose: () => void;
   onChanged: (occupancy: SharedHotelOccupancy) => void | Promise<void>;
+  onUnassigned?: () => void | Promise<void>;
   onChangePlannedCheckout: (
     stay: HotelStay,
     checkOutDate: string,
@@ -163,13 +165,17 @@ export function SharedHotelRoomModal({
   const [plannedCheckoutStayId, setPlannedCheckoutStayId] = useState<string | null>(null);
   const [changingPlannedCheckout, setChangingPlannedCheckout] = useState(false);
   const [checkoutMemberId, setCheckoutMemberId] = useState<string | null>(null);
+  const [unassignOpen, setUnassignOpen] = useState(false);
+  const unassignRequestIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!occupancy) {
       setStays({});
       setPlannedCheckoutStayId(null);
+      unassignRequestIdRef.current = null;
       return;
     }
+    unassignRequestIdRef.current = null;
     let active = true;
     setLoading(true);
     setError("");
@@ -199,6 +205,12 @@ export function SharedHotelRoomModal({
   const checkoutMember = checkoutMemberId
     ? occupancy.members.find((member) => member.id === checkoutMemberId) ?? null
     : null;
+  const canUnassign = occupancy.status === "active"
+    && occupancy.members.length > 0
+    && occupancy.members.every((member) => {
+      const stay = stays[member.hotelStayId];
+      return Boolean(stay) && !stay.checkedInAt && !stay.checkedOutAt;
+    });
 
   if (plannedCheckoutStay) {
     return (
@@ -321,6 +333,45 @@ export function SharedHotelRoomModal({
             </div>
           </div>
         ) : null}
+        {canUnassign ? (
+          <Button
+            variant="secondary"
+            disabled={Boolean(processingMemberId)}
+            onClick={() => setUnassignOpen(true)}
+          >
+            객실 배정 해제
+          </Button>
+        ) : null}
+        <ConfirmModal
+          open={unassignOpen}
+          title="객실 배정을 해제할까요?"
+          description="예약과 입·퇴실 일정은 유지되고, 함께 투숙 예약은 DELUXE 미배정 상태로 돌아갑니다."
+          confirmLabel="객실 배정 해제"
+          cancelLabel="돌아가기"
+          processing={processingMemberId === "unassign"}
+          onClose={() => {
+            setUnassignOpen(false);
+            unassignRequestIdRef.current = null;
+          }}
+          onConfirm={() => {
+            const operationRequestId = unassignRequestIdRef.current ?? crypto.randomUUID();
+            unassignRequestIdRef.current = operationRequestId;
+            setProcessingMemberId("unassign");
+            setError("");
+            void sharedHotelRoomRepository.unassign(
+              occupancy.id,
+              occupancy.version,
+              "공유 객실 배정 해제",
+              operationRequestId,
+            ).then(async () => {
+              unassignRequestIdRef.current = null;
+              setUnassignOpen(false);
+              await onUnassigned();
+            }).catch((unassignError) => {
+              setError(sharedHotelRoomErrorMessage(unassignError));
+            }).finally(() => setProcessingMemberId(null));
+          }}
+        />
         <ConfirmModal
           open={checkoutMember !== null}
           title="반려견 퇴실을 완료할까요?"
