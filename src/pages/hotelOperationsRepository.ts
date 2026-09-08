@@ -406,6 +406,20 @@ export function unassignHotelRoomBeforeCheckIn(
   });
 }
 
+export function reverseCheckInAndUnassignHotelRoom(
+  hotelStayId: string,
+  expectedVersion: number,
+  reason: string,
+  requestId: string,
+) {
+  return rpc<HotelStay>("reverse_check_in_and_unassign_hotel_room", {
+    p_hotel_stay_id: hotelStayId,
+    p_expected_version: expectedVersion,
+    p_reason: reason.trim(),
+    p_request_id: requestId,
+  });
+}
+
 export function changeRoomTypeBeforeCheckIn(
   hotelStayId: string,
   expectedVersion: number,

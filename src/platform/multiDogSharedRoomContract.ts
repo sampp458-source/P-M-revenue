@@ -104,5 +104,6 @@ export interface SharedHotelRoomRepositoryContract {
   reverseCheckIn(occupancyId: string, hotelStayId: string, occupancyVersion: number, stayVersion: number, reason: string, requestId: string): Promise<SharedHotelMemberMutationResult>;
   move(occupancyId: string, roomId: string, occupancyVersion: number, reason: string, requestId: string): Promise<SharedHotelOccupancy>;
   unassign(occupancyId: string, occupancyVersion: number, reason: string, requestId: string): Promise<SharedHotelUnassignResult>;
+  reverseCheckInAndUnassign(occupancyId: string, occupancyVersion: number, reason: string, requestId: string): Promise<SharedHotelUnassignResult>;
   cancel(sharedRoomGroupId: string, sharedRoomGroupVersion: number, reason: string, requestId: string): Promise<SharedHotelCancellationResult>;
 }

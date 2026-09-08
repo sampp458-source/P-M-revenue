@@ -94,6 +94,13 @@ export const sharedHotelRoomRepository: SharedHotelRoomRepositoryContract = {
       p_reason: reason,
       p_request_id: requestId,
     }),
+  reverseCheckInAndUnassign: (occupancyId, occupancyVersion, reason, requestId) =>
+    rpc<SharedHotelUnassignResult>("reverse_check_in_and_unassign_shared_hotel_room", {
+      p_occupancy_id: occupancyId,
+      p_expected_version: occupancyVersion,
+      p_reason: reason.trim(),
+      p_request_id: requestId,
+    }),
   cancel: (sharedRoomGroupId, sharedRoomGroupVersion, reason, requestId) =>
     rpc<SharedHotelCancellationResult>("cancel_shared_hotel_room_family_booking", {
       p_shared_room_group_id: sharedRoomGroupId,

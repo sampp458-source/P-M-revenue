@@ -18,7 +18,7 @@ import {
 } from "./HotelOperationsModals";
 import { activeHotelAllocation, formatHotelScheduleTime } from "./hotelOperationsUi";
 import { hotelRoomBoardDogStatus } from "./HotelRoomBoard";
-import { canUnassignSharedHotelOccupancyBeforeCheckIn } from "./hotelRoomBoardUnassign";
+import { sharedHotelOccupancyRoomUnassignMode } from "./hotelRoomBoardUnassign";
 
 export interface ExistingStaySharedRoomCandidate {
   stay: HotelStay;
@@ -231,10 +231,13 @@ export function SharedHotelRoomModal({
   const reverseCheckInMember = reverseCheckInMemberId
     ? occupancy.members.find((member) => member.id === reverseCheckInMemberId) ?? null
     : null;
-  const canUnassign = canUnassignSharedHotelOccupancyBeforeCheckIn(
+  const unassignMode = sharedHotelOccupancyRoomUnassignMode(
     occupancy,
     new Map(Object.values(stays).map((stay) => [stay.id, stay])),
   );
+  const canUnassign = unassignMode === "pre_check_in"
+    || (unassignMode === "reverse_check_in_and_unassign"
+      && (operationRole === "owner" || operationRole === "manager"));
 
   if (plannedCheckoutStay) {
     return (
@@ -372,14 +375,22 @@ export function SharedHotelRoomModal({
             disabled={Boolean(processingMemberId)}
             onClick={() => setUnassignOpen(true)}
           >
-            객실 배정 해제
+            {unassignMode === "reverse_check_in_and_unassign"
+              ? "입실 취소 후 배정 해제"
+              : "객실 배정 해제"}
           </Button>
         ) : null}
         <ConfirmModal
           open={unassignOpen}
-          title="객실 배정을 해제할까요?"
-          description="예약은 유지되며 호실 미배정 상태로 이동합니다."
-          confirmLabel="객실 배정 해제"
+          title={unassignMode === "reverse_check_in_and_unassign"
+            ? "입실 완료를 취소하고 객실 배정을 해제할까요?"
+            : "객실 배정을 해제할까요?"}
+          description={unassignMode === "reverse_check_in_and_unassign"
+            ? "입실 완료가 취소되고 객실 배정이 해제됩니다. 예약은 유지되며 호실 미배정 상태로 이동합니다."
+            : "예약은 유지되며 호실 미배정 상태로 이동합니다."}
+          confirmLabel={unassignMode === "reverse_check_in_and_unassign"
+            ? "입실 취소 후 배정 해제"
+            : "객실 배정 해제"}
           cancelLabel="돌아가기"
           processing={processingMemberId === "unassign"}
           onClose={() => {
@@ -387,11 +398,23 @@ export function SharedHotelRoomModal({
             unassignRequestIdRef.current = null;
           }}
           onConfirm={() => {
+            const latestMode = sharedHotelOccupancyRoomUnassignMode(
+              occupancy,
+              new Map(Object.values(stays).map((stay) => [stay.id, stay])),
+            );
+            if (!latestMode || latestMode !== unassignMode) {
+              setUnassignOpen(false);
+              setError("최신 객실 상태를 다시 확인해 주세요.");
+              return;
+            }
             const operationRequestId = unassignRequestIdRef.current ?? crypto.randomUUID();
             unassignRequestIdRef.current = operationRequestId;
             setProcessingMemberId("unassign");
             setError("");
-            void sharedHotelRoomRepository.unassign(
+            const action = latestMode === "reverse_check_in_and_unassign"
+              ? sharedHotelRoomRepository.reverseCheckInAndUnassign
+              : sharedHotelRoomRepository.unassign;
+            void action(
               occupancy.id,
               occupancy.version,
               "공유 객실 배정 해제",

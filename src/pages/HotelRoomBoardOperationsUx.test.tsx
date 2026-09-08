@@ -426,6 +426,54 @@ describe("Hotel Room Board operations UX", () => {
     expect(onUnassignSharedOccupancy).not.toHaveBeenCalled();
   });
 
+  it("routes manager-authorized checked-in Single and Shared drops through one atomic intent each", () => {
+    const checkedInSingle = allocatedStay();
+    const onUnassignStay = vi.fn();
+    const singleRender = render(
+      <HotelRoomBoard
+        {...boardProps(snapshot([checkedInSingle]), "2026-08-13")}
+        allowCheckInReversal
+        onUnassignStay={onUnassignStay}
+      />,
+    );
+    const singleTransfer = dragTransfer();
+    const checkedInCard = screen.getByTestId("hotel-room-board-stay-stay-1");
+    fireEvent.dragStart(checkedInCard, { dataTransfer: singleTransfer });
+    fireEvent.drop(screen.getByTestId("hotel-room-board-unassigned-drop-zone"), {
+      dataTransfer: singleTransfer,
+    });
+    fireEvent.dragEnd(checkedInCard, { dataTransfer: singleTransfer });
+    expect(onUnassignStay).toHaveBeenCalledTimes(1);
+    expect(onUnassignStay).toHaveBeenCalledWith("stay-1");
+    singleRender.unmount();
+
+    const checkedInMember = allocatedStay({
+      id: "stay-2",
+      dogId: "dog-2",
+      dogName: "먼지",
+    });
+    const onUnassignSharedOccupancy = vi.fn();
+    render(
+      <HotelRoomBoard
+        {...boardProps(snapshot([]), "2026-08-13")}
+        allowCheckInReversal
+        sharedOccupancies={[sharedOccupancy()]}
+        sharedMemberStays={[stay(), checkedInMember]}
+        onUnassignSharedOccupancy={onUnassignSharedOccupancy}
+      />,
+    );
+    const sharedTransfer = dragTransfer();
+    const sharedCard = screen.getByTestId("shared-room-card-occupancy-1").parentElement!;
+    expect(sharedCard).toHaveAttribute("draggable", "true");
+    fireEvent.dragStart(sharedCard, { dataTransfer: sharedTransfer });
+    fireEvent.drop(screen.getByTestId("hotel-room-board-unassigned-drop-zone"), {
+      dataTransfer: sharedTransfer,
+    });
+    fireEvent.dragEnd(sharedCard, { dataTransfer: sharedTransfer });
+    expect(onUnassignSharedOccupancy).toHaveBeenCalledTimes(1);
+    expect(onUnassignSharedOccupancy).toHaveBeenCalledWith("occupancy-1", 4);
+  });
+
   it("resolves phase-aware times without substituting the opposite schedule", () => {
     const hotelStay = stay();
     expect(hotelRoomBoardPhaseTime(hotelStay, "2026-08-13")).toBe("입실 15:00");

@@ -28,8 +28,8 @@ import {
   seoulInputParts,
 } from "./hotelOperationsUi";
 import {
-  canUnassignHotelStayBeforeCheckIn,
-  canUnassignSharedHotelOccupancyBeforeCheckIn,
+  hotelStayRoomUnassignMode,
+  sharedHotelOccupancyRoomUnassignMode,
 } from "./hotelRoomBoardUnassign";
 
 type RoomBoardStage = "check_in" | "in_house" | "check_out";
@@ -170,7 +170,7 @@ export function hotelRoomBoardRoomTarget(
 }
 
 export function canDropHotelStayToUnassigned(stay: HotelStay) {
-  return canUnassignHotelStayBeforeCheckIn(stay);
+  return hotelStayRoomUnassignMode(stay) !== null;
 }
 
 export function hotelRoomBoardOccupiesRoom(stay: HotelStay, selectedInstant?: string) {
@@ -779,6 +779,7 @@ function RoomCell({
   settling,
   processing,
   allowCrossTypeChange,
+  allowCheckInReversal,
   onOpenStay,
   onOpenSharedOccupancy,
   onDropStay,
@@ -809,6 +810,7 @@ function RoomCell({
   settling: boolean;
   processing: boolean;
   allowCrossTypeChange: boolean;
+  allowCheckInReversal: boolean;
   onOpenStay: (stayId: string) => void;
   onOpenSharedOccupancy: (occupancyId: string) => void;
   onDropStay: (
@@ -963,7 +965,8 @@ function RoomCell({
           draggable={
             !mobile &&
             !processing &&
-            canUnassignSharedHotelOccupancyBeforeCheckIn(sharedOccupancy, staysById)
+            Boolean(sharedHotelOccupancyRoomUnassignMode(sharedOccupancy, staysById)) &&
+            (sharedHotelOccupancyRoomUnassignMode(sharedOccupancy, staysById) === "pre_check_in" || allowCheckInReversal)
           }
           dragging={draggedSharedOccupancyId === sharedOccupancy.id}
           onDragStart={onSharedOccupancyDragStart}
@@ -1032,6 +1035,7 @@ export function HotelRoomBoard({
   onCancelSharedGroup = () => undefined,
   onUnassignStay,
   onUnassignSharedOccupancy = () => undefined,
+  allowCheckInReversal = false,
 }: {
   snapshot: HotelOperationsSnapshot;
   sharedOccupancies?: readonly SharedHotelOccupancy[];
@@ -1057,6 +1061,7 @@ export function HotelRoomBoard({
   onCancelSharedGroup?: (sharedRoomGroupId: string) => void;
   onUnassignStay: (stayId: string) => void;
   onUnassignSharedOccupancy?: (occupancyId: string, expectedVersion: number) => void;
+  allowCheckInReversal?: boolean;
 }) {
   const [draggedStayId, setDraggedStayId] = useState<string | null>(null);
   const [draggedSharedGroupId, setDraggedSharedGroupId] = useState<string | null>(null);
@@ -1349,7 +1354,8 @@ export function HotelRoomBoard({
   ) => {
     if (
       processing ||
-      !canUnassignSharedHotelOccupancyBeforeCheckIn(occupancy, staysById)
+      !sharedHotelOccupancyRoomUnassignMode(occupancy, staysById)
+      || (sharedHotelOccupancyRoomUnassignMode(occupancy, staysById) === "reverse_check_in_and_unassign" && !allowCheckInReversal)
     ) {
       event.preventDefault();
       return;
@@ -1446,7 +1452,8 @@ export function HotelRoomBoard({
         !occupancy ||
         processing ||
         occupancy.version !== sharedAttempt.expectedVersion ||
-        !canUnassignSharedHotelOccupancyBeforeCheckIn(occupancy, staysById) ||
+        !sharedHotelOccupancyRoomUnassignMode(occupancy, staysById) ||
+        (sharedHotelOccupancyRoomUnassignMode(occupancy, staysById) === "reverse_check_in_and_unassign" && !allowCheckInReversal) ||
         dropCommittedRef.current
       ) {
         return;
@@ -1463,6 +1470,7 @@ export function HotelRoomBoard({
       processing ||
       processingStayId === stayId ||
       !canDropHotelStayToUnassigned(stay) ||
+      (hotelStayRoomUnassignMode(stay) === "reverse_check_in_and_unassign" && !allowCheckInReversal) ||
       dropCommittedRef.current
     ) {
       return;
@@ -1585,6 +1593,7 @@ export function HotelRoomBoard({
         (processingStayId !== null && processingStayId === draggedStayId)
       }
       allowCrossTypeChange={allowCrossTypeChange}
+      allowCheckInReversal={allowCheckInReversal}
       onOpenStay={onOpenStay}
       onOpenSharedOccupancy={onOpenSharedOccupancy}
       onDropStay={commitDrop}
@@ -1671,16 +1680,16 @@ export function HotelRoomBoard({
             data-testid="hotel-room-board-unassigned-drop-zone"
             onDragEnter={(event) => {
               if (
-                (draggedStay && canDropHotelStayToUnassigned(draggedStay)) ||
-                (draggedSharedOccupancy && canUnassignSharedHotelOccupancyBeforeCheckIn(draggedSharedOccupancy, staysById))
+                (draggedStay && canDropHotelStayToUnassigned(draggedStay) && (hotelStayRoomUnassignMode(draggedStay) === "pre_check_in" || allowCheckInReversal)) ||
+                (draggedSharedOccupancy && sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) && (sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) === "pre_check_in" || allowCheckInReversal))
               ) {
                 event.preventDefault();
               }
             }}
             onDragOver={(event) => {
               if (
-                (draggedStay && canDropHotelStayToUnassigned(draggedStay)) ||
-                (draggedSharedOccupancy && canUnassignSharedHotelOccupancyBeforeCheckIn(draggedSharedOccupancy, staysById))
+                (draggedStay && canDropHotelStayToUnassigned(draggedStay) && (hotelStayRoomUnassignMode(draggedStay) === "pre_check_in" || allowCheckInReversal)) ||
+                (draggedSharedOccupancy && sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) && (sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) === "pre_check_in" || allowCheckInReversal))
               ) {
                 event.preventDefault();
                 event.dataTransfer.dropEffect = "move";
@@ -1697,8 +1706,8 @@ export function HotelRoomBoard({
                 ? "py-3.5"
                 : "py-2.5",
               Boolean(
-                (draggedStay && canDropHotelStayToUnassigned(draggedStay)) ||
-                (draggedSharedOccupancy && canUnassignSharedHotelOccupancyBeforeCheckIn(draggedSharedOccupancy, staysById)),
+                (draggedStay && canDropHotelStayToUnassigned(draggedStay) && (hotelStayRoomUnassignMode(draggedStay) === "pre_check_in" || allowCheckInReversal)) ||
+                (draggedSharedOccupancy && sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) && (sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) === "pre_check_in" || allowCheckInReversal)),
               ) &&
                 "border-dashed border-amber-500 bg-amber-50 ring-2 ring-amber-200",
             )}
@@ -1715,7 +1724,9 @@ export function HotelRoomBoard({
                 </h3>
                 <p className="mt-0.5 text-xs text-text-secondary">
                   {draggedSharedOccupancy || (draggedStay && canDropHotelStayToUnassigned(draggedStay))
-                    ? "여기에 놓으면 객실 배정이 해제됩니다"
+                    ? ((draggedStay && hotelStayRoomUnassignMode(draggedStay) === "reverse_check_in_and_unassign") || (draggedSharedOccupancy && sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) === "reverse_check_in_and_unassign")
+                      ? "여기에 놓으면 입실 완료가 취소되고 객실 배정이 해제됩니다"
+                      : "여기에 놓으면 객실 배정이 해제됩니다")
                     : unassignedSharedGroupsError
                     ? "함께 투숙 미배정 예약은 현재 확인이 필요합니다."
                     : unassignedSharedGroupsLoading

@@ -4,6 +4,8 @@ import type { HotelStay } from "./hotelOperationsRepository";
 import {
   canUnassignHotelStayBeforeCheckIn,
   canUnassignSharedHotelOccupancyBeforeCheckIn,
+  hotelStayRoomUnassignMode,
+  sharedHotelOccupancyRoomUnassignMode,
 } from "./hotelRoomBoardUnassign";
 
 const stay = (overrides: Partial<HotelStay> = {}): HotelStay => ({
@@ -72,6 +74,15 @@ describe("Room Board unassign eligibility", () => {
     expect(canUnassignHotelStayBeforeCheckIn(stay({ checkedOutAt: "2026-09-08T02:00:00Z" }))).toBe(false);
   });
 
+  it("classifies checked-in Single stays for the atomic reverse-and-unassign path", () => {
+    expect(hotelStayRoomUnassignMode(stay())).toBe("pre_check_in");
+    expect(hotelStayRoomUnassignMode(stay({ checkedInAt: "2026-09-07T06:00:00Z" })))
+      .toBe("reverse_check_in_and_unassign");
+    expect(hotelStayRoomUnassignMode(stay({ checkedInAt: "2026-09-07T06:00:00Z", checkedOutAt: "2026-09-08T02:00:00Z" })))
+      .toBeNull();
+    expect(hotelStayRoomUnassignMode(stay({ roomAllocations: [] }))).toBeNull();
+  });
+
   it("allows Shared unassign only with an active occupancy and every member stay loaded pre-check-in", () => {
     const stays = new Map([
       ["stay-1", stay()],
@@ -89,5 +100,29 @@ describe("Room Board unassign eligibility", () => {
       occupancy(),
       new Map(stays).set("stay-2", stay({ id: "stay-2", checkedOutAt: "2026-09-08T02:00:00Z" })),
     )).toBe(false);
+  });
+
+  it("classifies partial and full Shared check-in for one atomic group action", () => {
+    const preCheckIn = new Map([
+      ["stay-1", stay()],
+      ["stay-2", stay({ id: "stay-2", dogId: "dog-2", dogName: "먼지" })],
+    ]);
+    const partialCheckIn = new Map(preCheckIn).set(
+      "stay-1",
+      stay({ checkedInAt: "2026-09-07T06:00:00Z" }),
+    );
+    const fullCheckIn = new Map(partialCheckIn).set(
+      "stay-2",
+      stay({ id: "stay-2", dogId: "dog-2", dogName: "먼지", checkedInAt: "2026-09-07T06:05:00Z" }),
+    );
+    const checkedOut = new Map(fullCheckIn).set(
+      "stay-2",
+      stay({ id: "stay-2", dogId: "dog-2", checkedInAt: "2026-09-07T06:05:00Z", checkedOutAt: "2026-09-08T02:00:00Z" }),
+    );
+
+    expect(sharedHotelOccupancyRoomUnassignMode(occupancy(), preCheckIn)).toBe("pre_check_in");
+    expect(sharedHotelOccupancyRoomUnassignMode(occupancy(), partialCheckIn)).toBe("reverse_check_in_and_unassign");
+    expect(sharedHotelOccupancyRoomUnassignMode(occupancy(), fullCheckIn)).toBe("reverse_check_in_and_unassign");
+    expect(sharedHotelOccupancyRoomUnassignMode(occupancy(), checkedOut)).toBeNull();
   });
 });

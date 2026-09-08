@@ -356,7 +356,7 @@ describe("Hotel Room Board", () => {
     expect(hotelRoomBoardUnassigned([unassigned, assigned])).toEqual([unassigned]);
   });
 
-  it("allows pre-check-in unassignment and blocks it after check-in", () => {
+  it("keeps pre-check-in and checked-in/no-checkout stays eligible for their respective unassign path", () => {
     const assigned = stay({
       roomAllocations: [{
         id: "allocation-1",
@@ -374,6 +374,13 @@ describe("Hotel Room Board", () => {
       canDropHotelStayToUnassigned({
         ...assigned,
         checkedInAt: "2026-08-05T06:05:00Z",
+      }),
+    ).toBe(true);
+    expect(
+      canDropHotelStayToUnassigned({
+        ...assigned,
+        checkedInAt: "2026-08-05T06:05:00Z",
+        checkedOutAt: "2026-08-08T02:05:00Z",
       }),
     ).toBe(false);
   });
@@ -485,7 +492,8 @@ describe("Hotel Room Board", () => {
     expect(page).toContain("카드 위치는 변경되지 않았습니다.");
     expect(page).toContain("객실 배정을 해제할까요?");
     expect(page).toContain("예약은 유지되며 호실 미배정 상태로 이동합니다.");
-    expect(page).toContain("sharedHotelRoomRepository.unassign(");
+    expect(page).toContain("sharedHotelRoomRepository.unassign");
+    expect(page).toContain("sharedHotelRoomRepository.reverseCheckInAndUnassign");
     expect(page).toContain("객실 유형을 변경할까요?");
     expect(page).toContain("이전 유형");
     expect(page).toContain("새 유형");
