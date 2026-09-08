@@ -130,7 +130,10 @@ const projection = (
   ...overrides,
 });
 
-const renderOperations = (contracts: LongStayMonthContractProjection[]) => {
+const renderOperations = (
+  contracts: LongStayMonthContractProjection[],
+  operationRole: "owner" | "manager" | "staff" = "owner",
+) => {
   repositoryMocks.getLongStayMonth.mockResolvedValue({
     serviceMonth: "2026-09-01",
     contracts,
@@ -159,7 +162,7 @@ const renderOperations = (contracts: LongStayMonthContractProjection[]) => {
     <LongStayOperationsPanel
       snapshot={snapshot as never}
       options={options as never}
-      operationRole="owner"
+      operationRole={operationRole}
       onHotelSnapshotRefresh={vi.fn().mockResolvedValue(undefined)}
     />,
   );
@@ -172,6 +175,19 @@ afterEach(() => {
 });
 
 describe("Long Stay frontend production stabilization", () => {
+  it("gives active staff the same operational actions while preserving capability guards", async () => {
+    const completed = projection({
+      storedStatus: "completed",
+      derivedStatus: "completed",
+      checkedInAt: "2026-09-10T06:00:00Z",
+      checkedOutAt: "2026-09-15T02:00:00Z",
+      hotelStayId: "stay-1",
+    });
+    renderOperations([completed], "staff");
+
+    expect(await screen.findByRole("button", { name: "완료 취소" })).not.toBeNull();
+  });
+
   it.each(["PT409", "40001"])(
     "refreshes the profile and clears the stale reverse action after %s",
     async (code) => {

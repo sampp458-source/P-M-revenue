@@ -109,11 +109,12 @@ describe("Shared Room member check-in reversal eligibility", () => {
   } satisfies SharedHotelOccupancy;
   const member = occupancy.members[0];
 
-  it("allows only Owner/Manager for an active checked-in member before check-out", () => {
+  it("allows every Hotel operator for an active checked-in member before check-out", () => {
     const checkedIn = stay({ checkedInAt: "2026-08-13T06:00:00Z" });
     expect(canReverseSharedHotelMemberCheckIn(occupancy, member, checkedIn, "owner")).toBe(true);
     expect(canReverseSharedHotelMemberCheckIn(occupancy, member, checkedIn, "manager")).toBe(true);
-    expect(canReverseSharedHotelMemberCheckIn(occupancy, member, checkedIn, "staff")).toBe(false);
+    expect(canReverseSharedHotelMemberCheckIn(occupancy, member, checkedIn, "staff")).toBe(true);
+    expect(canReverseSharedHotelMemberCheckIn(occupancy, member, checkedIn, null)).toBe(false);
   });
 
   it("fails closed for inactive occupancy/member, pre-check-in, or checked-out Stay", () => {

@@ -52,6 +52,10 @@ import {
   sharedHotelOccupancyRoomUnassignMode,
   type HotelRoomUnassignMode,
 } from "./hotelRoomBoardUnassign";
+import {
+  canManageHotelSettings,
+  canOperateHotel,
+} from "./hotelOperationCapabilities";
 import { DaycareOperationsPanel } from "./DaycareOperationsPanel";
 import {
   fetchDaycareOperationsForDate,
@@ -959,7 +963,7 @@ export function HotelOperationsPage() {
     if (
       !stay ||
       !mode ||
-      (mode === "reverse_check_in_and_unassign" && !isSettingsManager) ||
+      (mode === "reverse_check_in_and_unassign" && !isHotelOperator) ||
       processing ||
       roomBoardInFlightRef.current.has(stayId)
     ) {
@@ -980,7 +984,7 @@ export function HotelOperationsPage() {
       occupancy.version !== expectedVersion ||
       processing ||
       !mode ||
-      (mode === "reverse_check_in_and_unassign" && !isSettingsManager)
+      (mode === "reverse_check_in_and_unassign" && !isHotelOperator)
     ) {
       return;
     }
@@ -1004,7 +1008,7 @@ export function HotelOperationsPage() {
       occupancy.version !== pendingSharedRoomUnassign.expectedVersion ||
       !mode ||
       mode !== pendingSharedRoomUnassign.mode ||
-      (mode === "reverse_check_in_and_unassign" && !isSettingsManager)
+      (mode === "reverse_check_in_and_unassign" && !isHotelOperator)
     ) {
       setPendingSharedRoomUnassign(null);
       setToast({
@@ -1046,7 +1050,7 @@ export function HotelOperationsPage() {
       if (
         !mode ||
         mode !== pendingRoomBoardAction.mode ||
-        (mode === "reverse_check_in_and_unassign" && !isSettingsManager)
+        (mode === "reverse_check_in_and_unassign" && !isHotelOperator)
       ) {
         setPendingRoomBoardAction(null);
         setToast({
@@ -1232,7 +1236,8 @@ export function HotelOperationsPage() {
     [quickFilter, selectedDate, stays],
   );
   const selectedDateIsToday = selectedDate === seoulDateKey();
-  const isSettingsManager = operationRole === "owner" || operationRole === "manager";
+  const isHotelOperator = canOperateHotel(operationRole);
+  const isHotelSettingsManager = canManageHotelSettings(operationRole);
 
   if (loading) return <LoadingState />;
   if (loadError || !snapshot) {
@@ -1254,7 +1259,7 @@ export function HotelOperationsPage() {
         description="Room Board에서 오늘의 빈방, 입·퇴실, 이용중 객실을 바로 관리합니다."
         action={
           <div className="flex flex-wrap gap-2">
-            {isSettingsManager && snapshot.settings ? (
+            {isHotelSettingsManager && snapshot.settings ? (
               <Button type="button" variant="secondary" onClick={() => setModal("settings")}>
                 <Settings size={17} /> 기본 시간
               </Button>
@@ -1300,8 +1305,8 @@ export function HotelOperationsPage() {
         selectedDateIsToday={selectedDateIsToday}
         processing={processing}
         processingStayId={processingStayId}
-        allowCrossTypeChange={isSettingsManager}
-        allowCheckInReversal={isSettingsManager}
+        allowCrossTypeChange={isHotelOperator}
+        allowCheckInReversal={isHotelOperator}
         onOpenStay={(stayId) => void openStay(stayId)}
         onOpenSharedOccupancy={setSelectedSharedOccupancyId}
         onDropStay={dropStayOnRoom}
@@ -1580,7 +1585,7 @@ export function HotelOperationsPage() {
             }}
           />
           <RoomAssignModal open={modal === "assign"} snapshot={snapshot} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(roomId, reason) => void runStayMutation(() => assignHotelRoom(detail.id, detail.version, roomId, reason, requestId()), "호실을 배정했습니다.")} />
-          <RoomReassignModal open={modal === "reassign"} snapshot={snapshot} stay={detail} processing={processing} includeOtherRoomTypes={isSettingsManager} onClose={() => setModal(null)} onSubmit={(roomId, reason) => {
+          <RoomReassignModal open={modal === "reassign"} snapshot={snapshot} stay={detail} processing={processing} includeOtherRoomTypes={isHotelOperator} onClose={() => setModal(null)} onSubmit={(roomId, reason) => {
             const room = snapshot.rooms.find((row) => row.id === roomId);
             if (room && room.roomTypeId !== detail.capacityReservation?.roomTypeId) {
               setPendingRoomBoardAction({ kind: "change_type", stayId: detail.id, roomId, effectiveAt: null, useCurrentTime: false, reason });
@@ -1588,7 +1593,7 @@ export function HotelOperationsPage() {
             }
             void runStayMutation(() => reassignHotelRoomBeforeCheckIn(detail.id, detail.version, roomId, reason, requestId()), "호실을 재배정했습니다.");
           }} />
-          <MoveRoomModal open={modal === "move"} snapshot={snapshot} stay={detail} processing={processing} includeOtherRoomTypes={isSettingsManager} onClose={() => setModal(null)} onSubmit={(roomId, moveAt, reason) => {
+          <MoveRoomModal open={modal === "move"} snapshot={snapshot} stay={detail} processing={processing} includeOtherRoomTypes={isHotelOperator} onClose={() => setModal(null)} onSubmit={(roomId, moveAt, reason) => {
             const room = snapshot.rooms.find((row) => row.id === roomId);
             if (room && room.roomTypeId !== detail.capacityReservation?.roomTypeId) {
               setPendingRoomBoardAction({ kind: "change_type", stayId: detail.id, roomId, effectiveAt: moveAt, useCurrentTime: false, reason });
@@ -1819,7 +1824,7 @@ function StayDetailModal({ open, stay, selectedDate, loading, creatorName, share
     : null;
   const canUnassign = unassignMode === "pre_check_in"
     || (unassignMode === "reverse_check_in_and_unassign"
-      && (operationRole === "owner" || operationRole === "manager"));
+      && canOperateHotel(operationRole));
   return (
     <Modal
       open={open}
@@ -1856,7 +1861,7 @@ export function canReverseSingleHotelCheckIn(
   return sharedOccupancy === null
     && stay.checkedInAt !== null
     && stay.checkedOutAt === null
-    && (operationRole === "owner" || operationRole === "manager");
+    && canOperateHotel(operationRole);
 }
 
 function Detail({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {

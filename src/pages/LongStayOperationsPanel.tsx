@@ -55,6 +55,7 @@ import type {
   OperationScheduleOptions,
 } from "./operationsScheduleRepository";
 import { hotelScheduleTypeForCalendar } from "./OperationsToday";
+import { canOperateHotel } from "./hotelOperationCapabilities";
 
 type ActionKind =
   | "confirm"
@@ -250,12 +251,8 @@ export function LongStayOperationsPanel({
     [snapshot.rooms],
   );
   const selectedRoom = availableRooms.find((room) => room.id === roomId) ?? null;
-  const selectableRooms = useMemo(
-    () => action && operationRole === "staff" && action.contract.currentRoom
-      ? availableRooms.filter((room) => room.roomTypeId === action.contract.currentRoom?.roomTypeId)
-      : availableRooms,
-    [action, availableRooms, operationRole],
-  );
+  const selectableRooms = availableRooms;
+  const isHotelOperator = canOperateHotel(operationRole);
   const availabilityByRoom = useMemo(
     () => new Map(roomAvailability.map((room) => [room.roomId, room])),
     [roomAvailability],
@@ -578,8 +575,8 @@ export function LongStayOperationsPanel({
                         ? new Date(contract.currentAbsence.expectedReturnAt).toLocaleTimeString("en-GB", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit" })
                         : "");
                     }}>복귀 예정 변경</Button> : null}
-                    {contract.hotelStayId && !contract.checkedOutAt && !contract.isAway && (operationRole === "owner" || operationRole === "manager") ? <Button variant="secondary" onClick={() => openAction("planned_checkout", contract)}><CalendarClock size={15} /> 퇴실 예정</Button> : null}
-                    {contract.checkedOutAt && (operationRole === "owner" || operationRole === "manager") ? <Button variant="secondary" onClick={() => openAction("reverse", contract)}><RotateCcw size={15} /> 완료 취소</Button> : null}
+                    {contract.hotelStayId && !contract.checkedOutAt && !contract.isAway && isHotelOperator ? <Button variant="secondary" onClick={() => openAction("planned_checkout", contract)}><CalendarClock size={15} /> 퇴실 예정</Button> : null}
+                    {contract.checkedOutAt && isHotelOperator ? <Button variant="secondary" onClick={() => openAction("reverse", contract)}><RotateCcw size={15} /> 완료 취소</Button> : null}
                     </>}
                     destructive={contract.checkedInAt && !contract.checkedOutAt && contract.currentAbsence?.inventoryMode !== "release_room" ? <Button variant="danger" onClick={() => openAction("checkout", contract)}><LogOut size={15} /> 실제 퇴실</Button> : undefined}
                   />

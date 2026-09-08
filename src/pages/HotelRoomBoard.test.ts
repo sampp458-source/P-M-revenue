@@ -499,7 +499,9 @@ describe("Hotel Room Board", () => {
     expect(page).toContain("새 유형");
     expect(page).toContain("이전 호실");
     expect(page).toContain("새 호실");
-    expect(page).toContain("allowCrossTypeChange={isSettingsManager}");
+    expect(page).toContain("allowCrossTypeChange={isHotelOperator}");
+    expect(page).toContain("allowCheckInReversal={isHotelOperator}");
+    expect(page).toContain("isHotelSettingsManager && snapshot.settings");
   });
 
   it("keeps the physical room order in one fixed row per room type", () => {

@@ -19,6 +19,7 @@ import {
 import { activeHotelAllocation, formatHotelScheduleTime } from "./hotelOperationsUi";
 import { hotelRoomBoardDogStatus } from "./HotelRoomBoard";
 import { sharedHotelOccupancyRoomUnassignMode } from "./hotelRoomBoardUnassign";
+import { canOperateHotel } from "./hotelOperationCapabilities";
 
 export interface ExistingStaySharedRoomCandidate {
   stay: HotelStay;
@@ -33,7 +34,7 @@ export function canReverseSharedHotelMemberCheckIn(
   operationRole: OperationRole | null,
 ) {
   return (
-    (operationRole === "owner" || operationRole === "manager") &&
+    canOperateHotel(operationRole) &&
     occupancy.status === "active" &&
     member.status === "active" &&
     Boolean(stay?.checkedInAt) &&
@@ -237,7 +238,7 @@ export function SharedHotelRoomModal({
   );
   const canUnassign = unassignMode === "pre_check_in"
     || (unassignMode === "reverse_check_in_and_unassign"
-      && (operationRole === "owner" || operationRole === "manager"));
+      && canOperateHotel(operationRole));
 
   if (plannedCheckoutStay) {
     return (
@@ -338,7 +339,7 @@ export function SharedHotelRoomModal({
                     setReverseCheckInMemberId(member.id);
                   }}><RotateCcw size={15} />입실 완료 취소</Button>
                 ) : null}
-                {member.status === "completed" && (operationRole === "owner" || operationRole === "manager") ? (
+                {member.status === "completed" && canOperateHotel(operationRole) ? (
                   <Button variant="secondary" disabled={busy || !reason.trim()} onClick={() => void memberAction(member.id, (current) => sharedHotelRoomRepository.reverseCompletion(occupancy.id, current.id, occupancy.version, current.version, reason, crypto.randomUUID()))}><RotateCcw size={15} />완료 취소</Button>
                 ) : null}
                 </>}
