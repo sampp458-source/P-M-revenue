@@ -70,6 +70,15 @@ export const sharedHotelRoomRepository: SharedHotelRoomRepositoryContract = {
       p_reason: reason,
       p_request_id: requestId,
     }),
+  reverseCheckIn: (occupancyId, hotelStayId, occupancyVersion, stayVersion, reason, requestId) =>
+    rpc<SharedHotelMemberMutationResult>("reverse_shared_hotel_member_check_in", {
+      p_occupancy_id: occupancyId,
+      p_hotel_stay_id: hotelStayId,
+      p_expected_occupancy_version: occupancyVersion,
+      p_expected_stay_version: stayVersion,
+      p_reason: reason.trim(),
+      p_request_id: requestId,
+    }),
   move: (occupancyId, roomId, occupancyVersion, reason, requestId) =>
     rpc<SharedHotelOccupancy>("move_shared_hotel_room_occupancy", {
       p_occupancy_id: occupancyId,

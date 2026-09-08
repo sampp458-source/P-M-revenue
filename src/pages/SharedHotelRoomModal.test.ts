@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
 import type { HotelStay } from "./hotelOperationsRepository";
-import { existingStaySharedRoomCandidates } from "./SharedHotelRoomModal";
+import {
+  canReverseSharedHotelMemberCheckIn,
+  existingStaySharedRoomCandidates,
+} from "./SharedHotelRoomModal";
 
 const stay = (overrides: Partial<HotelStay> = {}): HotelStay => ({
   id: "joining",
@@ -71,5 +75,61 @@ describe("existing Stay Shared Room eligibility", () => {
     });
     expect(existingStaySharedRoomCandidates(standard, [primary], [])).toEqual([]);
     expect(existingStaySharedRoomCandidates(stay(), [otherOwner, otherDates], [])).toEqual([]);
+  });
+});
+
+describe("Shared Room member check-in reversal eligibility", () => {
+  const occupancy = {
+    id: "occupancy",
+    familyBookingId: "family",
+    sharedRoomGroupId: "group",
+    customerId: "customer-1",
+    roomTypeId: "deluxe",
+    roomTypeCode: "DELUXE",
+    roomId: "deluxe-2",
+    roomName: "DELUXE 2",
+    occupiedFrom: "2026-08-13T06:00:00Z",
+    occupiedUntil: "2026-08-15T02:00:00Z",
+    status: "active",
+    version: 4,
+    capacityReservationId: "capacity",
+    roomAllocationId: "allocation",
+    capacityUsed: 1,
+    dogCount: 1,
+    members: [{
+      id: "physical-member",
+      familyBookingMemberId: "family-member",
+      hotelStayId: "joining",
+      dogId: "dog-b",
+      dogName: "Dog B",
+      status: "active",
+      joinedAt: "2026-08-13T06:00:00Z",
+      leftAt: null,
+    }],
+  } satisfies SharedHotelOccupancy;
+  const member = occupancy.members[0];
+
+  it("allows only Owner/Manager for an active checked-in member before check-out", () => {
+    const checkedIn = stay({ checkedInAt: "2026-08-13T06:00:00Z" });
+    expect(canReverseSharedHotelMemberCheckIn(occupancy, member, checkedIn, "owner")).toBe(true);
+    expect(canReverseSharedHotelMemberCheckIn(occupancy, member, checkedIn, "manager")).toBe(true);
+    expect(canReverseSharedHotelMemberCheckIn(occupancy, member, checkedIn, "staff")).toBe(false);
+  });
+
+  it("fails closed for inactive occupancy/member, pre-check-in, or checked-out Stay", () => {
+    const checkedIn = stay({ checkedInAt: "2026-08-13T06:00:00Z" });
+    expect(canReverseSharedHotelMemberCheckIn(
+      { ...occupancy, status: "completed" }, member, checkedIn, "owner",
+    )).toBe(false);
+    expect(canReverseSharedHotelMemberCheckIn(
+      occupancy, { ...member, status: "completed" }, checkedIn, "owner",
+    )).toBe(false);
+    expect(canReverseSharedHotelMemberCheckIn(occupancy, member, stay(), "owner")).toBe(false);
+    expect(canReverseSharedHotelMemberCheckIn(
+      occupancy,
+      member,
+      stay({ checkedInAt: "2026-08-13T06:00:00Z", checkedOutAt: "2026-08-15T02:00:00Z" }),
+      "owner",
+    )).toBe(false);
   });
 });

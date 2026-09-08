@@ -468,6 +468,21 @@ export function completeHotelCheckOut(
   });
 }
 
+export function reverseHotelCheckIn(
+  hotelStayId: string,
+  expectedVersion: number,
+  reason: string,
+  requestId: string,
+) {
+  return rpc<HotelStay>("reverse_hotel_completion", {
+    p_hotel_stay_id: hotelStayId,
+    p_expected_version: expectedVersion,
+    p_completion_kind: "check_in",
+    p_reason: reason.trim(),
+    p_request_id: requestId,
+  });
+}
+
 export function finalizeAndCompleteHotelCheckIn(
   hotelStayId: string,
   expectedVersion: number,

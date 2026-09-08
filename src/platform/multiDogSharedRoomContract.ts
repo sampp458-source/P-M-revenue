@@ -101,6 +101,7 @@ export interface SharedHotelRoomRepositoryContract {
   checkIn(occupancyId: string, hotelStayId: string, occupancyVersion: number, stayVersion: number, completedAt: string, requestId: string): Promise<SharedHotelMemberMutationResult>;
   checkOut(occupancyId: string, hotelStayId: string, occupancyVersion: number, stayVersion: number, completedAt: string, requestId: string): Promise<SharedHotelMemberMutationResult>;
   reverseCompletion(occupancyId: string, hotelStayId: string, occupancyVersion: number, stayVersion: number, reason: string, requestId: string): Promise<SharedHotelMemberMutationResult>;
+  reverseCheckIn(occupancyId: string, hotelStayId: string, occupancyVersion: number, stayVersion: number, reason: string, requestId: string): Promise<SharedHotelMemberMutationResult>;
   move(occupancyId: string, roomId: string, occupancyVersion: number, reason: string, requestId: string): Promise<SharedHotelOccupancy>;
   unassign(occupancyId: string, occupancyVersion: number, reason: string, requestId: string): Promise<SharedHotelUnassignResult>;
   cancel(sharedRoomGroupId: string, sharedRoomGroupVersion: number, reason: string, requestId: string): Promise<SharedHotelCancellationResult>;

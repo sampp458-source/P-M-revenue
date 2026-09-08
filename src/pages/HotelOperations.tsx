@@ -85,6 +85,7 @@ import {
   HotelOperationsRepositoryError,
   moveHotelRoomSameType,
   reassignHotelRoomBeforeCheckIn,
+  reverseHotelCheckIn,
   unassignHotelRoomBeforeCheckIn,
   updateHotelOperationSettings,
   updateCheckedInHotelPlannedCheckout,
@@ -137,6 +138,7 @@ type ModalName =
   | "move"
   | "checkin"
   | "checkout"
+  | "reverse_checkin"
   | "planned_checkout"
   | "cancel"
   | "merge_shared_room"
@@ -355,6 +357,8 @@ export function HotelOperationsPage() {
   const [roomTypeChangeConfirmationOpen, setRoomTypeChangeConfirmationOpen] =
     useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [reverseCheckInReason, setReverseCheckInReason] = useState("");
+  const reverseCheckInRequestIdRef = useRef<string | null>(null);
   const [toast, setToast] = useState<HotelToast | null>(null);
   const [roomBoardUndo, setRoomBoardUndo] = useState<RoomBoardUndo | null>(
     null,
@@ -579,7 +583,7 @@ export function HotelOperationsPage() {
     action: () => Promise<HotelStay>,
     successMessage: string,
     closeDetailAfter = false,
-  ) => {
+  ): Promise<boolean> => {
     clearRoomBoardUndo();
     setProcessing(true);
     try {
@@ -589,8 +593,10 @@ export function HotelOperationsPage() {
         setSelectedStayId(null);
         setDetail(null);
       }
+      return true;
     } catch (error) {
       setToast({ message: errorMessage(error), tone: "error" });
+      return false;
     } finally {
       setProcessing(false);
     }
@@ -1463,12 +1469,18 @@ export function HotelOperationsPage() {
         onUnassign={() => requestUnassignRoom(detail!.id)}
         onCheckIn={() => setModal("checkin")}
         onCheckOut={() => setModal("checkout")}
+        onReverseCheckIn={() => {
+          setReverseCheckInReason("");
+          reverseCheckInRequestIdRef.current = null;
+          setModal("reverse_checkin");
+        }}
         onChangePlannedCheckout={() => setModal("planned_checkout")}
         onCancel={() => { setCancelReason(""); setModal("cancel"); }}
         sharedOccupancy={detailSharedOccupancy}
         canMergeSharedRoom={mergeCandidates.length > 0}
         onMergeSharedRoom={() => setModal("merge_shared_room")}
         creatorName={options.assignees.find((person) => person.id === detail?.createdBy)?.name ?? null}
+        operationRole={operationRole}
       />
 
       <ScheduleFormModal
@@ -1582,6 +1594,29 @@ export function HotelOperationsPage() {
               "퇴실 완료로 처리했습니다.",
             );
           }} />
+          <ConfirmModal
+            open={modal === "reverse_checkin"}
+            title="입실 완료를 취소할까요?"
+            description={<div className="space-y-3"><p>입실 완료 상태만 되돌립니다.<br />객실 배정과 예약은 그대로 유지됩니다.</p><Field label="입실 완료 취소 사유"><Input value={reverseCheckInReason} onChange={(event) => setReverseCheckInReason(event.target.value)} placeholder="운영 사유 입력" /></Field></div>}
+            confirmLabel="입실 완료 취소"
+            cancelLabel="돌아가기"
+            processing={processing}
+            onClose={() => {
+              reverseCheckInRequestIdRef.current = null;
+              setModal(null);
+            }}
+            onConfirm={() => {
+              if (!reverseCheckInReason.trim()) return;
+              const operationRequestId = reverseCheckInRequestIdRef.current ?? crypto.randomUUID();
+              reverseCheckInRequestIdRef.current = operationRequestId;
+              void runStayMutation(
+                () => reverseHotelCheckIn(detail.id, detail.version, reverseCheckInReason, operationRequestId),
+                "입실 완료를 취소했습니다.",
+              ).then((succeeded) => {
+                if (succeeded) reverseCheckInRequestIdRef.current = null;
+              });
+            }}
+          />
           <PlannedCheckoutChangeModal
             open={modal === "planned_checkout"}
             stay={detail}
@@ -1739,7 +1774,7 @@ function StayRow({ stay, selectedDate, onClick }: { stay: HotelStay; selectedDat
   );
 }
 
-function StayDetailModal({ open, stay, selectedDate, loading, creatorName, sharedOccupancy, canMergeSharedRoom, onClose, onEdit, onAssign, onReassign, onMove, onUnassign, onCheckIn, onCheckOut, onChangePlannedCheckout, onCancel, onMergeSharedRoom }: { open: boolean; stay: HotelStay | null; selectedDate: string; loading: boolean; creatorName: string | null; sharedOccupancy: SharedHotelOccupancy | null; canMergeSharedRoom: boolean; onClose: () => void; onEdit: () => void; onAssign: () => void; onReassign: () => void; onMove: () => void; onUnassign: () => void; onCheckIn: () => void; onCheckOut: () => void; onChangePlannedCheckout: () => void; onCancel: () => void; onMergeSharedRoom: () => void }) {
+function StayDetailModal({ open, stay, selectedDate, loading, creatorName, sharedOccupancy, canMergeSharedRoom, operationRole, onClose, onEdit, onAssign, onReassign, onMove, onUnassign, onCheckIn, onCheckOut, onReverseCheckIn, onChangePlannedCheckout, onCancel, onMergeSharedRoom }: { open: boolean; stay: HotelStay | null; selectedDate: string; loading: boolean; creatorName: string | null; sharedOccupancy: SharedHotelOccupancy | null; canMergeSharedRoom: boolean; operationRole: OperationRole | null; onClose: () => void; onEdit: () => void; onAssign: () => void; onReassign: () => void; onMove: () => void; onUnassign: () => void; onCheckIn: () => void; onCheckOut: () => void; onReverseCheckIn: () => void; onChangePlannedCheckout: () => void; onCancel: () => void; onMergeSharedRoom: () => void }) {
   if (!stay && !loading) return null;
   const allocation = stay ? activeHotelAllocation(stay) : null;
   const status = stay ? hotelStayStatus(stay) : "예약";
@@ -1768,12 +1803,23 @@ function StayDetailModal({ open, stay, selectedDate, loading, creatorName, share
         <ResponsiveActionGroup
           className="justify-end"
           primary={<>{!stay.checkedInAt ? <Button type="button" onClick={onCheckIn}>입실 완료</Button> : null}{stay.checkedInAt && !stay.checkedOutAt ? <Button type="button" onClick={onCheckOut}>퇴실 완료</Button> : null}</>}
-          secondary={<>{!stay.checkedInAt ? <Button type="button" variant="secondary" onClick={onEdit}>예약 수정</Button> : null}{canChangeCheckedInHotelPlannedCheckout(stay) ? <Button type="button" variant="secondary" onClick={onChangePlannedCheckout}>퇴실 예정 변경</Button> : null}{canMergeSharedRoom ? <Button type="button" variant="secondary" onClick={onMergeSharedRoom}><BedDouble size={16} /> 같은 방 투숙</Button> : null}{!stay.checkedInAt && !allocation && !unspecified.roomType ? <Button type="button" variant="secondary" onClick={onAssign}>호실 배정</Button> : null}{!stay.checkedInAt && allocation ? <Button type="button" variant="secondary" onClick={onReassign}>호실 재배정</Button> : null}{canUnassign ? <Button type="button" variant="secondary" onClick={onUnassign}>배정 해제</Button> : null}{stay.checkedInAt && !stay.checkedOutAt ? <Button type="button" variant="secondary" onClick={onMove}><MoveRight size={16} /> 객실 이동</Button> : null}</>}
+          secondary={<>{!stay.checkedInAt ? <Button type="button" variant="secondary" onClick={onEdit}>예약 수정</Button> : null}{canChangeCheckedInHotelPlannedCheckout(stay) ? <Button type="button" variant="secondary" onClick={onChangePlannedCheckout}>퇴실 예정 변경</Button> : null}{canMergeSharedRoom ? <Button type="button" variant="secondary" onClick={onMergeSharedRoom}><BedDouble size={16} /> 같은 방 투숙</Button> : null}{!stay.checkedInAt && !allocation && !unspecified.roomType ? <Button type="button" variant="secondary" onClick={onAssign}>호실 배정</Button> : null}{!stay.checkedInAt && allocation ? <Button type="button" variant="secondary" onClick={onReassign}>호실 재배정</Button> : null}{canUnassign ? <Button type="button" variant="secondary" onClick={onUnassign}>배정 해제</Button> : null}{canReverseSingleHotelCheckIn(stay, sharedOccupancy, operationRole) ? <Button type="button" variant="secondary" onClick={onReverseCheckIn}><RotateCcw size={16} /> 입실 완료 취소</Button> : null}{stay.checkedInAt && !stay.checkedOutAt ? <Button type="button" variant="secondary" onClick={onMove}><MoveRight size={16} /> 객실 이동</Button> : null}</>}
           destructive={!stay.checkedInAt ? <Button type="button" variant="danger" onClick={onCancel}>예약 취소</Button> : undefined}
         />
       </div>}
     </Modal>
   );
+}
+
+export function canReverseSingleHotelCheckIn(
+  stay: HotelStay,
+  sharedOccupancy: SharedHotelOccupancy | null,
+  operationRole: OperationRole | null,
+) {
+  return sharedOccupancy === null
+    && stay.checkedInAt !== null
+    && stay.checkedOutAt === null
+    && (operationRole === "owner" || operationRole === "manager");
 }
 
 function Detail({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {

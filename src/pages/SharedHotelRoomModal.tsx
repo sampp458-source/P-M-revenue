@@ -26,6 +26,21 @@ export interface ExistingStaySharedRoomCandidate {
   roomName: string;
 }
 
+export function canReverseSharedHotelMemberCheckIn(
+  occupancy: SharedHotelOccupancy,
+  member: SharedHotelOccupancy["members"][number],
+  stay: HotelStay | undefined,
+  operationRole: OperationRole | null,
+) {
+  return (
+    (operationRole === "owner" || operationRole === "manager") &&
+    occupancy.status === "active" &&
+    member.status === "active" &&
+    Boolean(stay?.checkedInAt) &&
+    !stay?.checkedOutAt
+  );
+}
+
 export function existingStaySharedRoomCandidates(
   joiningStay: HotelStay,
   stays: readonly HotelStay[],
@@ -166,17 +181,24 @@ export function SharedHotelRoomModal({
   const [plannedCheckoutStayId, setPlannedCheckoutStayId] = useState<string | null>(null);
   const [changingPlannedCheckout, setChangingPlannedCheckout] = useState(false);
   const [checkoutMemberId, setCheckoutMemberId] = useState<string | null>(null);
+  const [reverseCheckInMemberId, setReverseCheckInMemberId] = useState<string | null>(null);
+  const [reverseCheckInReason, setReverseCheckInReason] = useState("");
   const [unassignOpen, setUnassignOpen] = useState(false);
   const unassignRequestIdRef = useRef<string | null>(null);
+  const reverseCheckInRequestIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!occupancy) {
       setStays({});
       setPlannedCheckoutStayId(null);
+      setReverseCheckInMemberId(null);
+      setReverseCheckInReason("");
       unassignRequestIdRef.current = null;
+      reverseCheckInRequestIdRef.current = null;
       return;
     }
     unassignRequestIdRef.current = null;
+    reverseCheckInRequestIdRef.current = null;
     let active = true;
     setLoading(true);
     setError("");
@@ -205,6 +227,9 @@ export function SharedHotelRoomModal({
     : null;
   const checkoutMember = checkoutMemberId
     ? occupancy.members.find((member) => member.id === checkoutMemberId) ?? null
+    : null;
+  const reverseCheckInMember = reverseCheckInMemberId
+    ? occupancy.members.find((member) => member.id === reverseCheckInMemberId) ?? null
     : null;
   const canUnassign = canUnassignSharedHotelOccupancyBeforeCheckIn(
     occupancy,
@@ -245,16 +270,18 @@ export function SharedHotelRoomModal({
   ) => {
     const member = occupancy.members.find((candidate) => candidate.id === memberId);
     const stay = member ? stays[member.hotelStayId] : null;
-    if (!stay) return;
+    if (!stay) return false;
     setProcessingMemberId(memberId);
     setError("");
     try {
       const result = await action(stay);
       await refresh(result.occupancy);
+      return true;
     } catch (actionError) {
       setError(sharedHotelRoomErrorMessage(actionError));
       const latest = await sharedHotelRoomRepository.get(occupancy.id).catch(() => null);
       if (latest) await refresh(latest);
+      return false;
     } finally {
       setProcessingMemberId(null);
     }
@@ -300,6 +327,13 @@ export function SharedHotelRoomModal({
                 secondary={<>
                 {member.status === "active" && stay?.checkedInAt && canChangeCheckedInHotelPlannedCheckout(stay) ? (
                   <Button variant="secondary" disabled={busy} onClick={() => setPlannedCheckoutStayId(stay.id)}>퇴실 예정 변경</Button>
+                ) : null}
+                {canReverseSharedHotelMemberCheckIn(occupancy, member, stay, operationRole) ? (
+                  <Button variant="secondary" disabled={busy} onClick={() => {
+                    setReverseCheckInReason("");
+                    reverseCheckInRequestIdRef.current = null;
+                    setReverseCheckInMemberId(member.id);
+                  }}><RotateCcw size={15} />입실 완료 취소</Button>
                 ) : null}
                 {member.status === "completed" && (operationRole === "owner" || operationRole === "manager") ? (
                   <Button variant="secondary" disabled={busy || !reason.trim()} onClick={() => void memberAction(member.id, (current) => sharedHotelRoomRepository.reverseCompletion(occupancy.id, current.id, occupancy.version, current.version, reason, crypto.randomUUID()))}><RotateCcw size={15} />완료 취소</Button>
@@ -369,6 +403,38 @@ export function SharedHotelRoomModal({
             }).catch((unassignError) => {
               setError(sharedHotelRoomErrorMessage(unassignError));
             }).finally(() => setProcessingMemberId(null));
+          }}
+        />
+        <ConfirmModal
+          open={reverseCheckInMember !== null}
+          title="입실 완료를 취소할까요?"
+          description={<div className="space-y-3"><p>해당 반려견의 입실 완료 상태만 되돌립니다.<br />객실 배정과 함께 투숙 예약은 그대로 유지됩니다.</p><Field label="입실 완료 취소 사유"><Input value={reverseCheckInReason} onChange={(event) => setReverseCheckInReason(event.target.value)} placeholder="운영 사유 입력" /></Field></div>}
+          confirmLabel="입실 완료 취소"
+          cancelLabel="돌아가기"
+          processing={Boolean(processingMemberId)}
+          onClose={() => {
+            setReverseCheckInMemberId(null);
+            reverseCheckInRequestIdRef.current = null;
+          }}
+          onConfirm={() => {
+            if (!reverseCheckInMember || !reverseCheckInReason.trim()) return;
+            const memberId = reverseCheckInMember.id;
+            const operationRequestId = reverseCheckInRequestIdRef.current ?? crypto.randomUUID();
+            reverseCheckInRequestIdRef.current = operationRequestId;
+            void memberAction(memberId, (current) => sharedHotelRoomRepository.reverseCheckIn(
+              occupancy.id,
+              current.id,
+              occupancy.version,
+              current.version,
+              reverseCheckInReason,
+              operationRequestId,
+            )).then((changed) => {
+              if (changed) {
+                reverseCheckInRequestIdRef.current = null;
+                setReverseCheckInReason("");
+                setReverseCheckInMemberId(null);
+              }
+            });
           }}
         />
         <ConfirmModal

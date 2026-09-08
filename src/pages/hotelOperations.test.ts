@@ -14,7 +14,10 @@ import {
   matchesHotelQuickFilter,
   seoulInputParts,
 } from "./hotelOperationsUi";
-import { scheduleFormFromHotelStay } from "./HotelOperations";
+import {
+  canReverseSingleHotelCheckIn,
+  scheduleFormFromHotelStay,
+} from "./HotelOperations";
 import {
   emptyForm,
   hotelReservationInputFromForm,
@@ -105,6 +108,24 @@ describe("Hotel snapshot date validation", () => {
 });
 
 describe("Hotel Operations frontend", () => {
+  it("allows Single check-in reversal only for Owner/Manager before checkout", () => {
+    const checkedIn = stay({
+      checkedInAt: "2026-08-02T06:00:00Z",
+      checkedInBy: "profile-1",
+    });
+
+    expect(canReverseSingleHotelCheckIn(checkedIn, null, "owner")).toBe(true);
+    expect(canReverseSingleHotelCheckIn(checkedIn, null, "manager")).toBe(true);
+    expect(canReverseSingleHotelCheckIn(checkedIn, null, "staff")).toBe(false);
+    expect(canReverseSingleHotelCheckIn(stay(), null, "owner")).toBe(false);
+    expect(canReverseSingleHotelCheckIn(
+      { ...checkedIn, checkedOutAt: "2026-08-03T02:00:00Z" },
+      null,
+      "owner",
+    )).toBe(false);
+    expect(canReverseSingleHotelCheckIn(checkedIn, {} as never, "owner")).toBe(false);
+  });
+
   it("derives selected-day work phases from linked KST event dates", () => {
     const scheduledStay = stay({
       scheduleEvents: [

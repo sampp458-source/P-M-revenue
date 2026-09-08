@@ -24,6 +24,7 @@ describe("Multi-Dog Shared Room frontend contract", () => {
       "create_shared_hotel_room_occupancy",
       "merge_existing_hotel_stays_into_shared_room",
       "complete_shared_hotel_check_in",
+      "reverse_shared_hotel_member_check_in",
       "complete_shared_hotel_member_check_out",
       "reverse_shared_hotel_member_completion",
       "move_shared_hotel_room_occupancy",
