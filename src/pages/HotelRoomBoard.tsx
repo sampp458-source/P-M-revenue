@@ -1,3 +1,4 @@
+import { hotelRoomBoardDateMode, hotelRoomBoardDateCopy, PAST_ROOM_BOARD_NOTICE, FUTURE_ROOM_BOARD_NOTICE, type HotelRoomBoardDateMode } from "./hotelRoomBoardDateMode";
 import { ChevronDown, Clock3, GripVertical, Sparkles } from "lucide-react";
 import {
   type DragEvent,
@@ -1017,6 +1018,7 @@ function RoomCell({
 }
 
 export function HotelRoomBoard({
+  dateMode: explicitDateMode,
   eventRoomProjections,
   snapshot,
   sharedOccupancies = [],
@@ -1027,20 +1029,21 @@ export function HotelRoomBoard({
   daycareReservations = [],
   selectedDate,
   selectedDateIsToday,
-  processing,
+  processing: operationProcessing,
   processingStayId = null,
   allowCrossTypeChange,
   onOpenStay,
   onOpenSharedOccupancy = () => undefined,
-  onDropStay,
-  onDropSharedGroup = () => undefined,
+  onDropStay: requestOnDropStay,
+  onDropSharedGroup: requestOnDropSharedGroup = () => undefined,
   onRetryUnassignedSharedGroups = () => undefined,
-  onCancelSharedGroup = () => undefined,
-  onUnassignStay,
-  onUnassignSharedOccupancy = () => undefined,
+  onCancelSharedGroup: requestOnCancelSharedGroup = () => undefined,
+  onUnassignStay: requestOnUnassignStay,
+  onUnassignSharedOccupancy: requestOnUnassignSharedOccupancy = () => undefined,
   allowCheckInReversal = false,
 }: {
   eventRoomProjections?: HotelEventRoomProjections;
+  dateMode?: HotelRoomBoardDateMode;
   snapshot: HotelOperationsSnapshot;
   sharedOccupancies?: readonly SharedHotelOccupancy[];
   unassignedSharedGroups?: readonly UnassignedSharedRoomGroup[];
@@ -1067,6 +1070,14 @@ export function HotelRoomBoard({
   onUnassignSharedOccupancy?: (occupancyId: string, expectedVersion: number) => void;
   allowCheckInReversal?: boolean;
 }) {
+  const dateMode = explicitDateMode ?? (selectedDateIsToday ? "TODAY" : hotelRoomBoardDateMode(selectedDate));
+  const readOnly = dateMode === "PAST";
+  const processing = operationProcessing || readOnly;
+  const onDropStay = (...args: Parameters<typeof requestOnDropStay>) => { if (!readOnly) requestOnDropStay(...args); };
+  const onDropSharedGroup = (...args: Parameters<typeof requestOnDropSharedGroup>) => { if (!readOnly) requestOnDropSharedGroup(...args); };
+  const onCancelSharedGroup = (...args: Parameters<typeof requestOnCancelSharedGroup>) => { if (!readOnly) requestOnCancelSharedGroup(...args); };
+  const onUnassignStay = (...args: Parameters<typeof requestOnUnassignStay>) => { if (!readOnly) requestOnUnassignStay(...args); };
+  const onUnassignSharedOccupancy = (...args: Parameters<typeof requestOnUnassignSharedOccupancy>) => { if (!readOnly) requestOnUnassignSharedOccupancy(...args); };
   const [draggedStayId, setDraggedStayId] = useState<string | null>(null);
   const [draggedSharedGroupId, setDraggedSharedGroupId] = useState<string | null>(null);
   const [draggedSharedOccupancyId, setDraggedSharedOccupancyId] = useState<string | null>(null);
@@ -1620,13 +1631,15 @@ export function HotelRoomBoard({
                 Room Board
               </p>
               <h2 className="mt-1 text-xl font-extrabold text-text-primary">
-                객실 현황
+                {hotelRoomBoardDateCopy[dateMode].title}
               </h2>
               <p className="mt-0.5 text-xs text-text-secondary">
-                빈방과 오늘의 입·퇴실, 이용중 객실을 한 화면에서 관리합니다.
+                {hotelRoomBoardDateCopy[dateMode].description}
               </p>
             </div>
           </div>
+          {readOnly ? <p className="mt-3 text-sm text-text-secondary">{PAST_ROOM_BOARD_NOTICE}</p> : null}
+          {dateMode === "FUTURE" ? <p className="mt-3 text-sm text-text-secondary">{FUTURE_ROOM_BOARD_NOTICE}</p> : null}
           <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
             {[
               ["빈방", boardSummary.empty, "border-slate-200 bg-slate-50 text-slate-700"],
@@ -1749,7 +1762,7 @@ export function HotelRoomBoard({
                 <div>
                   <p className="font-extrabold">{unassignedSharedGroupsError}</p>
                   <p className="mt-0.5 text-xs font-medium text-red-800">
-                    기존 객실 현황은 계속 사용할 수 있습니다. 함께 투숙 예약만 다시 확인해 주세요.
+                    다른 관련 기록은 계속 확인할 수 있습니다. 함께 투숙 예약만 다시 확인해 주세요.
                   </p>
                 </div>
                 <button
@@ -1821,11 +1834,11 @@ export function HotelRoomBoard({
 
           {mobileProjection ? (
             <div className="min-w-0 space-y-4" data-testid="hotel-room-board-mobile-projection">
-              <section aria-label="현재 객실 상태 필터">
+              <section aria-label={dateMode === "TODAY" ? "현재 객실 상태 필터" : "선택일 관련 기록 필터"}>
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-base font-extrabold text-text-primary">현재 객실</h3>
-                    <p className="mt-0.5 text-xs font-medium text-text-secondary">선택한 날짜의 객실 상태</p>
+                    <h3 className="text-base font-extrabold text-text-primary">{dateMode === "TODAY" ? "현재 객실" : "선택일 관련 예약·배정"}</h3>
+                    <p className="mt-0.5 text-xs font-medium text-text-secondary">{dateMode === "TODAY" ? "현재 예약·배정 상태" : "현재 운영 데이터에 남아 있는 관련 기록입니다."}</p>
                   </div>
                   {draggedStay || draggedSharedGroup ? <Badge tone="blue">이동할 호실 선택</Badge> : null}
                 </div>

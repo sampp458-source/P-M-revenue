@@ -126,7 +126,7 @@ const snapshot = (
 const boardProps = (value: HotelOperationsSnapshot, selectedDate: string) => ({
   snapshot: value,
   selectedDate,
-  selectedDateIsToday: false,
+  dateMode: "FUTURE" as const, selectedDateIsToday: false,
   processing: false,
   allowCrossTypeChange: true,
   onOpenStay: vi.fn(),
@@ -256,13 +256,13 @@ describe("Hotel Room Board operations UX", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "함께 투숙 미배정 예약을 불러오지 못했습니다.",
     );
-    expect(screen.getByText("기존 객실 현황은 계속 사용할 수 있습니다. 함께 투숙 예약만 다시 확인해 주세요.")).toBeVisible();
+    expect(screen.getByText("다른 관련 기록은 계속 확인할 수 있습니다. 함께 투숙 예약만 다시 확인해 주세요.")).toBeVisible();
     expect(screen.queryByText("현재 미배정 예약이 없습니다.")).toBeNull();
     expect(screen.getAllByText("확인 필요").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
     expect(retry).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("heading", { name: "객실 현황" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "선택일 예약·배정 계획" })).toBeVisible();
 
     rerender(
       <HotelRoomBoard
@@ -726,5 +726,45 @@ describe("Hotel Room Board operations UX", () => {
     });
     render(<HotelRoomBoard {...boardProps(snapshot([longStay]), "2026-08-15")} />);
     expect(screen.getByTestId("hotel-room-board-completed-checkouts")).toHaveTextContent("장기견");
+  });
+});
+
+
+describe("007 date mode safety", () => {
+  it("past is read-only while detail and canonical checkout remain readable", () => {
+    const active = allocatedStay();
+    const completed = allocatedStay({ id: "completed", dogName: "완료견", checkedOutAt: "2026-08-15T03:32:00Z" });
+    const props = boardProps(snapshot([active, completed]), "2026-08-15");
+    const onDropStay = vi.fn(); const onUnassignStay = vi.fn(); const onOpenStay = vi.fn();
+    render(<HotelRoomBoard {...props} dateMode="PAST" onDropStay={onDropStay} onUnassignStay={onUnassignStay} onOpenStay={onOpenStay}
+      eventRoomProjections={new Map([[completed.scheduleEvents[1].schedule.id, { operationScheduleId: completed.scheduleEvents[1].schedule.id, hotelStayId: completed.id, hotelEventKind: "check_out", hotelRoomTypeName: "OLD", hotelRoomName: "Canonical checkout", hotelSharedRoom: false, roomResolutionStatus: "resolved" }]])} />);
+    expect(screen.getByRole("heading", { name: "선택일 운영 기록" })).toBeVisible();
+    expect(screen.getByText(/완전히 복원한 화면은 아닙니다/)).toBeVisible();
+    expect(screen.queryByRole("heading", { name: /객실 현황|당시 객실 배치|실제 점유 현황/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "감자 호실 이동 시작" })).toBeDisabled();
+    fireEvent.click(within(screen.getByTestId("hotel-room-board-stay-stay-1")).getByRole("button", { name: /감자.*퇴실/ }));
+    expect(onOpenStay).toHaveBeenCalledWith("stay-1");
+    const dataTransfer = dragTransfer(); dataTransfer.setData("application/x-hotel-stay-id", active.id);
+    fireEvent.drop(screen.getByTestId("hotel-room-board-room-room-1"), { dataTransfer });
+    fireEvent.drop(screen.getByTestId("hotel-room-board-unassigned-drop-zone"), { dataTransfer });
+    expect(onDropStay).not.toHaveBeenCalled(); expect(onUnassignStay).not.toHaveBeenCalled();
+    expect(screen.getByTestId("hotel-room-board-completed-checkouts")).toHaveTextContent("Canonical checkout");
+  });
+  it.each(["TODAY", "FUTURE"] as const)("%s preserves pre-assignment", dateMode => {
+    const value = stay(); const onDropStay = vi.fn();
+    render(<HotelRoomBoard {...boardProps(snapshot([value]), "2026-08-13")} dateMode={dateMode} onDropStay={onDropStay} />);
+    expect(screen.getByRole("heading", { name: dateMode === "TODAY" ? "현재 객실 운영 현황" : "선택일 예약·배정 계획" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "감자 호실 이동 시작" }));
+    fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-room-1"));
+    expect(onDropStay).toHaveBeenCalledWith(value.id, "room-1", false);
+  });
+  it("past Shared detail remains accessible but mutation drop is blocked", () => {
+    const occupancy = sharedOccupancy(); const open = vi.fn(); const unassign = vi.fn();
+    render(<HotelRoomBoard {...boardProps(snapshot([]), "2026-08-13")} dateMode="PAST" sharedOccupancies={[occupancy]} onOpenSharedOccupancy={open} onUnassignSharedOccupancy={unassign} />);
+    fireEvent.click(screen.getByTestId(`shared-room-card-${occupancy.id}`));
+    expect(open).toHaveBeenCalledWith(occupancy.id);
+    const dataTransfer = dragTransfer(); dataTransfer.setData("application/x-hotel-shared-occupancy-id", occupancy.id);
+    fireEvent.drop(screen.getByTestId("hotel-room-board-unassigned-drop-zone"), { dataTransfer });
+    expect(unassign).not.toHaveBeenCalled();
   });
 });

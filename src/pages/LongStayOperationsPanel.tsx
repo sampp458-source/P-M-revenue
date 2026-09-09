@@ -1,3 +1,4 @@
+import { PAST_ROOM_BOARD_NOTICE } from "./hotelRoomBoardDateMode";
 import {
   ArrowLeft,
   ArrowRight,
@@ -184,6 +185,7 @@ const actionTitle: Record<ActionKind, string> = {
 };
 
 export function LongStayOperationsPanel({
+  readOnly = false,
   snapshot,
   options,
   operationRole,
@@ -193,6 +195,7 @@ export function LongStayOperationsPanel({
   snapshot: HotelOperationsSnapshot;
   options: OperationScheduleOptions;
   operationRole: OperationRole | null;
+  readOnly?: boolean;
   selectedBusinessDate?: string;
   onHotelSnapshotRefresh: () => Promise<unknown>;
 }) {
@@ -267,6 +270,7 @@ export function LongStayOperationsPanel({
   const selectedAvailability = availabilityByRoom.get(roomId) ?? null;
 
   const openAction = (kind: ActionKind, contract: LongStayMonthContractProjection) => {
+    if (readOnly) return;
     setToast(null);
     setAction({ kind, contract, requestId: newLongStayRequestId() });
     setRoomId(contract.currentRoom?.id ?? availableRooms[0]?.id ?? "");
@@ -358,6 +362,7 @@ export function LongStayOperationsPanel({
   };
 
   const submit = async () => {
+    if (readOnly) return;
     if (!action || processing) return;
     setProcessing(true);
     try {
@@ -497,6 +502,7 @@ export function LongStayOperationsPanel({
       </div>
 
       <div className="p-4 sm:p-6">
+        {readOnly ? <p className="mb-3 text-sm text-text-secondary">{PAST_ROOM_BOARD_NOTICE} 장기호텔 정보는 현재 계약과 별도로 선택한 월 기준이며, 과거 객실 점유를 복원한 기록이 아닙니다.</p> : null}
         {loading ? <LoadingState /> : error ? (
           <div className="rounded-2xl bg-error-soft p-4 text-sm text-error">{error} <Button variant="ghost" onClick={() => void load()}>다시 시도</Button></div>
         ) : contracts.length === 0 ? (
@@ -545,6 +551,7 @@ export function LongStayOperationsPanel({
                       </>
                     ) : null}
                   </div>
+                  <fieldset disabled={readOnly} onClickCapture={(event) => { if (readOnly) { event.preventDefault(); event.stopPropagation(); } }}>
                   <ResponsiveActionGroup
                     className="mt-3"
                     primary={<>
@@ -580,6 +587,7 @@ export function LongStayOperationsPanel({
                     </>}
                     destructive={contract.checkedInAt && !contract.checkedOutAt && contract.currentAbsence?.inventoryMode !== "release_room" ? <Button variant="danger" onClick={() => openAction("checkout", contract)}><LogOut size={15} /> 실제 퇴실</Button> : undefined}
                   />
+                  </fieldset>
                 </article>
               );
             })}
@@ -587,7 +595,7 @@ export function LongStayOperationsPanel({
         )}
       </div>
 
-      <Modal open={Boolean(action)} title={action ? actionTitle[action.kind] : "장기호텔 처리"} description={action ? `${action.contract.dogName || "반려견"} · 장기호텔 · ${action.contract.currentRoom?.name || "호실 미배정"}` : undefined} onClose={() => !processing && setAction(null)} resetKey={`${action?.kind ?? ""}-${action?.contract.id ?? ""}`} size="large">
+      <Modal open={!readOnly && Boolean(action)} title={action ? actionTitle[action.kind] : "장기호텔 처리"} description={action ? `${action.contract.dogName || "반려견"} · 장기호텔 · ${action.contract.currentRoom?.name || "호실 미배정"}` : undefined} onClose={() => !processing && setAction(null)} resetKey={`${action?.kind ?? ""}-${action?.contract.id ?? ""}`} size="large">
         {action ? (
           <div className="space-y-4">
             <div className="rounded-2xl bg-primary-subtle p-4"><b>{action.contract.dogName || "반려견"}</b><span className="ml-2 text-sm text-text-secondary">{action.contract.currentRoom?.name || "호실 미배정"}</span></div>

@@ -139,6 +139,7 @@ afterEach(() => {
 function renderSharedRoom(
   memberStates: readonly ("active" | "completed")[] = ["active", "active"],
   onChangePlannedCheckout = vi.fn().mockResolvedValue(true),
+  readOnly = false,
 ) {
   const completedA = { ...dogA, checkedOutAt: "2026-08-15T10:00:00Z" };
   const completedB = { ...dogB, checkedOutAt: "2026-08-16T02:00:00Z" };
@@ -149,6 +150,7 @@ function renderSharedRoom(
   mocks.fetchHotelStay.mockImplementation((id: string) => Promise.resolve(stays.get(id)));
   render(
     <SharedHotelRoomModal
+      readOnly={readOnly}
       occupancy={occupancy(memberStates)}
       snapshot={snapshot}
       selectedDate="2026-08-14"
@@ -253,4 +255,18 @@ describe("Shared Room Dog planned checkout UI", () => {
     expect(screen.queryByRole("button", { name: /Dog별 퇴실/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /DELUXE로 전체 이동/ })).toBeNull();
   });
+});
+
+
+it("007 past Shared detail preserves reading and blocks commands", async () => {
+  const change = vi.fn();
+  renderSharedRoom(["active", "active"], change, true);
+  await screen.findAllByRole("button", { name: "퇴실 예정 변경" });
+  for (const button of screen.getAllByRole("button", { name: /퇴실 예정 변경|Dog별 퇴실/ })) {
+    expect(button.matches(":disabled")).toBe(true);
+    fireEvent.click(button);
+  }
+  expect(screen.getByText(/과거 날짜에서는 현재 운영 상태를 변경할 수 없습니다/)).toBeTruthy();
+  expect(change).not.toHaveBeenCalled();
+  expect(mocks.unassign).not.toHaveBeenCalled();
 });

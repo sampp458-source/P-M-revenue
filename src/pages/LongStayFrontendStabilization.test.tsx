@@ -133,6 +133,7 @@ const projection = (
 const renderOperations = (
   contracts: LongStayMonthContractProjection[],
   operationRole: "owner" | "manager" | "staff" = "owner",
+  readOnly = false,
 ) => {
   repositoryMocks.getLongStayMonth.mockResolvedValue({
     serviceMonth: "2026-09-01",
@@ -160,6 +161,7 @@ const renderOperations = (
 
   return render(
     <LongStayOperationsPanel
+      readOnly={readOnly}
       snapshot={snapshot as never}
       options={options as never}
       operationRole={operationRole}
@@ -419,4 +421,22 @@ describe("006 Long Stay away presentation", () => {
     expect(contract.currentRoom?.name).toBe("Current contract room");
     expect(month.monthlyOccupancy?.roomId).toBe("different-month-room");
   });
+});
+
+
+it("007 past Long Stay retains current/absence reading but blocks room operation entry", async () => {
+  renderOperations([projection({
+    storedStatus: "active", derivedStatus: "active", checkedInAt: "2026-09-11T06:00:00Z", hotelStayId: "stay-1",
+    isAway: true, currentRoom: null,
+    currentAbsence: { id: "leave", leftAt: "2026-09-12T00:00:00Z", expectedReturnAt: null, expectedReturnDate: "2026-09-18", expectedReturnTimeUnspecified: true,
+      inventoryMode: "release_room", inventoryTransitionStatus: "room_released", previousRoom: { id: "room", name: "이전 객실", roomTypeId: "type" } },
+  })], "owner", true);
+  expect(await screen.findByText("객실 임시 해제")).toBeTruthy();
+  expect(screen.getByText(/과거 객실 점유를 복원한 기록이 아닙니다/)).toBeTruthy();
+  for (const button of screen.getAllByRole("button", { name: /복귀|객실 배정|외출|퇴실 예정/ })) {
+    expect(button.matches(":disabled")).toBe(true);
+    fireEvent.click(button);
+  }
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.getByRole("button", { name: "이전 달" }).matches(":disabled")).toBe(false);
 });

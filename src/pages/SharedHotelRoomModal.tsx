@@ -1,3 +1,4 @@
+import { PAST_ROOM_BOARD_NOTICE } from "./hotelRoomBoardDateMode";
 import { BedDouble, LogIn, LogOut, MoveRight, RotateCcw, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, ConfirmModal, Field, Input, LoadingState, Modal, ModalActions, ResponsiveActionGroup, Select } from "../components/ui";
@@ -149,6 +150,7 @@ const localDateTime = () => {
 };
 
 export function SharedHotelRoomModal({
+  readOnly = false,
   occupancy,
   snapshot,
   selectedDate,
@@ -158,6 +160,7 @@ export function SharedHotelRoomModal({
   onUnassigned = () => undefined,
   onChangePlannedCheckout,
 }: {
+  readOnly?: boolean;
   occupancy: SharedHotelOccupancy | null;
   snapshot: HotelOperationsSnapshot;
   selectedDate: string;
@@ -240,7 +243,7 @@ export function SharedHotelRoomModal({
     || (unassignMode === "reverse_check_in_and_unassign"
       && canOperateHotel(operationRole));
 
-  if (plannedCheckoutStay) {
+  if (!readOnly && plannedCheckoutStay) {
     return (
       <PlannedCheckoutChangeModal
         open
@@ -272,6 +275,7 @@ export function SharedHotelRoomModal({
     memberId: string,
     action: (stay: HotelStay) => Promise<{ occupancy: SharedHotelOccupancy }>,
   ) => {
+    if (readOnly) return false;
     const member = occupancy.members.find((candidate) => candidate.id === memberId);
     const stay = member ? stays[member.hotelStayId] : null;
     if (!stay) return false;
@@ -293,7 +297,8 @@ export function SharedHotelRoomModal({
 
   return (
     <Modal open title="같은 방 투숙 상세" description={`${occupancy.roomName} · 반려견 ${occupancy.dogCount}마리`} onClose={onClose} resetKey={occupancy.id} size="medium">
-      <div className="space-y-4">
+      <fieldset disabled={readOnly} onClickCapture={(event) => { if (readOnly) { event.preventDefault(); event.stopPropagation(); } }} className="space-y-4">
+        {readOnly ? <p className="text-sm text-text-secondary">{PAST_ROOM_BOARD_NOTICE} 현재 Shared 관계를 참고용으로 표시합니다.</p> : null}
         <div className="rounded-2xl border border-border bg-surface-secondary p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="flex items-center gap-2"><UsersRound size={18} /><strong>DELUXE 객실</strong><Badge tone="blue">같은 방</Badge></span>
@@ -356,6 +361,7 @@ export function SharedHotelRoomModal({
             <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
               <Field label="다른 DELUXE 호실"><Select value={moveRoomId} onChange={(event) => setMoveRoomId(event.target.value)}><option value="">호실 선택</option>{deluxeRooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}</Select></Field>
               <Button variant="secondary" disabled={!moveRoomId || !reason.trim() || Boolean(processingMemberId)} onClick={() => {
+                if (readOnly) return;
                 setProcessingMemberId("move");
                 setError("");
                 void sharedHotelRoomRepository.move(occupancy.id, moveRoomId, occupancy.version, reason, crypto.randomUUID())
@@ -382,7 +388,7 @@ export function SharedHotelRoomModal({
           </Button>
         ) : null}
         <ConfirmModal
-          open={unassignOpen}
+          open={!readOnly && unassignOpen}
           title={unassignMode === "reverse_check_in_and_unassign"
             ? "입실 완료를 취소하고 객실 배정을 해제할까요?"
             : "객실 배정을 해제할까요?"}
@@ -399,6 +405,7 @@ export function SharedHotelRoomModal({
             unassignRequestIdRef.current = null;
           }}
           onConfirm={() => {
+            if (readOnly) return;
             const latestMode = sharedHotelOccupancyRoomUnassignMode(
               occupancy,
               new Map(Object.values(stays).map((stay) => [stay.id, stay])),
@@ -430,7 +437,7 @@ export function SharedHotelRoomModal({
           }}
         />
         <ConfirmModal
-          open={reverseCheckInMember !== null}
+          open={!readOnly && reverseCheckInMember !== null}
           title="입실 완료를 취소할까요?"
           description={<div className="space-y-3"><p>해당 반려견의 입실 완료 상태만 되돌립니다.<br />객실 배정과 함께 투숙 예약은 그대로 유지됩니다.</p><Field label="입실 완료 취소 사유"><Input value={reverseCheckInReason} onChange={(event) => setReverseCheckInReason(event.target.value)} placeholder="운영 사유 입력" /></Field></div>}
           confirmLabel="입실 완료 취소"
@@ -441,6 +448,7 @@ export function SharedHotelRoomModal({
             reverseCheckInRequestIdRef.current = null;
           }}
           onConfirm={() => {
+            if (readOnly) return;
             if (!reverseCheckInMember || !reverseCheckInReason.trim()) return;
             const memberId = reverseCheckInMember.id;
             const operationRequestId = reverseCheckInRequestIdRef.current ?? crypto.randomUUID();
@@ -462,7 +470,7 @@ export function SharedHotelRoomModal({
           }}
         />
         <ConfirmModal
-          open={checkoutMember !== null}
+          open={!readOnly && checkoutMember !== null}
           title="반려견 퇴실을 완료할까요?"
           description={`${checkoutMember?.dogName ?? "선택한 반려견"}의 객실 이용만 종료합니다. 같은 방의 다른 반려견은 그대로 유지됩니다.`}
           confirmLabel="Dog별 퇴실"
@@ -470,6 +478,7 @@ export function SharedHotelRoomModal({
           processing={Boolean(processingMemberId)}
           onClose={() => setCheckoutMemberId(null)}
           onConfirm={() => {
+            if (readOnly) return;
             if (!checkoutMember) return;
             const memberId = checkoutMember.id;
             setCheckoutMemberId(null);
@@ -477,7 +486,7 @@ export function SharedHotelRoomModal({
           }}
         />
         {error ? <p role="alert" className="rounded-xl bg-error-soft px-3 py-2 text-sm font-medium text-error">{error}</p> : null}
-      </div>
+      </fieldset>
     </Modal>
   );
 }

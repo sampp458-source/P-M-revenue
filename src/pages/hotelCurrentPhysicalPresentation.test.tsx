@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { supabase } from "../lib/supabase";
@@ -130,4 +130,18 @@ describe("independent current detail evidence", () => {
     expect(screen.getByText("입실 객실").parentElement).toHaveTextContent("Historical check_in");
     expect(screen.getByText("퇴실 객실").parentElement).toHaveTextContent("Historical check_out");
   });
+});
+
+
+it("007 past Single detail keeps current evidence readable and disables mutation entry", () => {
+  const action = vi.fn(); const close = vi.fn();
+  render(<StayDetailModal readOnly open stay={stay()} selectedDate="2032-03-04" loading={false} creatorName="담당자" sharedOccupancy={null} canMergeSharedRoom operationRole="owner"
+    onClose={close} onEdit={action} onAssign={action} onReassign={action} onMove={action} onUnassign={action} onCheckIn={action} onCheckOut={action} onReverseCheckIn={action} onChangePlannedCheckout={action} onCancel={action} onMergeSharedRoom={action}
+    currentRoomLabel="Current Single" />);
+  expect(screen.getByText("현재 호실").parentElement).toHaveTextContent("Current Single");
+  for (const button of screen.getAllByRole("button", { name: /퇴실 완료|객실 이동|같은 방 투숙|입실 완료 취소|퇴실 예정 변경/ })) {
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+  }
+  expect(action).not.toHaveBeenCalled();
 });

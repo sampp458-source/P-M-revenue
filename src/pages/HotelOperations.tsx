@@ -1,3 +1,4 @@
+import { hotelRoomBoardDateMode, hotelRoomBoardDateCopy, PAST_ROOM_BOARD_NOTICE } from "./hotelRoomBoardDateMode";
 import { CURRENT_ROOM_UNAVAILABLE, fetchCurrentHotelRoomLabel } from "./hotelCurrentPhysicalPresentation";
 import {
   BedDouble,
@@ -333,6 +334,8 @@ export function HotelOperationsPage() {
   const [selectedDate, setSelectedDate] = useState(() => seoulDateKey());
   const [quickFilter, setQuickFilter] = useState<HotelQuickFilter>("all");
   const [showSupportDetails, setShowSupportDetails] = useState(false);
+  const dateMode = hotelRoomBoardDateMode(selectedDate);
+  const isPast = dateMode === "PAST";
   const [snapshot, setSnapshot] = useState<HotelOperationsSnapshot | null>(null);
   const [daycareReservations, setDaycareReservations] =
     useState<DaycareReservation[]>([]);
@@ -628,6 +631,7 @@ export function HotelOperationsPage() {
     successMessage: string,
     closeDetailAfter = false,
   ): Promise<boolean> => {
+    if (isPast) return false;
     clearRoomBoardUndo();
     setProcessing(true);
     try {
@@ -652,6 +656,7 @@ export function HotelOperationsPage() {
     checkOutTime: string | null,
     timeUnspecified: boolean,
   ) => {
+    if (isPast) return false;
     setProcessing(true);
     try {
       const result = await updateCheckedInHotelPlannedCheckout(
@@ -723,6 +728,7 @@ export function HotelOperationsPage() {
   };
 
   const saveReservation = (event: FormEvent) => {
+    if (isPast) return;
     event.preventDefault();
     setFormError("");
     if (!detail) {
@@ -859,6 +865,7 @@ export function HotelOperationsPage() {
     roomId: string,
     requiresRoomTypeChange = false,
   ) => {
+    if (isPast) return;
     const stay = currentRoomBoardStay(stayId);
     const room = snapshot?.rooms.find((row) => row.id === roomId);
     if (
@@ -919,6 +926,7 @@ export function HotelOperationsPage() {
   };
 
   const dropSharedGroupOnRoom = (sharedRoomGroupId: string, roomId: string) => {
+    if (isPast) return;
     const group = unassignedSharedGroups.find(
       (item) => item.sharedRoomGroupId === sharedRoomGroupId,
     );
@@ -972,6 +980,7 @@ export function HotelOperationsPage() {
   };
 
   const cancelSharedGroup = () => {
+    if (isPast) return;
     const group = unassignedSharedGroups.find((item) => item.sharedRoomGroupId === cancelSharedGroupId);
     if (!group || processing) return;
     const operationRequestId = sharedGroupCancelAttemptRef.current.get(group.sharedRoomGroupId) ?? requestId();
@@ -993,6 +1002,7 @@ export function HotelOperationsPage() {
   };
 
   const requestUnassignRoom = (stayId: string) => {
+    if (isPast) return;
     const stay = currentRoomBoardStay(stayId);
     const mode = stay ? hotelStayRoomUnassignMode(stay) : null;
     if (
@@ -1011,6 +1021,7 @@ export function HotelOperationsPage() {
     occupancyId: string,
     expectedVersion: number,
   ) => {
+    if (isPast) return;
     const occupancy = sharedOccupancies.find((item) => item.id === occupancyId);
     const staysById = new Map(sharedMemberStays.map((stay) => [stay.id, stay]));
     const mode = occupancy ? sharedHotelOccupancyRoomUnassignMode(occupancy, staysById) : null;
@@ -1032,6 +1043,7 @@ export function HotelOperationsPage() {
   };
 
   const confirmSharedRoomUnassign = () => {
+    if (isPast) return;
     if (!pendingSharedRoomUnassign || processing) return;
     const occupancy = sharedOccupancies.find(
       (item) => item.id === pendingSharedRoomUnassign.occupancyId,
@@ -1077,6 +1089,7 @@ export function HotelOperationsPage() {
   };
 
   const confirmPendingRoomBoardAction = () => {
+    if (isPast) return;
     if (!pendingRoomBoardAction || processing || !snapshot) return;
     const stay = currentRoomBoardStay(pendingRoomBoardAction.stayId);
     if (!stay) return;
@@ -1172,6 +1185,7 @@ export function HotelOperationsPage() {
   };
 
   const undoLastRoomBoardDrop = async () => {
+    if (isPast) return;
     const undo = roomBoardUndo;
     if (!undo || processing) return;
     clearRoomBoardUndo();
@@ -1291,8 +1305,8 @@ export function HotelOperationsPage() {
     <>
       <PageHeader
         title="호텔 운영"
-        description="Room Board에서 오늘의 빈방, 입·퇴실, 이용중 객실을 바로 관리합니다."
-        action={
+        description={hotelRoomBoardDateCopy[dateMode].description}
+        action={!isPast ? (
           <div className="flex flex-wrap gap-2">
             {isHotelSettingsManager && snapshot.settings ? (
               <Button type="button" variant="secondary" onClick={() => setModal("settings")}>
@@ -1303,13 +1317,14 @@ export function HotelOperationsPage() {
               <CalendarDays size={17} /> 새 일정
             </Button>
           </div>
-        }
+        ) : undefined}
       />
 
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-border bg-surface px-3 py-2.5 shadow-sm sm:px-4">
-        <Field label="객실 현황 날짜">
+        <Field label="운영 날짜">
           <Input
             type="date"
+            disabled={processing}
             value={selectedDate}
             onChange={(event) => {
               setSelectedDate(event.target.value);
@@ -1324,11 +1339,12 @@ export function HotelOperationsPage() {
           />
         </Field>
         <p className="pb-1 text-xs font-medium text-text-muted">
-          {selectedDateIsToday ? "오늘 운영 현황" : `${selectedDate} 운영 현황`}
+          {hotelRoomBoardDateCopy[dateMode].title}
         </p>
       </div>
 
       <HotelRoomBoard
+        dateMode={dateMode}
         eventRoomProjections={eventRoomProjections}
         snapshot={snapshot}
         sharedOccupancies={sharedOccupancies}
@@ -1355,15 +1371,16 @@ export function HotelOperationsPage() {
         onUnassignSharedOccupancy={requestUnassignSharedOccupancy}
       />
 
-      <DaycareOperationsPanel
+      {!isPast ? <DaycareOperationsPanel
         reservations={daycareReservations}
         snapshot={snapshot}
         onChanged={async () => {
           await loadSnapshot(selectedDate);
         }}
-      />
+      /> : null}
 
       <LongStayOperationsPanel
+        readOnly={isPast}
         snapshot={snapshot}
         options={options}
         operationRole={operationRole}
@@ -1372,6 +1389,7 @@ export function HotelOperationsPage() {
       />
 
       <SharedHotelRoomModal
+        readOnly={isPast}
         occupancy={sharedOccupancies.find((item) => item.id === selectedSharedOccupancyId) ?? null}
         snapshot={snapshot}
         selectedDate={selectedDate}
@@ -1392,7 +1410,7 @@ export function HotelOperationsPage() {
         }}
       />
       <ConfirmModal
-        open={cancelSharedGroupId !== null}
+        open={!isPast && cancelSharedGroupId !== null}
         title="함께 투숙 예약을 취소할까요?"
         description="예약된 입·퇴실 일정과 객실 예약이 함께 취소됩니다."
         confirmLabel="예약 취소"
@@ -1524,6 +1542,7 @@ export function HotelOperationsPage() {
       ) : null}
 
       <StayDetailModal
+        readOnly={isPast}
         currentRoomLabel={currentRoomLabel}
         eventRoomProjections={eventRoomProjections}
         open={Boolean(selectedStayId) && modal === null}
@@ -1552,6 +1571,7 @@ export function HotelOperationsPage() {
         operationRole={operationRole}
       />
 
+      {!isPast ? <>
       <ScheduleFormModal
         open={modal === "reservation"}
         editing="new"
@@ -1802,8 +1822,9 @@ export function HotelOperationsPage() {
         }}
         onConfirm={confirmSharedRoomUnassign}
       />
+      </> : null}
       {toast ? <Toast message={toast.message} title={toast.title} description={toast.description} tone={toast.tone} onClose={() => setToast(null)} /> : null}
-      {roomBoardUndo ? (
+      {!isPast && roomBoardUndo ? (
         <button
           type="button"
           onClick={() => void undoLastRoomBoardDrop()}
@@ -1850,7 +1871,7 @@ export function StayRow({ stay, selectedDate, onClick, eventRoomProjections }: {
   );
 }
 
-export function StayDetailModal({ currentRoomLabel, eventRoomProjections, open, stay, selectedDate, loading, creatorName, sharedOccupancy, canMergeSharedRoom, operationRole, onClose, onEdit, onAssign, onReassign, onMove, onUnassign, onCheckIn, onCheckOut, onReverseCheckIn, onChangePlannedCheckout, onCancel, onMergeSharedRoom }: { currentRoomLabel?: string; eventRoomProjections?: HotelEventRoomProjections; open: boolean; stay: HotelStay | null; selectedDate: string; loading: boolean; creatorName: string | null; sharedOccupancy: SharedHotelOccupancy | null; canMergeSharedRoom: boolean; operationRole: OperationRole | null; onClose: () => void; onEdit: () => void; onAssign: () => void; onReassign: () => void; onMove: () => void; onUnassign: () => void; onCheckIn: () => void; onCheckOut: () => void; onReverseCheckIn: () => void; onChangePlannedCheckout: () => void; onCancel: () => void; onMergeSharedRoom: () => void }) {
+export function StayDetailModal({ readOnly = false, currentRoomLabel, eventRoomProjections, open, stay, selectedDate, loading, creatorName, sharedOccupancy, canMergeSharedRoom, operationRole, onClose, onEdit, onAssign, onReassign, onMove, onUnassign, onCheckIn, onCheckOut, onReverseCheckIn, onChangePlannedCheckout, onCancel, onMergeSharedRoom }: { readOnly?: boolean; currentRoomLabel?: string; eventRoomProjections?: HotelEventRoomProjections; open: boolean; stay: HotelStay | null; selectedDate: string; loading: boolean; creatorName: string | null; sharedOccupancy: SharedHotelOccupancy | null; canMergeSharedRoom: boolean; operationRole: OperationRole | null; onClose: () => void; onEdit: () => void; onAssign: () => void; onReassign: () => void; onMove: () => void; onUnassign: () => void; onCheckIn: () => void; onCheckOut: () => void; onReverseCheckIn: () => void; onChangePlannedCheckout: () => void; onCancel: () => void; onMergeSharedRoom: () => void }) {
   if (!stay && !loading) return null;
   const allocation = stay ? activeHotelAllocation(stay) : null;
   const status = stay ? hotelStayStatus(stay) : "예약";
@@ -1881,12 +1902,15 @@ export function StayDetailModal({ currentRoomLabel, eventRoomProjections, open, 
         <dl className="grid gap-3 sm:grid-cols-2"><Detail label="객실 유형" value={stay.capacityReservation?.roomTypeName ?? "객실 미정"} icon={<Hotel size={16} />} /><Detail label="현재 호실" value={stay.checkedOutAt || stay.archivedAt ? "이용 종료 · 현재 호실 없음" : currentRoomLabel ?? CURRENT_ROOM_UNAVAILABLE} icon={<DoorOpen size={16} />} /><Detail label="입실 객실" value={hotelEventRoomLabel(stay, "check_in", eventRoomProjections)} icon={<DoorOpen size={16} />} /><Detail label="퇴실 객실" value={hotelEventRoomLabel(stay, "check_out", eventRoomProjections)} icon={<DoorOpen size={16} />} /><Detail label="입실 예정" value={formatHotelScheduleTime(stay, "check_in")} icon={<CalendarDays size={16} />} /><Detail label="퇴실 예정" value={formatHotelScheduleTime(stay, "check_out")} icon={<CalendarDays size={16} />} /><Detail label="입실 완료" value={formatHotelDateTime(stay.checkedInAt)} icon={<CheckCircle2 size={16} />} /><Detail label="퇴실 완료" value={formatHotelDateTime(stay.checkedOutAt)} icon={<CheckCircle2 size={16} />} /></dl>
         {sharedOccupancy ? <div className="rounded-2xl border border-border bg-surface-secondary p-4"><span className="flex items-center gap-2"><strong>DELUXE 객실</strong><Badge tone="blue">같은 방</Badge></span><p className="mt-2 text-sm text-text-secondary">{sharedOccupancy.members.map((member) => member.dogName).join(" · ")} · {sharedOccupancy.roomName}</p></div> : null}
         <div className="rounded-2xl bg-surface-secondary p-4 text-sm text-text-secondary"><p><b className="text-text-primary">담당자</b> {stay.scheduleEvents[0]?.schedule.assignees.map((person) => person.name ?? "이름 미등록").join(", ") || "미지정"}</p><p className="mt-2"><b className="text-text-primary">생성자</b> {creatorName ?? stay.createdBy}</p>{stay.customerPhone ? <p className="mt-2"><b className="text-text-primary">보호자 연락처</b> {stay.customerPhone}</p> : null}{hotelStayMemo(stay) ? <p className="mt-2 whitespace-pre-wrap"><b className="text-text-primary">메모</b> {hotelStayMemo(stay)}</p> : null}{stay.roomAllocations.length > 1 ? <p className="mt-2"><b className="text-text-primary">객실 이동</b> {stay.roomAllocations.map((row) => row.roomName).join(" → ")}</p> : null}</div>
+        {readOnly ? <p className="text-sm text-text-secondary">{PAST_ROOM_BOARD_NOTICE}</p> : null}
+        <fieldset disabled={readOnly} onClickCapture={(event) => { if (readOnly) { event.preventDefault(); event.stopPropagation(); } }}>
         <ResponsiveActionGroup
           className="justify-end"
           primary={<>{!stay.checkedInAt ? <Button type="button" onClick={onCheckIn}>입실 완료</Button> : null}{stay.checkedInAt && !stay.checkedOutAt ? <Button type="button" onClick={onCheckOut}>퇴실 완료</Button> : null}</>}
           secondary={<>{!stay.checkedInAt ? <Button type="button" variant="secondary" onClick={onEdit}>예약 수정</Button> : null}{canChangeCheckedInHotelPlannedCheckout(stay) ? <Button type="button" variant="secondary" onClick={onChangePlannedCheckout}>퇴실 예정 변경</Button> : null}{canMergeSharedRoom ? <Button type="button" variant="secondary" onClick={onMergeSharedRoom}><BedDouble size={16} /> 같은 방 투숙</Button> : null}{!stay.checkedInAt && !allocation && !unspecified.roomType ? <Button type="button" variant="secondary" onClick={onAssign}>호실 배정</Button> : null}{!stay.checkedInAt && allocation ? <Button type="button" variant="secondary" onClick={onReassign}>호실 재배정</Button> : null}{canUnassign ? <Button type="button" variant="secondary" onClick={onUnassign}>{unassignMode === "reverse_check_in_and_unassign" ? "입실 취소 후 배정 해제" : "배정 해제"}</Button> : null}{canReverseSingleHotelCheckIn(stay, sharedOccupancy, operationRole) ? <Button type="button" variant="secondary" onClick={onReverseCheckIn}><RotateCcw size={16} /> 입실 완료 취소</Button> : null}{stay.checkedInAt && !stay.checkedOutAt ? <Button type="button" variant="secondary" onClick={onMove}><MoveRight size={16} /> 객실 이동</Button> : null}</>}
           destructive={!stay.checkedInAt ? <Button type="button" variant="danger" onClick={onCancel}>예약 취소</Button> : undefined}
         />
+        </fieldset>
       </div>}
     </Modal>
   );

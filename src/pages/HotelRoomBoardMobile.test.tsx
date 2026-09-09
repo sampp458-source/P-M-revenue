@@ -180,7 +180,7 @@ const props = () => ({
   sharedMemberStays: sharedStays,
   daycareReservations: [daycare],
   selectedDate: "2026-08-14",
-  selectedDateIsToday: false,
+  dateMode: "FUTURE" as const, selectedDateIsToday: false,
   processing: false,
   allowCrossTypeChange: true,
   onOpenStay: vi.fn(),

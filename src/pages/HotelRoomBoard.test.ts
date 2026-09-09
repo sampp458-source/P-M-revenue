@@ -118,7 +118,7 @@ const allocatedStay = (overrides: Partial<HotelStay> = {}) => stay({
 const renderBoard = (selectedDate: string, stays: HotelStay[], sharedOccupancies: SharedHotelOccupancy[] = [], sharedMemberStays: HotelStay[] = []) =>
   renderToStaticMarkup(createElement(HotelRoomBoard, {
     snapshot: snapshot(stays), sharedOccupancies, sharedMemberStays, selectedDate,
-    selectedDateIsToday: false, processing: false, processingStayId: null,
+    dateMode: "FUTURE" as const, selectedDateIsToday: false, processing: false, processingStayId: null,
     allowCrossTypeChange: true, onOpenStay: () => undefined,
     onOpenSharedOccupancy: () => undefined, onDropStay: () => undefined,
     onUnassignStay: () => undefined,
@@ -582,7 +582,7 @@ describe("Hotel Room Board", () => {
   it("promotes the Room Board summary and keeps the reservation list collapsed", () => {
     const board = readFileSync(resolve(import.meta.dirname, "./HotelRoomBoard.tsx"), "utf8");
     const page = readFileSync(resolve(import.meta.dirname, "./HotelOperations.tsx"), "utf8");
-    expect(board).toContain("객실 현황");
+    expect(board).toContain("hotelRoomBoardDateCopy[dateMode].title");
     expect(board).toContain('["빈방", boardSummary.empty');
     expect(board).toContain('["이용중", boardSummary.inHouse');
     expect(board).toContain('unassignedSharedGroupsUnavailable');
