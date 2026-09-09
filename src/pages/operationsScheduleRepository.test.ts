@@ -1,6 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+const projectionDb = vi.hoisted(() => ({ from: vi.fn(), rpc: vi.fn() }));
+vi.mock("../lib/supabase", () => ({ supabase: projectionDb }));
 import {
   calculateOperationTodaySummary,
+  fetchOperationSchedulesForDay,
+  fetchOperationSchedulesForRange,
   attachOperationAssigneeColors,
   canManageOperationSchedule,
   compactDogNames,
@@ -24,12 +28,70 @@ import {
   isHotelReservationSchedule,
   isLegacyHotelSchedule,
   operationScheduleDisplayTitle,
+  operationScheduleHotelRoomLabel,
   shouldDisplayOperationSchedule,
   sortLegacyHotelCounterparts,
   sortOperationSchedulesForViewer,
   suggestOperationCustomerIds,
   toSeoulInstant,
 } from "./operationsScheduleRepository";
+
+
+describe("Today / Calendar lifecycle room projection parity", () => {
+  it.each([false, true])("uses one batch and contains read failure (failure=%s)", async (failure) => {
+    const ids = ["history", "shared-a", "shared-b"];
+    const links = ids.map((id) => ({
+      operation_schedule_id: id, hotel_stay_id: "stay-"+id, event_kind: "check_in",
+    }));
+    const rows = ids.map((id) => ({
+      id, title: "Hotel", status: "completed", archivedAt: null, archived_at: null,
+      startsAt: "2026-08-06T06:00:00Z", endsAt: "2026-08-09T06:00:00Z",
+      starts_at: "2026-08-06T06:00:00Z", ends_at: "2026-08-09T06:00:00Z",
+      created_at: "2026-08-01T00:00:00Z", createdAt: "2026-08-01T00:00:00Z",
+    }));
+    projectionDb.from.mockImplementation((table: string) => {
+      const data = table === "hotel_stay_schedule_events" ? links
+        : table === "operation_schedules" ? rows : [];
+      const result = Promise.resolve({ data, error: null });
+      const query = Object.assign(result, {
+        select: vi.fn(), in: vi.fn(), is: vi.fn(), lt: vi.fn(),
+        gt: vi.fn(), order: vi.fn(),
+      });
+      for (const fn of [query.select, query.in, query.is, query.lt, query.gt, query.order])
+        fn.mockReturnValue(query);
+      return query;
+    });
+    projectionDb.rpc.mockImplementation(async (name: string) => {
+      if (name === "get_operation_schedules_for_day") return { data: rows, error: null };
+      return failure ? { data: null, error: { code: "PGRST202", message: "Unavailable" } }
+        : { data: ids.map((id) => ({
+          operationScheduleId: id, hotelStayId: "stay-"+id, hotelEventKind: "check_in",
+          hotelRoomTypeName: id === "history" ? "STANDARD" : "DELUXE",
+          hotelRoomName: id === "history" ? "STANDARD 4" : "DELUXE 5",
+          hotelSharedRoom: id !== "history", roomResolutionStatus: "resolved",
+        })), error: null };
+    });
+    for (const load of [
+      () => fetchOperationSchedulesForDay("2026-08-06"),
+      () => fetchOperationSchedulesForRange("2026-08-06", "2026-08-10", {
+        calendars: [], scheduleTypes: [], assignees: [], dogs: [], customers: [],
+      }),
+    ]) {
+      projectionDb.rpc.mockClear();
+      const result = await load();
+      expect(result).toHaveLength(3);
+      expect(result.map(operationScheduleHotelRoomLabel)).toEqual(failure
+        ? ["객실 정보 확인 필요", "객실 정보 확인 필요", "객실 정보 확인 필요"]
+        : ["STANDARD 4", "DELUXE 5", "DELUXE 5"]);
+      expect(projectionDb.rpc.mock.calls.filter(([name]) =>
+        name === "get_operation_hotel_room_projections")).toEqual([
+        ["get_operation_hotel_room_projections", { p_operation_schedule_ids: ids }],
+      ]);
+    }
+    projectionDb.from.mockReset();
+    projectionDb.rpc.mockReset();
+  });
+});
 
 describe("Operations schedule date and display helpers", () => {
   it("classifies both application PT409 and genuine serialization conflicts", () => {
@@ -492,22 +554,28 @@ describe("Operations schedule date and display helpers", () => {
         title: "입실·퇴실",
         hotelEventKind: "check_in",
         hotelRoomTypeName: "STANDARD",
+        hotelRoomName: "STANDARD 3",
+        hotelRoomResolutionStatus: "resolved",
         dogs: [{ id: "dog", name: "오담", customerId: null }],
       }),
-    ).toBe("오담 · 호텔링 · 입실 · STANDARD");
+    ).toBe("오담 · 호텔링 · 입실 · STANDARD 3");
     expect(
       operationScheduleDisplayTitle({
         title: "입실·퇴실",
         hotelEventKind: "check_out",
         hotelRoomTypeName: "DELUXE",
+        hotelRoomName: null,
+        hotelRoomResolutionStatus: "unassigned",
         dogs: [{ id: "dog", name: "오담", customerId: null }],
       }),
-    ).toBe("오담 · 호텔링 · 퇴실 · DELUXE");
+    ).toBe("오담 · 호텔링 · 퇴실 · DELUXE · 미배정");
     expect(
       operationScheduleDisplayTitle({
         title: "입실·퇴실",
         hotelEventKind: "check_in",
         hotelRoomTypeName: null,
+        hotelRoomName: null,
+        hotelRoomResolutionStatus: "unknown",
         dogs: [{ id: "dog", name: "오담", customerId: null }],
       }),
     ).toBe("오담 · 호텔링 · 입실 · 객실 미정");
@@ -516,9 +584,42 @@ describe("Operations schedule date and display helpers", () => {
         title: "상담",
         hotelEventKind: null,
         hotelRoomTypeName: null,
+        hotelRoomName: null,
+        hotelRoomResolutionStatus: null,
         dogs: [],
       }),
     ).toBe("상담");
+  });
+
+  it("distinguishes resolved, unassigned, unknown, and unavailable room projections", () => {
+    expect(
+      operationScheduleHotelRoomLabel({
+        hotelRoomTypeName: "DELUXE",
+        hotelRoomName: "DELUXE 5",
+        hotelRoomResolutionStatus: "resolved",
+      }),
+    ).toBe("DELUXE 5");
+    expect(
+      operationScheduleHotelRoomLabel({
+        hotelRoomTypeName: "DELUXE",
+        hotelRoomName: null,
+        hotelRoomResolutionStatus: "unassigned",
+      }),
+    ).toBe("DELUXE · 미배정");
+    expect(
+      operationScheduleHotelRoomLabel({
+        hotelRoomTypeName: null,
+        hotelRoomName: null,
+        hotelRoomResolutionStatus: "unknown",
+      }),
+    ).toBe("객실 미정");
+    expect(
+      operationScheduleHotelRoomLabel({
+        hotelRoomTypeName: null,
+        hotelRoomName: null,
+        hotelRoomResolutionStatus: "unavailable",
+      }),
+    ).toBe("객실 정보 확인 필요");
   });
 
   it("recognizes only Hotel reservation schedules for aggregate protection", () => {

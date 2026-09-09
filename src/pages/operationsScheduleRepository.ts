@@ -8,6 +8,11 @@ import {
 export type OperationScheduleStatus = "scheduled" | "completed" | "cancelled";
 export type OperationRole = "owner" | "manager" | "staff";
 export type HotelScheduleEventKind = "check_in" | "check_out";
+export type HotelRoomResolutionStatus =
+  | "resolved"
+  | "unassigned"
+  | "unknown"
+  | "unavailable";
 
 export interface OperationPerson {
   id: string;
@@ -57,6 +62,9 @@ export interface OperationSchedule {
   hotelStayId?: string | null;
   hotelEventKind?: HotelScheduleEventKind | null;
   hotelRoomTypeName?: string | null;
+  hotelRoomName?: string | null;
+  hotelSharedRoom?: boolean;
+  hotelRoomResolutionStatus?: HotelRoomResolutionStatus | null;
   daycareReservation?: boolean;
   assignees: OperationPerson[];
   dogs: OperationDog[];
@@ -262,7 +270,12 @@ export function isLegacyHotelSchedule(
 export function operationScheduleDisplayTitle(
   schedule: Pick<
     OperationSchedule,
-    "title" | "hotelEventKind" | "hotelRoomTypeName" | "dogs"
+    | "title"
+    | "hotelEventKind"
+    | "hotelRoomTypeName"
+    | "hotelRoomName"
+    | "hotelRoomResolutionStatus"
+    | "dogs"
   >,
 ) {
   const eventLabel =
@@ -277,12 +290,38 @@ export function operationScheduleDisplayTitle(
       dogName,
       "호텔링",
       eventLabel,
-      schedule.hotelRoomTypeName ?? "객실 미정",
+      operationScheduleHotelRoomLabel(schedule),
     ]
       .filter(Boolean)
       .join(" · ");
   }
   return schedule.title;
+}
+
+export function operationScheduleHotelRoomLabel(
+  schedule: Pick<
+    OperationSchedule,
+    | "hotelRoomTypeName"
+    | "hotelRoomName"
+    | "hotelRoomResolutionStatus"
+  >,
+) {
+  if (schedule.hotelRoomResolutionStatus === "unavailable") {
+    return "객실 정보 확인 필요";
+  }
+  if (
+    schedule.hotelRoomResolutionStatus === "resolved" &&
+    schedule.hotelRoomName
+  ) {
+    return schedule.hotelRoomName;
+  }
+  if (
+    schedule.hotelRoomResolutionStatus === "unassigned" &&
+    schedule.hotelRoomTypeName
+  ) {
+    return `${schedule.hotelRoomTypeName} · 미배정`;
+  }
+  return "객실 미정";
 }
 
 export function shouldDisplayOperationSchedule(
@@ -350,6 +389,9 @@ interface ScheduleRpcRow {
   hotelStayId?: string | null;
   hotelEventKind?: HotelScheduleEventKind | null;
   hotelRoomTypeName?: string | null;
+  hotelRoomName?: string | null;
+  hotelSharedRoom?: boolean;
+  hotelRoomResolutionStatus?: HotelRoomResolutionStatus | null;
   daycareReservation?: boolean;
   assignees?: OperationPerson[];
   dogs?: Array<{ id: string; name: string; customerId: string | null }>;
@@ -362,6 +404,9 @@ const mapSchedule = (row: ScheduleRpcRow): OperationSchedule => ({
   hotelStayId: row.hotelStayId ?? null,
   hotelEventKind: row.hotelEventKind ?? null,
   hotelRoomTypeName: row.hotelRoomTypeName ?? null,
+  hotelRoomName: row.hotelRoomName ?? null,
+  hotelSharedRoom: row.hotelSharedRoom ?? false,
+  hotelRoomResolutionStatus: row.hotelRoomResolutionStatus ?? null,
   daycareReservation: row.daycareReservation ?? false,
   assignees: row.assignees ?? [],
   dogs: row.dogs ?? [],
@@ -453,15 +498,35 @@ interface HotelScheduleLinkRow {
   event_kind: HotelScheduleEventKind;
 }
 
-interface HotelCapacityLinkRow {
-  hotel_stay_id: string;
-  room_type_id: string | null;
+interface HotelRoomProjectionRow {
+  operationScheduleId: string;
+  hotelStayId: string;
+  hotelEventKind: HotelScheduleEventKind;
+  hotelRoomTypeName: string | null;
+  hotelRoomName: string | null;
+  hotelSharedRoom: boolean;
+  roomResolutionStatus: HotelRoomResolutionStatus;
 }
 
-interface HotelRoomTypeNameRow {
-  id: string;
-  name: string;
-}
+const isHotelRoomProjectionRow = (
+  value: unknown,
+): value is HotelRoomProjectionRow => {
+  if (!value || typeof value !== "object") return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.operationScheduleId === "string" &&
+    typeof row.hotelStayId === "string" &&
+    (row.hotelEventKind === "check_in" || row.hotelEventKind === "check_out") &&
+    (row.hotelRoomTypeName === null ||
+      typeof row.hotelRoomTypeName === "string") &&
+    (row.hotelRoomName === null || typeof row.hotelRoomName === "string") &&
+    typeof row.hotelSharedRoom === "boolean" &&
+    (row.roomResolutionStatus === "resolved" ||
+      row.roomResolutionStatus === "unassigned" ||
+      row.roomResolutionStatus === "unknown" ||
+      row.roomResolutionStatus === "unavailable")
+  );
+};
 
 async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
   const scheduleIds = schedules.map((schedule) => schedule.id);
@@ -480,77 +545,34 @@ async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
       link,
     ]),
   );
-  const hotelStayIds = [
-    ...new Set(
-      [...linkByScheduleId.values()].map((link) => link.hotel_stay_id),
-    ),
-  ];
-  if (hotelStayIds.length === 0) return schedules;
-  const [stayResult, capacityResult] = await Promise.all([
-    supabase
-      .from("hotel_stays")
-      .select("id")
-      .in("id", hotelStayIds)
-      .is("archived_at", null),
-    supabase
-      .from("hotel_capacity_reservations")
-      .select("hotel_stay_id, room_type_id")
-      .in("hotel_stay_id", hotelStayIds)
-      .is("archived_at", null),
-  ]);
-  throwScheduleError(stayResult.error ?? capacityResult.error);
-  const activeStayIds = new Set(
-    (stayResult.data ?? []).map((stay) => stay.id as string),
+  const linkedScheduleIds = [...linkByScheduleId.keys()];
+  if (linkedScheduleIds.length === 0) return schedules;
+  const projectionResult = await supabase.rpc(
+    "get_operation_hotel_room_projections",
+    { p_operation_schedule_ids: linkedScheduleIds },
   );
-  const capacityRows = (capacityResult.data ?? []) as HotelCapacityLinkRow[];
-  const roomTypeIds = [
-    ...new Set(
-      capacityRows
-        .map((capacity) => capacity.room_type_id)
-        .filter(
-          (roomTypeId): roomTypeId is string =>
-            typeof roomTypeId === "string" &&
-            /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-              roomTypeId,
-            ),
-        ),
-    ),
-  ];
-  const roomTypeResult =
-    roomTypeIds.length > 0
-      ? await supabase
-          .from("hotel_room_types")
-          .select("id, name")
-          .in("id", roomTypeIds)
-          .is("archived_at", null)
-      : { data: [], error: null };
-  throwScheduleError(roomTypeResult.error);
-  const roomTypeNameById = new Map(
-    ((roomTypeResult.data ?? []) as HotelRoomTypeNameRow[]).map((roomType) => [
-      roomType.id,
-      roomType.name,
-    ]),
-  );
-  const roomTypeNameByStayId = new Map(
-    capacityRows.map((capacity) => [
-      capacity.hotel_stay_id,
-      capacity.room_type_id
-        ? (roomTypeNameById.get(capacity.room_type_id) ?? null)
-        : null,
-    ]),
+  const projectionRows =
+    !projectionResult.error && Array.isArray(projectionResult.data)
+      ? projectionResult.data.filter(isHotelRoomProjectionRow)
+      : [];
+  const projectionByScheduleId = new Map(
+    projectionRows.map((row) => [row.operationScheduleId, row]),
   );
   return schedules
     .map((schedule) => {
       const link = linkByScheduleId.get(schedule.id);
-      return link && activeStayIds.has(link.hotel_stay_id)
-        ? {
-            ...schedule,
-            hotelStayId: link.hotel_stay_id,
-            hotelEventKind: link.event_kind,
-            hotelRoomTypeName:
-              roomTypeNameByStayId.get(link.hotel_stay_id) ?? null,
-          }
-        : schedule;
+      if (!link) return schedule;
+      const projection = projectionByScheduleId.get(schedule.id);
+      return {
+        ...schedule,
+        hotelStayId: link.hotel_stay_id,
+        hotelEventKind: link.event_kind,
+        hotelRoomTypeName: projection?.hotelRoomTypeName ?? null,
+        hotelRoomName: projection?.hotelRoomName ?? null,
+        hotelSharedRoom: projection?.hotelSharedRoom ?? false,
+        hotelRoomResolutionStatus:
+          projection?.roomResolutionStatus ?? ("unavailable" as const),
+      };
     })
     .filter(shouldDisplayOperationSchedule);
 }

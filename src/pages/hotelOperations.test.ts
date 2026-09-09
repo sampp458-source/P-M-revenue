@@ -264,15 +264,15 @@ describe("Hotel Operations frontend", () => {
     );
   });
 
-  it("removes nullable and malformed room type ids before the Calendar UUID lookup", () => {
+  it("validates the canonical batch room projection before Today and Calendar mapping", () => {
     expect(scheduleRepositorySource).toContain(
-      '(roomTypeId): roomTypeId is string =>',
+      "const isHotelRoomProjectionRow =",
     );
     expect(scheduleRepositorySource).toContain(
-      "typeof roomTypeId === \"string\"",
+      'typeof row.hotelRoomTypeName === "string"',
     );
     expect(scheduleRepositorySource).toContain(
-      ".in(\"id\", roomTypeIds)",
+      '"get_operation_hotel_room_projections"',
     );
   });
 

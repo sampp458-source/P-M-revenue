@@ -37,11 +37,12 @@ describe("legacy Hotel schedule compatibility", () => {
     expect(helper).not.toContain("title");
   });
 
-  it("queries every loaded schedule and verifies both active link and active stay", () => {
+  it("queries every loaded schedule link and resolves canonical room data in one batch", () => {
     expect(repository).toContain('.from("hotel_stay_schedule_events")');
     expect(repository).toContain('.in("operation_schedule_id", scheduleIds)');
-    expect(repository).toContain('.from("hotel_stays")');
-    expect(repository).toContain("activeStayIds.has(link.hotel_stay_id)");
+    expect(repository).toContain('"get_operation_hotel_room_projections"');
+    expect(repository).toContain("p_operation_schedule_ids: linkedScheduleIds");
+    expect(repository).toContain('projection?.roomResolutionStatus ?? ("unavailable" as const)');
     expect(repository).not.toContain(
       "schedules.filter((schedule) => schedule.businessUnitCode === \"hotel\")",
     );
