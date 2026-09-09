@@ -1,3 +1,4 @@
+import { CURRENT_ROOM_UNAVAILABLE, fetchCurrentHotelRoomLabel } from "./hotelCurrentPhysicalPresentation";
 import {
   BedDouble,
   CalendarDays,
@@ -349,6 +350,17 @@ export function HotelOperationsPage() {
   const [selectedStayId, setSelectedStayId] = useState<string | null>(null);
   const [detail, setDetail] = useState<HotelStay | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [currentRoomResult, setCurrentRoomResult] = useState<{ stay: HotelStay; label: string } | null>(null);
+  useEffect(() => {
+    if (!detail || detail.checkedOutAt || detail.archivedAt) return;
+    let cancelled = false;
+    void fetchCurrentHotelRoomLabel(detail.id).then(label => {
+      if (!cancelled) setCurrentRoomResult({ stay: detail, label });
+    });
+    return () => { cancelled = true; };
+  }, [detail]);
+  const currentRoomLabel = currentRoomResult?.stay === detail ? currentRoomResult?.label : undefined;
+
   const projectionStays = useMemo(() => [
     ...(snapshot?.stays ?? []), ...(snapshot?.unassignedFuture ?? []),
     ...sharedMemberStays, ...(detail ? [detail] : []),
@@ -1512,6 +1524,7 @@ export function HotelOperationsPage() {
       ) : null}
 
       <StayDetailModal
+        currentRoomLabel={currentRoomLabel}
         eventRoomProjections={eventRoomProjections}
         open={Boolean(selectedStayId) && modal === null}
         stay={detail}
@@ -1837,7 +1850,7 @@ export function StayRow({ stay, selectedDate, onClick, eventRoomProjections }: {
   );
 }
 
-export function StayDetailModal({ eventRoomProjections, open, stay, selectedDate, loading, creatorName, sharedOccupancy, canMergeSharedRoom, operationRole, onClose, onEdit, onAssign, onReassign, onMove, onUnassign, onCheckIn, onCheckOut, onReverseCheckIn, onChangePlannedCheckout, onCancel, onMergeSharedRoom }: { eventRoomProjections?: HotelEventRoomProjections; open: boolean; stay: HotelStay | null; selectedDate: string; loading: boolean; creatorName: string | null; sharedOccupancy: SharedHotelOccupancy | null; canMergeSharedRoom: boolean; operationRole: OperationRole | null; onClose: () => void; onEdit: () => void; onAssign: () => void; onReassign: () => void; onMove: () => void; onUnassign: () => void; onCheckIn: () => void; onCheckOut: () => void; onReverseCheckIn: () => void; onChangePlannedCheckout: () => void; onCancel: () => void; onMergeSharedRoom: () => void }) {
+export function StayDetailModal({ currentRoomLabel, eventRoomProjections, open, stay, selectedDate, loading, creatorName, sharedOccupancy, canMergeSharedRoom, operationRole, onClose, onEdit, onAssign, onReassign, onMove, onUnassign, onCheckIn, onCheckOut, onReverseCheckIn, onChangePlannedCheckout, onCancel, onMergeSharedRoom }: { currentRoomLabel?: string; eventRoomProjections?: HotelEventRoomProjections; open: boolean; stay: HotelStay | null; selectedDate: string; loading: boolean; creatorName: string | null; sharedOccupancy: SharedHotelOccupancy | null; canMergeSharedRoom: boolean; operationRole: OperationRole | null; onClose: () => void; onEdit: () => void; onAssign: () => void; onReassign: () => void; onMove: () => void; onUnassign: () => void; onCheckIn: () => void; onCheckOut: () => void; onReverseCheckIn: () => void; onChangePlannedCheckout: () => void; onCancel: () => void; onMergeSharedRoom: () => void }) {
   if (!stay && !loading) return null;
   const allocation = stay ? activeHotelAllocation(stay) : null;
   const status = stay ? hotelStayStatus(stay) : "예약";
@@ -1865,7 +1878,7 @@ export function StayDetailModal({ eventRoomProjections, open, stay, selectedDate
           <div><h3 className="text-xl font-bold text-text-primary">{stay.dogName} · 호텔 예약</h3><p className="mt-1 text-sm text-text-secondary">🐶 {stay.dogName} · {stay.customerName ?? "보호자 미등록"}</p><div className="mt-2 flex flex-wrap gap-1.5">{unspecified.checkInTime ? <Badge tone="amber">입실시간 미정</Badge> : null}{unspecified.checkOutTime ? <Badge tone="amber">퇴실시간 미정</Badge> : null}{unspecified.roomType ? <Badge tone="amber">객실 미정</Badge> : null}</div></div>
           <div className="flex flex-wrap justify-end gap-1.5">{dayPhase ? <Badge tone="blue">{dayPhase}</Badge> : null}<Badge tone={statusTone(status)}>{status}</Badge></div>
         </div>
-        <dl className="grid gap-3 sm:grid-cols-2"><Detail label="객실 유형" value={stay.capacityReservation?.roomTypeName ?? "객실 미정"} icon={<Hotel size={16} />} /><Detail label="현재 호실" value={sharedOccupancy?.roomName ?? allocation?.roomName ?? "미배정"} icon={<DoorOpen size={16} />} /><Detail label="입실 객실" value={hotelEventRoomLabel(stay, "check_in", eventRoomProjections)} icon={<DoorOpen size={16} />} /><Detail label="퇴실 객실" value={hotelEventRoomLabel(stay, "check_out", eventRoomProjections)} icon={<DoorOpen size={16} />} /><Detail label="입실 예정" value={formatHotelScheduleTime(stay, "check_in")} icon={<CalendarDays size={16} />} /><Detail label="퇴실 예정" value={formatHotelScheduleTime(stay, "check_out")} icon={<CalendarDays size={16} />} /><Detail label="입실 완료" value={formatHotelDateTime(stay.checkedInAt)} icon={<CheckCircle2 size={16} />} /><Detail label="퇴실 완료" value={formatHotelDateTime(stay.checkedOutAt)} icon={<CheckCircle2 size={16} />} /></dl>
+        <dl className="grid gap-3 sm:grid-cols-2"><Detail label="객실 유형" value={stay.capacityReservation?.roomTypeName ?? "객실 미정"} icon={<Hotel size={16} />} /><Detail label="현재 호실" value={stay.checkedOutAt || stay.archivedAt ? "이용 종료 · 현재 호실 없음" : currentRoomLabel ?? CURRENT_ROOM_UNAVAILABLE} icon={<DoorOpen size={16} />} /><Detail label="입실 객실" value={hotelEventRoomLabel(stay, "check_in", eventRoomProjections)} icon={<DoorOpen size={16} />} /><Detail label="퇴실 객실" value={hotelEventRoomLabel(stay, "check_out", eventRoomProjections)} icon={<DoorOpen size={16} />} /><Detail label="입실 예정" value={formatHotelScheduleTime(stay, "check_in")} icon={<CalendarDays size={16} />} /><Detail label="퇴실 예정" value={formatHotelScheduleTime(stay, "check_out")} icon={<CalendarDays size={16} />} /><Detail label="입실 완료" value={formatHotelDateTime(stay.checkedInAt)} icon={<CheckCircle2 size={16} />} /><Detail label="퇴실 완료" value={formatHotelDateTime(stay.checkedOutAt)} icon={<CheckCircle2 size={16} />} /></dl>
         {sharedOccupancy ? <div className="rounded-2xl border border-border bg-surface-secondary p-4"><span className="flex items-center gap-2"><strong>DELUXE 객실</strong><Badge tone="blue">같은 방</Badge></span><p className="mt-2 text-sm text-text-secondary">{sharedOccupancy.members.map((member) => member.dogName).join(" · ")} · {sharedOccupancy.roomName}</p></div> : null}
         <div className="rounded-2xl bg-surface-secondary p-4 text-sm text-text-secondary"><p><b className="text-text-primary">담당자</b> {stay.scheduleEvents[0]?.schedule.assignees.map((person) => person.name ?? "이름 미등록").join(", ") || "미지정"}</p><p className="mt-2"><b className="text-text-primary">생성자</b> {creatorName ?? stay.createdBy}</p>{stay.customerPhone ? <p className="mt-2"><b className="text-text-primary">보호자 연락처</b> {stay.customerPhone}</p> : null}{hotelStayMemo(stay) ? <p className="mt-2 whitespace-pre-wrap"><b className="text-text-primary">메모</b> {hotelStayMemo(stay)}</p> : null}{stay.roomAllocations.length > 1 ? <p className="mt-2"><b className="text-text-primary">객실 이동</b> {stay.roomAllocations.map((row) => row.roomName).join(" → ")}</p> : null}</div>
         <ResponsiveActionGroup

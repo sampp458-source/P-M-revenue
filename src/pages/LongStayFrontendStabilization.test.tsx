@@ -395,3 +395,28 @@ describe("Long Stay frontend production stabilization", () => {
     expect(screen.queryByRole("option", { name: "STANDARD · STANDARD 1" })).toBeNull();
   });
 });
+
+describe("006 Long Stay away presentation", () => {
+  it.each([
+    ["keep_room", "room_retained", "외출 중 · 객실과 Capacity 유지"],
+    ["release_room", "room_released", "외출 중 · 객실 반납 · 현재 객실 미보유"],
+    ["keep_room", "room_released", "외출 중 · 객실 보유 상태 확인 필요"],
+    ["release_room", "room_returned", "외출 중 · 객실 보유 상태 확인 필요"],
+    [undefined, undefined, "외출 중 · 객실 보유 상태 확인 필요"],
+  ] as const)("uses existing month evidence for %s/%s and leaves current/month room unchanged", async (inventoryMode, inventoryTransitionStatus, label) => {
+    const contract = projection({ isAway: true, currentRoom: { id: "room-a", name: "Current contract room", roomTypeId: "type" } });
+    const month = projection({
+      monthlyOccupancy: { id: "month", status: "confirmed", roomTypeId: "type", roomId: "different-month-room", plannedOccupiedFrom: "2026-09-01T00:00:00Z", plannedOccupiedUntilExclusive: "2026-10-01T00:00:00Z", billingSourceId: "month" },
+      currentAbsence: inventoryMode ? { id: "leave", leftAt: "2026-09-12T00:00:00Z", expectedReturnAt: null, expectedReturnDate: null, expectedReturnTimeUnspecified: true, inventoryMode, inventoryTransitionStatus } : undefined,
+    });
+    repositoryMocks.getCustomerLongStays.mockResolvedValue([contract]);
+    repositoryMocks.getLongStayMonth.mockResolvedValue({ serviceMonth: "2026-09-01", contracts: [month] });
+    hotelRepositoryMocks.fetchHotelOperationsSnapshot.mockResolvedValue(snapshot);
+    render(<LongStayProfileSection customerId="customer-1" dogs={[{ id: "dog-1", name: "동동이" }]} />);
+    expect(await screen.findByText(label)).toBeTruthy();
+    expect(screen.getByText(/^현재 객실/).textContent).toBe("현재 객실 Current contract room");
+    expect(screen.getByText(/^이번 달 객실/).textContent).toBe("이번 달 객실 Current contract room");
+    expect(contract.currentRoom?.name).toBe("Current contract room");
+    expect(month.monthlyOccupancy?.roomId).toBe("different-month-room");
+  });
+});

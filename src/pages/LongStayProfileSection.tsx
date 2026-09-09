@@ -1,3 +1,4 @@
+import { longStayAwayLabel } from "./longStayAwayPresentation";
 import { BedDouble, CalendarDays, Plus, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ProfileSection } from "../components/profile";
@@ -145,7 +146,7 @@ export function LongStayProfileSection({
                   <span>현재 객실 <b className="text-text-primary">{contract.currentRoom?.name || "미배정"}</b></span>
                   <span>이번 달 객실 <b className="text-text-primary">{month?.monthlyOccupancy ? contract.currentRoom?.name || "확정" : "미배정"}</b></span>
                   <span>퇴실 예정 <b className="text-text-primary">{contract.plannedCheckOutDate ? koDate(contract.plannedCheckOutDate) : "미정"}</b></span>
-                  {contract.isAway ? <span className="font-semibold text-warning">외출 중 · 객실과 Capacity 유지</span> : null}
+                  {contract.isAway ? <span className="font-semibold text-warning">{longStayAwayLabel(month?.currentAbsence)}</span> : null}
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <Button type="button" variant="ghost" className="px-0" onClick={() => window.location.assign("/operations/hotel")}><CalendarDays size={15} /> 월 객실 배정·상세</Button>

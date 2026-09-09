@@ -121,7 +121,7 @@ describe("event room consumers", () => {
   });
   it("labels current physical and historical rooms separately in detail", () => {
     const noop = vi.fn();
-    render(<StayDetailModal open stay={stay()} selectedDate="2031-02-01" loading={false} creatorName="담당자" sharedOccupancy={null}
+    render(<StayDetailModal currentRoomLabel="현재 물리 객실" open stay={stay()} selectedDate="2031-02-01" loading={false} creatorName="담당자" sharedOccupancy={null}
       canMergeSharedRoom={false} operationRole={null} onClose={noop} onEdit={noop} onAssign={noop} onReassign={noop} onMove={noop}
       onUnassign={noop} onCheckIn={noop} onCheckOut={noop} onReverseCheckIn={noop} onChangePlannedCheckout={noop} onCancel={noop} onMergeSharedRoom={noop}
       eventRoomProjections={map(projection())} />);

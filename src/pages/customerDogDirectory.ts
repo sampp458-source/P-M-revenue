@@ -1,3 +1,5 @@
+import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
+import { CURRENT_ROOM_UNAVAILABLE, fetchCurrentSharedOccupancies, currentHotelRoomLabel, sharedCurrentRelations, validCurrentSharedRelation } from "./hotelCurrentPhysicalPresentation";
 import { isMissingCustomerAddressColumn } from "../lib/customerAddressCapability";
 import { supabase } from "../lib/supabase";
 import {
@@ -165,34 +167,50 @@ async function fetchSalesTimeline() {
   return (result.data ?? []) as SaleTimelineRow[];
 }
 
-function hotelServices(
+export function hotelServices(
   snapshot: HotelOperationsSnapshot,
   localDate: string,
+  shared: readonly SharedHotelOccupancy[] | null,
+  now = Date.now(),
 ): CustomerDogServiceStatus[] {
-  return [
-    ...new Map(
-      [...snapshot.stays, ...snapshot.unassignedFuture].map((stay) => [
-        stay.id,
-        stay,
-      ]),
-    ).values(),
-  ]
-    .filter((stay) => !stay.archivedAt && !stay.checkedOutAt)
-    .map((stay) => {
-      const allocation = activeHotelAllocation(stay);
-      const roomType =
-        stay.capacityReservation?.roomTypeCode ??
-        stay.capacityReservation?.roomTypeName ??
-        "객실 미정";
-      return {
-        dogId: stay.dogId,
-        domain: "hotel" as const,
-        label: "호텔",
-        detail: allocation ? `${roomType} ${allocation.roomName}` : roomType,
-        status: hotelStayDayPhase(stay, localDate) ?? "예약",
-        sourceEntityId: stay.id,
-      };
+  const stays = new Map([...snapshot.stays, ...snapshot.unassignedFuture].map(stay => [stay.id, stay]));
+  const services = new Map<string, CustomerDogServiceStatus>();
+  const sharedStayIds = new Set((shared ?? []).flatMap(occupancy => occupancy.members.map(member => member.hotelStayId)));
+  const sharedDogIds = new Set((shared ?? []).flatMap(o => o.members.filter(m => m.status === "active").map(m => m.dogId)));
+  for (const stay of stays.values()) {
+    if (stay.archivedAt || stay.checkedOutAt || sharedStayIds.has(stay.id)
+      || (stay.checkedInAt && sharedDogIds.has(stay.dogId))) continue;
+    const roomType = stay.capacityReservation?.roomTypeCode ?? stay.capacityReservation?.roomTypeName ?? "객실 미정";
+    // Future/pre-check-in records retain reservation intent, not actual occupancy.
+    const planned = !stay.checkedInAt ? activeHotelAllocation(stay) : null;
+    services.set(stay.id, {
+      dogId: stay.dogId, domain: "hotel", label: "호텔",
+      detail: stay.checkedInAt ? currentHotelRoomLabel(stay, shared, now)
+        : planned ? `${roomType} ${planned.roomName}` : roomType,
+      status: hotelStayDayPhase(stay, localDate) ?? "예약", sourceEntityId: stay.id,
     });
+  }
+  for (const stayId of sharedStayIds) {
+    const stay = stays.get(stayId);
+    if (stay?.checkedOutAt || stay?.archivedAt) continue;
+    const relations = sharedCurrentRelations(shared ?? [], stayId);
+    const active = relations.filter(({ member }) => member.status === "active");
+    if (!active.length) continue; // Completed/left members are not current services.
+    const dogs = new Set(active.map(({ member }) => member.dogId));
+    for (const dogId of dogs) {
+      const relation = active[0];
+      const proven = relations.length === 1 && dogs.size === 1
+        && (!stay || stay.dogId === dogId) && validCurrentSharedRelation(relation, now);
+      const key = `shared-dog:${dogId}`;
+      const existing = services.get(key);
+      services.set(key, {
+        dogId, domain: "hotel", label: "호텔", sourceEntityId: stayId,
+        detail: proven && !existing ? relation.occupancy.roomName : CURRENT_ROOM_UNAVAILABLE,
+        status: proven && !existing ? "현재 배정 · 함께 투숙" : "함께 투숙 · 확인 필요",
+      });
+    }
+  }
+  return [...services.values()];
 }
 
 function scheduleStatus(schedule: OperationSchedule, now: number) {
@@ -301,13 +319,14 @@ function buildTimeline(
 
 export async function loadCustomerDogDirectory(): Promise<CustomerDogDirectoryData> {
   const localDate = seoulDateKey();
-  const [customerRows, dogRows, salesResult, snapshotResult, scheduleResult] =
+  const [customerRows, dogRows, salesResult, snapshotResult, scheduleResult, sharedResult] =
     await Promise.all([
       fetchCustomers(),
       fetchDogs(),
       fetchSalesTimeline().catch(() => [] as SaleTimelineRow[]),
       fetchHotelOperationsSnapshot(localDate).catch(() => null),
       fetchOperationSchedulesForDay(localDate).catch(() => null),
+      fetchCurrentSharedOccupancies(localDate),
     ]);
 
   const customers = customerRows.map((row): CustomerDirectoryCustomer => ({
@@ -335,7 +354,7 @@ export async function loadCustomerDogDirectory(): Promise<CustomerDogDirectoryDa
   }));
   const schedules = scheduleResult ?? [];
   const services = [
-    ...(snapshotResult ? hotelServices(snapshotResult, localDate) : []),
+    ...(snapshotResult ? hotelServices(snapshotResult, localDate, sharedResult) : []),
     ...scheduleServices(schedules),
   ];
   const recentUseByCustomerId = new Map<string, string>();
@@ -377,21 +396,22 @@ export async function loadCustomerDogDirectory(): Promise<CustomerDogDirectoryDa
     timeline: buildTimeline(dogs, salesResult, schedules),
     recentUseByCustomerId,
     recentUseDetailByCustomerId,
-    serviceStatusAvailable: snapshotResult !== null && scheduleResult !== null,
+    serviceStatusAvailable: snapshotResult !== null && scheduleResult !== null && sharedResult !== null,
   };
 }
 
 export async function loadCurrentCustomerDogServices(): Promise<CurrentCustomerDogServices> {
   const localDate = seoulDateKey();
-  const [snapshotResult, scheduleResult] = await Promise.all([
+  const [snapshotResult, scheduleResult, sharedResult] = await Promise.all([
     fetchHotelOperationsSnapshot(localDate).catch(() => null),
     fetchOperationSchedulesForDay(localDate).catch(() => null),
+    fetchCurrentSharedOccupancies(localDate),
   ]);
   return {
     services: [
-      ...(snapshotResult ? hotelServices(snapshotResult, localDate) : []),
+      ...(snapshotResult ? hotelServices(snapshotResult, localDate, sharedResult) : []),
       ...scheduleServices(scheduleResult ?? []),
     ],
-    available: snapshotResult !== null && scheduleResult !== null,
+    available: snapshotResult !== null && scheduleResult !== null && sharedResult !== null,
   };
 }
