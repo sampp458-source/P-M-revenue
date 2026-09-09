@@ -626,9 +626,13 @@ describe("Hotel Room Board operations UX", () => {
     expect(hotelRoomBoardCompletedCheckouts([completed], "2026-08-15")).toHaveLength(1);
     expect(hotelRoomBoardCompletedCheckouts([completed], "2026-08-14")).toHaveLength(0);
 
-    render(<HotelRoomBoard {...boardProps(snapshot([completed]), "2026-08-15")} />);
+    render(<HotelRoomBoard {...boardProps(snapshot([completed]), "2026-08-15")} eventRoomProjections={new Map([[completed.scheduleEvents[1].schedule.id, {
+      operationScheduleId: completed.scheduleEvents[1].schedule.id, hotelStayId: completed.id, hotelEventKind: "check_out",
+      hotelRoomTypeName: "STANDARD", hotelRoomName: "Historical checkout room", hotelSharedRoom: false, roomResolutionStatus: "resolved",
+    }]])} />);
     expect(screen.getByTestId("hotel-room-board-completed-checkouts")).toHaveTextContent("퇴실견");
-    expect(screen.getByTestId("hotel-room-board-completed-checkouts")).toHaveTextContent("DELUXE 1");
+    expect(screen.getByTestId("hotel-room-board-completed-checkouts")).toHaveTextContent("Historical checkout room");
+    expect(screen.getByTestId("hotel-room-board-completed-checkouts")).not.toHaveTextContent("DELUXE 1");
     expect(screen.getByTestId("hotel-room-board-completed-checkouts")).toHaveTextContent("12:32");
     expect(screen.queryByTestId("hotel-room-board-stay-completed")).not.toBeInTheDocument();
   });
@@ -664,6 +668,9 @@ describe("Hotel Room Board operations UX", () => {
     expect(screen.getByTestId("shared-room-card-occupancy-1")).not.toHaveTextContent("몽이");
     expect(screen.getByTestId("hotel-room-board-completed-checkouts")).toHaveTextContent("몽이");
     expect(screen.getByTestId("hotel-room-board-completed-checkouts")).not.toHaveTextContent("보리");
+    expect(screen.getByTestId("hotel-room-board-room-room-1")).toHaveTextContent("DELUXE 1");
+    expect(screen.getByTestId("hotel-room-board-completed-checkouts")).toHaveTextContent("객실 정보 확인 필요");
+    expect(screen.getByTestId("hotel-room-board-completed-checkouts")).not.toHaveTextContent("DELUXE 1");
   });
 
   it("renders each dog-specific checkout date in a compact three-dog Shared Room card", () => {

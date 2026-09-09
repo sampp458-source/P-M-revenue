@@ -53,6 +53,63 @@ export interface HotelScheduleEvent {
   };
 }
 
+/** Event presentation only; never an input to physical allocation commands. */
+export interface HotelEventRoomProjection {
+  operationScheduleId: string;
+  hotelStayId: string;
+  hotelEventKind: HotelScheduleEvent["eventKind"];
+  hotelRoomTypeName: string | null;
+  hotelRoomName: string | null;
+  hotelSharedRoom: boolean;
+  roomResolutionStatus: "resolved" | "unassigned" | "unknown" | "unavailable";
+}
+
+export type HotelEventRoomProjections = ReadonlyMap<string, HotelEventRoomProjection>;
+
+/** One read-only RPC per collection, with identity validation and no physical fallback. */
+export async function fetchHotelEventRoomProjections(
+  stays: readonly HotelStay[],
+): Promise<HotelEventRoomProjections> {
+  const identities = new Map<string, Set<string>>();
+  for (const stay of stays) {
+    for (const event of stay.scheduleEvents) {
+      const owners = identities.get(event.schedule.id) ?? new Set<string>();
+      owners.add(JSON.stringify([stay.id, event.eventKind]));
+      identities.set(event.schedule.id, owners);
+    }
+  }
+  const projections = new Map<string, HotelEventRoomProjection>();
+  if (!identities.size) return projections;
+  try {
+    const { data, error } = await supabase.rpc("get_operation_hotel_room_projections", {
+      p_operation_schedule_ids: [...identities.keys()],
+    });
+    if (error || !Array.isArray(data)) return projections;
+    const counts = new Map<string, number>();
+    for (const row of data) {
+      if (row && typeof row.operationScheduleId === "string") {
+        counts.set(row.operationScheduleId, (counts.get(row.operationScheduleId) ?? 0) + 1);
+      }
+    }
+    for (const value of data) {
+      if (!value || typeof value !== "object") continue;
+      const row = value as HotelEventRoomProjection;
+      const owners = identities.get(row.operationScheduleId);
+      if (owners?.size !== 1 || counts.get(row.operationScheduleId) !== 1
+        || !owners.has(JSON.stringify([row.hotelStayId, row.hotelEventKind]))
+        || typeof row.hotelSharedRoom !== "boolean"
+        || !(row.hotelRoomName === null || typeof row.hotelRoomName === "string")
+        || !(row.hotelRoomTypeName === null || typeof row.hotelRoomTypeName === "string")
+        || !["resolved", "unassigned", "unknown", "unavailable"].includes(row.roomResolutionStatus)
+        || (row.roomResolutionStatus === "resolved" && !row.hotelRoomName?.trim())) continue;
+      projections.set(row.operationScheduleId, row);
+    }
+  } catch {
+    // Network rejection is also unavailable; snapshot and operation controls remain usable.
+  }
+  return projections;
+}
+
 export interface HotelRoomAllocation {
   id: string;
   roomId: string;

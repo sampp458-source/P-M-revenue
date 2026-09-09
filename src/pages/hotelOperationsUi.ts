@@ -1,4 +1,5 @@
-import type { HotelRoomAllocation, HotelStay } from "./hotelOperationsRepository";
+import { operationScheduleHotelRoomLabel } from "./operationsScheduleRepository";
+import type { HotelEventRoomProjections, HotelRoomAllocation, HotelStay } from "./hotelOperationsRepository";
 
 export type HotelStayStatus =
   | "예약"
@@ -216,4 +217,34 @@ export function isSameRoomType(
 
 export function currentAllocatedRoomName(stay: HotelStay) {
   return activeHotelAllocation(stay)?.roomName ?? "미배정";
+}
+
+/** Missing/ambiguous event identities stay unavailable, independent of current occupancy. */
+export function hotelEventRoomLabel(
+  stay: HotelStay,
+  eventKind: "check_in" | "check_out",
+  projections?: HotelEventRoomProjections,
+) {
+  const events = stay.scheduleEvents.filter((event) => event.eventKind === eventKind);
+  const projection = events.length === 1 ? projections?.get(events[0].schedule.id) : undefined;
+  if (!projection || projection.hotelStayId !== stay.id || projection.hotelEventKind !== eventKind) {
+    return "객실 정보 확인 필요";
+  }
+  return operationScheduleHotelRoomLabel({
+    hotelRoomName: projection.hotelRoomName,
+    hotelRoomTypeName: projection.hotelRoomTypeName,
+    hotelRoomResolutionStatus: projection.roomResolutionStatus,
+  });
+}
+
+export function hotelStayEventRoomSummary(
+  stay: HotelStay,
+  selectedDate: string,
+  projections?: HotelEventRoomProjections,
+) {
+  const phase = hotelStayDayPhase(stay, selectedDate);
+  const labels: string[] = [];
+  if (phase === "입실" || phase === "입실·퇴실") labels.push(`입실 객실: ${hotelEventRoomLabel(stay, "check_in", projections)}`);
+  if (phase === "퇴실" || phase === "입실·퇴실") labels.push(`퇴실 객실: ${hotelEventRoomLabel(stay, "check_out", projections)}`);
+  return labels.length ? labels.join(" / ") : null;
 }

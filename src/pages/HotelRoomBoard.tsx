@@ -10,6 +10,7 @@ import {
 import { Badge, Card, cn } from "../components/ui";
 import type {
   HotelOperationsSnapshot,
+  HotelEventRoomProjections,
   HotelRoomSnapshot,
   HotelStay,
 } from "./hotelOperationsRepository";
@@ -20,6 +21,7 @@ import type {
 import type { DaycareReservation } from "./daycareOperationsRepository";
 import {
   activeHotelAllocation,
+  hotelEventRoomLabel,
   formatHotelScheduleTime,
   hotelStayDayPhase,
   hotelStayScheduleDate,
@@ -1015,6 +1017,7 @@ function RoomCell({
 }
 
 export function HotelRoomBoard({
+  eventRoomProjections,
   snapshot,
   sharedOccupancies = [],
   unassignedSharedGroups = [],
@@ -1037,6 +1040,7 @@ export function HotelRoomBoard({
   onUnassignSharedOccupancy = () => undefined,
   allowCheckInReversal = false,
 }: {
+  eventRoomProjections?: HotelEventRoomProjections;
   snapshot: HotelOperationsSnapshot;
   sharedOccupancies?: readonly SharedHotelOccupancy[];
   unassignedSharedGroups?: readonly UnassignedSharedRoomGroup[];
@@ -1142,15 +1146,6 @@ export function HotelRoomBoard({
     () => hotelRoomBoardCompletedCheckouts(allKnownStays, selectedDate),
     [allKnownStays, selectedDate],
   );
-  const sharedRoomNameByStayId = useMemo(() => {
-    const result = new Map<string, string>();
-    sharedOccupancies.forEach((occupancy) =>
-      occupancy.members.forEach((member) =>
-        result.set(member.hotelStayId, occupancy.roomName),
-      ),
-    );
-    return result;
-  }, [sharedOccupancies]);
   const draggedStay =
     boardStays.find((stay) => stay.id === draggedStayId) ?? null;
   const draggedSharedGroup =
@@ -1982,11 +1977,7 @@ export function HotelRoomBoard({
               </button>
               {!mobileProjection || showCompletedCheckouts ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {completedCheckouts.map((stay) => {
-                  const allocation = [...stay.roomAllocations].sort((left, right) =>
-                    right.allocatedFrom.localeCompare(left.allocatedFrom),
-                  )[0];
-                  const roomName = sharedRoomNameByStayId.get(stay.id) ?? allocation?.roomName ?? "호실 확인";
-                  const roomType = stay.capacityReservation?.roomTypeCode ?? stay.capacityReservation?.roomTypeName;
+                  const roomName = hotelEventRoomLabel(stay, "check_out", eventRoomProjections);
                   const checkedOutTime = stay.checkedOutAt
                     ? seoulInputParts(stay.checkedOutAt).time
                     : "-";
@@ -2000,7 +1991,7 @@ export function HotelRoomBoard({
                       <span className="min-w-0">
                         <strong className="block truncate text-sm text-text-primary">{stay.dogName}</strong>
                         <span className={cn("block truncate font-medium text-text-secondary", mobileProjection ? "text-xs" : "text-[11px]")}>
-                          {roomName}{roomType ? ` · ${roomType}` : ""}
+                          {roomName}
                         </span>
                       </span>
                       <span className="shrink-0 text-sm font-extrabold tabular-nums text-emerald-800">{checkedOutTime}</span>
