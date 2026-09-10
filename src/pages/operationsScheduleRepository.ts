@@ -548,7 +548,7 @@ async function attachHotelScheduleLinks(schedules: OperationSchedule[]) {
   const linkedScheduleIds = [...linkByScheduleId.keys()];
   if (linkedScheduleIds.length === 0) return schedules;
   const projectionResult = await supabase.rpc(
-    "get_operation_hotel_room_projections",
+    "get_operation_hotel_room_projections_v2",
     { p_operation_schedule_ids: linkedScheduleIds },
   );
   const projectionRows =

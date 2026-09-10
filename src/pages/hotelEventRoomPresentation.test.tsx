@@ -42,7 +42,7 @@ describe("Hotel event presentation batch adapter", () => {
     respond([projection(), projection("check_out")]);
     const result = await fetchHotelEventRoomProjections([original, original, other]);
     expect(supabase.rpc).toHaveBeenCalledTimes(1);
-    expect(supabase.rpc).toHaveBeenCalledWith("get_operation_hotel_room_projections", {
+    expect(supabase.rpc).toHaveBeenCalledWith("get_operation_hotel_room_projections_v2", {
       p_operation_schedule_ids: ["check_in", "check_out", "second-check_in", "second-check_out"],
     });
     expect(result.size).toBe(2);

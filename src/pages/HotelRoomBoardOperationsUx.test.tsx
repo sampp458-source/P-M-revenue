@@ -737,16 +737,15 @@ describe("007 date mode safety", () => {
     const props = boardProps(snapshot([active, completed]), "2026-08-15");
     const onDropStay = vi.fn(); const onUnassignStay = vi.fn(); const onOpenStay = vi.fn();
     render(<HotelRoomBoard {...props} dateMode="PAST" onDropStay={onDropStay} onUnassignStay={onUnassignStay} onOpenStay={onOpenStay}
+      sharedHistory={{coverageStatus:"SHARED_ONLY",segments:[],unavailableMembers:[{hotelStayId:active.id,dogName:active.dogName,reasonCode:"UNPROVEN"}]}}
       eventRoomProjections={new Map([[completed.scheduleEvents[1].schedule.id, { operationScheduleId: completed.scheduleEvents[1].schedule.id, hotelStayId: completed.id, hotelEventKind: "check_out", hotelRoomTypeName: "OLD", hotelRoomName: "Canonical checkout", hotelSharedRoom: false, roomResolutionStatus: "resolved" }]])} />);
-    expect(screen.getByRole("heading", { name: "선택일 운영 기록" })).toBeVisible();
-    expect(screen.getByText(/완전히 복원한 화면은 아닙니다/)).toBeVisible();
+    expect(screen.getByRole("heading", { name: "선택일 함께 투숙 기록" })).toBeVisible();
+    expect(screen.getByText(/Single·장기호텔의 과거 객실 복원은 아직 지원하지 않습니다/)).toBeVisible();
     expect(screen.queryByRole("heading", { name: /객실 현황|당시 객실 배치|실제 점유 현황/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "감자 호실 이동 시작" })).toBeDisabled();
-    fireEvent.click(within(screen.getByTestId("hotel-room-board-stay-stay-1")).getByRole("button", { name: /감자.*퇴실/ }));
-    expect(onOpenStay).toHaveBeenCalledWith("stay-1");
-    const dataTransfer = dragTransfer(); dataTransfer.setData("application/x-hotel-stay-id", active.id);
-    fireEvent.drop(screen.getByTestId("hotel-room-board-room-room-1"), { dataTransfer });
-    fireEvent.drop(screen.getByTestId("hotel-room-board-unassigned-drop-zone"), { dataTransfer });
+    expect(screen.queryByRole("button", { name: "감자 호실 이동 시작" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", {name:/감자 · 객실 정보 확인 필요/}));
+    expect(onOpenStay).toHaveBeenCalledWith(active.id);
+    expect(screen.queryByTestId("hotel-room-board-unassigned-drop-zone")).not.toBeInTheDocument();
     expect(onDropStay).not.toHaveBeenCalled(); expect(onUnassignStay).not.toHaveBeenCalled();
     expect(screen.getByTestId("hotel-room-board-completed-checkouts")).toHaveTextContent("Canonical checkout");
   });
@@ -760,11 +759,27 @@ describe("007 date mode safety", () => {
   });
   it("past Shared detail remains accessible but mutation drop is blocked", () => {
     const occupancy = sharedOccupancy(); const open = vi.fn(); const unassign = vi.fn();
-    render(<HotelRoomBoard {...boardProps(snapshot([]), "2026-08-13")} dateMode="PAST" sharedOccupancies={[occupancy]} onOpenSharedOccupancy={open} onUnassignSharedOccupancy={unassign} />);
-    fireEvent.click(screen.getByTestId(`shared-room-card-${occupancy.id}`));
-    expect(open).toHaveBeenCalledWith(occupancy.id);
-    const dataTransfer = dragTransfer(); dataTransfer.setData("application/x-hotel-shared-occupancy-id", occupancy.id);
-    fireEvent.drop(screen.getByTestId("hotel-room-board-unassigned-drop-zone"), { dataTransfer });
+    render(<HotelRoomBoard {...boardProps(snapshot([]), "2026-08-13")} dateMode="PAST" sharedOccupancies={[occupancy]} onOpenStay={open} onUnassignSharedOccupancy={unassign}
+      sharedHistory={{coverageStatus:"SHARED_ONLY",segments:[],unavailableMembers:[{hotelStayId:"past-member",dogName:"과거견",reasonCode:"UNPROVEN"}]}} />);
+    expect(screen.queryByTestId(`shared-room-card-${occupancy.id}`)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:/과거견/}));
+    expect(open).toHaveBeenCalledWith("past-member");
+    expect(screen.queryByTestId("hotel-room-board-unassigned-drop-zone")).not.toBeInTheDocument();
     expect(unassign).not.toHaveBeenCalled();
+  });
+});
+
+describe("008 completed Shared collection", () => {
+  it.each(["resolved", "unavailable"] as const)("keeps a %s completed DTO without any current occupancy", status => {
+    const onOpenStay = vi.fn();
+    const completed = {id:"synthetic-completed-member",dogName:"Synthetic completed dog",checkedOutAt:"2091-02-02T04:00:00Z",scheduleEvents:[{eventKind:"check_out" as const,schedule:{id:"synthetic-checkout"}}]};
+    render(<HotelRoomBoard {...boardProps(snapshot([]), "2091-02-02")} dateMode="TODAY" completedSharedStays={[completed]} onOpenStay={onOpenStay}
+      eventRoomProjections={new Map([["synthetic-checkout",{operationScheduleId:"synthetic-checkout",hotelStayId:completed.id,hotelEventKind:"check_out",hotelRoomTypeName:"Synthetic type",hotelRoomName:status === "resolved" ? "Synthetic historical room" : null,hotelSharedRoom:true,roomResolutionStatus:status}]])} />);
+    const panel = screen.getByTestId("hotel-room-board-completed-checkouts");
+    expect(panel).toHaveTextContent(completed.dogName);
+    expect(panel).toHaveTextContent(status === "resolved" ? "Synthetic historical room" : "객실 정보 확인 필요");
+    fireEvent.click(within(panel).getByRole("button",{name:/Synthetic completed dog/}));
+    expect(onOpenStay).toHaveBeenCalledWith(completed.id);
+    expect(screen.queryByTestId(`hotel-room-board-stay-${completed.id}`)).not.toBeInTheDocument();
   });
 });

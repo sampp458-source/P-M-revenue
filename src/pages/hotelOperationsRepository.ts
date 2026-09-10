@@ -68,7 +68,7 @@ export type HotelEventRoomProjections = ReadonlyMap<string, HotelEventRoomProjec
 
 /** One read-only RPC per collection, with identity validation and no physical fallback. */
 export async function fetchHotelEventRoomProjections(
-  stays: readonly HotelStay[],
+  stays: readonly { id: string; scheduleEvents: readonly { eventKind: HotelScheduleEvent["eventKind"]; schedule: { id: string } }[] }[],
 ): Promise<HotelEventRoomProjections> {
   const identities = new Map<string, Set<string>>();
   for (const stay of stays) {
@@ -81,7 +81,7 @@ export async function fetchHotelEventRoomProjections(
   const projections = new Map<string, HotelEventRoomProjection>();
   if (!identities.size) return projections;
   try {
-    const { data, error } = await supabase.rpc("get_operation_hotel_room_projections", {
+    const { data, error } = await supabase.rpc("get_operation_hotel_room_projections_v2", {
       p_operation_schedule_ids: [...identities.keys()],
     });
     if (error || !Array.isArray(data)) return projections;

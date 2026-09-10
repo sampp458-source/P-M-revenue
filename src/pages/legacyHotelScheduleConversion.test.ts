@@ -40,7 +40,7 @@ describe("legacy Hotel schedule compatibility", () => {
   it("queries every loaded schedule link and resolves canonical room data in one batch", () => {
     expect(repository).toContain('.from("hotel_stay_schedule_events")');
     expect(repository).toContain('.in("operation_schedule_id", scheduleIds)');
-    expect(repository).toContain('"get_operation_hotel_room_projections"');
+    expect(repository).toContain('"get_operation_hotel_room_projections_v2"');
     expect(repository).toContain("p_operation_schedule_ids: linkedScheduleIds");
     expect(repository).toContain('projection?.roomResolutionStatus ?? ("unavailable" as const)');
     expect(repository).not.toContain(

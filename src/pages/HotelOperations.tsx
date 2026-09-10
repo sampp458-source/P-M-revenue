@@ -1,3 +1,4 @@
+import { fetchCompletedSharedStays, fetchSharedRoomHistory, type CompletedSharedStay, type SharedHistory } from "./sharedHotelHistoryRepository";
 import { hotelRoomBoardDateMode, hotelRoomBoardDateCopy, PAST_ROOM_BOARD_NOTICE } from "./hotelRoomBoardDateMode";
 import { CURRENT_ROOM_UNAVAILABLE, fetchCurrentHotelRoomLabel } from "./hotelCurrentPhysicalPresentation";
 import {
@@ -364,21 +365,32 @@ export function HotelOperationsPage() {
   }, [detail]);
   const currentRoomLabel = currentRoomResult?.stay === detail ? currentRoomResult?.label : undefined;
 
+  const [sharedReads, setSharedReads] = useState<{snapshot: HotelOperationsSnapshot; date: string; completed: CompletedSharedStay[]; history?: SharedHistory; error?: string; historyError?: string} | null>(null);
+  useEffect(() => {
+    if (!snapshot) return;
+    let cancelled = false;
+    void Promise.allSettled([fetchCompletedSharedStays(selectedDate), isPast ? fetchSharedRoomHistory(selectedDate) : Promise.resolve(undefined)]).then(([completed, history]) => {
+      if (!cancelled) setSharedReads({snapshot,date:selectedDate,completed:completed.status === 'fulfilled' ? completed.value : [],error:completed.status === 'rejected' ? '완료된 함께 투숙 기록을 확인하지 못했습니다.' : undefined,history:history.status === 'fulfilled' ? history.value : undefined,historyError:history.status === 'rejected' ? '과거 함께 투숙 기록을 확인하지 못했습니다.' : undefined});
+    });
+    return () => {cancelled = true;};
+  }, [snapshot,selectedDate,isPast]);
+  const currentSharedReads = sharedReads?.snapshot === snapshot && sharedReads?.date === selectedDate ? sharedReads : null;
   const projectionStays = useMemo(() => [
     ...(snapshot?.stays ?? []), ...(snapshot?.unassignedFuture ?? []),
-    ...sharedMemberStays, ...(detail ? [detail] : []),
-  ], [snapshot, sharedMemberStays, detail]);
+    ...sharedMemberStays, ...(currentSharedReads?.completed ?? []), ...(detail ? [detail] : []),
+  ], [snapshot, sharedMemberStays, detail, currentSharedReads]);
   const [eventRoomResult, setEventRoomResult] = useState<{
-    stays: readonly HotelStay[];
+    stays: typeof projectionStays;
     projections: HotelEventRoomProjections;
   } | null>(null);
   useEffect(() => {
     let cancelled = false;
+    if (!currentSharedReads) return;
     void fetchHotelEventRoomProjections(projectionStays).then((projections) => {
       if (!cancelled) setEventRoomResult({ stays: projectionStays, projections });
     });
     return () => { cancelled = true; };
-  }, [projectionStays]);
+  }, [projectionStays, currentSharedReads]);
   // Never display an earlier snapshot's event result while a fresh batch is pending.
   const eventRoomProjections = eventRoomResult?.stays === projectionStays
     ? eventRoomResult.projections : undefined;
@@ -1344,6 +1356,10 @@ export function HotelOperationsPage() {
       </div>
 
       <HotelRoomBoard
+        completedSharedStays={currentSharedReads?.completed}
+        completedSharedError={currentSharedReads?.error}
+        sharedHistory={currentSharedReads?.history}
+        sharedHistoryError={currentSharedReads?.historyError}
         dateMode={dateMode}
         eventRoomProjections={eventRoomProjections}
         snapshot={snapshot}

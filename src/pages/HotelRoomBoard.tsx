@@ -1,3 +1,5 @@
+import { SharedHotelHistory } from "./SharedHotelHistory";
+import type { CompletedSharedStay, SharedHistory } from "./sharedHotelHistoryRepository";
 import { hotelRoomBoardDateMode, hotelRoomBoardDateCopy, PAST_ROOM_BOARD_NOTICE, FUTURE_ROOM_BOARD_NOTICE, type HotelRoomBoardDateMode } from "./hotelRoomBoardDateMode";
 import { ChevronDown, Clock3, GripVertical, Sparkles } from "lucide-react";
 import {
@@ -1018,6 +1020,7 @@ function RoomCell({
 }
 
 export function HotelRoomBoard({
+  completedSharedStays = [], completedSharedError, sharedHistory, sharedHistoryError,
   dateMode: explicitDateMode,
   eventRoomProjections,
   snapshot,
@@ -1042,6 +1045,7 @@ export function HotelRoomBoard({
   onUnassignSharedOccupancy: requestOnUnassignSharedOccupancy = () => undefined,
   allowCheckInReversal = false,
 }: {
+  completedSharedStays?: readonly CompletedSharedStay[]; completedSharedError?: string; sharedHistory?: SharedHistory; sharedHistoryError?: string;
   eventRoomProjections?: HotelEventRoomProjections;
   dateMode?: HotelRoomBoardDateMode;
   snapshot: HotelOperationsSnapshot;
@@ -1154,8 +1158,8 @@ export function HotelRoomBoard({
     return [...byId.values()];
   }, [sharedMemberStays, snapshot.stays, snapshot.unassignedFuture]);
   const completedCheckouts = useMemo(
-    () => hotelRoomBoardCompletedCheckouts(allKnownStays, selectedDate),
-    [allKnownStays, selectedDate],
+    () => [...new Map([...hotelRoomBoardCompletedCheckouts(allKnownStays, selectedDate), ...completedSharedStays].map(stay => [stay.id, stay])).values()],
+    [allKnownStays, selectedDate, completedSharedStays],
   );
   const draggedStay =
     boardStays.find((stay) => stay.id === draggedStayId) ?? null;
@@ -1614,6 +1618,59 @@ export function HotelRoomBoard({
     />
   );
 
+  const completedPanel = (completedCheckouts.length ? (
+            <section
+              aria-label="퇴실 완료 명단"
+              data-testid="hotel-room-board-completed-checkouts"
+              className="rounded-2xl border border-emerald-200 bg-emerald-50/45 px-4 py-3.5"
+            >
+              <button
+                type="button"
+                aria-expanded={!mobileProjection || showCompletedCheckouts}
+                disabled={!mobileProjection}
+                onClick={() => setShowCompletedCheckouts((current) => !current)}
+                className={cn(
+                  "flex w-full items-center justify-between gap-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                  (!mobileProjection || showCompletedCheckouts) && "mb-3",
+                  mobileProjection && "min-h-11",
+                )}
+              >
+                <span>
+                  <span className="block text-base font-extrabold text-text-primary">퇴실 완료</span>
+                  <span className="mt-0.5 block text-xs text-text-secondary">선택한 날짜의 실제 퇴실 처리 명단입니다.</span>
+                </span>
+                <span className="flex items-center gap-2">
+                  <Badge tone="green">{completedCheckouts.length}건</Badge>
+                  {mobileProjection ? <ChevronDown className={cn("transition-transform", showCompletedCheckouts && "rotate-180")} size={20} /> : null}
+                </span>
+              </button>
+              {!mobileProjection || showCompletedCheckouts ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {completedCheckouts.map((stay) => {
+                  const roomName = hotelEventRoomLabel(stay, "check_out", eventRoomProjections);
+                  const checkedOutTime = stay.checkedOutAt
+                    ? seoulInputParts(stay.checkedOutAt).time
+                    : "-";
+                  return (
+                    <button
+                      key={stay.id}
+                      type="button"
+                      onClick={() => onOpenStay(stay.id)}
+                      className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-left transition hover:border-emerald-300 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      <span className="min-w-0">
+                        <strong className="block truncate text-sm text-text-primary">{stay.dogName}</strong>
+                        <span className={cn("block truncate font-medium text-text-secondary", mobileProjection ? "text-xs" : "text-[11px]")}>
+                          {roomName}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-sm font-extrabold tabular-nums text-emerald-800">{checkedOutTime}</span>
+                    </button>
+                  );
+                })}
+              </div> : null}
+            </section>
+          ) : null);
+  if (readOnly) return <Card><SharedHotelHistory history={sharedHistory} error={sharedHistoryError} onOpenStay={onOpenStay} />{completedSharedError ? <p role="alert">{completedSharedError}</p> : null}{completedPanel}</Card>;
   return (
     <Card
       className="mb-6 overflow-hidden"
@@ -1962,58 +2019,8 @@ export function HotelRoomBoard({
             </div>
           )}
 
-          {completedCheckouts.length ? (
-            <section
-              aria-label="퇴실 완료 명단"
-              data-testid="hotel-room-board-completed-checkouts"
-              className="rounded-2xl border border-emerald-200 bg-emerald-50/45 px-4 py-3.5"
-            >
-              <button
-                type="button"
-                aria-expanded={!mobileProjection || showCompletedCheckouts}
-                disabled={!mobileProjection}
-                onClick={() => setShowCompletedCheckouts((current) => !current)}
-                className={cn(
-                  "flex w-full items-center justify-between gap-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-                  (!mobileProjection || showCompletedCheckouts) && "mb-3",
-                  mobileProjection && "min-h-11",
-                )}
-              >
-                <span>
-                  <span className="block text-base font-extrabold text-text-primary">퇴실 완료</span>
-                  <span className="mt-0.5 block text-xs text-text-secondary">선택한 날짜의 실제 퇴실 처리 명단입니다.</span>
-                </span>
-                <span className="flex items-center gap-2">
-                  <Badge tone="green">{completedCheckouts.length}건</Badge>
-                  {mobileProjection ? <ChevronDown className={cn("transition-transform", showCompletedCheckouts && "rotate-180")} size={20} /> : null}
-                </span>
-              </button>
-              {!mobileProjection || showCompletedCheckouts ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {completedCheckouts.map((stay) => {
-                  const roomName = hotelEventRoomLabel(stay, "check_out", eventRoomProjections);
-                  const checkedOutTime = stay.checkedOutAt
-                    ? seoulInputParts(stay.checkedOutAt).time
-                    : "-";
-                  return (
-                    <button
-                      key={stay.id}
-                      type="button"
-                      onClick={() => onOpenStay(stay.id)}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-white px-3 py-2 text-left transition hover:border-emerald-300 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                    >
-                      <span className="min-w-0">
-                        <strong className="block truncate text-sm text-text-primary">{stay.dogName}</strong>
-                        <span className={cn("block truncate font-medium text-text-secondary", mobileProjection ? "text-xs" : "text-[11px]")}>
-                          {roomName}
-                        </span>
-                      </span>
-                      <span className="shrink-0 text-sm font-extrabold tabular-nums text-emerald-800">{checkedOutTime}</span>
-                    </button>
-                  );
-                })}
-              </div> : null}
-            </section>
-          ) : null}
+          {completedSharedError ? <p role="alert">{completedSharedError}</p> : null}
+          {completedPanel}
 
         </div>
       </div>

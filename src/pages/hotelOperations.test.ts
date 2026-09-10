@@ -272,7 +272,7 @@ describe("Hotel Operations frontend", () => {
       'typeof row.hotelRoomTypeName === "string"',
     );
     expect(scheduleRepositorySource).toContain(
-      '"get_operation_hotel_room_projections"',
+      '"get_operation_hotel_room_projections_v2"',
     );
   });
 

@@ -221,7 +221,7 @@ export function currentAllocatedRoomName(stay: HotelStay) {
 
 /** Missing/ambiguous event identities stay unavailable, independent of current occupancy. */
 export function hotelEventRoomLabel(
-  stay: HotelStay,
+  stay: { id: string; scheduleEvents: readonly { eventKind: string; schedule: { id: string } }[] },
   eventKind: "check_in" | "check_out",
   projections?: HotelEventRoomProjections,
 ) {

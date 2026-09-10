@@ -84,8 +84,8 @@ describe("Today / Calendar lifecycle room projection parity", () => {
         ? ["객실 정보 확인 필요", "객실 정보 확인 필요", "객실 정보 확인 필요"]
         : ["STANDARD 4", "DELUXE 5", "DELUXE 5"]);
       expect(projectionDb.rpc.mock.calls.filter(([name]) =>
-        name === "get_operation_hotel_room_projections")).toEqual([
-        ["get_operation_hotel_room_projections", { p_operation_schedule_ids: ids }],
+        name === "get_operation_hotel_room_projections_v2")).toEqual([
+        ["get_operation_hotel_room_projections_v2", { p_operation_schedule_ids: ids }],
       ]);
     }
     projectionDb.from.mockReset();
