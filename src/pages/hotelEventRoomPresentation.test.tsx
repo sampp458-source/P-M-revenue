@@ -8,7 +8,7 @@ import { activeHotelAllocation, hotelEventRoomLabel } from "./hotelOperationsUi"
 import { StayRow, StayDetailModal } from "./HotelOperations";
 
 vi.mock("../lib/supabase", () => ({ supabase: { rpc: vi.fn() } }));
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.useRealTimers(); });
 beforeEach(() => { vi.mocked(supabase.rpc).mockReset(); });
 
 const stay = (): HotelStay => ({
@@ -73,6 +73,25 @@ describe("Hotel event presentation batch adapter", () => {
 });
 
 describe("event room consumers", () => {
+  it.each(["2031-02-02T12:00:00Z", "2031-02-01T12:00:00Z"])("retains today/future assignment display at %s", now => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date(now));
+    render(<StayRow stay={stay()} selectedDate="2031-02-02" onClick={vi.fn()} />);
+    expect(screen.getByRole("button")).toHaveTextContent("현재 물리 객실");
+    expect(screen.queryByText("선택일 실제 객실: 확인 필요")).toBeNull();
+  });
+  it("does not present latest allocation as the room on a past in-house date", () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2031-02-04T12:00:00Z"));
+    render(<StayRow stay={stay()} selectedDate="2031-02-02" onClick={vi.fn()} />);
+    expect(screen.getByRole("button")).toHaveTextContent("선택일 실제 객실: 확인 필요");
+    expect(screen.getByRole("button")).not.toHaveTextContent("현재 물리 객실");
+  });
+  it("keeps unavailable past events separate from latest allocation", () => {
+    vi.useFakeTimers(); vi.setSystemTime(new Date("2031-02-04T12:00:00Z"));
+    render(<StayRow stay={stay()} selectedDate="2031-02-01" onClick={vi.fn()} />);
+    expect(screen.getByRole("button")).toHaveTextContent("입실 객실: 객실 정보 확인 필요");
+    expect(screen.getByRole("button")).not.toHaveTextContent("현재 물리 객실");
+  });
+
   it("preserves check-in history after reassignment and preserves the current physical helper", () => {
     const value = stay();
     render(<StayRow stay={value} selectedDate="2031-02-01" onClick={vi.fn()} eventRoomProjections={map(projection())} />);
@@ -121,10 +140,15 @@ describe("event room consumers", () => {
   });
   it("labels current physical and historical rooms separately in detail", () => {
     const noop = vi.fn();
-    render(<StayDetailModal currentRoomLabel="현재 물리 객실" open stay={stay()} selectedDate="2031-02-01" loading={false} creatorName="담당자" sharedOccupancy={null}
+    const detailStay = stay();
+    detailStay.roomAllocations.push({ ...detailStay.roomAllocations[0], id: "older", roomName: "이전 배정" });
+    render(<StayDetailModal currentRoomLabel="현재 물리 객실" open stay={detailStay} selectedDate="2031-02-01" loading={false} creatorName="담당자" sharedOccupancy={null}
       canMergeSharedRoom={false} operationRole={null} onClose={noop} onEdit={noop} onAssign={noop} onReassign={noop} onMove={noop}
       onUnassign={noop} onCheckIn={noop} onCheckOut={noop} onReverseCheckIn={noop} onChangePlannedCheckout={noop} onCancel={noop} onMergeSharedRoom={noop}
       eventRoomProjections={map(projection())} />);
+    expect(screen.getByText("배정 기록").parentElement).toHaveTextContent("현재 물리 객실, 이전 배정");
+    expect(screen.getByText("배정 기록").parentElement).not.toHaveTextContent("→");
+    expect(screen.getByText(/실제 투숙 순서나 객실 이동을 확인한 기록은 아닙니다/)).toBeTruthy();
     expect(screen.getByText("현재 호실").parentElement).toHaveTextContent("현재 물리 객실");
     expect(screen.getByText("입실 객실").parentElement).toHaveTextContent("입실 당시 객실");
     expect(screen.getByText("퇴실 객실").parentElement).toHaveTextContent("객실 정보 확인 필요");

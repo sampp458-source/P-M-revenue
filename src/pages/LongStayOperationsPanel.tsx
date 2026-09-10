@@ -491,7 +491,7 @@ export function LongStayOperationsPanel({
               <Home size={19} className="text-primary" />
               <h2 className="font-bold text-text-primary">장기호텔 월 운영</h2>
             </div>
-            <p className="mt-1 text-xs text-text-secondary">결제일과 분리하여 매월 실제 객실을 확정합니다.</p>
+            <p className="mt-1 text-xs text-text-secondary">선택 월의 점유 계획과 현재 계약 객실을 표시합니다. 해당 월의 실제 투숙·객실 이동 이력은 아닙니다.</p>
           </div>
           <div className="flex items-center gap-1 rounded-xl border border-border bg-surface p-1">
             <button type="button" aria-label="이전 달" className="flex h-10 w-10 items-center justify-center rounded-lg hover:bg-primary-soft" onClick={() => setServiceMonth((value) => shiftMonth(value, -1))}><ArrowLeft size={17} /></button>
@@ -530,8 +530,8 @@ export function LongStayOperationsPanel({
                       <p className="mt-1 text-sm text-text-secondary">{contract.customerName || "보호자 미등록"}</p>
                     </div>
                     <div className="text-right">
-                      <b className="block text-sm text-text-primary">{contract.currentRoom?.name || "호실 미배정"}</b>
-                      <span className="text-xs text-text-muted">이번 달 {contract.monthlyOccupancy ? "확정" : "미확정"}</span>
+                      <b className="block text-sm text-text-primary">현재 계약 객실: {contract.currentRoom?.name || "호실 미배정"}</b>
+                      <span className="text-xs text-text-muted">선택 월 계획 {contract.monthlyOccupancy ? "확정" : "미확정"}</span>
                     </div>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-surface-secondary p-3 text-xs text-text-secondary">

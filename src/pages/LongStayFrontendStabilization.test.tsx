@@ -440,3 +440,13 @@ it("007 past Long Stay retains current/absence reading but blocks room operation
   expect(screen.queryByRole("dialog")).toBeNull();
   expect(screen.getByRole("button", { name: "이전 달" }).matches(":disabled")).toBe(false);
 });
+
+
+it("009 previous month distinguishes current contract room from monthly planning", async () => {
+  renderOperations([projection({ currentRoom: { id: "current-room", name: "현재 계약 테스트 객실", roomTypeId: "type" } })]);
+  expect(await screen.findByText("현재 계약 객실: 현재 계약 테스트 객실")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "이전 달" }));
+  expect(await screen.findByText("현재 계약 객실: 현재 계약 테스트 객실")).toBeTruthy();
+  expect(screen.getByText(/선택 월 계획/)).toBeTruthy();
+  expect(screen.getByText(/해당 월의 실제 투숙·객실 이동 이력은 아닙니다/)).toBeTruthy();
+});
