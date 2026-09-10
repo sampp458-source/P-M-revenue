@@ -1,5 +1,6 @@
-import { SharedHotelHistory } from "./SharedHotelHistory";
-import type { CompletedSharedStay, SharedHistory } from "./sharedHotelHistoryRepository";
+import { HotelHistoricalRoomGrid } from "./HotelHistoricalRoomGrid";
+import type { HistoricalBoard } from "./hotelHistoricalBoardRepository";
+import type { CompletedSharedStay } from "./sharedHotelHistoryRepository";
 import { hotelRoomBoardDateMode, hotelRoomBoardDateCopy, PAST_ROOM_BOARD_NOTICE, FUTURE_ROOM_BOARD_NOTICE, type HotelRoomBoardDateMode } from "./hotelRoomBoardDateMode";
 import { ChevronDown, Clock3, GripVertical, Sparkles } from "lucide-react";
 import {
@@ -1020,7 +1021,7 @@ function RoomCell({
 }
 
 export function HotelRoomBoard({
-  completedSharedStays = [], completedSharedError, sharedHistory, sharedHistoryError,
+  completedSharedStays = [], completedSharedError, historicalBoard, historicalBoardError,
   dateMode: explicitDateMode,
   eventRoomProjections,
   snapshot,
@@ -1045,7 +1046,7 @@ export function HotelRoomBoard({
   onUnassignSharedOccupancy: requestOnUnassignSharedOccupancy = () => undefined,
   allowCheckInReversal = false,
 }: {
-  completedSharedStays?: readonly CompletedSharedStay[]; completedSharedError?: string; sharedHistory?: SharedHistory; sharedHistoryError?: string;
+  completedSharedStays?: readonly CompletedSharedStay[]; completedSharedError?: string; historicalBoard?: HistoricalBoard; historicalBoardError?: string;
   eventRoomProjections?: HotelEventRoomProjections;
   dateMode?: HotelRoomBoardDateMode;
   snapshot: HotelOperationsSnapshot;
@@ -1670,7 +1671,7 @@ export function HotelRoomBoard({
               </div> : null}
             </section>
           ) : null);
-  if (readOnly) return <Card><SharedHotelHistory history={sharedHistory} error={sharedHistoryError} onOpenStay={onOpenStay} />{completedSharedError ? <p role="alert">{completedSharedError}</p> : null}{completedPanel}</Card>;
+  if (readOnly) return <Card><HotelHistoricalRoomGrid history={historicalBoard} error={historicalBoardError} onOpenStay={onOpenStay} />{completedSharedError ? <p role="alert">{completedSharedError}</p> : null}{completedPanel}</Card>;
   return (
     <Card
       className="mb-6 overflow-hidden"
