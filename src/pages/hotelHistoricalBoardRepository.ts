@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 export type HistoricalDayEvent = 'continuing' | 'check_in' | 'check_out' | 'moved_in' | 'moved_out' | 'returned' | 'left_for_absence';
 export interface HistoricalSegment {
+  physicalOccupancyId?: string | null;
   segmentId: string; stayId: string; dogId: string; dogName: string;
   lifecycleKind: 'single' | 'shared' | 'longstay'; roomId: string;
   usedFrom: string; usedUntil: string; displayFrom: string; displayUntil: string;
@@ -24,6 +25,7 @@ export function parseHistoricalBoard(data: unknown, date: string): HistoricalBoa
     || !Array.isArray(data.rooms) || !Array.isArray(data.unavailable)
     || !data.rooms.every(r => object(r) && ['roomId','roomName','roomTypeId','roomType'].every(k => text(r[k])) && Array.isArray(r.segments) && r.segments.every((s: unknown) => {
       if (!object(s) || !['segmentId','stayId','dogId','dogName'].every(k => text(s[k])) || s.roomId !== r.roomId || !kinds.includes(s.lifecycleKind as string)
+        || (s.physicalOccupancyId != null && !text(s.physicalOccupancyId))
         || s.provenanceStatus !== 'verified' || s.coverageClassification !== 'verified_supported_path'
         || !['usedFrom','usedUntil','displayFrom','displayUntil'].every(k => instant(s[k]))
         || !(Date.parse(s.usedFrom as string) <= Date.parse(s.displayFrom as string) && Date.parse(s.displayFrom as string) < Date.parse(s.displayUntil as string) && Date.parse(s.displayUntil as string) <= Date.parse(s.usedUntil as string))

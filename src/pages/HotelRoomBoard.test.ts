@@ -506,8 +506,10 @@ describe("Hotel Room Board", () => {
 
   it("keeps the physical room order in one fixed row per room type", () => {
     const board = readFileSync(resolve(import.meta.dirname, "./HotelRoomBoard.tsx"), "utf8");
-    expect(board).toContain('"min-w-[720px] grid-cols-6"');
-    expect(board).toContain('"min-w-[600px] grid-cols-5"');
+    const presentation = readFileSync(resolve(import.meta.dirname, "./HotelRoomBoardPresentation.tsx"), "utf8");
+    expect(board).toContain("<RoomBoardDesktopGroup");
+    expect(presentation).toContain("min-w-[720px] grid-cols-6");
+    expect(presentation).toContain("min-w-[600px] grid-cols-5");
     expect(board).not.toContain("2xl:grid-cols-6");
     expect(board).toContain('className="mb-6 overflow-hidden"');
   });
@@ -536,7 +538,8 @@ describe("Hotel Room Board", () => {
     expect(board).toContain("hotel-room-card-absorb");
     expect(board).toContain("data-room-phase");
     expect(board).toContain("stageBadgeClass");
-    expect(board).toContain("min-h-[5.5rem]");
+    expect(board).toContain("<RoomBoardCellFrame");
+    expect(readFileSync(resolve(import.meta.dirname, "./HotelRoomBoardPresentation.tsx"), "utf8")).toContain("min-h-[5.5rem]");
     expect(board).toContain("setDragImage(preview, offsetX, offsetY)");
     expect(board).toContain("같은 유형에서 가장 가까운 빈 호실");
   });

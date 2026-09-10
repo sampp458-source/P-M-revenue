@@ -762,6 +762,7 @@ describe("007 date mode safety", () => {
     render(<HotelRoomBoard {...boardProps(snapshot([]), "2026-08-13")} dateMode="PAST" sharedOccupancies={[occupancy]} onOpenStay={open} onUnassignSharedOccupancy={unassign}
       historicalBoard={{selectedDate:"2026-07-31",timezone:"Asia/Seoul",evidenceAsOf:"2026-08-02T00:00:00Z",readOnly:true,coverageStatus:"PARTIAL",rooms:[],unavailable:[{stayId:"past-member",dogId:"dog",dogName:"과거견",lifecycleKind:"shared",reasonCode:"UNPROVEN",affectedFrom:"2026-07-30T15:00:00Z",affectedUntil:"2026-07-31T15:00:00Z",coverageClassification:"unavailable"}]}} />);
     expect(screen.queryByTestId(`shared-room-card-${occupancy.id}`)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText(/객실 정보 확인 필요 · 1마리/));
     fireEvent.click(screen.getByRole("button",{name:/과거견/}));
     expect(open).toHaveBeenCalledWith("past-member");
     expect(screen.queryByTestId("hotel-room-board-unassigned-drop-zone")).not.toBeInTheDocument();

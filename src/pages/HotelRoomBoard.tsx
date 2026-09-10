@@ -1,3 +1,4 @@
+import {RoomBoardCellFrame, RoomBoardDesktopGroup, RoomBoardMobileGroup, roomStageClass} from './HotelRoomBoardPresentation';
 import { HotelHistoricalRoomGrid } from "./HotelHistoricalRoomGrid";
 import type { HistoricalBoard } from "./hotelHistoricalBoardRepository";
 import type { CompletedSharedStay } from "./sharedHotelHistoryRepository";
@@ -392,18 +393,6 @@ export function sharedRoomCardStage(
   return "check_in";
 }
 
-function roomStageClass(stage: RoomBoardStage | null) {
-  if (stage === "in_house") {
-    return "border-emerald-300 bg-emerald-50/65 shadow-[inset_0_3px_0_0_rgb(16_185_129_/_0.75)]";
-  }
-  if (stage === "check_out") {
-    return "border-orange-300 bg-orange-50/65 shadow-[inset_0_3px_0_0_rgb(249_115_22_/_0.75)]";
-  }
-  if (stage === "check_in") {
-    return "border-blue-300 bg-blue-50/65 shadow-[inset_0_3px_0_0_rgb(37_99_235_/_0.75)]";
-  }
-  return "border-slate-200/60 bg-transparent";
-}
 
 function daycareRoomStage(reservation: DaycareReservation): RoomBoardStage {
   return reservation.lifecycleStatus === "checked_in" ? "in_house" : "check_in";
@@ -860,7 +849,7 @@ function RoomCell({
         selectedDate,
       );
   return (
-    <div
+    <RoomBoardCellFrame mobile={mobile}
       data-testid={`hotel-room-board-room-${room.id}`}
       data-room-phase={roomStage ?? "empty"}
       onPointerDown={() => {
@@ -913,8 +902,6 @@ function RoomCell({
       }}
       onPointerUp={() => onPointerDrop(room.id)}
       className={cn(
-        "relative overflow-visible rounded-xl border transition-[transform,box-shadow,border-color,background-color,opacity] duration-200 ease-out will-change-transform",
-        mobile ? "min-h-[4.5rem] p-2.5" : "min-h-[5.5rem] p-1.5",
         roomStageClass(roomStage),
         Boolean(daycareReservation) && !mobile && "border-cyan-200 bg-cyan-50/55",
         acceptsDraggedStay &&
@@ -1016,7 +1003,7 @@ function RoomCell({
           ? "함께 투숙 배정"
           : requiresRoomTypeChange ? "유형 변경 후 배정" : "여기에 배정"}
       </div>
-    </div>
+    </RoomBoardCellFrame>
   );
 }
 
@@ -1671,7 +1658,7 @@ export function HotelRoomBoard({
               </div> : null}
             </section>
           ) : null);
-  if (readOnly) return <Card><HotelHistoricalRoomGrid history={historicalBoard} error={historicalBoardError} onOpenStay={onOpenStay} />{completedSharedError ? <p role="alert">{completedSharedError}</p> : null}{completedPanel}</Card>;
+  if (readOnly) return <Card><HotelHistoricalRoomGrid mobile={mobileProjection} history={historicalBoard} error={historicalBoardError} onOpenStay={onOpenStay} />{completedSharedError ? <p role="alert">{completedSharedError}</p> : null}{completedPanel}</Card>;
   return (
     <Card
       className="mb-6 overflow-hidden"
@@ -1952,30 +1939,7 @@ export function HotelRoomBoard({
                   : [];
 
                 return (
-                  <section
-                    key={roomTypeCode}
-                    aria-label={`${roomTypeCode} 모바일 Room Board`}
-                    className="overflow-hidden rounded-2xl border border-border bg-surface"
-                  >
-                    <button
-                      type="button"
-                      aria-expanded={expanded}
-                      onClick={() => setMobileAccordionState((current) => ({
-                        ...current,
-                        [roomTypeCode]: !expanded,
-                      }))}
-                      className="flex min-h-14 w-full items-center justify-between gap-3 px-4 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
-                    >
-                      <span>
-                        <strong className="block text-base text-text-primary">{roomTypeCode}</strong>
-                        <span className="mt-0.5 block text-xs font-semibold text-text-secondary">
-                          {occupied.length} 사용 / {empty.length} 빈방
-                        </span>
-                      </span>
-                      <ChevronDown className={cn("shrink-0 transition-transform", expanded && "rotate-180")} size={20} />
-                    </button>
-                    {expanded ? (
-                      <div className="border-t border-border px-3 py-3">
+                  <RoomBoardMobileGroup key={roomTypeCode} type={roomTypeCode} summary={<>{occupied.length} 사용 / {empty.length} 빈방</>} expanded={expanded} onToggle={() => setMobileAccordionState(current => ({...current,[roomTypeCode]:!expanded}))}>
                         {visibleOccupied.length ? (
                           <div className="grid grid-cols-1 gap-3" data-testid={`${roomTypeCode.toLowerCase()}-mobile-occupied`}>
                             {visibleOccupied.map((room) => renderRoomCell(room, true))}
@@ -1989,9 +1953,7 @@ export function HotelRoomBoard({
                         {!visibleOccupied.length && !visibleEmpty.length ? (
                           <p className="rounded-xl bg-slate-50 px-3 py-4 text-center text-xs font-medium text-text-muted">선택한 상태의 객실이 없습니다.</p>
                         ) : null}
-                      </div>
-                    ) : null}
-                  </section>
+                  </RoomBoardMobileGroup>
                 );
               })}
             </div>
@@ -2003,18 +1965,9 @@ export function HotelRoomBoard({
                 const remainingCount = Math.max(rooms.length - usedCount, 0);
 
                 return (
-                  <section key={roomTypeCode} aria-label={`${roomTypeCode} Room Board`}>
-                    <div className="mb-3 flex items-end justify-between gap-3 border-b border-border pb-2">
-                      <div>
-                        <h3 className="text-base font-extrabold text-text-primary">{roomTypeCode}</h3>
-                        <p className="mt-0.5 text-xs font-semibold text-text-secondary">{usedCount} / {rooms.length} 사용</p>
-                      </div>
-                      <Badge tone={remainingCount ? "green" : "amber"}>{remainingCount}실 잔여</Badge>
-                    </div>
-                    <div className={cn("grid gap-3", roomTypeCode === "DELUXE" ? "min-w-[720px] grid-cols-6" : "min-w-[600px] grid-cols-5")}>
-                      {rooms.map((room) => renderRoomCell(room))}
-                    </div>
-                  </section>
+                  <RoomBoardDesktopGroup key={roomTypeCode} type={roomTypeCode} summary={<>{usedCount} / {rooms.length} 사용</>} badge={<Badge tone={remainingCount ? "green" : "amber"}>{remainingCount}실 잔여</Badge>}>
+                    {rooms.map(room => renderRoomCell(room))}
+                  </RoomBoardDesktopGroup>
                 );
               })}
             </div>
