@@ -1,3 +1,4 @@
+import {HotelDateTransition} from './HotelDateTransition';
 import { fetchHistoricalBoard, type HistoricalBoard } from './hotelHistoricalBoardRepository';
 import { fetchCompletedSharedStays, type CompletedSharedStay } from "./sharedHotelHistoryRepository";
 import { hotelRoomBoardDateMode, hotelRoomBoardDateCopy, PAST_ROOM_BOARD_NOTICE } from "./hotelRoomBoardDateMode";
@@ -333,12 +334,28 @@ export function HotelOperationsPage() {
   const directStayHandledRef = useRef<string | null>(null);
   const roomBoardLoadSequenceRef = useRef(0);
   const sharedGroupLoadSequenceRef = useRef(0);
-  const [selectedDate, setSelectedDate] = useState(() => seoulDateKey());
+  const [dateRequest, setDateRequest] = useState(() => ({date: seoulDateKey(), generation: 0}));
+  const dateRequestRef = useRef(dateRequest);
+  const selectedDate = dateRequest.date;
+  const requestGeneration = dateRequest.generation;
+  const retryGenerationRef = useRef<number | null>(null);
+  const [retryInFlight, setRetryInFlight] = useState(false);
+  const [completedLoadGeneration, setCompletedLoadGeneration] = useState<number | null>(null);
+  const setSelectedDate = (date: string) => {
+    if (date === dateRequestRef.current.date) return;
+    const next = {date, generation: dateRequestRef.current.generation + 1};
+    dateRequestRef.current = next;
+    retryGenerationRef.current = null;
+    setRetryInFlight(false);
+    setDateRequest(next);
+  };
   const [quickFilter, setQuickFilter] = useState<HotelQuickFilter>("all");
   const [showSupportDetails, setShowSupportDetails] = useState(false);
   const dateMode = hotelRoomBoardDateMode(selectedDate);
   const isPast = dateMode === "PAST";
   const [snapshot, setSnapshot] = useState<HotelOperationsSnapshot | null>(null);
+  const [snapshotDate, setSnapshotDate] = useState<string | null>(null);
+  const [snapshotGeneration, setSnapshotGeneration] = useState<number | null>(null);
   const [daycareReservations, setDaycareReservations] =
     useState<DaycareReservation[]>([]);
   const [sharedOccupancies, setSharedOccupancies] = useState<readonly SharedHotelOccupancy[]>([]);
@@ -368,14 +385,14 @@ export function HotelOperationsPage() {
 
   const [sharedReads, setSharedReads] = useState<{snapshot: HotelOperationsSnapshot; date: string; completed: CompletedSharedStay[]; history?: HistoricalBoard; error?: string; historyError?: string} | null>(null);
   useEffect(() => {
-    if (!snapshot) return;
+    if (!snapshot || snapshotDate !== selectedDate || snapshotGeneration !== requestGeneration || requestGeneration !== dateRequestRef.current.generation) return;
     let cancelled = false;
     void Promise.allSettled([fetchCompletedSharedStays(selectedDate), isPast ? fetchHistoricalBoard(selectedDate) : Promise.resolve(undefined)]).then(([completed, history]) => {
-      if (!cancelled) setSharedReads({snapshot,date:selectedDate,completed:completed.status === 'fulfilled' ? completed.value : [],error:completed.status === 'rejected' ? '완료된 함께 투숙 기록을 확인하지 못했습니다.' : undefined,history:history.status === 'fulfilled' ? history.value : undefined,historyError:history.status === 'rejected' ? '선택일 실제 객실 기록을 확인하지 못했습니다.' : undefined});
+      if (!cancelled && requestGeneration === dateRequestRef.current.generation) setSharedReads({snapshot,date:selectedDate,completed:completed.status === 'fulfilled' ? completed.value : [],error:completed.status === 'rejected' ? '완료된 함께 투숙 기록을 확인하지 못했습니다.' : undefined,history:history.status === 'fulfilled' ? history.value : undefined,historyError:history.status === 'rejected' ? '선택일 실제 객실 기록을 확인하지 못했습니다.' : undefined});
     });
     return () => {cancelled = true;};
-  }, [snapshot,selectedDate,isPast]);
-  const currentSharedReads = sharedReads?.snapshot === snapshot && sharedReads?.date === selectedDate ? sharedReads : null;
+  }, [snapshot,snapshotDate,snapshotGeneration,requestGeneration,selectedDate,isPast]);
+  const currentSharedReads = snapshotGeneration === requestGeneration && snapshotDate === selectedDate && sharedReads?.snapshot === snapshot && sharedReads?.date === selectedDate ? sharedReads : null;
   const projectionStays = useMemo(() => [
     ...(snapshot?.stays ?? []), ...(snapshot?.unassignedFuture ?? []),
     ...sharedMemberStays, ...(currentSharedReads?.completed ?? []), ...(detail ? [detail] : []),
@@ -386,12 +403,12 @@ export function HotelOperationsPage() {
   } | null>(null);
   useEffect(() => {
     let cancelled = false;
-    if (!currentSharedReads) return;
+    if (!currentSharedReads || requestGeneration !== dateRequestRef.current.generation) return;
     void fetchHotelEventRoomProjections(projectionStays).then((projections) => {
-      if (!cancelled) setEventRoomResult({ stays: projectionStays, projections });
+      if (!cancelled && requestGeneration === dateRequestRef.current.generation) setEventRoomResult({ stays: projectionStays, projections });
     });
     return () => { cancelled = true; };
-  }, [projectionStays, currentSharedReads]);
+  }, [projectionStays, currentSharedReads, requestGeneration]);
   // Never display an earlier snapshot's event result while a fresh batch is pending.
   const eventRoomProjections = eventRoomResult?.stays === projectionStays
     ? eventRoomResult.projections : undefined;
@@ -505,13 +522,17 @@ export function HotelOperationsPage() {
 
   const loadSnapshot = useCallback(async (date: string) => {
     if (!isValidHotelSnapshotDate(date)) return null;
+    const generation = dateRequestRef.current.generation;
     const [value, shared, daycare] = await Promise.all([
       fetchHotelOperationsSnapshot(date),
       sharedHotelRoomRepository.listForDate(date),
       fetchDaycareOperationsForDate(date),
     ]);
     const memberStays = await loadSharedMemberStays(shared);
+    if (generation !== dateRequestRef.current.generation || date !== dateRequestRef.current.date) return value;
     setSnapshot(value);
+    setSnapshotDate(date);
+    setSnapshotGeneration(generation);
     setSharedOccupancies(shared);
     setSharedMemberStays(memberStays);
     setDaycareReservations(daycare);
@@ -534,23 +555,26 @@ export function HotelOperationsPage() {
         fetchCurrentOperationRole(profile.id),
       ]);
       const nextSharedMemberStays = await loadSharedMemberStays(nextShared);
-      if (loadSequence !== roomBoardLoadSequenceRef.current) return;
+      if (loadSequence !== roomBoardLoadSequenceRef.current || requestGeneration !== dateRequestRef.current.generation) return;
       setSnapshot(nextSnapshot);
+      setSnapshotDate(selectedDate);
+      setSnapshotGeneration(requestGeneration);
       setSharedOccupancies(nextShared);
       setSharedMemberStays(nextSharedMemberStays);
       setDaycareReservations(nextDaycare);
       setOptions(nextOptions);
       setOperationRole(nextRole);
     } catch (error) {
-      if (loadSequence === roomBoardLoadSequenceRef.current) {
+      if (loadSequence === roomBoardLoadSequenceRef.current && requestGeneration === dateRequestRef.current.generation) {
         setLoadError(errorMessage(error));
       }
     } finally {
-      if (loadSequence === roomBoardLoadSequenceRef.current) {
+      if (loadSequence === roomBoardLoadSequenceRef.current && requestGeneration === dateRequestRef.current.generation) {
         setLoading(false);
+        setCompletedLoadGeneration(requestGeneration);
       }
     }
-  }, [loadSharedMemberStays, loadUnassignedSharedGroups, profile, selectedDate]);
+  }, [loadSharedMemberStays, loadUnassignedSharedGroups, profile, selectedDate, requestGeneration]);
 
   useEffect(() => {
     void loadPage();
@@ -1301,9 +1325,27 @@ export function HotelOperationsPage() {
   const isHotelOperator = canOperateHotel(operationRole);
   const isHotelSettingsManager = canManageHotelSettings(operationRole);
 
-  if (loading) return <LoadingState />;
-  if (loadError || !snapshot) {
-    return <ErrorState title={loadError || "호텔 현황을 불러오지 못했습니다."} retry={() => void loadPage()} />;
+  const presentationError = loadError || currentSharedReads?.historyError;
+  const presentationReady = !loading && !presentationError && snapshotGeneration === requestGeneration && snapshotDate === selectedDate
+    && currentSharedReads !== null && eventRoomProjections !== undefined && !unassignedSharedGroupsLoading;
+  useEffect(() => {
+    if (retryGenerationRef.current !== requestGeneration || completedLoadGeneration !== requestGeneration || loading) return;
+    if (presentationError || presentationReady) {
+      retryGenerationRef.current = null;
+      setRetryInFlight(false);
+    }
+  }, [requestGeneration, completedLoadGeneration, loading, presentationError, presentationReady]);
+  const retryPresentation = () => {
+    if (retryGenerationRef.current !== null || !isValidHotelSnapshotDate(selectedDate)) return;
+    const next = {date: selectedDate, generation: dateRequestRef.current.generation + 1};
+    retryGenerationRef.current = next.generation;
+    dateRequestRef.current = next;
+    setRetryInFlight(true);
+    setDateRequest(next);
+  };
+  if (loading && !snapshot) return <LoadingState />;
+  if (!snapshot) {
+    return <ErrorState title={loadError || "호텔 현황을 불러오지 못했습니다."} retry={retryPresentation} />;
   }
   const detailSharedOccupancy = detail
     ? sharedOccupancies.find((occupancy) =>
@@ -1322,11 +1364,11 @@ export function HotelOperationsPage() {
         action={!isPast ? (
           <div className="flex flex-wrap gap-2">
             {isHotelSettingsManager && snapshot.settings ? (
-              <Button type="button" variant="secondary" onClick={() => setModal("settings")}>
+              <Button type="button" disabled={!presentationReady} variant="secondary" onClick={() => setModal("settings")}>
                 <Settings size={17} /> 기본 시간
               </Button>
             ) : null}
-            <Button type="button" onClick={openNewSchedule}>
+            <Button type="button" disabled={!presentationReady} onClick={openNewSchedule}>
               <CalendarDays size={17} /> 새 일정
             </Button>
           </div>
@@ -1356,6 +1398,7 @@ export function HotelOperationsPage() {
         </p>
       </div>
 
+      <HotelDateTransition date={selectedDate} ready={presentationReady} error={presentationError || (!isValidHotelSnapshotDate(selectedDate) ? "운영 날짜를 확인해 주세요." : undefined)} onRetry={retryPresentation} retryInFlight={retryInFlight}>
       <HotelRoomBoard
         completedSharedStays={currentSharedReads?.completed}
         completedSharedError={currentSharedReads?.error}
@@ -1852,6 +1895,7 @@ export function HotelOperationsPage() {
           <span className="text-xs font-semibold text-white/65">5초</span>
         </button>
       ) : null}
+      </HotelDateTransition>
     </>
   );
 }
