@@ -208,8 +208,8 @@ describe("Hotel Room Board mobile projection", () => {
     expect(screen.queryByTestId("hotel-room-board-desktop-projection")).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "DELUXE 모바일 Room Board" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "STANDARD 모바일 Room Board" })).toBeInTheDocument();
-    expect(screen.getByTestId("deluxe-mobile-occupied")).toHaveClass("grid-cols-1");
-    expect(screen.getByTestId("deluxe-mobile-empty")).toHaveClass("grid-cols-2");
+    expect(screen.getByTestId("hotel-room-board-room-deluxe-1").parentElement).toHaveClass("col-span-2");
+    expect(screen.getByTestId("hotel-room-board-room-deluxe-2").parentElement).toHaveClass("col-span-1");
     expect(screen.getByText("아주긴이름의장기호텔반려견")).toHaveClass("truncate");
     expect(mobile.innerHTML).not.toContain("text-[9px]");
   });
@@ -234,8 +234,8 @@ describe("Hotel Room Board mobile projection", () => {
     render(<HotelRoomBoard {...value} />);
 
     fireEvent.click(screen.getByRole("button", { name: "빈방" }));
-    expect(screen.queryByTestId("deluxe-mobile-occupied")).not.toBeInTheDocument();
-    expect(screen.getByTestId("deluxe-mobile-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("hotel-room-board-room-deluxe-1")).not.toBeVisible();
+    expect(screen.getByTestId("hotel-room-board-room-deluxe-2")).toBeVisible();
 
     const standardToggle = within(screen.getByRole("region", { name: "STANDARD 모바일 Room Board" })).getByRole("button", { name: /STANDARD/ });
     expect(standardToggle).toHaveAttribute("aria-expanded", "true");
@@ -245,7 +245,7 @@ describe("Hotel Room Board mobile projection", () => {
     fireEvent.click(screen.getByRole("button", { name: "전체" }));
     fireEvent.click(screen.getByRole("button", { name: "아주긴이름의장기호텔반려견 호실 이동 시작" }));
     expect(standardToggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByTestId("standard-mobile-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("hotel-room-board-room-standard-2")).toBeVisible();
     fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-standard-2"));
     expect(value.onDropStay).toHaveBeenCalledWith("stay-1", "standard-2", true);
   });

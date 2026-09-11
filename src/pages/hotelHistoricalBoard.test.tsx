@@ -79,7 +79,7 @@ describe('010 actual-use room grid',()=>{
   expect(screen.getByText('같은 방 투숙')).toBeVisible();expect(screen.getByText('함께 투숙 · 2마리 · 객실 1실')).toBeVisible();
   expect(screen.getAllByRole('note')).toHaveLength(1);
   expect(screen.queryByText(/실 잔여|빈방/)).not.toBeInTheDocument();
-  expect(screen.getByTestId('hotel-room-board-room-c')).toHaveClass('bg-transparent');
+  expect(screen.getByTestId('hotel-room-board-room-c')).toHaveClass('bg-slate-50/30');
   fireEvent.click(screen.getByRole('button',{name:/합성동반견.*당일 입실/}));expect(open).toHaveBeenCalledWith('stay-2');
   expect(document.querySelector('[draggable="true"]')).toBeNull();
   const group=screen.getByRole('region',{name:mobile?'DELUXE 모바일 Room Board':'DELUXE Room Board'});
@@ -134,4 +134,13 @@ describe('historical concurrent membership and display time',()=>{
   const detail=within(screen.getByRole('dialog'));expect(detail.getByText('선택일 표시 구간 00:00–12:00')).toBeVisible();
   expect(detail.queryByText(/당일 입실/)).not.toBeInTheDocument();
  });
+});
+
+it('012 preserves a continuing occupant node but closes old-date time details',()=>{
+ const value={...history,rooms:[history.rooms[0]],unavailable:[]};
+ const {rerender}=render(<HotelHistoricalRoomGrid history={value} onOpenStay={vi.fn()}/>);
+ const button=screen.getByRole('button',{name:'합성견 당일 입실 · 이동 퇴실'});
+ fireEvent.click(screen.getByRole('button',{name:'합성견 투숙 시간 상세'}));expect(screen.getByRole('dialog')).toBeVisible();
+ rerender(<HotelHistoricalRoomGrid history={{...value,selectedDate:'2032-01-02'}} onOpenStay={vi.fn()}/>);
+ expect(screen.queryByRole('dialog')).not.toBeInTheDocument();expect(screen.getByRole('button',{name:'합성견 당일 입실 · 이동 퇴실'})).toBe(button);
 });

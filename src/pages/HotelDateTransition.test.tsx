@@ -36,3 +36,9 @@ describe('011 stable presentation',()=>{
   rerender(view('C',true));expect(screen.getByText('C rooms')).toBeVisible();expect(screen.queryByText('A rooms')).toBeNull();
  });
 });
+
+it('012 transfers stale-board focus to the loading status and blocks keyboard commands',()=>{
+ const command=vi.fn();const view=(ready:boolean)=><HotelDateTransition date={ready?'A':'B'} ready={ready} onRetry={vi.fn()}><button onClick={command} onKeyDown={command}>객실 상세</button></HotelDateTransition>;
+ const {rerender}=render(view(true));const button=screen.getByRole('button',{name:'객실 상세'});button.focus();expect(button).toHaveFocus();
+ rerender(view(false));expect(screen.getByRole('status')).toHaveFocus();fireEvent.keyDown(button,{key:'Enter'});fireEvent.click(button);expect(command).not.toHaveBeenCalled();
+});

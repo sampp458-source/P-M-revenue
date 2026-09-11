@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {Clock3, TriangleAlert} from 'lucide-react';
 import {Badge, Modal, cn} from '../components/ui';
 import {RoomBoardCellFrame, RoomBoardDesktopGroup, RoomBoardMobileGroup, roomStageClass} from './HotelRoomBoardPresentation';
@@ -32,15 +32,16 @@ export function historicalOccupantSlices(segments:HistoricalSegment[]):OccupantS
  }
  return result.sort((a,b)=>a.from-b.from||a.key.localeCompare(b.key));
 }
-function phase(segments: HistoricalSegment[]) {
+export function historicalRoomPhase(segments: HistoricalSegment[]) {
  const events=segments.flatMap(s=>s.selectedDayEvents);
  return events.includes('check_out')?'check_out':events.includes('check_in')?'check_in':segments.length?'in_house':null;
 }
 // Presentation only: no current stay/occupancy synthesis and no command callbacks.
-function HistoricalOccupants({segments,onOpenStay,mobile,date}:{segments:HistoricalSegment[];onOpenStay:(id:string)=>void;mobile:boolean;date:string}) {
+export function HistoricalOccupants({segments,onOpenStay,mobile,date}:{segments:HistoricalSegment[];onOpenStay:(id:string)=>void;mobile:boolean;date:string}) {
  const groups=historicalOccupantSlices(segments);
  const [detail,setDetail]=useState<OccupantSlice|null>(null);
- return <><div className="space-y-1.5">{groups.map(slice=>{const {key,items}=slice;return <div key={key} className={cn('w-full rounded-xl border text-left shadow-sm',mobile?'px-3 py-3':'px-2 py-2',roomStageClass(phase(items)))}>
+ useEffect(()=>{setDetail(null);},[date]);
+ return <><div className="space-y-1.5">{groups.map(slice=>{const {key,items}=slice;return <div key={key} className={cn('w-full rounded-xl border text-left shadow-sm',mobile?'px-3 py-3':'px-2 py-2',roomStageClass(historicalRoomPhase(items)))}>
   {items[0].lifecycleKind==='shared'&&items.length>1?<span className="flex items-center justify-between gap-1"><strong className="min-w-0 break-words text-sm">같은 방 투숙</strong><Badge tone="blue">공유</Badge></span>:null}
   {items.map(s=><button type="button" key={s.segmentId} onClick={()=>onOpenStay(s.stayId)} className="block w-full rounded-lg py-1 text-left transition-colors duration-150 hover:bg-white/40 motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary">
    <span className={cn('break-words font-extrabold',mobile?'text-sm leading-5':'text-xs')}>{s.dogName}</span>
@@ -65,7 +66,7 @@ function unavailableExplanation(reason:string):string {
 export function HotelHistoricalRoomGrid({history,error,onOpenStay,mobile=false}:{history?:HistoricalBoard;error?:string;onOpenStay:(id:string)=>void;mobile?:boolean}) {
  const [expanded,setExpanded]=useState<Record<string,boolean>>({});
  const types=history?[...new Set(history.rooms.map(r=>r.roomType))].sort((a,b)=>a==='DELUXE'?-1:b==='DELUXE'?1:a.localeCompare(b)):[];
- const renderRoom=(room:HistoricalBoard['rooms'][number])=><RoomBoardCellFrame key={room.roomId} mobile={mobile} data-testid={`hotel-room-board-room-${room.roomId}`} data-room-phase={phase(room.segments)??'empty'} className={roomStageClass(phase(room.segments))}>
+ const renderRoom=(room:HistoricalBoard['rooms'][number])=><RoomBoardCellFrame key={room.roomId} mobile={mobile} data-testid={`hotel-room-board-room-${room.roomId}`} data-room-phase={historicalRoomPhase(room.segments)??'empty'} className={roomStageClass(historicalRoomPhase(room.segments))}>
   <div className="mb-1 flex min-w-0 items-center justify-between gap-1.5 px-0.5"><b className="whitespace-nowrap text-sm font-extrabold text-text-primary">{room.roomName}</b></div>
   {room.segments.length?<HistoricalOccupants segments={room.segments} onOpenStay={onOpenStay} mobile={mobile} date={history!.selectedDate}/>:<div aria-hidden="true" className="min-h-8"/>}
  </RoomBoardCellFrame>;
@@ -98,8 +99,10 @@ export function HotelHistoricalRoomGrid({history,error,onOpenStay,mobile=false}:
      </RoomBoardMobileGroup>:<RoomBoardDesktopGroup key={type} type={type} summary={summary}>{rooms.map(renderRoom)}</RoomBoardDesktopGroup>;
     })}
    </div>
-   {history.unavailable.length?<details className="text-xs text-text-secondary" aria-label="과거 객실 확인 필요"><summary className="w-fit cursor-pointer list-none rounded focus-visible:ring-2 focus-visible:ring-primary"><span className="inline-flex items-center gap-1"><TriangleAlert size={14} className="text-amber-600" aria-hidden="true"/>확인 필요 · {new Set(history.unavailable.map(u=>u.stayId)).size}건</span></summary><ul className="mt-2 space-y-2">{[...new Set(history.unavailable.map(u=>u.stayId))].map(id=>{const items=history.unavailable.filter(u=>u.stayId===id);return <li key={id}><button type="button" className="font-semibold underline underline-offset-2" onClick={()=>onOpenStay(id)}>{items[0].dogName}</button><p>{[...new Set(items.map(u=>unavailableExplanation(u.reasonCode)))].join(' · ')}</p></li>;})}</ul></details>:null}
+   <HistoricalBoardWarning history={history} onOpenStay={onOpenStay}/>
   </>}
   </div>
  </section>;
 }
+
+export function HistoricalBoardWarning({history,onOpenStay}:{history:HistoricalBoard;onOpenStay:(id:string)=>void}) {return history.unavailable.length?<details className="text-xs text-text-secondary" aria-label="과거 객실 확인 필요"><summary className="w-fit cursor-pointer list-none rounded focus-visible:ring-2 focus-visible:ring-primary"><span className="inline-flex items-center gap-1"><TriangleAlert size={14} className="text-amber-600" aria-hidden="true"/>확인 필요 · {new Set(history.unavailable.map(u=>u.stayId)).size}건</span></summary><ul className="mt-2 space-y-2">{[...new Set(history.unavailable.map(u=>u.stayId))].map(id=>{const items=history.unavailable.filter(u=>u.stayId===id);return <li key={id}><button type="button" className="font-semibold underline underline-offset-2" onClick={()=>onOpenStay(id)}>{items[0].dogName}</button><p>{[...new Set(items.map(u=>unavailableExplanation(u.reasonCode)))].join(' · ')}</p></li>;})}</ul></details>:null;}

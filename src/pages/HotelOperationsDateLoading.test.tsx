@@ -124,3 +124,16 @@ it.each(['success','history_failure','snapshot_failure'] as const)('locks repeat
  }
  expect(screen.getByTestId('loaded-board')).toHaveTextContent('2032-01-01 / PAST');
 });
+
+it('012 A→B→C→D starts follow-up reads only for the final completed generation',async()=>{
+ render(<MemoryRouter><HotelOperationsPage/></MemoryRouter>);await screen.findByTestId('loaded-board');
+ const eventBefore=m.event.mock.calls.length;
+ const pending=['2031-12-29','2031-12-30','2031-12-31'].map(date=>({date,...deferred<ReturnType<typeof snapshot>>()}));
+ for(const item of pending){m.snapshot.mockReturnValueOnce(item.promise);fireEvent.change(screen.getByLabelText('운영 날짜'),{target:{value:item.date}});}
+ expect(screen.getByTestId('loaded-board')).toHaveTextContent('2032-01-03');
+ await act(async()=>pending[2].resolve(snapshot(pending[2].date)));
+ await waitFor(()=>expect(screen.getByTestId('loaded-board')).toHaveTextContent(pending[2].date));
+ await act(async()=>{pending[0].resolve(snapshot(pending[0].date));pending[1].resolve(snapshot(pending[1].date));});
+ expect(screen.getByTestId('loaded-board')).toHaveTextContent(pending[2].date);
+ expect(m.history.mock.calls.map(call=>call[0])).toEqual([pending[2].date]);expect(m.event).toHaveBeenCalledTimes(eventBefore+1);
+});

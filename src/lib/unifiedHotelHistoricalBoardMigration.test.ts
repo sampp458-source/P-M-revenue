@@ -33,7 +33,9 @@ describe('010 append-only read contract',()=>{
  });
  it('limits new consumer calls to PAST with no physical-source replacement',()=>{
   const page=read('src/pages/HotelOperations.tsx');expect(page).toContain('isPast ? fetchHistoricalBoard(selectedDate) : Promise.resolve(undefined)');
-  const board=read('src/pages/HotelRoomBoard.tsx');expect(board).toContain('if (readOnly) return <Card><HotelHistoricalRoomGrid');
+  const board=read('src/pages/HotelRoomBoard.tsx');expect(board).toContain('if (readOnly) {\n      const historicalRoom = historicalBoard?.rooms.find');
+  expect(board).toContain('historyRoom={historicalRoom}');expect(board).toContain('onDragEnd={readOnly ? undefined : endDrag}');
+  expect(board).not.toContain('if (readOnly) return <Card>');
   expect(board).toContain('activeHotelAllocation');expect(board).toContain('{completedPanel}');
  });
  it('date-scope fix preserves every internal resolver body',()=>{

@@ -1,8 +1,8 @@
-import {RoomBoardCellFrame, RoomBoardDesktopGroup, RoomBoardMobileGroup, roomStageClass} from './HotelRoomBoardPresentation';
-import { HotelHistoricalRoomGrid } from "./HotelHistoricalRoomGrid";
+import {RoomBoardMotion, RoomBoardCellFrame, RoomBoardDesktopGroup, RoomBoardMobileGroup, roomStageClass} from './HotelRoomBoardPresentation';
+import { HistoricalOccupants, HistoricalBoardWarning, historicalRoomPhase } from "./HotelHistoricalRoomGrid";
 import type { HistoricalBoard } from "./hotelHistoricalBoardRepository";
 import type { CompletedSharedStay } from "./sharedHotelHistoryRepository";
-import { hotelRoomBoardDateMode, hotelRoomBoardDateCopy, PAST_ROOM_BOARD_NOTICE, FUTURE_ROOM_BOARD_NOTICE, type HotelRoomBoardDateMode } from "./hotelRoomBoardDateMode";
+import { hotelRoomBoardDateMode, hotelRoomBoardDateCopy, FUTURE_ROOM_BOARD_NOTICE, type HotelRoomBoardDateMode } from "./hotelRoomBoardDateMode";
 import { ChevronDown, Clock3, GripVertical, Sparkles } from "lucide-react";
 import {
   type DragEvent,
@@ -755,38 +755,7 @@ function UnassignedSharedRoomCard({
   );
 }
 
-function RoomCell({
-  room,
-  stays,
-  sharedOccupancy,
-  daycareReservation,
-  staysById,
-  selectedDate,
-  draggedStay,
-  draggedSharedGroup,
-  draggedSharedOccupancyId,
-  draggedStayId,
-  draggedSharedGroupId,
-  returningStayId,
-  settlingStayId,
-  hoveredRoomId,
-  recommended,
-  settling,
-  processing,
-  allowCrossTypeChange,
-  allowCheckInReversal,
-  onOpenStay,
-  onOpenSharedOccupancy,
-  onDropStay,
-  onDropSharedGroup,
-  onDragStart,
-  onSelectForDrop,
-  onPointerDrop,
-  onPointerStart,
-  onSharedOccupancyDragStart,
-  onTargetHover,
-  mobile = false,
-}: {
+type CurrentRoomCellProps = {
   room: HotelRoomSnapshot;
   stays: HotelStay[];
   sharedOccupancy: SharedHotelOccupancy | null;
@@ -824,7 +793,48 @@ function RoomCell({
   ) => void;
   onTargetHover: (roomId: string | null) => void;
   mobile?: boolean;
-}) {
+};
+type HistoricalRoomCellProps = {historyRoom: HistoricalBoard["rooms"][number]; selectedDate:string; mobile?:boolean; onOpenStay:(id:string)=>void};
+function RoomCell(props: CurrentRoomCellProps | HistoricalRoomCellProps) {
+  if ("historyRoom" in props) {
+    const {historyRoom:room,selectedDate,mobile=false,onOpenStay}=props;
+    return <RoomBoardCellFrame mobile={mobile} data-testid={`hotel-room-board-room-${room.roomId}`} data-room-phase={historicalRoomPhase(room.segments)??"empty"} className={roomStageClass(historicalRoomPhase(room.segments))}>
+      <div className="mb-1 flex min-w-0 items-center justify-between gap-1.5 px-0.5"><b className="whitespace-nowrap text-sm font-extrabold text-text-primary">{room.roomName}</b></div>
+      {room.segments.length?<HistoricalOccupants segments={room.segments} onOpenStay={onOpenStay} mobile={mobile} date={selectedDate}/>:<div aria-hidden="true" className="min-h-8"/>}
+    </RoomBoardCellFrame>;
+  }
+  const {
+  room,
+  stays,
+  sharedOccupancy,
+  daycareReservation,
+  staysById,
+  selectedDate,
+  draggedStay,
+  draggedSharedGroup,
+  draggedSharedOccupancyId,
+  draggedStayId,
+  draggedSharedGroupId,
+  returningStayId,
+  settlingStayId,
+  hoveredRoomId,
+  recommended,
+  settling,
+  processing,
+  allowCrossTypeChange,
+  allowCheckInReversal,
+  onOpenStay,
+  onOpenSharedOccupancy,
+  onDropStay,
+  onDropSharedGroup,
+  onDragStart,
+  onSelectForDrop,
+  onPointerDrop,
+  onPointerStart,
+  onSharedOccupancyDragStart,
+  onTargetHover,
+  mobile = false,
+} = props;
   const targetState = draggedStay
     ? hotelRoomBoardRoomTarget(draggedStay, room, stays.length > 0 || Boolean(sharedOccupancy) || Boolean(daycareReservation))
     : "blocked";
@@ -1567,10 +1577,16 @@ export function HotelRoomBoard({
       ))}
     </div>
   );
-  const renderRoomCell = (room: HotelRoomSnapshot, mobile = false) => (
+  const renderRoomCell = (room: {id:string}, mobile = false) => {
+    if (readOnly) {
+      const historicalRoom = historicalBoard?.rooms.find(item=>item.roomId===room.id);
+      return historicalRoom?<RoomCell key={room.id} historyRoom={historicalRoom} selectedDate={selectedDate} mobile={mobile} onOpenStay={onOpenStay}/>:null;
+    }
+    const physicalRoom=activeRooms.find(item=>item.id===room.id)!;
+    return (
     <RoomCell
       key={room.id}
-      room={room}
+      room={physicalRoom}
       stays={roomStays.get(room.id) ?? []}
       sharedOccupancy={sharedByRoom.get(room.id) ?? null}
       daycareReservation={daycareByRoom.get(room.id) ?? null}
@@ -1605,6 +1621,7 @@ export function HotelRoomBoard({
       mobile={mobile}
     />
   );
+  };
 
   const completedPanel = (completedCheckouts.length ? (
             <section
@@ -1658,16 +1675,23 @@ export function HotelRoomBoard({
               </div> : null}
             </section>
           ) : null);
-  if (readOnly) return <Card><HotelHistoricalRoomGrid mobile={mobileProjection} history={historicalBoard} error={historicalBoardError} onOpenStay={onOpenStay} />{completedSharedError ? <p role="alert">{completedSharedError}</p> : null}{completedPanel}</Card>;
+  // Room catalogue metadata only; no historical segment is converted to a current stay.
+  const presentationRooms = readOnly
+    ? (historicalBoardError ? [] : historicalBoard?.rooms.map(room=>({id:room.roomId,roomTypeCode:room.roomType}))??[])
+    : activeRooms;
+  const presentationOccupied = readOnly
+    ? new Set(historicalBoard?.rooms.filter(room=>room.segments.length).map(room=>room.roomId)??[])
+    : occupiedRoomIds;
+  const historicalSegments=historicalBoard?.rooms.flatMap(room=>room.segments)??[];
+  const historicalCount=(event?:'check_in'|'check_out')=>new Set(historicalSegments.filter(segment=>!event||segment.selectedDayEvents.includes(event)).map(segment=>segment.stayId)).size;
   return (
     <Card
       className="mb-6 overflow-hidden"
-      data-testid="hotel-room-board"
     >
-      <div
-        onDragEnd={endDrag}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
+      <div data-testid="hotel-room-board"
+        onDragEnd={readOnly ? undefined : endDrag}
+        onPointerUp={readOnly ? undefined : endDrag}
+        onPointerCancel={readOnly ? undefined : endDrag}
       >
         <div className="border-b border-border px-4 py-4 sm:px-5 lg:px-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1676,17 +1700,21 @@ export function HotelRoomBoard({
                 Room Board
               </p>
               <h2 className="mt-1 text-xl font-extrabold text-text-primary">
-                {hotelRoomBoardDateCopy[dateMode].title}
+                {readOnly ? "객실 운영 현황" : hotelRoomBoardDateCopy[dateMode].title}
               </h2>
               <p className="mt-0.5 text-xs text-text-secondary">
-                {hotelRoomBoardDateCopy[dateMode].description}
+                {readOnly ? "선택한 날짜의 투숙 현황 · 조회 전용" : hotelRoomBoardDateCopy[dateMode].description}
               </p>
             </div>
           </div>
-          {readOnly ? <p className="mt-3 text-sm text-text-secondary">{PAST_ROOM_BOARD_NOTICE}</p> : null}
+          {readOnly ? <p role="note" className="mt-2 text-xs text-text-muted">확인된 투숙만 표시합니다. 표시가 없어도 당시 빈 객실이었다는 의미는 아닙니다.</p> : null}
           {dateMode === "FUTURE" ? <p className="mt-3 text-sm text-text-secondary">{FUTURE_ROOM_BOARD_NOTICE}</p> : null}
-          <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
-            {[
+          <dl className="hotel-board-summary mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label={readOnly ? "선택일 투숙 요약" : "객실 운영 요약"}>
+            {(readOnly ? [
+              ["투숙",historicalCount(),"border-emerald-200 bg-emerald-50 text-emerald-900"],
+              ["당일 입실",historicalCount("check_in"),"border-blue-200 bg-blue-50 text-blue-900"],
+              ["당일 퇴실",historicalCount("check_out"),"border-orange-200 bg-orange-50 text-orange-950"],
+            ] : [
               ["빈방", boardSummary.empty, "border-slate-200 bg-slate-50 text-slate-700"],
               ["이용중", boardSummary.inHouse, "border-emerald-200 bg-emerald-50 text-emerald-900"],
               [
@@ -1700,7 +1728,7 @@ export function HotelRoomBoard({
               ],
               [selectedDateIsToday ? "오늘 입실" : "입실", boardSummary.checkIn, "border-blue-200 bg-blue-50 text-blue-900"],
               [selectedDateIsToday ? "오늘 퇴실" : "퇴실", boardSummary.checkOut, "border-orange-200 bg-orange-50 text-orange-950"],
-            ].map(([label, value, className]) => (
+            ]).map(([label, value, className]) => (
               <div
                 key={label}
                 className={cn(
@@ -1718,8 +1746,8 @@ export function HotelRoomBoard({
           </dl>
           <div className={cn("mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-medium text-text-muted", mobileProjection ? "text-xs" : "text-[11px]")}>
             <span>카드를 눌러 상세 보기</span>
-            <span className="sm:hidden">이동 아이콘을 누른 뒤 대상 호실을 누르세요</span>
-            <span className="hidden sm:inline">끌어서 호실 배정·이동</span>
+            {!readOnly ? <><span className="sm:hidden">이동 아이콘을 누른 뒤 대상 호실을 누르세요</span>
+            <span className="hidden sm:inline">끌어서 호실 배정·이동</span></> : null}
           </div>
           {draggedSharedGroup ? (
             <p role="status" className="mt-2 rounded-lg bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800">
@@ -1729,7 +1757,7 @@ export function HotelRoomBoard({
         </div>
 
         <div className="flex flex-col gap-5 p-4 sm:p-5 lg:p-6">
-          <div
+          {!readOnly ? <div
             data-testid="hotel-room-board-unassigned-drop-zone"
             onDragEnter={(event) => {
               if (
@@ -1852,9 +1880,9 @@ export function HotelRoomBoard({
             {unassigned.length && !unassignedGroups.today.length && !unassignedGroups.overdue.length ? (
               <p className="text-xs font-medium text-text-muted">선택한 날짜에 처리할 미배정 예약은 없습니다.</p>
             ) : null}
-          </div>
+          </div> : null}
 
-          {unassignedGroups.future.length ? (
+          {!readOnly && unassignedGroups.future.length ? (
             <section
               aria-label="향후 입실 미배정"
               className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3"
@@ -1877,9 +1905,10 @@ export function HotelRoomBoard({
             </section>
           ) : null}
 
+          <RoomBoardMotion date={selectedDate}>
           {mobileProjection ? (
             <div className="min-w-0 space-y-4" data-testid="hotel-room-board-mobile-projection">
-              <section aria-label={dateMode === "TODAY" ? "현재 객실 상태 필터" : "선택일 관련 기록 필터"}>
+              {!readOnly ? <section aria-label={dateMode === "TODAY" ? "현재 객실 상태 필터" : "선택일 관련 기록 필터"}>
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <div>
                     <h3 className="text-base font-extrabold text-text-primary">{dateMode === "TODAY" ? "현재 객실" : "선택일 관련 예약·배정"}</h3>
@@ -1913,16 +1942,16 @@ export function HotelRoomBoard({
                     </button>
                   ))}
                 </div>
-              </section>
+              </section> : null}
 
               {(["DELUXE", "STANDARD"] as const).map((roomTypeCode) => {
-                const rooms = activeRooms.filter((room) => room.roomTypeCode === roomTypeCode);
-                const occupied = rooms.filter((room) => occupiedRoomIds.has(room.id));
-                const empty = rooms.filter((room) => !occupiedRoomIds.has(room.id));
-                const defaultExpanded = occupied.length > 0;
+                const rooms = presentationRooms.filter((room) => room.roomTypeCode === roomTypeCode);
+                const occupied = rooms.filter((room) => presentationOccupied.has(room.id));
+                const empty = rooms.filter((room) => !presentationOccupied.has(room.id));
+                const defaultExpanded = readOnly || occupied.length > 0;
                 const expanded = Boolean(draggedStay || draggedSharedGroup) ||
                   (mobileAccordionState[roomTypeCode] ?? defaultExpanded);
-                const effectiveFilter = draggedStay || draggedSharedGroup ? "all" : mobileFilter;
+                const effectiveFilter = readOnly || draggedStay || draggedSharedGroup ? "all" : mobileFilter;
                 const visibleOccupied = occupied.filter((room) => {
                   if (effectiveFilter === "all") return true;
                   if (effectiveFilter === "empty") return false;
@@ -1939,17 +1968,10 @@ export function HotelRoomBoard({
                   : [];
 
                 return (
-                  <RoomBoardMobileGroup key={roomTypeCode} type={roomTypeCode} summary={<>{occupied.length} 사용 / {empty.length} 빈방</>} expanded={expanded} onToggle={() => setMobileAccordionState(current => ({...current,[roomTypeCode]:!expanded}))}>
-                        {visibleOccupied.length ? (
-                          <div className="grid grid-cols-1 gap-3" data-testid={`${roomTypeCode.toLowerCase()}-mobile-occupied`}>
-                            {visibleOccupied.map((room) => renderRoomCell(room, true))}
-                          </div>
-                        ) : null}
-                        {visibleEmpty.length ? (
-                          <div className={cn("grid grid-cols-2 gap-2", visibleOccupied.length > 0 && "mt-3")} data-testid={`${roomTypeCode.toLowerCase()}-mobile-empty`}>
-                            {visibleEmpty.map((room) => renderRoomCell(room, true))}
-                          </div>
-                        ) : null}
+                  <RoomBoardMobileGroup key={roomTypeCode} type={roomTypeCode} summary={readOnly ? null : <>{occupied.length} 사용 / {empty.length} 빈방</>} expanded={expanded} onToggle={() => setMobileAccordionState(current => ({...current,[roomTypeCode]:!expanded}))}>
+                        <div className="grid grid-cols-2 gap-3">
+                          {rooms.map(room=>{const isOccupied=visibleOccupied.some(item=>item.id===room.id); const visible=isOccupied||visibleEmpty.some(item=>item.id===room.id);return <div key={room.id} hidden={!visible} style={{order:isOccupied?0:1}} className={isOccupied?"col-span-2":"col-span-1"}>{renderRoomCell(room,true)}</div>;})}
+                        </div>
                         {!visibleOccupied.length && !visibleEmpty.length ? (
                           <p className="rounded-xl bg-slate-50 px-3 py-4 text-center text-xs font-medium text-text-muted">선택한 상태의 객실이 없습니다.</p>
                         ) : null}
@@ -1960,12 +1982,12 @@ export function HotelRoomBoard({
           ) : (
             <div className="min-w-0 space-y-6 overflow-x-auto overscroll-x-contain pb-2" data-testid="hotel-room-board-desktop-projection">
               {(["DELUXE", "STANDARD"] as const).map((roomTypeCode) => {
-                const rooms = activeRooms.filter((room) => room.roomTypeCode === roomTypeCode);
-                const usedCount = rooms.filter((room) => occupiedRoomIds.has(room.id)).length;
+                const rooms = presentationRooms.filter((room) => room.roomTypeCode === roomTypeCode);
+                const usedCount = rooms.filter((room) => presentationOccupied.has(room.id)).length;
                 const remainingCount = Math.max(rooms.length - usedCount, 0);
 
                 return (
-                  <RoomBoardDesktopGroup key={roomTypeCode} type={roomTypeCode} summary={<>{usedCount} / {rooms.length} 사용</>} badge={<Badge tone={remainingCount ? "green" : "amber"}>{remainingCount}실 잔여</Badge>}>
+                  <RoomBoardDesktopGroup key={roomTypeCode} type={roomTypeCode} summary={readOnly ? null : <>{usedCount} / {rooms.length} 사용</>} badge={readOnly ? undefined : <Badge tone={remainingCount ? "green" : "amber"}>{remainingCount}실 잔여</Badge>}>
                     {rooms.map(room => renderRoomCell(room))}
                   </RoomBoardDesktopGroup>
                 );
@@ -1973,6 +1995,9 @@ export function HotelRoomBoard({
             </div>
           )}
 
+          </RoomBoardMotion>
+          {readOnly && historicalBoardError ? <p role="alert">{historicalBoardError}</p> : null}
+          {readOnly && historicalBoard ? <HistoricalBoardWarning history={historicalBoard} onOpenStay={onOpenStay}/> : null}
           {completedSharedError ? <p role="alert">{completedSharedError}</p> : null}
           {completedPanel}
 

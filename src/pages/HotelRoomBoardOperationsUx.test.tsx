@@ -785,3 +785,20 @@ describe("008 completed Shared collection", () => {
     expect(screen.queryByTestId(`hotel-room-board-stay-${completed.id}`)).not.toBeInTheDocument();
   });
 });
+
+it.each([false,true])('012 retains the same room node across TODAY/PAST/FUTURE (mobile=%s)', mobile=>{
+  const media=vi.spyOn(window,'matchMedia').mockImplementation(query=>({matches:query.includes('max-width')&&mobile,media:query,onchange:null,addListener:vi.fn(),removeListener:vi.fn(),addEventListener:vi.fn(),removeEventListener:vi.fn(),dispatchEvent:()=>false}));
+  const value=snapshot([stay()]);const props=boardProps(value,'2032-01-03');
+  const history:import('./hotelHistoricalBoardRepository').HistoricalBoard={selectedDate:'2032-01-01',timezone:'Asia/Seoul',evidenceAsOf:'2032-01-05T00:00:00Z',readOnly:true,coverageStatus:'PARTIAL',unavailable:[],rooms:[{roomId:'room-1',roomName:'DELUXE 1',roomTypeId:'deluxe',roomType:'DELUXE',segments:[{segmentId:'synthetic-history',stayId:'past-stay',dogId:'past-dog',dogName:'이전 투숙견',roomId:'room-1',lifecycleKind:'single',usedFrom:'2032-01-01T00:00:00Z',usedUntil:'2032-01-01T08:00:00Z',displayFrom:'2032-01-01T00:00:00Z',displayUntil:'2032-01-01T08:00:00Z',selectedDayEvents:['check_out'],provenanceStatus:'verified',coverageClassification:'verified_supported_path'}]}]};
+  const {rerender}=render(<HotelRoomBoard {...props} dateMode="TODAY"/>);
+  const room=screen.getByTestId('hotel-room-board-room-room-1');const shell=screen.getByTestId('hotel-room-board');
+  rerender(<HotelRoomBoard {...props} selectedDate="2032-01-01" dateMode="PAST" historicalBoard={history}/>);
+  expect(screen.getByTestId('hotel-room-board-room-room-1')).toBe(room);expect(screen.getByTestId('hotel-room-board')).toBe(shell);
+  expect(room).toHaveTextContent('이전 투숙견');expect(room).not.toHaveTextContent('감자');
+  expect(screen.queryByText(/실 잔여|빈방/)).not.toBeInTheDocument();expect(room.querySelector('[draggable="true"]')).toBeNull();
+  fireEvent.pointerDown(room);fireEvent.pointerUp(room);fireEvent.drop(room);expect(props.onDropStay).not.toHaveBeenCalled();
+  fireEvent.click(within(room).getByRole('button',{name:/이전 투숙견 당일 퇴실/}));expect(props.onOpenStay).toHaveBeenCalledWith('past-stay');
+  rerender(<HotelRoomBoard {...props} dateMode="FUTURE" selectedDate="2032-01-04"/>);
+  expect(screen.getByTestId('hotel-room-board-room-room-1')).toBe(room);expect(room).not.toHaveTextContent('이전 투숙견');
+  media.mockRestore();
+});
