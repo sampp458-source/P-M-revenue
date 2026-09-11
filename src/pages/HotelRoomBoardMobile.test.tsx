@@ -199,12 +199,12 @@ afterEach(() => {
 });
 
 describe("Hotel Room Board mobile projection", () => {
-  it("orders unassigned work first and renders occupied and empty rooms without a desktop grid", () => {
+  it("orders room workspace before unassigned work and renders occupied and empty rooms without a desktop grid", () => {
     render(<HotelRoomBoard {...props()} />);
 
     const unassigned = screen.getByTestId("hotel-room-board-unassigned-drop-zone");
     const mobile = screen.getByTestId("hotel-room-board-mobile-projection");
-    expect(unassigned.compareDocumentPosition(mobile) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(unassigned.compareDocumentPosition(mobile) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
     expect(screen.queryByTestId("hotel-room-board-desktop-projection")).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "DELUXE 모바일 Room Board" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "STANDARD 모바일 Room Board" })).toBeInTheDocument();
@@ -287,4 +287,39 @@ describe("Hotel Room Board mobile projection", () => {
     expect(screen.queryByTestId("hotel-room-board-mobile-projection")).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "DELUXE Room Board" })).toBeInTheDocument();
   });
+});
+
+it('places compact filters before the mobile room results and keeps explanations below', () => {
+  render(<HotelRoomBoard {...props()}/>);
+  const controls=screen.getByRole('group',{name:'객실 상태'});
+  const deluxe=screen.getByRole('region',{name:'DELUXE 모바일 Room Board'});
+  const support=screen.getByRole('region',{name:'보조 운영 정보'});
+  expect(controls.compareDocumentPosition(deluxe)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(support).not.toContainElement(controls);
+  expect(support).toContainElement(screen.getByRole('heading',{name:'선택일 관련 예약·배정'}));
+  fireEvent.click(within(controls).getByRole('button',{name:'빈방'}));
+  expect(screen.getByTestId('hotel-room-board-room-deluxe-1')).not.toBeVisible();
+  expect(screen.getByTestId('hotel-room-board-room-deluxe-2')).toBeVisible();
+  fireEvent.click(within(controls).getByRole('button',{name:'전체'}));
+  expect(screen.getByTestId('hotel-room-board-room-deluxe-1')).toBeVisible();
+});
+
+it('opens the mobile completed collection from its header count', () => {
+  const value=props();value.snapshot.stays.push(hotelStay({id:'done-link',dogName:'완료바로가기',checkedOutAt:'2026-08-14T03:32:00Z'}));
+  render(<HotelRoomBoard {...value}/>);
+  const completed=screen.getByTestId('hotel-room-board-completed-checkouts');
+  completed.scrollIntoView=vi.fn();
+  expect(within(completed).queryByText('완료바로가기')).not.toBeInTheDocument();
+  fireEvent.click(within(screen.getByRole('navigation',{name:'보조 운영 바로가기'})).getByRole('button',{name:'퇴실 완료 1'}));
+  expect(within(completed).getByText('완료바로가기')).toBeVisible();
+  expect(completed).toHaveFocus();
+});
+
+it('uses the compact control slot for read-only meaning in PAST without availability filters', () => {
+  render(<HotelRoomBoard {...props()} dateMode="PAST"/>);
+  const control=screen.getByLabelText('객실 표시 제어');
+  expect(control).toHaveTextContent('조회 전용 · 확인된 투숙 표시');
+  expect(within(control).queryByRole('button')).not.toBeInTheDocument();
+  expect(screen.queryByRole('group',{name:'객실 상태'})).not.toBeInTheDocument();
+  expect(screen.queryByTestId('hotel-room-board-unassigned-drop-zone')).not.toBeInTheDocument();
 });

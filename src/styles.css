@@ -1101,3 +1101,89 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
 @media (max-width: 639px) {
   .hotel-board-surface .hotel-board-summary > div:nth-child(4) { border-left: 0; }
 }
+
+/* 015: rooms lead the workspace; variable operational content follows the grid. */
+.hotel-board-surface {
+  --hotel-active-shadow: 0 3px 5px rgb(30 50 75 / .045), 0 9px 18px -12px rgb(30 50 75 / .28);
+  background: #fcfdff;
+}
+.hotel-board-overview { border-bottom-color: transparent; }
+.hotel-board-surface .hotel-board-summary {
+  flex-wrap: nowrap;
+  padding: .75rem 0;
+  background: #edf2f7;
+  border-color: #e3eaf2;
+  border-radius: .75rem;
+}
+.hotel-board-surface .hotel-board-summary > div {
+  flex: 1 1 0;
+  min-height: 3rem;
+  margin-top: 0;
+  padding: .25rem .875rem;
+  border-top: 0;
+}
+.hotel-board-surface .hotel-board-summary > div + div { border-left: 1px solid #dce4ee; }
+.hotel-board-surface .hotel-room-group {
+  padding: 1rem;
+  border-radius: .875rem;
+  background: #f0f4f8;
+}
+.hotel-board-surface .hotel-room-group h3,
+.hotel-board-surface .hotel-room-group strong { font-size: .875rem; letter-spacing: .06em; }
+.hotel-board-surface .hotel-room-group > div:first-child { min-height: 2.5rem; }
+.hotel-board-surface .hotel-room-cell { min-height: 9.125rem; }
+/* Interaction utilities remain the paint owner for all active drop states. */
+.hotel-board-surface .hotel-room-cell[data-room-content="occupied"]:not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55) {
+  border-color: #becddd;
+  box-shadow: inset 0 3px 0 var(--hotel-phase-edge, #bacbdf), inset 0 1px 0 #fff, var(--hotel-active-shadow);
+}
+.hotel-board-surface .hotel-room-cell[data-room-content="empty"]:not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55) {
+  background: #f4f7fa;
+  border-color: transparent;
+  box-shadow: none;
+}
+.hotel-board-support { padding-top: 1rem; border-top: 1px solid #e0e7ef; }
+.hotel-board-support:empty { display: none; }
+.hotel-board-support .hotel-board-unassigned { padding: .5rem 0; }
+.hotel-board-support .hotel-board-future,
+.hotel-board-support .hotel-board-completed { background: #f2f5f8; }
+@media (max-width: 767px) {
+  .hotel-board-surface .hotel-room-group { padding: .75rem; }
+  .hotel-board-surface .hotel-room-group-mobile > button { min-height: 2.5rem; padding: .25rem 0 .5rem; }
+  .hotel-board-surface .hotel-room-cell { min-height: 5.5rem; }
+  .hotel-board-surface .hotel-room-cell[data-room-content="occupied"] { min-height: 7rem; }
+}
+@media (max-width: 639px) {
+  .hotel-board-surface .hotel-board-summary > div { padding: .25rem .375rem; }
+  .hotel-board-surface .hotel-board-summary dt { font-size: .625rem; white-space: nowrap; }
+  .hotel-board-surface .hotel-board-summary dd.text-lg { font-size: 1.375rem; }
+}
+
+/* Compact navigation replaces the previous hint row without count-dependent height. */
+.hotel-board-support-links {
+  display: flex;
+  align-items: center;
+  gap: .375rem;
+  height: 2.75rem;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.hotel-board-support-links > button {
+  flex: 0 0 auto;
+  min-height: 2.75rem;
+  padding: .25rem .375rem;
+  font-size: .6875rem;
+  color: #64748b;
+  border-radius: .375rem;
+}
+.hotel-board-support-links > button[data-active] { color: #274c77; }
+.hotel-board-support-links b { margin-left: .25rem; font-variant-numeric: tabular-nums; }
+.hotel-board-support-links > button[data-active] b { background: #e7eef7; border-radius: .25rem; padding: .125rem .25rem; }
+.hotel-board-support-links > button:disabled { color: #94a3b8; }
+.hotel-board-support-links > button:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.hotel-board-support-links > button:not(:disabled):hover { background: #edf2f7; }
+.hotel-board-support [tabindex="-1"], .hotel-board-support { scroll-margin-top: 1rem; }
+@media (max-width: 639px) {
+  /* Mode descriptions may wrap to two lines; keep the existing caption slot stable. */
+  .hotel-board-overview h2 + p { min-height: 2rem; }
+}

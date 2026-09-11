@@ -567,7 +567,7 @@ describe("Hotel Room Board operations UX", () => {
     expect(screen.getByText("미래견")).toBeInTheDocument();
   });
 
-  it("renders every unassigned section before the DELUXE and STANDARD room grids", () => {
+  it("renders every unassigned section after the DELUXE and STANDARD room grids", () => {
     const today = stay({ id: "today", dogName: "오늘견" });
     const future = stay({ id: "future", dogName: "미래견", scheduleEvents: [schedule("check_in", "2026-08-14T06:00:00Z"), schedule("check_out", "2026-08-16T02:00:00Z")] });
     render(<HotelRoomBoard {...boardProps(snapshot([], [today, future]), "2026-08-13")} />);
@@ -576,9 +576,9 @@ describe("Hotel Room Board operations UX", () => {
     const futureSection = screen.getByRole("region", { name: "향후 입실 미배정" });
     const deluxe = screen.getByRole("region", { name: "DELUXE Room Board" });
     const standard = screen.getByRole("region", { name: "STANDARD Room Board" });
-    expect(unassigned.compareDocumentPosition(deluxe) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(futureSection.compareDocumentPosition(deluxe) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(unassigned.compareDocumentPosition(standard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(unassigned.compareDocumentPosition(deluxe) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(futureSection.compareDocumentPosition(deluxe) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(unassigned.compareDocumentPosition(standard) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
   it("provides a mobile-sized move handle and preserves the tap-select room target flow", () => {
@@ -912,11 +912,90 @@ it('014 identifies active content independently of missing schedule phase, insid
   expect(motion?.closest('.hotel-board-surface')).not.toBeNull();
 });
 it('014 depth excludes every interaction state and adds no layout/hover transform',()=>{
-  const css=readFileSync('src/styles.css','utf8').split('/* 014:')[1];
+  const css=readFileSync('src/styles.css','utf8').split('/* 014:')[1].split('/* 015:')[0];
   for(const rule of css.split('}').filter(rule=>rule.includes('data-room-content='))){
     expect(rule).toContain(':not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55)');
   }
   expect(css).not.toMatch(/\btransform\s*:|\banimation\s*:|!important/);
   expect(css).toContain('inset 0 3px 0 var(--hotel-phase-edge, transparent)');
   expect(css).toContain('@media (max-width: 767px)');
+});
+
+describe('015 rooms-first operational frame', () => {
+  it.each(['TODAY', 'PAST', 'FUTURE'] as const)('keeps %s variable operations after both room groups', (dateMode) => {
+    const value = snapshot([stay()]);
+    render(<HotelRoomBoard {...boardProps(value, '2026-08-13')} dateMode={dateMode} selectedDateIsToday={dateMode === 'TODAY'} />);
+    const board = screen.getByTestId('hotel-room-board');
+    const summary = board.querySelector('.hotel-board-summary')!;
+    const deluxe = screen.getByRole('region', {name: 'DELUXE Room Board'});
+    const standard = screen.getByRole('region', {name: 'STANDARD Room Board'});
+    const support = screen.getByRole('region', {name: '보조 운영 정보'});
+    const precedes = (a: Element, b: Element) => Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(precedes(summary, deluxe)).toBe(true);
+    expect(precedes(deluxe, standard)).toBe(true);
+    expect(precedes(standard, support)).toBe(true);
+    if (dateMode === 'PAST') {
+      expect(support).toContainElement(screen.getByRole('note'));
+      expect(screen.queryByTestId('hotel-room-board-unassigned-drop-zone')).not.toBeInTheDocument();
+      expect(within(summary as HTMLElement).queryByText('빈방')).not.toBeInTheDocument();
+    } else {
+      expect(support).toContainElement(screen.getByTestId('hotel-room-board-unassigned-drop-zone'));
+    }
+  });
+
+  it('keeps depth selectors idle-only and summary distribution independent of metric count', () => {
+    const css = readFileSync('src/styles.css', 'utf8').split('/* 015:')[1];
+    expect(css).toContain('flex-wrap: nowrap');
+    for (const state of ['occupied', 'empty']) {
+      expect(css).toContain(`[data-room-content="${state}"]:not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55)`);
+    }
+    expect(css).not.toMatch(/(?:animation|transition|transform)\s*:/);
+  });
+});
+
+describe('015 supporting navigation', () => {
+  it('shows counts above rooms and reveals the existing future disclosure', () => {
+    const future = stay({id:'later',dogName:'향후 예약견',scheduleEvents:[schedule('check_in','2026-08-14T06:00:00Z'),schedule('check_out','2026-08-16T02:00:00Z')]});
+    render(<HotelRoomBoard {...boardProps(snapshot([], [stay(),future]),'2026-08-13')}/>);
+    const nav=screen.getByRole('navigation',{name:'보조 운영 바로가기'});
+    const rooms=screen.getByRole('region',{name:'DELUXE Room Board'});
+    expect(nav.compareDocumentPosition(rooms)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(nav).getByRole('button',{name:/미배정/})).toHaveAttribute('data-active','true');
+    const futureSection=screen.getByRole('region',{name:'향후 입실 미배정'});
+    futureSection.scrollIntoView=vi.fn();
+    expect(screen.queryByText('향후 예약견')).not.toBeInTheDocument();
+    fireEvent.click(within(nav).getByRole('button',{name:'향후 입실 1'}));
+    expect(screen.getByText('향후 예약견')).toBeVisible();
+    expect(futureSection.scrollIntoView).toHaveBeenCalledWith({block:'start',behavior:'instant'});
+    expect(futureSection).toHaveFocus();
+    const unassigned=screen.getByTestId('hotel-room-board-unassigned-drop-zone');
+    unassigned.scrollIntoView=vi.fn();
+    fireEvent.click(within(nav).getByRole('button',{name:/미배정/}));
+    expect(unassigned).toHaveFocus();
+  });
+
+  it('exposes a deduplicated PAST warning before the grid and opens details without commands', () => {
+    const item={stayId:'unproven',dogId:'dog',dogName:'확인대상',lifecycleKind:'single' as const,reasonCode:'UNSUPPORTED_TRANSITION',affectedFrom:'2026-08-13T00:00:00Z',affectedUntil:'2026-08-13T03:00:00Z',coverageClassification:'unavailable' as const};
+    render(<HotelRoomBoard {...boardProps(snapshot(), '2026-08-13')} dateMode="PAST" historicalBoard={{selectedDate:'2026-08-13',timezone:'Asia/Seoul',evidenceAsOf:'2026-08-14T00:00:00Z',readOnly:true,coverageStatus:'PARTIAL',rooms:[],unavailable:[item,item]}}/>);
+    const nav=screen.getByRole('navigation',{name:'보조 운영 바로가기'});
+    const link=within(nav).getByRole('button',{name:'확인 필요 1'});
+    const target=document.getElementById(link.getAttribute('aria-controls')!)!;
+    target.scrollIntoView=vi.fn();
+    expect(screen.getByLabelText('과거 객실 확인 필요')).not.toHaveAttribute('open');
+    fireEvent.click(link);
+    expect(screen.getByLabelText('과거 객실 확인 필요')).toHaveAttribute('open');
+    expect(target).toHaveFocus();
+    expect(within(nav).getByRole('button',{name:'부분 기록 · 안내'})).toBeVisible();
+    expect(within(nav).queryByText(/빈방|미배정/)).not.toBeInTheDocument();
+    expect(document.querySelector('[draggable="true"]')).toBeNull();
+  });
+
+  it('keeps zero future and completion counts quiet and non-interactive', () => {
+    render(<HotelRoomBoard {...boardProps(snapshot(), '2026-08-13')}/>);
+    const nav=screen.getByRole('navigation',{name:'보조 운영 바로가기'});
+    for(const name of ['향후 입실 0','퇴실 완료 0']) {
+      const button=within(nav).getByRole('button',{name});
+      expect(button).toBeDisabled();expect(button).not.toHaveAttribute('data-active');
+    }
+  });
 });
