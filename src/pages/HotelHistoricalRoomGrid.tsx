@@ -41,15 +41,15 @@ export function HistoricalOccupants({segments,onOpenStay,mobile,date}:{segments:
  const groups=historicalOccupantSlices(segments);
  const [detail,setDetail]=useState<OccupantSlice|null>(null);
  useEffect(()=>{setDetail(null);},[date]);
- return <><div className="space-y-1.5">{groups.map(slice=>{const {key,items}=slice;return <div key={key} className={cn('w-full rounded-xl border text-left shadow-sm',mobile?'px-3 py-3':'px-2 py-2',roomStageClass(historicalRoomPhase(items)))}>
-  {items[0].lifecycleKind==='shared'&&items.length>1?<span className="flex items-center justify-between gap-1"><strong className="min-w-0 break-words text-sm">같은 방 투숙</strong><Badge tone="blue">공유</Badge></span>:null}
+ return <><div className="space-y-1.5">{groups.map(slice=>{const {key,items}=slice;return <div key={key} className={cn('hotel-history-occupant w-full rounded-xl border text-left shadow-sm',mobile?'px-3 py-3':'px-2 py-2',roomStageClass(historicalRoomPhase(items)))}>
+  {items[0].lifecycleKind==='shared'&&items.length>1?<span className="hotel-shared-label flex items-center justify-between gap-1"><strong className="min-w-0 break-words text-sm">같은 방 투숙</strong><Badge tone="blue">공유</Badge></span>:null}
   {items.map(s=><button type="button" key={s.segmentId} onClick={()=>onOpenStay(s.stayId)} className="block w-full rounded-lg py-1 text-left transition-colors duration-150 hover:bg-white/40 motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-   <span className={cn('break-words font-extrabold',mobile?'text-sm leading-5':'text-xs')}>{s.dogName}</span>
+   <span className={cn('hotel-dog-name break-words font-extrabold',mobile?'text-sm leading-5':'text-xs')}>{s.dogName}</span>
    {s.lifecycleKind==='shared'&&items.length===1?<Badge tone="blue">공유</Badge>:null}
    {s.lifecycleKind==='longstay'?<Badge tone="blue">장기호텔</Badge>:null}
-   <span className="block text-xs font-bold">{s.selectedDayEvents.map(e=>labels[e]).join(' · ')}</span>
+   <span className="hotel-historical-status block text-xs font-bold">{s.selectedDayEvents.map(e=>labels[e]).join(' · ')}</span>
   </button>)}
-  {items[0].lifecycleKind==='shared'&&items.length>1?<span className="mt-1 block text-xs font-semibold">함께 투숙 · {new Set(items.map(s=>s.stayId)).size}마리 · 객실 1실</span>:null}
+  {items[0].lifecycleKind==='shared'&&items.length>1?<span className="hotel-shared-caption mt-1 block text-xs font-semibold">함께 투숙 · {new Set(items.map(s=>s.stayId)).size}마리 · 객실 1실</span>:null}
   <button type="button" aria-label={`${items.map(s=>s.dogName).join(' · ')} 투숙 시간 상세`} onClick={()=>setDetail(slice)} className="mt-1 rounded p-1 text-text-muted hover:text-text-primary focus-visible:ring-2 focus-visible:ring-primary"><Clock3 size={14}/></button>
  </div>;})}</div>
  <Modal open={detail!==null} title="투숙 시간" onClose={()=>setDetail(null)} size="small">
@@ -77,7 +77,7 @@ export function HotelHistoricalRoomGrid({history,error,onOpenStay,mobile=false}:
    <p className={cn('font-extrabold uppercase tracking-[0.16em] text-primary',mobile?'text-xs':'text-[11px]')}>Room Board</p>
    <h2 className="mt-1 text-xl font-extrabold text-text-primary">객실 운영 현황</h2>
    <p className="mt-0.5 text-xs text-text-secondary">선택한 날짜의 투숙 현황 · 조회 전용</p>
-   {history&&!error?<dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="선택일 투숙 요약">
+   {history&&!error?<dl className="hotel-board-summary mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label="선택일 투숙 요약">
     {[
      ['투숙',count(),'border-emerald-200 bg-emerald-50 text-emerald-900'],
      ['당일 입실',count('check_in'),'border-blue-200 bg-blue-50 text-blue-900'],

@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import { readFileSync } from "node:fs";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -801,4 +802,99 @@ it.each([false,true])('012 retains the same room node across TODAY/PAST/FUTURE (
   rerender(<HotelRoomBoard {...props} dateMode="FUTURE" selectedDate="2032-01-04"/>);
   expect(screen.getByTestId('hotel-room-board-room-room-1')).toBe(room);expect(room).not.toHaveTextContent('이전 투숙견');
   media.mockRestore();
+});
+
+describe("013 operational presentation", () => {
+  it("keeps one connected metric strip with the original labels and values", () => {
+    render(<HotelRoomBoard {...boardProps(snapshot([allocatedStay()]), "2026-08-14")} />);
+    const strip = screen.getByLabelText("객실 운영 요약");
+    expect(strip).toHaveClass("hotel-board-summary");
+    expect(strip.querySelectorAll("dt")).toHaveLength(5);
+    expect(within(strip).getByText("이용중").nextElementSibling).toHaveTextContent("1");
+    const room = screen.getByTestId("hotel-room-board-room-room-1");
+    expect(within(room).getByText("감자")).toHaveClass("hotel-dog-name");
+    expect(within(room).getByText("이용중")).toHaveClass("hotel-status");
+  });
+
+  it("keeps three full Shared names, individual statuses and one physical room card", () => {
+    const base = sharedOccupancy();
+    const occupancy = sharedOccupancy({members: [...base.members, { ...base.members[0], id: "member-3", hotelStayId: "stay-3", dogId: "dog-3", dogName: "아주긴이름의장기투숙견" }]});
+    const members = occupancy.members.map(m => allocatedStay({id:m.hotelStayId,dogId:m.dogId,dogName:m.dogName}));
+    render(<HotelRoomBoard {...boardProps(snapshot([]), "2026-08-14")} sharedOccupancies={[occupancy]} sharedMemberStays={members} />);
+    const card = screen.getByTestId("shared-room-card-occupancy-1");
+    for (const member of members) expect(within(card).getByText(member.dogName)).toHaveClass("hotel-dog-name");
+    expect(card.querySelectorAll(".hotel-shared-member")).toHaveLength(3);
+    expect(card.querySelectorAll(".hotel-status")).toHaveLength(3);
+    expect(screen.getAllByTestId("hotel-room-board-room-room-1")).toHaveLength(1);
+    expect(card).toHaveTextContent("함께 투숙 · 3마리 · 객실 1실");
+  });
+
+  it("retains the neutral empty shell and compact zero-unassigned message", () => {
+    render(<HotelRoomBoard {...boardProps(snapshot([]), "2026-08-14")} />);
+    const room = screen.getByTestId("hotel-room-board-room-room-1");
+    expect(room).toHaveAttribute("data-room-phase", "empty");
+    expect(room.querySelector(".hotel-dog-name")).toBeNull();
+    const unassigned = screen.getByTestId("hotel-room-board-unassigned-drop-zone");
+    expect(unassigned).toHaveClass("hotel-board-unassigned");
+    expect(unassigned).toHaveTextContent("현재 미배정 예약이 없습니다.");
+  });
+});
+
+
+describe("013 interaction paint priority", () => {
+  const presentationCss = readFileSync("src/styles.css", "utf8");
+  const idleSelector = presentationCss.match(/^(\.hotel-room-cell\[data-room-phase="empty"\]:not[^\n{]+)\s*\{/m)![1].trim();
+
+  it.each(["DELUXE", "STANDARD"] as const)("leaves %s candidate and hovered target paint to existing command classes", (type) => {
+    const value = snapshot([allocatedStay()]);
+    value.rooms = [...value.rooms, { ...value.rooms[0], id: "recommended", sortOrder: 2 }, { ...value.rooms[0], id: "target", sortOrder: 3, roomTypeId: type.toLowerCase(), roomTypeCode: type, roomTypeName: type }];
+    render(<HotelRoomBoard {...boardProps(value, "2026-08-14")} />);
+    const room = screen.getByTestId("hotel-room-board-room-target");
+    expect(room.matches(idleSelector)).toBe(true);
+    fireEvent.click(screen.getByLabelText("감자 호실 이동 시작"));
+    expect(room.matches(idleSelector)).toBe(false);
+    expect(room).toHaveClass("border-dashed");
+    expect(room).toHaveClass(type === "STANDARD" ? "border-amber-500/70" : "border-primary/55");
+    const candidateSelector = presentationCss.match(/^(\.hotel-room-cell[^\n{]+\[class~="border-primary\/55"\])\s*\{/m)![1].trim();
+    if (type === "DELUXE") expect(room.matches(candidateSelector)).toBe(true);
+    fireEvent.pointerEnter(room);
+    expect(room.matches(idleSelector)).toBe(false);
+    expect(room).toHaveClass(type === "STANDARD" ? "border-amber-600" : "border-primary");
+    expect(room.className).toContain("shadow-[0_14px");
+    // Candidate classes remain on the real RoomCell during hover.
+    expect(room).toHaveClass(type === "STANDARD" ? "border-amber-500/70" : "border-primary/55");
+    expect(room.matches(candidateSelector)).toBe(false);
+  });
+
+  it("keeps recommended and settled RoomCell states out of idle paint", () => {
+    const hotelStay = allocatedStay();
+    const value = snapshot([hotelStay]);
+    value.rooms = [...value.rooms, {...value.rooms[0], id: "target", sortOrder: 2}];
+    const {rerender} = render(<HotelRoomBoard {...boardProps(value, "2026-08-14")} />);
+    fireEvent.click(screen.getByLabelText("감자 호실 이동 시작"));
+    const room = screen.getByTestId("hotel-room-board-room-target");
+    expect(room).toHaveClass("ring-emerald-300/45");
+    expect(room.matches(idleSelector)).toBe(false);
+    const moved = {...hotelStay, roomAllocations: [{...hotelStay.roomAllocations[0],roomId:"target"}]};
+    rerender(<HotelRoomBoard {...boardProps({...value,stays:[moved]}, "2026-08-14")} />);
+    expect(room).toHaveClass("hotel-room-drop-settle");
+    expect(room.matches(idleSelector)).toBe(false);
+  });
+
+  it("does not repaint recommended, settling or unavailable empty targets", () => {
+    const cell = document.createElement("div");
+    cell.dataset.roomPhase = "empty";
+    for (const state of ["ring-2", "hotel-room-drop-settle", "opacity-55"]) {
+      cell.className = `hotel-room-cell ${state}`;
+      expect(cell.matches(idleSelector)).toBe(false);
+    }
+  });
+
+  it.each([".hotel-date-controls input", ".hotel-board-completed > div > button"])("provides an independent keyboard outline for %s", (selector) => {
+    const rule = presentationCss.match(/\/\* Keyboard indication[\s\S]*$/)![0];
+    expect(rule).toContain(`${selector}:focus-visible`);
+    expect(rule).toContain("outline: 2px solid var(--color-primary)");
+    expect(rule).toContain("outline-offset: 3px");
+    expect(rule).not.toContain("outline: none");
+  });
 });

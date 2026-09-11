@@ -1375,7 +1375,7 @@ export function HotelOperationsPage() {
         ) : undefined}
       />
 
-      <div className="mb-3 flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-border bg-surface px-3 py-2.5 shadow-sm sm:px-4">
+      <div className="hotel-date-controls mb-3 flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-border bg-surface px-3 py-2.5 shadow-sm sm:px-4">
         <Field label="운영 날짜">
           <Input
             type="date"

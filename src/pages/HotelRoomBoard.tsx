@@ -551,13 +551,13 @@ function DraggableStayCard({
           className="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <span className="min-w-0 flex-1">
-            <span className={cn("block truncate font-extrabold tracking-[-0.015em] text-slate-950", mobile ? "text-base leading-6" : "text-[15px] leading-5")}>
+            <span className={cn("hotel-dog-name block truncate font-extrabold tracking-[-0.015em] text-slate-950", mobile ? "text-base leading-6" : "text-[15px] leading-5")}>
               {stay.dogName}
             </span>
             <span className="mt-0.5 block">
               <span
                 className={cn(
-                  "inline-flex rounded-full px-1.5 py-px font-extrabold ring-1 ring-inset",
+                  "hotel-status inline-flex rounded-full px-1.5 py-px font-extrabold ring-1 ring-inset",
                   mobile ? "text-xs leading-5" : "text-[9px] leading-[0.875rem]",
                   stageBadgeClass(stage, variant === "waiting"),
                 )}
@@ -629,7 +629,7 @@ export function SharedRoomCard({
         cardStage ? stageClass(cardStage) : "border-slate-300 bg-slate-50 text-slate-950",
       )}
     >
-      <span className="flex items-center justify-between gap-1">
+      <span className="hotel-shared-label flex items-center justify-between gap-1">
         <strong className="truncate text-sm">같은 방 투숙</strong>
         <Badge tone="blue">공유</Badge>
       </span>
@@ -639,10 +639,10 @@ export function SharedRoomCard({
           const status = stay ? hotelRoomBoardDogStatus(stay, selectedDate) : null;
           const phaseTime = stay ? hotelRoomBoardPhaseTime(stay, selectedDate) : null;
           return (
-            <span key={member.id} className="grid min-w-0 grid-cols-[1fr_auto] items-center gap-x-1.5">
-              <span className={cn("truncate font-extrabold", mobile ? "text-sm leading-5" : "text-xs")}>{member.dogName}</span>
+            <span key={member.id} className="hotel-shared-member grid min-w-0 grid-cols-[1fr_auto] items-center gap-x-1.5">
+              <span className={cn("hotel-dog-name truncate font-extrabold", mobile ? "text-sm leading-5" : "text-xs")}>{member.dogName}</span>
               {status ? (
-                <span className={cn("shrink-0 rounded-full px-1.5 py-px font-extrabold ring-1 ring-inset", mobile ? "text-xs leading-5" : "text-[9px] leading-[0.875rem]", stageBadgeClass(status.stage, false))}>
+                <span className={cn("hotel-status shrink-0 rounded-full px-1.5 py-px font-extrabold ring-1 ring-inset", mobile ? "text-xs leading-5" : "text-[9px] leading-[0.875rem]", stageBadgeClass(status.stage, false))}>
                   {status.label}
                 </span>
               ) : <span className={cn("font-bold text-slate-500", mobile ? "text-xs" : "text-[9px]")}>일정 확인</span>}
@@ -651,7 +651,7 @@ export function SharedRoomCard({
           );
         })}
       </span>
-      <span className={cn("mt-1 block font-semibold", mobile ? "text-xs" : "text-[11px]")}>함께 투숙 · {activeMembers.length}마리 · 객실 1실</span>
+      <span className={cn("hotel-shared-caption mt-1 block font-semibold", mobile ? "text-xs" : "text-[11px]")}>함께 투숙 · {activeMembers.length}마리 · 객실 1실</span>
     </button>
     </div>
   );
@@ -1627,7 +1627,7 @@ export function HotelRoomBoard({
             <section
               aria-label="퇴실 완료 명단"
               data-testid="hotel-room-board-completed-checkouts"
-              className="rounded-2xl border border-emerald-200 bg-emerald-50/45 px-4 py-3.5"
+              className="hotel-board-completed rounded-2xl border border-emerald-200 bg-emerald-50/45 px-4 py-3.5"
             >
               <button
                 type="button"
@@ -1782,7 +1782,7 @@ export function HotelRoomBoard({
             }}
             onPointerUp={() => commitUnassignDrop()}
             className={cn(
-              "min-w-0 rounded-2xl border border-amber-200/80 bg-[#fbfaf7] px-4 shadow-[inset_3px_0_0_0_rgb(245_158_11_/_0.5)]",
+              "hotel-board-unassigned min-w-0 rounded-2xl border border-amber-200/80 bg-[#fbfaf7] px-4 shadow-[inset_3px_0_0_0_rgb(245_158_11_/_0.5)]",
               unassigned.length || unassignedSharedGroups.length || unassignedSharedGroupsError || unassignedSharedGroupsLoading
                 ? "py-3.5"
                 : "py-2.5",
@@ -1885,7 +1885,7 @@ export function HotelRoomBoard({
           {!readOnly && unassignedGroups.future.length ? (
             <section
               aria-label="향후 입실 미배정"
-              className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3"
+              className="hotel-board-future rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3"
             >
               <div className={cn("flex items-center justify-between gap-3", showFutureUnassigned && "mb-3")}>
                 <div>
