@@ -511,7 +511,7 @@ describe("Hotel Room Board", () => {
     expect(presentation).toContain("min-w-[720px] grid-cols-6");
     expect(presentation).toContain("min-w-[600px] grid-cols-5");
     expect(board).not.toContain("2xl:grid-cols-6");
-    expect(board).toContain('className="mb-6 overflow-hidden"');
+    expect(board).toContain('className="hotel-board-surface mb-6 overflow-hidden"');
   });
 
   it("places the unassigned queue above the room rows as a horizontal strip", () => {

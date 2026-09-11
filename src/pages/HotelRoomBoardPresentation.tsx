@@ -33,7 +33,9 @@ type BoardPosition = {
   content?: {element: HTMLElement; rect: DOMRect; opacity: number};
 };
 type MotionSpace = {viewport: number[]; scroll: {element: Element; x: number; y: number}[]};
-type BoardSnapshot = {positions: Map<string, BoardPosition>; space: MotionSpace; epoch: number};
+type ContentPosition = {element:HTMLElement; text:string; opacity?:number};
+const boardTiming = {layout:220, content:180, contentDelay:40, summary:140, summaryDelay:20, auxiliary:140, auxiliaryDelay:80};
+type BoardSnapshot = {contents:Map<string,ContentPosition>; positions: Map<string, BoardPosition>; space: MotionSpace; epoch: number};
 
 // First is the currently painted position, including any interrupted WAAPI effect.
 // Last is measured after cancellation and React's DOM mutation, before paint.
@@ -68,9 +70,9 @@ export class RoomBoardMotion extends Component<{date:string;children:ReactNode}>
     a.scroll.length===b.scroll.length&&a.scroll.every((value,index)=>{
       const other=b.scroll[index];return value.element===other.element&&value.x===other.x&&value.y===other.y;
     });
-  private animate=(element:HTMLElement,frames:Keyframe[],duration:number)=>{
+  private animate=(element:HTMLElement,frames:Keyframe[],duration:number,delay=0)=>{
     if(typeof element.animate!=='function')return;
-    const animation=element.animate(frames,{duration,easing:'cubic-bezier(.2,.8,.2,1)',fill:'none'});
+    const animation=element.animate(frames,{duration,delay,easing:'cubic-bezier(.2,.8,.2,1)',fill:delay?'backwards':'none'});
     this.animations.set(animation,element);
     const release=()=>{this.animations.delete(animation);animation.onfinish=null;animation.oncancel=null;};
     animation.oncancel=release;
@@ -91,9 +93,15 @@ export class RoomBoardMotion extends Component<{date:string;children:ReactNode}>
           ? {element:content,rect:content.getBoundingClientRect(),opacity:Number(getComputedStyle(content).opacity)} : undefined,
       });
     });
+    const contents=new Map<string,ContentPosition>();
+    this.root.current?.querySelectorAll<HTMLElement>('[data-board-content]').forEach(element=>{
+      if(!element.getClientRects().length)return;
+      contents.set(element.dataset.boardContent!,{element,text:element.textContent??'',
+        opacity:animatedElements.has(element)?Number(getComputedStyle(element).opacity):undefined});
+    });
     // Do not cancel before First: that would discard the visible in-flight offset.
     this.cancel();
-    return {positions,space,epoch:this.epoch};
+    return {positions,contents,space,epoch:this.epoch};
   }
   componentDidUpdate(_previous:Readonly<{date:string;children:ReactNode}>,_state:unknown,snapshot:BoardSnapshot|null) {
     const space=this.space();
@@ -110,23 +118,36 @@ export class RoomBoardMotion extends Component<{date:string;children:ReactNode}>
     });
     // A layout read can expose scroll clamping/anchoring; never mix coordinate spaces.
     if(!this.sameSpace(space,this.space())){this.invalidate();return;}
+    const contentChanges:{element:HTMLElement;opacity:number;interrupted:boolean}[]=[];
+    this.root.current?.querySelectorAll<HTMLElement>('[data-board-content]').forEach(element=>{
+      if(!element.getClientRects().length)return;
+      const previous=snapshot.contents.get(element.dataset.boardContent!);
+      const interrupted=previous?.element===element&&previous.opacity!==undefined;
+      if(interrupted||!previous||previous.text!==(element.textContent??''))
+        contentChanges.push({element,opacity:interrupted?previous.opacity!:0.8,interrupted});
+    });
     for(const {element,previous,rect,contentRect} of moves){
       const group=element.parentElement?.closest<HTMLElement>('[data-room-group]');
       const parentMove=group?moves.find(move=>move.element===group):undefined;
       const absoluteX=previous.rect.left-rect.left,absoluteY=previous.rect.top-rect.top;
       const x=absoluteX-(parentMove?parentMove.previous.rect.left-parentMove.rect.left:0);
       const y=absoluteY-(parentMove?parentMove.previous.rect.top-parentMove.rect.top:0);
-      if(Math.abs(x)>0.5||Math.abs(y)>0.5)this.animate(element,[{transform:`translate(${x}px,${y}px)`},{transform:'translate(0,0)'}],220);
+      if(Math.abs(x)>0.5||Math.abs(y)>0.5)this.animate(element,[{transform:`translate(${x}px,${y}px)`},{transform:'translate(0,0)'}],boardTiming.layout);
       if(element.dataset.roomGroup)continue;
       const content=element.children[1];
       if(!(content instanceof HTMLElement))continue;
       if(previous.content&&contentRect){
         const cx=previous.content.rect.left-contentRect.left-absoluteX;
         const cy=previous.content.rect.top-contentRect.top-absoluteY;
-        this.animate(content,[{opacity:previous.content.opacity,transform:`translate(${cx}px,${cy}px)`},{opacity:1,transform:'translate(0,0)'}],180);
+        this.animate(content,[{opacity:previous.content.opacity,transform:`translate(${cx}px,${cy}px)`},{opacity:1,transform:'translate(0,0)'}],boardTiming.content);
       }else if(previous.text!==(element.textContent??'')){
-        this.animate(content,[{opacity:0.65,transform:'translateY(4px)'},{opacity:1,transform:'translateY(0)'}],180);
+        this.animate(content,[{opacity:0.65,transform:'translateY(4px)'},{opacity:1,transform:'translateY(0)'}],boardTiming.content,boardTiming.contentDelay);
       }
+    }
+    for(const {element,opacity,interrupted} of contentChanges){
+      const summary=element.dataset.boardPhase==='summary';
+      this.animate(element,[{opacity},{opacity:1}],summary?boardTiming.summary:boardTiming.auxiliary,
+        interrupted?0:summary?boardTiming.summaryDelay:boardTiming.auxiliaryDelay);
     }
   }
   componentDidMount(){

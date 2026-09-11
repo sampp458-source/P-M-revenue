@@ -1054,3 +1054,50 @@ main.min-h-screen > section:first-child { background: #1e3a5f !important; }
   border-color: color-mix(in oklab, var(--color-primary) 70%, transparent);
   background-color: color-mix(in oklab, var(--color-primary-subtle) 70%, transparent);
 }
+
+/* 014: depth belongs to the board surface, never to command state or layout transforms. */
+.hotel-board-surface {
+  --hotel-depth-border: #e1e7ef;
+  --hotel-depth-shadow: 0 2px 5px rgb(30 50 75 / .025), 0 12px 32px -24px rgb(30 50 75 / .2);
+  --hotel-active-shadow: 0 2px 3px rgb(30 50 75 / .035), 0 5px 12px -8px rgb(30 50 75 / .18);
+  border: 1px solid var(--hotel-depth-border);
+  background: linear-gradient(180deg, #fff, #fcfdff);
+  box-shadow: var(--hotel-depth-shadow);
+}
+.hotel-board-surface .hotel-board-summary {
+  border: 1px solid var(--hotel-depth-border);
+  border-radius: .625rem;
+  background: linear-gradient(180deg, #f8fafd, #f1f5fa);
+  box-shadow: inset 0 1px 0 #fff;
+}
+.hotel-board-surface .hotel-board-summary > div + div { border-left-color: #dfe6ef; }
+.hotel-board-surface .hotel-room-group > div:first-child { border-color: var(--hotel-depth-border); }
+.hotel-board-surface .hotel-room-group h3,
+.hotel-board-surface .hotel-room-group strong { color: #344b64; }
+.hotel-board-surface .hotel-room-group-mobile { background: transparent; }
+/* Phase colors still express the same lifecycle. These variables only retain the colored edge with elevation. */
+.hotel-room-cell[data-room-phase="in_house"] { --hotel-phase-edge: rgb(16 185 129 / .75); }
+.hotel-room-cell[data-room-phase="check_in"] { --hotel-phase-edge: rgb(37 99 235 / .75); }
+.hotel-room-cell[data-room-phase="check_out"] { --hotel-phase-edge: rgb(249 115 22 / .75); }
+.hotel-board-surface .hotel-room-cell[data-room-content="occupied"]:not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55) {
+  box-shadow: inset 0 3px 0 var(--hotel-phase-edge, transparent), inset 0 1px 0 rgb(255 255 255 / .9), var(--hotel-active-shadow);
+}
+/* A Shared/daycare card without a scheduled phase is content, not a vacant room. */
+.hotel-board-surface .hotel-room-cell[data-room-phase="empty"][data-room-content="occupied"]:not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55) {
+  background-color: #f1f6fc;
+  border-color: #ccd9e8;
+}
+.hotel-board-surface .hotel-room-cell[data-room-content="empty"]:not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55) {
+  background-color: #f8fafc;
+  border-color: #ebeff5;
+  box-shadow: inset 0 1px 2px rgb(30 50 75 / .02);
+}
+.hotel-board-surface .hotel-board-future,
+.hotel-board-surface .hotel-board-completed { background: #f5f7fa; box-shadow: none; }
+.hotel-date-controls { background: #f8fafd; box-shadow: inset 0 1px 2px rgb(30 50 75 / .035); }
+@media (max-width: 767px) {
+  .hotel-board-surface { --hotel-active-shadow: 0 2px 4px rgb(30 50 75 / .04); --hotel-depth-shadow: 0 2px 8px rgb(30 50 75 / .025); }
+}
+@media (max-width: 639px) {
+  .hotel-board-surface .hotel-board-summary > div:nth-child(4) { border-left: 0; }
+}

@@ -113,3 +113,59 @@ it('does not measure room rects for same-date renders or reduced motion, and can
  rerender(view('B',200));h.reduce();expect(h.running.every(a=>!a.active)).toBe(true);
  h.rect.mockClear();rerender(view('C',300));expect(h.rect).not.toHaveBeenCalled();
 });
+
+const composed=(date:string,count:number,aux:string|null,occupant='same dog')=><RoomBoardMotion date={date}>
+ <dl><div><dt>투숙</dt><dd data-board-content="summary:투숙" data-board-phase="summary">{count}</dd></div></dl>
+ <section data-room-group="DELUXE"><RoomBoardCellFrame data-testid="hotel-room-board-room-a"><b>A</b><span>{occupant}</span></RoomBoardCellFrame></section>
+ {aux!==null?<section data-board-content="completed" data-board-phase="auxiliary">{aux}</section>:null}
+</RoomBoardMotion>;
+it('updates exact metrics immediately, staggers only changed content, and keeps unchanged occupants still',()=>{
+ const h=harness();const {rerender}=render(composed('A',1,'one'));
+ expect(h.animate).not.toHaveBeenCalled();
+ const shell=screen.getByTestId('hotel-room-board-room-a');
+ rerender(composed('B',2,'two'));
+ expect(screen.getByText('2')).toBeVisible();expect(screen.getByTestId('hotel-room-board-room-a')).toBe(shell);
+ expect(h.running.map(a=>a.element.textContent)).toEqual(['2','two']);
+ const options=h.animate.mock.calls.map(call=>(call as unknown[])[1] as KeyframeAnimationOptions);
+ expect(options.map(o=>[o.duration,o.delay,o.fill])).toEqual([[140,20,'backwards'],[140,80,'backwards']]);
+ expect(options.every(o=>Number(o.duration)+Number(o.delay)<=220)).toBe(true);
+ for(const a of h.running)a.onfinish?.();h.animate.mockClear();h.rect.mockClear();
+ rerender(composed('B',3,'new same-date content'));
+ expect(h.animate).not.toHaveBeenCalled();expect(h.rect).not.toHaveBeenCalled();
+});
+it('fades newly inserted mode content without reserving an empty slot or replaying identical room content',()=>{
+ const h=harness();const {rerender}=render(composed('A',1,null));
+ rerender(composed('B',1,'completed'));
+ expect(h.running.map(a=>a.element.textContent)).toEqual(['completed']);
+ rerender(composed('C',1,null));expect(screen.queryByText('completed')).not.toBeInTheDocument();
+ expect(h.running.every(a=>!a.active)).toBe(true);
+});
+it('resumes interrupted summary/auxiliary opacity without replay delay or a growing queue',()=>{
+ const h=harness();const computed=window.getComputedStyle.bind(window);
+ vi.spyOn(window,'getComputedStyle').mockImplementation(element=>{
+  const a=h.running.find(a=>a.active&&a.element===element&&a.frames[0].opacity!==undefined);
+  return a?{opacity:String(Number(a.frames[0].opacity)+(1-Number(a.frames[0].opacity))*a.progress)} as CSSStyleDeclaration:computed(element);
+ });
+ const {rerender,unmount}=render(composed('A',1,'A'));
+ for(const [date,count] of [['B',2],['A',1],['C',3],['D',4]] as const){
+  for(const a of h.running.filter(a=>a.active))a.progress=0.5;
+  const previous=h.running.filter(a=>a.active);h.animate.mockClear();
+  rerender(composed(date,count,date));
+  expect(previous.every(a=>!a.active)).toBe(true);
+  expect(h.running.filter(a=>a.active)).toHaveLength(2);
+  if(previous.length){
+   expect(h.running.filter(a=>a.active).every(a=>Number(a.frames[0].opacity)>0.8)).toBe(true);
+   expect(h.animate.mock.calls.every(call=>((call as unknown[])[1] as KeyframeAnimationOptions).delay===0)).toBe(true);
+  }
+ }
+ unmount();expect(h.running.every(a=>!a.active)).toBe(true);
+});
+it.each(['resize','scroll','reduced'])('invalidates all choreography together on %s',event=>{
+ const h=harness();const {rerender}=render(composed('A',1,'A'));
+ rerender(composed('B',2,'B','changed dog'));
+ expect(h.running.filter(a=>a.active)).toHaveLength(3);
+ if(event==='reduced')h.reduce();else window.dispatchEvent(new Event(event));
+ expect(h.running.every(a=>!a.active)).toBe(true);
+ expect(document.querySelectorAll('[style*="transform"],[style*="opacity"]')).toHaveLength(0);
+ if(event==='reduced'){h.animate.mockClear();rerender(composed('C',3,'C'));expect(h.animate).not.toHaveBeenCalled();}
+});

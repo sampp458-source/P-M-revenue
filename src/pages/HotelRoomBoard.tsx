@@ -798,7 +798,7 @@ type HistoricalRoomCellProps = {historyRoom: HistoricalBoard["rooms"][number]; s
 function RoomCell(props: CurrentRoomCellProps | HistoricalRoomCellProps) {
   if ("historyRoom" in props) {
     const {historyRoom:room,selectedDate,mobile=false,onOpenStay}=props;
-    return <RoomBoardCellFrame mobile={mobile} data-testid={`hotel-room-board-room-${room.roomId}`} data-room-phase={historicalRoomPhase(room.segments)??"empty"} className={roomStageClass(historicalRoomPhase(room.segments))}>
+    return <RoomBoardCellFrame mobile={mobile} data-testid={`hotel-room-board-room-${room.roomId}`} data-room-phase={historicalRoomPhase(room.segments)??"empty"} data-room-content={room.segments.length ? "occupied" : "empty"} className={roomStageClass(historicalRoomPhase(room.segments))}>
       <div className="mb-1 flex min-w-0 items-center justify-between gap-1.5 px-0.5"><b className="whitespace-nowrap text-sm font-extrabold text-text-primary">{room.roomName}</b></div>
       {room.segments.length?<HistoricalOccupants segments={room.segments} onOpenStay={onOpenStay} mobile={mobile} date={selectedDate}/>:<div aria-hidden="true" className="min-h-8"/>}
     </RoomBoardCellFrame>;
@@ -862,6 +862,7 @@ function RoomCell(props: CurrentRoomCellProps | HistoricalRoomCellProps) {
     <RoomBoardCellFrame mobile={mobile}
       data-testid={`hotel-room-board-room-${room.id}`}
       data-room-phase={roomStage ?? "empty"}
+      data-room-content={occupied ? "occupied" : "empty"}
       onPointerDown={() => {
         if (acceptsDraggedStay) onPointerDrop(room.id);
       }}
@@ -1627,6 +1628,7 @@ export function HotelRoomBoard({
             <section
               aria-label="퇴실 완료 명단"
               data-testid="hotel-room-board-completed-checkouts"
+              data-board-content="completed" data-board-phase="auxiliary"
               className="hotel-board-completed rounded-2xl border border-emerald-200 bg-emerald-50/45 px-4 py-3.5"
             >
               <button
@@ -1686,8 +1688,9 @@ export function HotelRoomBoard({
   const historicalCount=(event?:'check_in'|'check_out')=>new Set(historicalSegments.filter(segment=>!event||segment.selectedDayEvents.includes(event)).map(segment=>segment.stayId)).size;
   return (
     <Card
-      className="mb-6 overflow-hidden"
+      className="hotel-board-surface mb-6 overflow-hidden"
     >
+      <RoomBoardMotion date={selectedDate}>
       <div data-testid="hotel-room-board"
         onDragEnd={readOnly ? undefined : endDrag}
         onPointerUp={readOnly ? undefined : endDrag}
@@ -1737,7 +1740,7 @@ export function HotelRoomBoard({
                 )}
               >
                 <dt className="text-xs font-bold">{label}</dt>
-                <dd className={cn(
+                <dd data-board-content={`summary:${label}`} data-board-phase="summary" className={cn(
                   "font-black tabular-nums",
                   typeof value === "number" ? "text-lg" : "text-xs",
                 )}>{value}</dd>
@@ -1759,6 +1762,7 @@ export function HotelRoomBoard({
         <div className="flex flex-col gap-5 p-4 sm:p-5 lg:p-6">
           {!readOnly ? <div
             data-testid="hotel-room-board-unassigned-drop-zone"
+            data-board-content="unassigned" data-board-phase="auxiliary"
             onDragEnter={(event) => {
               if (
                 (draggedStay && canDropHotelStayToUnassigned(draggedStay) && (hotelStayRoomUnassignMode(draggedStay) === "pre_check_in" || allowCheckInReversal)) ||
@@ -1885,6 +1889,7 @@ export function HotelRoomBoard({
           {!readOnly && unassignedGroups.future.length ? (
             <section
               aria-label="향후 입실 미배정"
+              data-board-content="future" data-board-phase="auxiliary"
               className="hotel-board-future rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3"
             >
               <div className={cn("flex items-center justify-between gap-3", showFutureUnassigned && "mb-3")}>
@@ -1905,7 +1910,6 @@ export function HotelRoomBoard({
             </section>
           ) : null}
 
-          <RoomBoardMotion date={selectedDate}>
           {mobileProjection ? (
             <div className="min-w-0 space-y-4" data-testid="hotel-room-board-mobile-projection">
               {!readOnly ? <section aria-label={dateMode === "TODAY" ? "현재 객실 상태 필터" : "선택일 관련 기록 필터"}>
@@ -1995,7 +1999,6 @@ export function HotelRoomBoard({
             </div>
           )}
 
-          </RoomBoardMotion>
           {readOnly && historicalBoardError ? <p role="alert">{historicalBoardError}</p> : null}
           {readOnly && historicalBoard ? <HistoricalBoardWarning history={historicalBoard} onOpenStay={onOpenStay}/> : null}
           {completedSharedError ? <p role="alert">{completedSharedError}</p> : null}
@@ -2003,6 +2006,7 @@ export function HotelRoomBoard({
 
         </div>
       </div>
+      </RoomBoardMotion>
     </Card>
   );
 }

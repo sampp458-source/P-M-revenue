@@ -898,3 +898,25 @@ describe("013 interaction paint priority", () => {
     expect(rule).not.toContain("outline: none");
   });
 });
+
+it('014 identifies active content independently of missing schedule phase, inside one motion owner',()=>{
+  const occupied=sharedOccupancy({members:sharedOccupancy().members.map(m=>({...m,hotelStayId:'missing-'+m.id}))});
+  const value=snapshot([]);value.rooms.push({...value.rooms[0],id:'room-2',name:'DELUXE 2'});
+  render(<HotelRoomBoard {...boardProps(value,'2026-08-14')} sharedOccupancies={[occupied]}/>);
+  const cell=screen.getByTestId('hotel-room-board-room-room-1');
+  expect(cell).toHaveAttribute('data-room-content','occupied');
+  expect(screen.getByTestId('hotel-room-board-room-room-2')).toHaveAttribute('data-room-content','empty');
+  const motion=cell.closest('.hotel-board-motion');
+  expect(motion).toContainElement(screen.getByLabelText('객실 운영 요약'));
+  expect(document.querySelectorAll('.hotel-board-motion')).toHaveLength(1);
+  expect(motion?.closest('.hotel-board-surface')).not.toBeNull();
+});
+it('014 depth excludes every interaction state and adds no layout/hover transform',()=>{
+  const css=readFileSync('src/styles.css','utf8').split('/* 014:')[1];
+  for(const rule of css.split('}').filter(rule=>rule.includes('data-room-content='))){
+    expect(rule).toContain(':not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55)');
+  }
+  expect(css).not.toMatch(/\btransform\s*:|\banimation\s*:|!important/);
+  expect(css).toContain('inset 0 3px 0 var(--hotel-phase-edge, transparent)');
+  expect(css).toContain('@media (max-width: 767px)');
+});
