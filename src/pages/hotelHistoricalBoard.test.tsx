@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {afterEach, describe, expect, it, vi} from 'vitest';
-import {cleanup, fireEvent, render, screen} from '@testing-library/react';
+import {cleanup, fireEvent, render, screen, within} from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 const db=vi.hoisted(()=>({rpc:vi.fn()}));
 vi.mock('../lib/supabase',()=>({supabase:db}));
@@ -10,11 +10,30 @@ afterEach(()=>{cleanup();vi.clearAllMocks();});
 const segment: HistoricalSegment={segmentId:'segment',stayId:'stay',dogId:'dog',dogName:'합성견',lifecycleKind:'single',roomId:'a',usedFrom:'2032-01-01T01:00:00Z',usedUntil:'2032-01-01T03:00:00Z',displayFrom:'2032-01-01T01:00:00Z',displayUntil:'2032-01-01T03:00:00Z',selectedDayEvents:['check_in','moved_out'],provenanceStatus:'verified',coverageClassification:'verified_supported_path'};
 const history: HistoricalBoard={selectedDate:'2032-01-01',timezone:'Asia/Seoul',evidenceAsOf:'2032-01-03T00:00:00Z',readOnly:true,coverageStatus:'PARTIAL',rooms:[{roomId:'a',roomName:'합성 A',roomTypeId:'type',roomType:'합성 유형',segments:[segment]},{roomId:'b',roomName:'합성 B',roomTypeId:'type',roomType:'합성 유형',segments:[{...segment,segmentId:'next',roomId:'b',usedFrom:'2032-01-01T03:00:00Z',displayFrom:'2032-01-01T03:00:00Z',usedUntil:'2032-01-01T09:00:00Z',displayUntil:'2032-01-01T09:00:00Z',selectedDayEvents:['moved_in','check_out']}]},{roomId:'c',roomName:'합성 C',roomTypeId:'type',roomType:'합성 유형',segments:[]}],unavailable:[{stayId:'unknown',dogId:'unknownDog',dogName:'미확인견',lifecycleKind:'shared',reasonCode:'SHARED_PARTICIPATION_UNPROVEN',affectedFrom:'2032-01-01T01:00:00Z',affectedUntil:'2032-01-01T09:00:00Z',coverageClassification:'unavailable'}]};
 describe('010 actual-use room grid',()=>{
+ it.each([false,true])('keeps the normal board hierarchy and hides audit text (mobile=%s)',mobile=>{
+  render(<HotelHistoricalRoomGrid history={history} onOpenStay={vi.fn()} mobile={mobile}/>);
+  expect(screen.getByRole('heading',{name:'객실 운영 현황'})).toBeVisible();
+  expect(screen.queryByText(/선택일 실제 객실 사용 기록|실 기록 표시|선택일 표시 구간|선택일 상태/)).not.toBeInTheDocument();
+  const summary=within(screen.getByLabelText('선택일 투숙 요약'));
+  expect(summary.getByText('투숙')).toBeVisible();
+  expect(screen.getByRole('region',{name:'Room Board'}).querySelectorAll('dl dd')[0]).toHaveTextContent('1');
+  expect(screen.queryByText(/실 잔여|예약 가능|빈방/)).not.toBeInTheDocument();
+  const warning=screen.getByLabelText('과거 객실 확인 필요');
+  expect(warning).not.toHaveAttribute('open');expect(warning).not.toHaveClass('bg-amber-50');
+  expect(within(warning).queryByText('SHARED_PARTICIPATION_UNPROVEN')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByText('확인 필요 · 1건'));
+  expect(within(warning).getByText('함께 투숙한 참여 시간이나 객실을 확인할 수 없습니다.')).toBeVisible();
+ });
+ it('omits the warning when there are no unavailable stays',()=>{
+  render(<HotelHistoricalRoomGrid history={{...history,unavailable:[]}} onOpenStay={vi.fn()}/>);
+  expect(screen.queryByLabelText('과거 객실 확인 필요')).not.toBeInTheDocument();
+ });
+
  it('keeps both room segments and same-day transitions with detail-only buttons',()=>{
   const open=vi.fn();render(<HotelHistoricalRoomGrid history={history} onOpenStay={open}/>);
   expect(screen.getByText('합성 A')).toBeVisible();expect(screen.getByText('합성 B')).toBeVisible();
   expect(screen.getByText('당일 입실 · 이동 퇴실')).toBeVisible();expect(screen.getByText('이동 입실 · 당일 퇴실')).toBeVisible();
-  fireEvent.click(screen.getByText(/객실 정보 확인 필요 · 1마리/));
+  fireEvent.click(screen.getByText(/확인 필요 · 1건/));
   fireEvent.click(screen.getByRole('button',{name:/미확인견/}));expect(open).toHaveBeenCalledWith('unknown');
   expect(screen.queryByRole('button',{name:/배정|이동 실행|입실 처리|퇴실 처리/})).not.toBeInTheDocument();
   expect(document.querySelector('[draggable="true"]')).toBeNull();
@@ -61,7 +80,7 @@ describe('010 actual-use room grid',()=>{
   expect(screen.getAllByRole('note')).toHaveLength(1);
   expect(screen.queryByText(/실 잔여|빈방/)).not.toBeInTheDocument();
   expect(screen.getByTestId('hotel-room-board-room-c')).toHaveClass('bg-transparent');
-  fireEvent.click(screen.getByRole('button',{name:/합성동반견/}));expect(open).toHaveBeenCalledWith('stay-2');
+  fireEvent.click(screen.getByRole('button',{name:/합성동반견.*당일 입실/}));expect(open).toHaveBeenCalledWith('stay-2');
   expect(document.querySelector('[draggable="true"]')).toBeNull();
   const group=screen.getByRole('region',{name:mobile?'DELUXE 모바일 Room Board':'DELUXE Room Board'});
   expect(group.querySelector(mobile?'.grid-cols-1':'.grid-cols-6')).not.toBeNull();
@@ -103,12 +122,16 @@ describe('historical concurrent membership and display time',()=>{
  it.each([false,true])('labels full-day clipping as 00:00–24:00, not lifecycle boundaries (extends=%s)',extendsDay=>{
   const dayFrom='2031-12-31T15:00:00Z',dayUntil='2032-01-01T15:00:00Z';
   const s={...segment,usedFrom:extendsDay?'2031-12-30T15:00:00Z':dayFrom,usedUntil:extendsDay?'2032-01-02T15:00:00Z':dayUntil,displayFrom:dayFrom,displayUntil:dayUntil,selectedDayEvents:['continuing'] as HistoricalSegment['selectedDayEvents']};
-  show([s]);expect(screen.getByText('선택일 표시 구간 00:00–24:00')).toBeVisible();expect(screen.getByText('이용중')).toBeVisible();
-  expect(screen.queryByText(/00:00–00:00|당일 입실|당일 퇴실/)).not.toBeInTheDocument();
+  show([s]);expect(screen.queryByText(/선택일 표시 구간/)).not.toBeInTheDocument();expect(screen.getByText('이용중')).toBeVisible();
+  fireEvent.click(screen.getByRole('button',{name:/ 투숙 시간 상세$/}));
+  const detail=within(screen.getByRole('dialog'));expect(detail.getByText('선택일 표시 구간 00:00–24:00')).toBeVisible();
+  expect(detail.queryByText(/00:00–00:00|당일 입실|당일 퇴실/)).not.toBeInTheDocument();
  });
  it('retains supplied event labels without treating clipped midnight as a new event',()=>{
   show([{...segment,usedFrom:'2031-12-31T14:00:00Z',displayFrom:'2031-12-31T15:00:00Z',selectedDayEvents:['continuing','check_out']}]);
-  expect(screen.getByText('이용중 · 당일 퇴실')).toBeVisible();expect(screen.getByText('선택일 표시 구간 00:00–12:00')).toBeVisible();
-  expect(screen.queryByText('당일 입실')).not.toBeInTheDocument();
+  expect(screen.getByText('이용중 · 당일 퇴실')).toBeVisible();expect(screen.queryByText(/선택일 표시 구간/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button',{name:/ 투숙 시간 상세$/}));
+  const detail=within(screen.getByRole('dialog'));expect(detail.getByText('선택일 표시 구간 00:00–12:00')).toBeVisible();
+  expect(detail.queryByText(/당일 입실/)).not.toBeInTheDocument();
  });
 });

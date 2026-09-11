@@ -739,11 +739,12 @@ describe("007 date mode safety", () => {
     render(<HotelRoomBoard {...props} dateMode="PAST" onDropStay={onDropStay} onUnassignStay={onUnassignStay} onOpenStay={onOpenStay}
       historicalBoard={{selectedDate:"2026-07-31",timezone:"Asia/Seoul",evidenceAsOf:"2026-08-02T00:00:00Z",readOnly:true,coverageStatus:"PARTIAL",rooms:[],unavailable:[{stayId:active.id,dogId:"dog",dogName:active.dogName,lifecycleKind:"single",reasonCode:"UNPROVEN",affectedFrom:"2026-07-30T15:00:00Z",affectedUntil:"2026-07-31T15:00:00Z",coverageClassification:"unavailable"}]}}
       eventRoomProjections={new Map([[completed.scheduleEvents[1].schedule.id, { operationScheduleId: completed.scheduleEvents[1].schedule.id, hotelStayId: completed.id, hotelEventKind: "check_out", hotelRoomTypeName: "OLD", hotelRoomName: "Canonical checkout", hotelSharedRoom: false, roomResolutionStatus: "resolved" }]])} />);
-    expect(screen.getByRole("heading", { name: "선택일 실제 객실 사용 기록" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "객실 운영 현황" })).toBeVisible();
     expect(screen.getByRole("note")).toBeVisible();
     expect(screen.queryByRole("heading", { name: /객실 현황|당시 객실 배치|실제 점유 현황/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "감자 호실 이동 시작" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", {name:/감자 · 객실 정보 확인 필요/}));
+    fireEvent.click(screen.getByText(/확인 필요 · 1건/));
+    fireEvent.click(screen.getByRole("button", {name:"감자"}));
     expect(onOpenStay).toHaveBeenCalledWith(active.id);
     expect(screen.queryByTestId("hotel-room-board-unassigned-drop-zone")).not.toBeInTheDocument();
     expect(onDropStay).not.toHaveBeenCalled(); expect(onUnassignStay).not.toHaveBeenCalled();
@@ -762,7 +763,7 @@ describe("007 date mode safety", () => {
     render(<HotelRoomBoard {...boardProps(snapshot([]), "2026-08-13")} dateMode="PAST" sharedOccupancies={[occupancy]} onOpenStay={open} onUnassignSharedOccupancy={unassign}
       historicalBoard={{selectedDate:"2026-07-31",timezone:"Asia/Seoul",evidenceAsOf:"2026-08-02T00:00:00Z",readOnly:true,coverageStatus:"PARTIAL",rooms:[],unavailable:[{stayId:"past-member",dogId:"dog",dogName:"과거견",lifecycleKind:"shared",reasonCode:"UNPROVEN",affectedFrom:"2026-07-30T15:00:00Z",affectedUntil:"2026-07-31T15:00:00Z",coverageClassification:"unavailable"}]}} />);
     expect(screen.queryByTestId(`shared-room-card-${occupancy.id}`)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByText(/객실 정보 확인 필요 · 1마리/));
+    fireEvent.click(screen.getByText(/확인 필요 · 1건/));
     fireEvent.click(screen.getByRole("button",{name:/과거견/}));
     expect(open).toHaveBeenCalledWith("past-member");
     expect(screen.queryByTestId("hotel-room-board-unassigned-drop-zone")).not.toBeInTheDocument();
