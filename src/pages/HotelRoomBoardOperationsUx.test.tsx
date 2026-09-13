@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { readFileSync } from "node:fs";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within, waitFor, act } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type {
@@ -19,7 +19,14 @@ import {
   hotelRoomBoardUnassignedGroups,
 } from "./HotelRoomBoard";
 
+const eligibilityMock = vi.hoisted(() => vi.fn());
+vi.mock("./hotelOperationsRepository", async importOriginal => ({
+  ...await importOriginal<typeof import("./hotelOperationsRepository")>(),
+  getHotelSingleRoomEligibility: eligibilityMock,
+}));
+
 afterEach(() => {
+  eligibilityMock.mockReset();
   cleanup();
   document.querySelectorAll('[style*="left: -1000px"]').forEach((node) => node.remove());
 });
@@ -751,11 +758,13 @@ describe("007 date mode safety", () => {
     expect(onDropStay).not.toHaveBeenCalled(); expect(onUnassignStay).not.toHaveBeenCalled();
     expect(screen.getByTestId("hotel-room-board-completed-checkouts")).toHaveTextContent("Canonical checkout");
   });
-  it.each(["TODAY", "FUTURE"] as const)("%s preserves pre-assignment", dateMode => {
+  it.each(["TODAY", "FUTURE"] as const)("%s preserves pre-assignment", async dateMode => {
+    eligibilityMock.mockResolvedValue({ stayId: "stay-1", stayVersion: 1, rooms: [{roomId:"room-1",eligible:true,recommended:true}] });
     const value = stay(); const onDropStay = vi.fn();
     render(<HotelRoomBoard {...boardProps(snapshot([value]), "2026-08-13")} dateMode={dateMode} onDropStay={onDropStay} />);
     expect(screen.getByRole("heading", { name: dateMode === "TODAY" ? "현재 객실 운영 현황" : "선택일 예약·배정 계획" })).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "감자 호실 이동 시작" }));
+    await waitFor(() => expect(screen.getByTestId("hotel-room-board-room-room-1")).toHaveClass("border-dashed"));
     fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-room-1"));
     expect(onDropStay).toHaveBeenCalledWith(value.id, "room-1", false);
   });
@@ -997,5 +1006,30 @@ describe('015 supporting navigation', () => {
       const button=within(nav).getByRole('button',{name});
       expect(button).toBeDisabled();expect(button).not.toHaveAttribute('data-active');
     }
+  });
+});
+
+ describe("016 authoritative preassignment", () => {
+  it("blocks before response and rejects interval conflicts without occupancy fallback", async () => {
+    let resolve!: (value: unknown) => void;
+    eligibilityMock.mockImplementation(() => new Promise(done => { resolve = done; }));
+    const onDropStay = vi.fn();
+    render(<HotelRoomBoard {...boardProps(snapshot([stay()]), "2026-08-13")} dateMode="TODAY" onDropStay={onDropStay} />);
+    fireEvent.click(screen.getByRole("button", {name:"감자 호실 이동 시작"}));
+    fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-room-1"));
+    expect(onDropStay).not.toHaveBeenCalled();
+    await act(async () => resolve({stayId:"stay-1", rooms:[{roomId:"room-1",eligible:false,recommended:false,reasonCode:"ROOM_INTERVAL_CONFLICT"}]}));
+    fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-room-1"));
+    expect(onDropStay).not.toHaveBeenCalled();
+    expect(eligibilityMock).toHaveBeenCalledTimes(1);
+    expect(eligibilityMock).toHaveBeenCalledWith("stay-1", "preassign");
+  });
+  it("does not fallback when the read RPC fails", async () => {
+    eligibilityMock.mockRejectedValue(new Error("offline"));
+    const onDropStay=vi.fn();
+    render(<HotelRoomBoard {...boardProps(snapshot([stay()]), "2026-08-13")} dateMode="TODAY" onDropStay={onDropStay} />);
+    await act(async () => fireEvent.click(screen.getByRole("button", {name:"감자 호실 이동 시작"})));
+    fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-room-1"));
+    expect(onDropStay).not.toHaveBeenCalled();
   });
 });

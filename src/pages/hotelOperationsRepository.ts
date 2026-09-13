@@ -599,3 +599,58 @@ export function updateHotelOperationSettings(
     p_request_id: requestId,
   });
 }
+
+export type SingleRoomEligibility = {
+  stayId: string;
+  stayVersion: number;
+  capacityId: string | null;
+  capacityVersion: number | null;
+  purpose: "preassign" | "actual_check_in";
+  evaluatedFrom: string | null;
+  evaluatedUntil: string | null;
+  reasonCode: string | null;
+  rooms: { roomId: string; roomName: string; roomTypeId: string; eligible: boolean; reasonCode: string | null; recommended: boolean }[];
+};
+export async function getHotelSingleRoomEligibility(stayId: string, purpose: SingleRoomEligibility["purpose"], effectiveAt: string | null = null) {
+  const result = await rpc<SingleRoomEligibility>("get_hotel_single_room_eligibility", {
+    p_hotel_stay_id: stayId, p_purpose: purpose, p_effective_at: effectiveAt,
+  });
+  if (result.stayId !== stayId || result.purpose !== purpose || !Array.isArray(result.rooms)
+    || result.rooms.some(room => typeof room.eligible !== "boolean" || typeof room.recommended !== "boolean")) {
+    throw new Error("객실 배정 가능 정보를 확인할 수 없습니다.");
+  }
+  return result;
+}
+export function checkInUnassignedHotelStay(stayId: string, stayVersion: number, capacityVersion: number, roomId: string, checkedInAt: string, requestId: string) {
+  return rpc<HotelStay>("check_in_unassigned_hotel_stay", {
+    p_hotel_stay_id: stayId, p_expected_version: stayVersion,
+    p_expected_capacity_version: capacityVersion, p_room_id: roomId,
+    p_checked_in_at: checkedInAt, p_request_id: requestId,
+  });
+}
+
+export type MissedCheckInEligibility = Omit<SingleRoomEligibility, "purpose"> & {
+  purpose: "historical_check_in_recovery";
+};
+
+export async function getHotelMissedCheckInEligibility(stayId: string, checkedInAt: string) {
+  const result = await rpc<MissedCheckInEligibility>("get_hotel_missed_check_in_eligibility", {
+    p_hotel_stay_id: stayId, p_checked_in_at: checkedInAt,
+  });
+  if (result.stayId !== stayId || result.purpose !== "historical_check_in_recovery"
+    || Date.parse(result.evaluatedFrom ?? "") !== Date.parse(checkedInAt)
+    || !Number.isInteger(result.stayVersion) || !Number.isInteger(result.capacityVersion)
+    || !Array.isArray(result.rooms) || result.rooms.some(room => typeof room.roomId !== "string"
+      || typeof room.eligible !== "boolean" || typeof room.recommended !== "boolean")) {
+    throw new Error("입실 기록 확인 결과가 일치하지 않습니다. 다시 조회해 주세요.");
+  }
+  return result;
+}
+
+export function recoverMissedHotelCheckIn(stayId: string, stayVersion: number, capacityVersion: number, roomId: string, checkedInAt: string, requestId: string) {
+  return rpc<HotelStay>("recover_missed_hotel_check_in", {
+    p_hotel_stay_id: stayId, p_expected_version: stayVersion,
+    p_expected_capacity_version: capacityVersion, p_room_id: roomId,
+    p_checked_in_at: checkedInAt, p_request_id: requestId,
+  });
+}

@@ -1,3 +1,7 @@
+import { HotelMissedCheckInRecoveryModal } from "./HotelMissedCheckInRecoveryModal";
+import { needsMissedCheckInRecovery } from "./hotelMissedCheckInRecovery";
+import { HotelSingleActualCheckInModal } from "./HotelSingleActualCheckInModal";
+import { checkInUnassignedHotelStay } from "./hotelOperationsRepository";
 import {HotelDateTransition} from './HotelDateTransition';
 import { fetchHistoricalBoard, type HistoricalBoard } from './hotelHistoricalBoardRepository';
 import { fetchCompletedSharedStays, type CompletedSharedStay } from "./sharedHotelHistoryRepository";
@@ -82,6 +86,7 @@ import {
   sharedHotelRoomRepository,
 } from "../platform/multiDogSharedRoomRepository";
 import {
+  recoverMissedHotelCheckIn,
   assignHotelRoom,
   cancelHotelReservation,
   changeRoomTypeAfterCheckIn,
@@ -1719,7 +1724,15 @@ export function HotelOperationsPage() {
             }
             void runStayMutation(() => moveHotelRoomSameType(detail.id, detail.version, roomId, moveAt, reason, requestId()), "객실 이동을 기록했습니다.");
           }} />
-          {hotelStayNeedsCheckInFinalization(detail) ? (
+          {!detailSharedOccupancy && needsMissedCheckInRecovery(detail) ? (
+            <HotelMissedCheckInRecoveryModal open={modal === "checkin"} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(at, roomId, version, capacityVersion, recoveryRequestId) => runStayMutation(
+              () => recoverMissedHotelCheckIn(detail.id, version, capacityVersion, roomId, at, recoveryRequestId), "실제 입실 기록을 복구했습니다.",
+            )} />
+          ) : !detail.checkedInAt && !activeHotelAllocation(detail) && detail.capacityReservation?.roomTypeId ? (
+            <HotelSingleActualCheckInModal open={modal === "checkin"} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(at, roomId, version, capacityVersion) => runStayMutation(
+              () => checkInUnassignedHotelStay(detail.id, version, capacityVersion, roomId, at, requestId()), "입실 완료로 처리했습니다.",
+            )} />
+          ) : hotelStayNeedsCheckInFinalization(detail) ? (
             <CheckInModal open={modal === "checkin"} snapshot={snapshot} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(completedAt, roomTypeId, roomId) => {
               void runStayMutation(
                 () => finalizeAndCompleteHotelCheckIn(detail.id, detail.version, completedAt, roomTypeId, roomId, requestId()),

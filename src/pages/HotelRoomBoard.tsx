@@ -1,3 +1,4 @@
+import { getHotelSingleRoomEligibility, type SingleRoomEligibility } from "./hotelOperationsRepository";
 import {RoomBoardMotion, RoomBoardCellFrame, RoomBoardDesktopGroup, RoomBoardMobileGroup, roomStageClass} from './HotelRoomBoardPresentation';
 import { HistoricalOccupants, HistoricalBoardWarning, historicalRoomPhase } from "./HotelHistoricalRoomGrid";
 import type { HistoricalBoard } from "./hotelHistoricalBoardRepository";
@@ -771,6 +772,7 @@ type CurrentRoomCellProps = {
   returningStayId: string | null;
   settlingStayId: string | null;
   hoveredRoomId: string | null;
+  preassignEligibility?: SingleRoomEligibility | null;
   recommended: boolean;
   settling: boolean;
   processing: boolean;
@@ -820,6 +822,7 @@ function RoomCell(props: CurrentRoomCellProps | HistoricalRoomCellProps) {
   settlingStayId,
   hoveredRoomId,
   recommended,
+  preassignEligibility,
   settling,
   processing,
   allowCrossTypeChange,
@@ -837,7 +840,9 @@ function RoomCell(props: CurrentRoomCellProps | HistoricalRoomCellProps) {
   mobile = false,
 } = props;
   const targetState = draggedStay
-    ? hotelRoomBoardRoomTarget(draggedStay, room, stays.length > 0 || Boolean(sharedOccupancy) || Boolean(daycareReservation))
+    ? (!activeHotelAllocation(draggedStay) && !draggedStay.checkedInAt
+      ? preassignEligibility?.rooms.find(r => r.roomId === room.id)?.eligible ? "same_type" : "blocked"
+      : hotelRoomBoardRoomTarget(draggedStay, room, stays.length > 0 || Boolean(sharedOccupancy) || Boolean(daycareReservation)))
     : "blocked";
   const occupied = stays.length > 0 || Boolean(sharedOccupancy) || Boolean(daycareReservation);
   const acceptsDraggedSharedGroup = Boolean(
@@ -1176,6 +1181,20 @@ export function HotelRoomBoard({
   );
   const draggedStay =
     boardStays.find((stay) => stay.id === draggedStayId) ?? null;
+  const [preassignResult, setPreassignResult] = useState<{key: string; data: SingleRoomEligibility} | null>(null);
+  const preassignKey = draggedStay && !draggedStay.checkedInAt && !activeHotelAllocation(draggedStay)
+    ? `${draggedStay.id}:${draggedStay.version}:${selectedDate}` : null;
+  useEffect(() => {
+    if (!preassignKey || !draggedStay || readOnly) return;
+    let current = true;
+    const stayId = draggedStay.id;
+    getHotelSingleRoomEligibility(stayId, "preassign").then(data => {
+      if (current) setPreassignResult({key: preassignKey, data});
+    }).catch(() => { if (current) setPreassignResult(null); });
+    return () => { current = false; };
+  }, [preassignKey, draggedStay, readOnly]);
+  const preassignEligibility = preassignKey && preassignResult?.key === preassignKey
+    ? preassignResult.data : null;
   const draggedSharedGroup =
     unassignedSharedGroups.find((group) => group.sharedRoomGroupId === draggedSharedGroupId) ?? null;
   const draggedSharedOccupancy =
@@ -1254,14 +1273,14 @@ export function HotelRoomBoard({
   }, [boardInstant, stays]);
   const recommendedRoomId = useMemo(
     () =>
-      draggedStay
+      preassignKey ? preassignEligibility?.rooms.find(r => r.recommended && r.eligible)?.roomId ?? null : draggedStay
         ? (hotelRoomBoardRecommendedRoom(
             draggedStay,
             activeRooms,
             occupiedRoomIds,
           )?.id ?? null)
         : null,
-    [activeRooms, draggedStay, occupiedRoomIds],
+    [activeRooms, draggedStay, occupiedRoomIds, preassignKey, preassignEligibility],
   );
   const beginPointerDrag = (stayId: string) => {
     dropCommittedRef.current = false;
@@ -1269,6 +1288,7 @@ export function HotelRoomBoard({
     draggedStayIdRef.current = stayId;
     draggedSharedGroupIdRef.current = null;
     draggedSharedOccupancyRef.current = null;
+    setPreassignResult(null);
     setDraggedStayId(stayId);
     setDraggedSharedGroupId(null);
     setDraggedSharedOccupancyId(null);
@@ -1288,6 +1308,7 @@ export function HotelRoomBoard({
     draggedStayIdRef.current = stayId;
     draggedSharedGroupIdRef.current = null;
     draggedSharedOccupancyRef.current = null;
+    setPreassignResult(null);
     setDraggedStayId(stayId);
     setDraggedSharedGroupId(null);
     setDraggedSharedOccupancyId(null);
@@ -1411,7 +1432,9 @@ export function HotelRoomBoard({
     const stay = boardStays.find((item) => item.id === stayId);
     const room = activeRooms.find((item) => item.id === roomId);
     if (!stay || !room) return;
-    const targetState = hotelRoomBoardRoomTarget(
+    const targetState = !stay.checkedInAt && !activeHotelAllocation(stay)
+      ? (preassignEligibility?.stayId === stay.id && preassignEligibility.rooms.some(r => r.roomId === room.id && r.eligible) ? "same_type" : "blocked")
+      : hotelRoomBoardRoomTarget(
       stay,
       room,
       (roomStays.get(room.id) ?? []).length > 0,
@@ -1445,11 +1468,13 @@ export function HotelRoomBoard({
       !stay ||
       !room ||
       processing ||
-      hotelRoomBoardRoomTarget(
-        stay,
-        room,
-        (roomStays.get(room.id) ?? []).length > 0,
-      ) === "blocked"
+      (!stay.checkedInAt && !activeHotelAllocation(stay)
+        ? !(preassignEligibility?.stayId === stay.id && preassignEligibility.rooms.some(r => r.roomId === room.id && r.eligible))
+        : hotelRoomBoardRoomTarget(
+          stay,
+          room,
+          (roomStays.get(room.id) ?? []).length > 0,
+        ) === "blocked")
     ) {
       return;
     }
@@ -1607,6 +1632,7 @@ export function HotelRoomBoard({
       daycareReservation={daycareByRoom.get(room.id) ?? null}
       staysById={staysById}
       selectedDate={selectedDate}
+      preassignEligibility={preassignEligibility}
       draggedStay={draggedStay}
       draggedSharedGroup={draggedSharedGroup}
       draggedSharedOccupancyId={draggedSharedOccupancyId}
