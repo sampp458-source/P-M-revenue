@@ -166,7 +166,8 @@ describe("dog profile audit and Customer Master connection", () => {
     expect(managementUi).toContain("프로필");
     expect(managementUi).toContain("보호자 수정");
     expect(managementUi).toContain("반려견 정보 수정");
-    expect(managementUi).toContain("관리 더보기");
+    expect(managementUi).not.toContain("관리 더보기");
+    expect(managementUi).toContain("반려견 정보 삭제");
     expect(managementUi).toContain(
       'title={editing?.id ? "반려견 수정" : "반려견 등록"}',
     );
@@ -207,21 +208,16 @@ describe("dog profile audit and Customer Master connection", () => {
     expect(managementUi).not.toContain('className="min-w-[1180px]"');
     expect(managementUi).toContain('className="divide-y divide-border xl:hidden"');
     expect(managementUi).toContain('<col className="w-[17%]" />');
-    expect(managementUi).toContain('<col className="w-[230px]" />');
+    expect(managementUi).toContain('<col className="w-[480px]" />');
     expect(managementUi).toContain(
       '<th className="px-3 text-center">관리</th>',
     );
     expect(managementUi).toContain('<td className="px-3 text-center">');
-    expect(managementUi).toContain(
-      "h-9 min-h-9 w-9 items-center justify-center",
-    );
-    expect(managementUi).toContain(
-      "mx-auto inline-flex w-fit items-center justify-center",
-    );
-    expect(managementUi).toContain(
-      "border-primary/25 bg-primary-subtle",
-    );
-    expect(managementUi).toContain("[&>svg]:block");
+    expect(managementUi).not.toContain('aria-haspopup="menu"');
+    expect(managementUi).toContain("flex flex-wrap items-center");
+    expect(managementUi).toContain("min-h-11");
+    expect(managementUi).toContain("border-error/20 bg-error-soft/30");
+    expect(managementUi).toContain("w-full pt-1 sm:w-auto sm:pt-0");
     expect(managementUi).toContain(
       "UI freeze: preserve this layout after the final polish; bug fixes only.",
     );

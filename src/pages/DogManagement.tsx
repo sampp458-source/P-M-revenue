@@ -7,7 +7,7 @@ import {
   type FormEvent,
 } from "react";
 import { DogDeleteModal } from "./DogDeleteModal";
-import { Eye, MoreHorizontal, Pencil, Plus } from "lucide-react";
+import { Eye, Pencil, Plus } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
@@ -198,114 +198,25 @@ function DogRowActions({
   onEditDog: () => void;
   onDelete: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handlePointerDown = (event: PointerEvent) => {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setOpen(false);
-      triggerRef.current?.focus();
-    };
-    const closeForViewportChange = () => setOpen(false);
-    document.addEventListener("pointerdown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("resize", closeForViewportChange);
-    window.addEventListener("scroll", closeForViewportChange, true);
-    return () => {
-      document.removeEventListener("pointerdown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("resize", closeForViewportChange);
-      window.removeEventListener("scroll", closeForViewportChange, true);
-    };
-  }, [open]);
-
   return (
-    <div className="mx-auto inline-flex w-fit items-center justify-center gap-1.5">
-      <Button
-        variant="secondary"
-        className="h-9 min-h-9 gap-1.5 rounded-lg border-primary/25 bg-primary-subtle px-[0.5625rem] py-1.5 text-xs text-primary hover:border-primary/40 hover:bg-primary-soft"
-        onClick={onOpenProfile}
-      >
-        <Eye size={15} />
-        프로필
+    <div role="group" aria-label={`${dog.name} 관리`} className="flex flex-wrap items-center justify-start gap-2 sm:justify-center">
+      <Button variant="secondary" className="gap-1.5 rounded-lg px-2.5 text-xs" onClick={onOpenProfile}>
+        <Eye size={15} />프로필
       </Button>
-      {owner && (
-        <Button
-          variant="secondary"
-          className="h-9 min-h-9 gap-1.5 rounded-lg px-[0.5625rem] py-1.5 text-xs"
-          onClick={onEditOwner}
-        >
-          <Pencil size={15} />
-          보호자 수정
-        </Button>
-      )}
-      <div ref={rootRef} className="relative">
-        <button
-          ref={triggerRef}
-          type="button"
-          aria-label={`${dog.name} 관리 더보기`}
-          aria-haspopup="menu"
-          aria-expanded={open}
-          onClick={() => {
-            if (!open) {
-              const rect = triggerRef.current?.getBoundingClientRect();
-              if (rect) {
-                setMenuPosition({
-                  top: rect.bottom + 6,
-                  right: Math.max(12, window.innerWidth - rect.right),
-                });
-              }
-            }
-            setOpen((value) => !value);
-          }}
-          className="inline-flex h-9 min-h-9 w-9 items-center justify-center rounded-lg border border-transparent p-0 leading-none text-text-secondary transition hover:border-primary/20 hover:bg-primary-soft hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 [&>svg]:block"
-        >
-          <MoreHorizontal size={18} />
-          <span className="sr-only">더보기</span>
-        </button>
-        {open && (
-          <div
-            role="menu"
-            aria-label={`${dog.name} 관리`}
-            style={menuPosition}
-            className="fixed z-[70] min-w-48 overflow-hidden rounded-xl border border-border bg-surface p-1.5 text-left shadow-lg"
-          >
-            {canEditDog && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onEditDog();
-                }}
-                className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-text-secondary transition hover:bg-surface-secondary hover:text-text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                반려견 정보 수정
-              </button>
-            )}
-            {canDeleteDog && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onDelete();
-                }}
-                className="mt-1 w-full border-t border-border px-3 py-2 pt-2.5 text-left text-sm font-semibold text-error transition hover:bg-error-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-error"
-              >
-                반려견 삭제
-              </button>
-            )}
-          </div>
-        )}
+      <div className="flex flex-wrap items-center gap-2">
+        {owner && <Button variant="secondary" className="gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-xs" onClick={onEditOwner}>
+          <Pencil size={15} />보호자 수정
+        </Button>}
+        {canEditDog && <Button variant="secondary" className="gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-xs" onClick={onEditDog}>
+          <Pencil size={15} />반려견 수정
+        </Button>}
       </div>
+      {canDeleteDog && <div className="w-full pt-1 sm:w-auto sm:pt-0">
+        <button type="button" onClick={onDelete}
+          className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg border border-error/20 bg-error-soft/30 px-2.5 py-2 text-xs font-medium text-error hover:border-error/40 hover:bg-error-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2">
+          반려견 정보 삭제
+        </button>
+      </div>}
     </div>
   );
 }
@@ -825,7 +736,7 @@ export function PetManagementPage() {
                   <col className="w-[14%]" />
                   <col className="w-[17%]" />
                   <col className="w-[7%]" />
-                  <col className="w-[230px]" />
+                  <col className="w-[480px]" />
                 </colgroup>
                 <thead>
                   <tr>
