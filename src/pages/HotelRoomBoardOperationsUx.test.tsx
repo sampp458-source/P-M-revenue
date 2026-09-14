@@ -814,12 +814,13 @@ it.each([false,true])('012 retains the same room node across TODAY/PAST/FUTURE (
 });
 
 describe("013 operational presentation", () => {
-  it("keeps one connected metric strip with the original labels and values", () => {
+  it("keeps a compact subordinate strip without a duplicate occupied KPI", () => {
     render(<HotelRoomBoard {...boardProps(snapshot([allocatedStay()]), "2026-08-14")} />);
     const strip = screen.getByLabelText("객실 운영 요약");
     expect(strip).toHaveClass("hotel-board-summary");
-    expect(strip.querySelectorAll("dt")).toHaveLength(5);
-    expect(within(strip).getByText("이용중").nextElementSibling).toHaveTextContent("1");
+    expect(strip.querySelectorAll("dt")).toHaveLength(3);
+    expect(within(strip).queryByText("이용중")).not.toBeInTheDocument();
+    expect(within(strip).getByText("빈방").nextElementSibling).toHaveTextContent("0");
     const room = screen.getByTestId("hotel-room-board-room-room-1");
     expect(within(room).getByText("감자")).toHaveClass("hotel-dog-name");
     expect(within(room).getByText("이용중")).toHaveClass("hotel-status");
@@ -953,7 +954,7 @@ describe('015 rooms-first operational frame', () => {
   });
 
   it('keeps depth selectors idle-only and summary distribution independent of metric count', () => {
-    const css = readFileSync('src/styles.css', 'utf8').split('/* 015:')[1];
+    const css = readFileSync('src/styles.css', 'utf8').split('/* 015:')[1].split('/* Hotel operations:')[0];
     expect(css).toContain('flex-wrap: nowrap');
     for (const state of ['occupied', 'empty']) {
       expect(css).toContain(`[data-room-content="${state}"]:not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55)`);
@@ -1032,4 +1033,32 @@ describe('015 supporting navigation', () => {
     fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-room-1"));
     expect(onDropStay).not.toHaveBeenCalled();
   });
+});
+
+it('retains the exact desktop empty room shell when allocation arrives or leaves', () => {
+  const media=vi.spyOn(window,'matchMedia').mockImplementation(q=>({matches:false,media:q,onchange:null,addListener:vi.fn(),removeListener:vi.fn(),addEventListener:vi.fn(),removeEventListener:vi.fn(),dispatchEvent:vi.fn()}));
+  const value=boardProps(snapshot([]),'2026-08-14');
+  const {rerender}=render(<HotelRoomBoard {...value}/>);
+  const cell=screen.getByTestId('hotel-room-board-room-room-1');
+  const parent=cell.parentElement;
+  expect(parent).toHaveClass('hotel-room-plate-layout');
+  expect(cell).toHaveAttribute('data-room-content','empty');
+  rerender(<HotelRoomBoard {...value} snapshot={snapshot([allocatedStay()])}/>);
+  expect(screen.getByTestId('hotel-room-board-room-room-1')).toBe(cell);
+  expect(cell.parentElement).toBe(parent);
+  expect(cell).toHaveAttribute('data-room-content','occupied');
+  rerender(<HotelRoomBoard {...value}/>);
+  expect(screen.getByTestId('hotel-room-board-room-room-1')).toBe(cell);
+  expect(cell).toHaveAttribute('data-room-content','empty');
+  media.mockRestore();
+});
+
+it('omits repeated room-type footer only inside a known-type occupied card, retaining actual/planned information and waiting type', () => {
+  render(<HotelRoomBoard {...boardProps(snapshot([allocatedStay()],[stay({id:'waiting-micro',dogName:'대기견'})]),'2026-08-14')}/>);
+  const occupied=screen.getByTestId('hotel-room-board-stay-stay-1');
+  expect(within(occupied).queryByText('DELUXE',{exact:true})).not.toBeInTheDocument();
+  expect(occupied).toHaveTextContent('감자');
+  expect(occupied).toHaveTextContent('실제 입실');
+  expect(occupied).toHaveTextContent('예정');
+  expect(within(screen.getByTestId('hotel-room-board-stay-waiting-micro')).getByText('DELUXE',{exact:true})).toBeInTheDocument();
 });

@@ -7,6 +7,7 @@ import { hotelRoomBoardDateMode, hotelRoomBoardDateCopy, FUTURE_ROOM_BOARD_NOTIC
 import { ChevronDown, Clock3, GripVertical, Sparkles } from "lucide-react";
 import {
   type DragEvent,
+  type ReactNode,
   type PointerEvent as ReactPointerEvent,
   useEffect,
   useId,
@@ -569,17 +570,18 @@ function DraggableStayCard({
                   : dogStatus.label}
               </span>
             </span>
+            {stay.checkedInAt ? <span className="hotel-actual-time"><small>실제 입실</small><time dateTime={stay.checkedInAt}>{seoulInputParts(stay.checkedInAt).date} {seoulInputParts(stay.checkedInAt).time}</time></span> : null}
             {phaseTime ? (
               <span className={cn("mt-0.5 flex min-w-0 items-center gap-1 truncate font-bold tabular-nums text-slate-800", mobile ? "text-xs leading-5" : "text-[11px]")}>
-                <Clock3 className="shrink-0" size={12} />
+                <Clock3 className="shrink-0" size={12} /><span className="hotel-planned-label">예정</span>
                 {variant === "waiting"
                   ? formatHotelScheduleTime(stay, "check_in")
                   : phaseTime}
               </span>
             ) : null}
-            <span className={cn("block truncate font-semibold text-slate-500", mobile ? "text-xs leading-5" : "text-[10px]")}>
+            {variant === "waiting" || unspecified.roomType || !["DELUXE", "STANDARD"].includes(roomType) ? <span className={cn("block truncate font-semibold text-slate-500", mobile ? "text-xs leading-5" : "text-[10px]")}>
               {unspecified.roomType ? "객실 유형 미정" : roomType}
-            </span>
+            </span> : null}
           </span>
         </button>
       </div>
@@ -1025,6 +1027,7 @@ function RoomCell(props: CurrentRoomCellProps | HistoricalRoomCellProps) {
 }
 
 export function HotelRoomBoard({
+  attention,
   completedSharedStays = [], completedSharedError, historicalBoard, historicalBoardError,
   dateMode: explicitDateMode,
   eventRoomProjections,
@@ -1050,6 +1053,7 @@ export function HotelRoomBoard({
   onUnassignSharedOccupancy: requestOnUnassignSharedOccupancy = () => undefined,
   allowCheckInReversal = false,
 }: {
+  attention?: ReactNode;
   completedSharedStays?: readonly CompletedSharedStay[]; completedSharedError?: string; historicalBoard?: HistoricalBoard; historicalBoardError?: string;
   eventRoomProjections?: HotelEventRoomProjections;
   dateMode?: HotelRoomBoardDateMode;
@@ -1753,41 +1757,24 @@ export function HotelRoomBoard({
               </p>
             </div>
           </div>
-          <dl className="hotel-board-summary mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5" aria-label={readOnly ? "선택일 투숙 요약" : "객실 운영 요약"}>
+          <div className="hotel-board-room-total"><span>{readOnly ? "선택일 사용 기록" : selectedDateIsToday ? "현재 배정·이용 객실" : "선택일 배정 계획"}</span><strong>{presentationOccupied.size}<small>실</small></strong><p>{readOnly ? "확인된 투숙 구간 기준 · 공실 여부를 의미하지 않습니다" : "사전 배정 포함 · 실제 투숙 여부는 각 객실에서 확인"}</p></div>
+          <dl className="hotel-board-summary hotel-board-pulse" aria-label={readOnly ? "선택일 투숙 요약" : "객실 운영 요약"}>
             {(readOnly ? [
-              ["투숙",historicalCount(),"border-emerald-200 bg-emerald-50 text-emerald-900"],
-              ["당일 입실",historicalCount("check_in"),"border-blue-200 bg-blue-50 text-blue-900"],
-              ["당일 퇴실",historicalCount("check_out"),"border-orange-200 bg-orange-50 text-orange-950"],
+              ["투숙견", historicalCount()],
+              ["당일 입실", historicalCount("check_in")],
+              ["당일 퇴실", historicalCount("check_out")],
             ] : [
-              ["빈방", boardSummary.empty, "border-slate-200 bg-slate-50 text-slate-700"],
-              ["이용중", boardSummary.inHouse, "border-emerald-200 bg-emerald-50 text-emerald-900"],
-              [
-                "미배정",
-                unassignedSharedGroupsUnavailable
-                  ? "확인 필요"
-                  : unassignedSharedGroupsLoading
-                    ? "확인 중"
-                    : boardSummary.unassigned,
-                "border-amber-200 bg-amber-50 text-amber-900",
-              ],
-              [selectedDateIsToday ? "오늘 입실" : "입실", boardSummary.checkIn, "border-blue-200 bg-blue-50 text-blue-900"],
-              [selectedDateIsToday ? "오늘 퇴실" : "퇴실", boardSummary.checkOut, "border-orange-200 bg-orange-50 text-orange-950"],
-            ]).map(([label, value, className]) => (
-              <div
-                key={label}
-                className={cn(
-                  "flex min-h-14 items-center justify-between rounded-xl border px-3 py-2",
-                  className as string,
-                )}
-              >
-                <dt className="text-xs font-bold">{label}</dt>
-                <dd data-board-content={`summary:${label}`} data-board-phase="summary" className={cn(
-                  "font-black tabular-nums",
-                  typeof value === "number" ? "text-lg" : "text-xs",
-                )}>{value}</dd>
+              ["빈방", boardSummary.empty],
+              [selectedDateIsToday ? "오늘 입실" : "입실", boardSummary.checkIn],
+              [selectedDateIsToday ? "오늘 퇴실" : "퇴실", boardSummary.checkOut],
+            ]).map(([label, value]) => (
+              <div key={label}>
+                <dt>{label}</dt>
+                <dd data-board-content={`summary:${label}`} data-board-phase="summary">{value}</dd>
               </div>
             ))}
           </dl>
+          {dateMode === "TODAY" ? attention : null}
           <nav className="hotel-board-support-links" aria-label="보조 운영 바로가기">
             {!readOnly ? <>
               <button type="button" data-active={boardSummary.unassigned > 0 || unassignedSharedGroupsUnavailable || undefined} aria-controls={`${supportId}-unassigned`} onClick={() => revealSupport(unassignedRef.current)}>
@@ -1871,8 +1858,8 @@ export function HotelRoomBoard({
 
                 return (
                   <RoomBoardMobileGroup key={roomTypeCode} type={roomTypeCode} summary={readOnly ? null : <>{occupied.length} 사용 / {empty.length} 빈방</>} expanded={expanded} onToggle={() => setMobileAccordionState(current => ({...current,[roomTypeCode]:!expanded}))}>
-                        <div className="grid grid-cols-2 gap-3">
-                          {rooms.map(room=>{const isOccupied=visibleOccupied.some(item=>item.id===room.id); const visible=isOccupied||visibleEmpty.some(item=>item.id===room.id);return <div key={room.id} hidden={!visible} style={{order:isOccupied?0:1}} className={isOccupied?"col-span-2":"col-span-1"}>{renderRoomCell(room,true)}</div>;})}
+                        <div className="hotel-room-mobile-slots grid grid-cols-3 gap-2">
+                          {rooms.map(room=>{const isOccupied=visibleOccupied.some(item=>item.id===room.id); const visible=isOccupied||visibleEmpty.some(item=>item.id===room.id);return <div key={room.id} hidden={!visible} style={{order:isOccupied?0:1}} data-room-slot={isOccupied?"occupied":"empty"} className={isOccupied?"col-span-3":"col-span-1"}>{renderRoomCell(room,true)}</div>;})}
                         </div>
                         {!visibleOccupied.length && !visibleEmpty.length ? (
                           <p className="rounded-xl bg-slate-50 px-3 py-4 text-center text-xs font-medium text-text-muted">선택한 상태의 객실이 없습니다.</p>

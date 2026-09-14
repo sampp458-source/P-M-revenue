@@ -504,12 +504,12 @@ describe("Hotel Room Board", () => {
     expect(page).toContain("isHotelSettingsManager && snapshot.settings");
   });
 
-  it("keeps the physical room order in one fixed row per room type", () => {
+  it("keeps keyed room shells in one presentation parent per room type", () => {
     const board = readFileSync(resolve(import.meta.dirname, "./HotelRoomBoard.tsx"), "utf8");
     const presentation = readFileSync(resolve(import.meta.dirname, "./HotelRoomBoardPresentation.tsx"), "utf8");
     expect(board).toContain("<RoomBoardDesktopGroup");
-    expect(presentation).toContain("min-w-[720px] grid-cols-6");
-    expect(presentation).toContain("min-w-[600px] grid-cols-5");
+    expect(presentation).toContain("hotel-room-plate-layout");
+    expect(board).toContain("rooms.map(room => renderRoomCell(room))");
     expect(board).not.toContain("2xl:grid-cols-6");
     expect(board).toContain('className="hotel-board-surface mb-6 overflow-hidden"');
   });
@@ -587,7 +587,7 @@ describe("Hotel Room Board", () => {
     const page = readFileSync(resolve(import.meta.dirname, "./HotelOperations.tsx"), "utf8");
     expect(board).toContain("hotelRoomBoardDateCopy[dateMode].title");
     expect(board).toContain('["빈방", boardSummary.empty');
-    expect(board).toContain('["이용중", boardSummary.inHouse');
+    expect(board).not.toContain('["이용중", boardSummary.inHouse');
     expect(board).toContain('unassignedSharedGroupsUnavailable');
     expect(board).toContain('? "확인 필요"');
     expect(board).toContain(': boardSummary.unassigned');

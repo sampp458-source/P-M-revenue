@@ -13,9 +13,9 @@ it("invalidates old actual-time results and requires explicit room selection",as
  read.mockResolvedValue(response);
  const submit=vi.fn().mockResolvedValue(undefined);
  render(<HotelSingleActualCheckInModal open stay={stay} processing={false} onClose={()=>{}} onSubmit={submit}/>);
- await screen.findByRole("option",{name:/합성 호실/});
+ await screen.findByRole("button",{name:/합성 호실/});
  expect(screen.getByRole("button",{name:"입실 확정"})).toBeDisabled();
- fireEvent.change(screen.getByLabelText("입실 객실"),{target:{value:"room"}});
+ fireEvent.click(screen.getByRole("button",{name:/합성 호실/}));
  await act(async()=>fireEvent.click(screen.getByRole("button",{name:"입실 확정"})));
  expect(submit).toHaveBeenCalledWith(expect.any(String),"room",3,7);
 });
@@ -27,7 +27,7 @@ it("discards a stale response after time change; no current-room fallback",async
  fireEvent.change(container.querySelector('input[type="datetime-local"]')!,{target:{value:"2002-01-01T09:51"}});
  await waitFor(()=>expect(pending).toHaveLength(2));
  await act(async()=>pending[0](response));
- expect(screen.queryByRole("option",{name:/합성 호실/})).not.toBeInTheDocument();
+ expect(screen.queryByRole("button",{name:/합성 호실/})).not.toBeInTheDocument();
  await act(async()=>pending[1]({...response,rooms:[]}));
  expect(screen.getByRole("button",{name:"입실 확정"})).toBeDisabled();
 });
@@ -35,7 +35,7 @@ it("synchronously locks double submit until completion",async()=>{
  read.mockResolvedValue(response);let finish!:()=>void;
  const submit=vi.fn(()=>new Promise<void>(resolve=>{finish=resolve;}));
  const {container}=render(<HotelSingleActualCheckInModal open stay={stay} processing={false} onClose={()=>{}} onSubmit={submit}/>);
- await screen.findByRole("option",{name:/합성 호실/});
+ await screen.findByRole("button",{name:/합성 호실/});
  fireEvent.change(screen.getByLabelText("입실 객실"),{target:{value:"room"}});
  fireEvent.submit(container.querySelector('form')!);fireEvent.submit(container.querySelector('form')!);
  expect(submit).toHaveBeenCalledTimes(1);
@@ -50,7 +50,7 @@ function deferredReads() {
 function expectLoadingLocked(container: HTMLElement, submit: ReturnType<typeof vi.fn>) {
  expect(screen.getByLabelText("입실 객실")).toBeDisabled();
  expect(screen.getByRole("button", {name:"입실 확정"})).toBeDisabled();
- expect(screen.queryByRole("option", {name:/합성 호실/})).not.toBeInTheDocument();
+ expect(screen.queryByRole("button", {name:/합성 호실/})).not.toBeInTheDocument();
  expect(screen.getByRole("status")).toHaveTextContent("객실 확인 중");
  fireEvent.submit(container.querySelector("form")!);
  expect(submit).not.toHaveBeenCalled();

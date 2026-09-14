@@ -27,7 +27,7 @@ it("never prefills actual time or queries from planned/current time; explicit co
  read.mockResolvedValue(response); const {submit}=view();
  expect(screen.getByLabelText("실제 입실 일시")).toHaveValue(""); expect(read).not.toHaveBeenCalled();
  expect(screen.getByRole("button",{name:"입실 기록 복구"})).toBeDisabled();
- setTime(A); await screen.findByRole("option",{name:/합성 호실/});
+ setTime(A); await screen.findByRole("button",{name:/합성 호실/});
  expect(read).toHaveBeenCalledWith(stay.id,"2002-01-01T00:51:00.000Z");
  fireEvent.change(screen.getByLabelText("입실 객실"),{target:{value:"room"}});
  expect(screen.getByRole("button",{name:"입실 기록 복구"})).toBeDisabled();
@@ -56,7 +56,7 @@ it("retry generation rejects stale responses and errors without room fallback",a
  await act(async()=>pending[2].resolve(response));expect(screen.getByLabelText("입실 객실")).toBeEnabled();
 });
 it("requires new confirmation after room/time changes and disables a closed recovery window",async()=>{
- read.mockResolvedValue(response);view();setTime(A);await screen.findByRole("option",{name:/합성 호실/});chooseAndConfirm();
+ read.mockResolvedValue(response);view();setTime(A);await screen.findByRole("button",{name:/합성 호실/});chooseAndConfirm();
  read.mockResolvedValue({...response,reasonCode:"RECOVERY_WINDOW_CLOSED",rooms:[{...response.rooms[0],eligible:false,recommended:false}]});
  setTime(B);await screen.findByRole("alert");expect(screen.getByRole("alert")).toHaveTextContent("종료");
  expect(screen.getByLabelText("입실 객실")).toBeDisabled();expect(screen.getByRole("button",{name:"입실 기록 복구"})).toBeDisabled();
@@ -64,13 +64,13 @@ it("requires new confirmation after room/time changes and disables a closed reco
 it("synchronous submit lock and response-loss retry reuse the same request identity",async()=>{
  read.mockResolvedValue(response);let finish!:(v:boolean)=>void;
  const submit=vi.fn(()=>new Promise<boolean>(resolve=>{finish=resolve;}));const {container}=view(submit);
- setTime(A);await screen.findByRole("option",{name:/합성 호실/});chooseAndConfirm();
+ setTime(A);await screen.findByRole("button",{name:/합성 호실/});chooseAndConfirm();
  fireEvent.submit(container.querySelector('form')!);fireEvent.submit(container.querySelector('form')!);expect(submit).toHaveBeenCalledTimes(1);
- const id=submit.mock.calls[0];await act(async()=>finish(false));await screen.findByRole("option",{name:/합성 호실/});chooseAndConfirm();
+ const id=submit.mock.calls[0];await act(async()=>finish(false));await screen.findByRole("button",{name:/합성 호실/});chooseAndConfirm();
  fireEvent.submit(container.querySelector('form')!);expect(submit.mock.calls[1]).toEqual(id);await act(async()=>finish(false));
 });
 it("stay/version changes invalidate current results",async()=>{
- read.mockResolvedValue(response);const {rerender}=view();setTime(A);await screen.findByRole("option",{name:/합성 호실/});
+ read.mockResolvedValue(response);const {rerender}=view();setTime(A);await screen.findByRole("button",{name:/합성 호실/});
  rerender(<HotelMissedCheckInRecoveryModal open stay={{...stay,version:4}} processing={false} onClose={()=>{}} onSubmit={vi.fn()}/>);
  await screen.findByRole("alert");expect(screen.getByLabelText("입실 객실")).toBeDisabled();
 });
@@ -85,7 +85,7 @@ it("checkout time unspecified routes to recovery, not finalize; today/allocated/
 });
 it("releases submit lock on exception without assuming success",async()=>{
  read.mockResolvedValue(response);const submit=vi.fn().mockRejectedValue(new Error("response lost"));view(submit);
- setTime(A);await screen.findByRole("option",{name:/합성 호실/});chooseAndConfirm();
+ setTime(A);await screen.findByRole("button",{name:/합성 호실/});chooseAndConfirm();
  await act(async()=>fireEvent.click(screen.getByRole("button",{name:"입실 기록 복구"})));
  expect(screen.getByRole("alert")).toHaveTextContent("결과를 확인하지 못했습니다");
  expect(screen.getByLabelText("실제 입실 일시")).toBeEnabled();

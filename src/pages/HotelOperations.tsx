@@ -1,3 +1,7 @@
+import { HistoricalBoardWarning } from "./HotelHistoricalRoomGrid";
+import { HotelOperationsWorkspace } from "./HotelOperationsWorkspace";
+import { HotelAttentionQueue } from "./HotelAttentionQueue";
+import { HotelDayOperationsTimeline, type HotelTimelineItem } from "./HotelDayOperationsTimeline";
 import { HotelMissedCheckInRecoveryModal } from "./HotelMissedCheckInRecoveryModal";
 import { needsMissedCheckInRecovery } from "./hotelMissedCheckInRecovery";
 import { HotelSingleActualCheckInModal } from "./HotelSingleActualCheckInModal";
@@ -55,7 +59,7 @@ import {
   SettingsModal,
   canChangeCheckedInHotelPlannedCheckout,
 } from "./HotelOperationsModals";
-import { HotelRoomBoard } from "./HotelRoomBoard";
+import { HotelRoomBoard, hotelRoomBoardUnassigned } from "./HotelRoomBoard";
 import {
   hotelStayRoomUnassignMode,
   sharedHotelOccupancyRoomUnassignMode,
@@ -1361,8 +1365,28 @@ export function HotelOperationsPage() {
     ? existingStaySharedRoomCandidates(detail, allSnapshotStays(), sharedOccupancies)
     : [];
 
+  const workspaceStays = [...new Map([...allSnapshotStays(), ...sharedMemberStays].map(stay => [stay.id, stay])).values()];
+  const sharedIds = new Set([...sharedOccupancies.flatMap(group => group.members.map(member => member.hotelStayId)), ...unassignedSharedGroups.flatMap(group => group.dogMembers.map(member => member.hotelStayId))]);
+  const attentionItems = isPast ? [] : hotelRoomBoardUnassigned(workspaceStays.filter(stay => !sharedIds.has(stay.id))).map(stay => ({
+    id: stay.id, name: stay.dogName,
+    reason: needsMissedCheckInRecovery(stay) ? "입실 기록 확인 · 실제 도착 여부 확인" : "호실 미배정 · 예약 상세 확인",
+    onOpen: () => void openStay(stay.id),
+  })).concat(isPast ? [] : unassignedSharedGroups.filter(group => group.dogMembers.length > 0).map(group => ({
+    id: group.sharedRoomGroupId,
+    name: group.dogMembers.map(member => member.dogName).join(" · "),
+    reason: "함께 투숙 · 호실 미배정",
+    onOpen: () => void openStay(group.dogMembers[0].hotelStayId),
+  })));
+  const dayItems: HotelTimelineItem[] = workspaceStays.flatMap(stay => stay.scheduleEvents.filter(event => seoulInputParts(event.schedule.startsAt).date === selectedDate).map(event => ({
+    id: event.schedule.id, at: event.schedule.startsAt, timeUnspecified: event.schedule.timeUnspecified, name: stay.dogName,
+    detail: event.eventKind === "check_in" ? "입실 일정" : "퇴실 일정",
+    status: event.schedule.status === "completed" ? "완료" : event.schedule.status === "cancelled" ? "취소" : "예정",
+    kind: event.eventKind, onOpen: () => void openStay(stay.id),
+  })));
+
   return (
     <>
+      <div className="hotel-command-heading"><span className="hotel-operation-eyebrow">P&M · HOTEL OPERATIONS</span>
       <PageHeader
         title="호텔 운영"
         description={hotelRoomBoardDateCopy[dateMode].description}
@@ -1380,6 +1404,7 @@ export function HotelOperationsPage() {
         ) : undefined}
       />
 
+      </div>
       <div className="hotel-date-controls mb-3 flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-border bg-surface px-3 py-2.5 shadow-sm sm:px-4">
         <Field label="운영 날짜">
           <Input
@@ -1404,7 +1429,12 @@ export function HotelOperationsPage() {
       </div>
 
       <HotelDateTransition date={selectedDate} ready={presentationReady} error={presentationError || (!isValidHotelSnapshotDate(selectedDate) ? "운영 날짜를 확인해 주세요." : undefined)} onRetry={retryPresentation} retryInFlight={retryInFlight}>
-      <HotelRoomBoard
+      <HotelOperationsWorkspace
+        attentionCount={isPast ? new Set(currentSharedReads?.history?.unavailable.map(item => item.stayId) ?? []).size : attentionItems.length}
+        attention={isPast ? (currentSharedReads?.history?.unavailable.length ? <HistoricalBoardWarning history={currentSharedReads.history} onOpenStay={id => void openStay(id)} /> : <p className="hotel-attention-empty">선택일에 확인 필요로 반환된 기록이 없습니다. 전체 이력 검증 완료를 의미하지 않습니다.</p>) : <HotelAttentionQueue items={attentionItems} disabled={!presentationReady || processing} showEmpty />}
+        schedule={<HotelDayOperationsTimeline items={dayItems} />}
+        rooms={<HotelRoomBoard
+        attention={<HotelAttentionQueue items={attentionItems} disabled={!presentationReady || processing} />}
         completedSharedStays={currentSharedReads?.completed}
         completedSharedError={currentSharedReads?.error}
         historicalBoard={currentSharedReads?.history}
@@ -1434,8 +1464,8 @@ export function HotelOperationsPage() {
         onCancelSharedGroup={setCancelSharedGroupId}
         onUnassignStay={requestUnassignRoom}
         onUnassignSharedOccupancy={requestUnassignSharedOccupancy}
-      />
-
+      />}
+        modules={<>
       {!isPast ? <DaycareOperationsPanel
         reservations={daycareReservations}
         snapshot={snapshot}
@@ -1451,6 +1481,9 @@ export function HotelOperationsPage() {
         operationRole={operationRole}
         selectedBusinessDate={selectedDate}
         onHotelSnapshotRefresh={() => loadSnapshot(selectedDate)}
+      />
+
+        </>}
       />
 
       <SharedHotelRoomModal

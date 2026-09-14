@@ -97,7 +97,7 @@ function RoomSelectModal({
   return (
     <Modal open={open} title={title} description={`${stay.dogName} · ${activeHotelAllocation(stay)?.roomName ?? "호실 미배정"}`} onClose={onClose} resetKey={stay.id} size="medium">
       <form
-        className="space-y-5"
+        className="hotel-operation-form space-y-5"
         onSubmit={(event) => {
           event.preventDefault();
           if (roomId) onSubmit(roomId, reason.trim());
@@ -235,7 +235,7 @@ function CompletionModal({
   return (
     <Modal open={open} title={title} description={`${stay.dogName} · ${activeHotelAllocation(stay)?.roomName ?? "호실 미배정"}`} onClose={onClose} resetKey={stay.id} size="small">
       <form
-        className="space-y-5"
+        className="hotel-operation-form space-y-5"
         onSubmit={(event) => {
           event.preventDefault();
           const [date, time] = completedAt.split("T");
@@ -311,7 +311,7 @@ export function CheckInModal({
   return (
     <Modal open={open} title="입실 확정 및 완료" description={`${stay.dogName} · ${activeHotelAllocation(stay)?.roomName ?? "호실 미배정"}`} onClose={onClose} resetKey={stay.id} size="medium">
       <form
-        className="space-y-5"
+        className="hotel-operation-form space-y-5"
         onSubmit={(event) => {
           event.preventDefault();
           const [date, time] = completedAt.split("T");
@@ -402,7 +402,7 @@ export function PlannedCheckoutChangeModal({
   return (
     <Modal open={open} title="퇴실 예정 변경" description={`${stay.dogName} · ${activeHotelAllocation(stay)?.roomName ?? "호실 미배정"}`} onClose={onClose} resetKey={stay.id} size="medium">
       <form
-        className="space-y-5"
+        className="hotel-operation-form space-y-5"
         onSubmit={(event) => {
           event.preventDefault();
           if (!checkOutDate || (!timeUnspecified && !checkOutTime)) return;
@@ -497,7 +497,7 @@ export function SettingsModal({
   return (
     <Modal open={open} title="호텔 운영 기본 시간" onClose={onClose}>
       <form
-        className="space-y-5"
+        className="hotel-operation-form space-y-5"
         onSubmit={(event) => {
           event.preventDefault();
           onSubmit(checkIn, checkOut);

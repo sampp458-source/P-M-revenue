@@ -83,7 +83,7 @@ describe('010 actual-use room grid',()=>{
   fireEvent.click(screen.getByRole('button',{name:/합성동반견.*당일 입실/}));expect(open).toHaveBeenCalledWith('stay-2');
   expect(document.querySelector('[draggable="true"]')).toBeNull();
   const group=screen.getByRole('region',{name:mobile?'DELUXE 모바일 Room Board':'DELUXE Room Board'});
-  expect(group.querySelector(mobile?'.grid-cols-1':'.grid-cols-6')).not.toBeNull();
+  expect(group.querySelector(mobile?'.grid-cols-1':'.hotel-room-plate-layout')).not.toBeNull();
  });
 
 });

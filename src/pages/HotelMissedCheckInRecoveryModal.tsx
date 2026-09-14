@@ -1,3 +1,5 @@
+import { HotelEligibleRoomSurface } from "./HotelEligibleRoomSurface";
+import { HotelOperationJourney } from "./HotelOperationJourney";
 import { useEffect, useRef, useState } from "react";
 import { Button, Field, Input, Modal, ModalActions, Select } from "../components/ui";
 import { getHotelMissedCheckInEligibility, type HotelStay, type MissedCheckInEligibility } from "./hotelOperationsRepository";
@@ -48,8 +50,8 @@ export function HotelMissedCheckInRecoveryModal({ open, stay, processing, onClos
   const busy = processing || submitting;
   const allowed = selected && data?.reasonCode == null && data?.capacityVersion && confirmed;
   const queryError = current?.error ?? (current?.data && !data ? "예약이 변경되었습니다. 상세를 다시 열어 최신 상태를 확인해 주세요." : null);
-  return <Modal open={open} title="누락된 입실 기록 복구" description={stay.dogName} onClose={busy ? () => {} : onClose} resetKey={stay.id}>
-    <form onSubmit={async event => {
+  return <Modal size="medium" open={open} title="누락된 입실 기록 복구" description={stay.dogName} onClose={busy ? () => {} : onClose} resetKey={stay.id}>
+    <form className="hotel-operation-form" onSubmit={async event => {
       event.preventDefault();
       if (lock.current || busy || !allowed || !data?.capacityVersion || current?.generation !== generation.current) return;
       const [date, clock] = time.split("T");
@@ -61,13 +63,16 @@ export function HotelMissedCheckInRecoveryModal({ open, stay, processing, onClos
       catch { setSubmitError("복구 결과를 확인하지 못했습니다. 상태를 다시 조회해 주세요."); }
       finally { lock.current = false; setSubmitting(false); invalidate(); setRevision(n => n + 1); }
     }}>
+      <HotelOperationJourney timeReady={Boolean(time)} roomReady={Boolean(selected && data?.reasonCode == null)} recovery />
       <p className="mb-3 text-sm text-text-secondary">입실 예정: {formatHotelScheduleTime(stay, "check_in")} · 참고 정보이며 실제 입실 시각으로 자동 기록하지 않습니다.</p>
       <p className="mb-3 text-sm text-text-secondary">실제로 도착한 시각을 입력해 주세요. 예약 기간과 예정 일정은 유지됩니다. 기존 객실 확보 기간이 끝나기 전까지만 복구할 수 있습니다.</p>
-      <Field label="실제 입실 일시" required><Input aria-label="실제 입실 일시" type="datetime-local" required value={time} disabled={busy} onChange={e => { invalidate(); setTime(e.target.value); }} /></Field>
+      <div className="hotel-confirmed-time"><span className="hotel-operation-eyebrow">01 / ACTUAL TIME</span><Field label="실제 입실 일시" required><Input aria-label="실제 입실 일시" type="datetime-local" required value={time} disabled={busy} onChange={e => { invalidate(); setTime(e.target.value); }} /></Field><small>한국시간 · 실제 도착 시각을 확인해 주세요.</small></div>
+      <HotelEligibleRoomSurface rooms={data?.rooms ?? []} selectedId={roomId} disabled={busy || !data || data.reasonCode != null} onSelect={(id) => { setRoomId(id); setConfirmed(false); }}>
       <Field label="입실 객실" required><Select aria-label="입실 객실" value={roomId} disabled={busy || !data || data.reasonCode != null} onChange={e => { setRoomId(e.target.value); setConfirmed(false); }}>
         <option value="">객실 선택</option>
         {data?.rooms.map(room => <option key={room.roomId} value={room.roomId} disabled={!room.eligible}>{room.roomName}{!room.eligible ? " · 배정 불가" : room.recommended ? " · 추천" : ""}</option>)}
       </Select></Field>
+      </HotelEligibleRoomSurface>
       {!time ? <p role="status">실제 입실 일시를 직접 입력해 주세요.</p> : !current ? <p role="status">객실 확인 중...</p> : null}
       {submitError ? <p role="alert">{submitError}</p> : null}
       {queryError || data?.reasonCode ? <p role="alert">{queryError ?? reasonMessages[data!.reasonCode!] ?? "현재 예약 상태로 복구할 수 없습니다. 예약 정보를 확인해 주세요."}</p> : null}

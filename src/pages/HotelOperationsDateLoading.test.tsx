@@ -13,12 +13,12 @@ vi.mock('./daycareOperationsRepository',async original=>({...await original<type
 vi.mock('./operationsScheduleRepository',async original=>({...await original<typeof import('./operationsScheduleRepository')>(),seoulDateKey:()=> '2032-01-03',fetchOperationScheduleOptions:async()=>({calendars:[],scheduleTypes:[],assignees:[],customers:[],dogs:[]}),fetchCurrentOperationRole:async()=> 'admin'}));
 vi.mock('./LongStayOperationsPanel',()=>({LongStayOperationsPanel:()=>null}));
 vi.mock('./DaycareOperationsPanel',()=>({DaycareOperationsPanel:()=>null}));
-vi.mock('./HotelRoomBoard',()=>({HotelRoomBoard:({selectedDate,dateMode,historicalBoard}:{selectedDate:string;dateMode:string;historicalBoard?:{selectedDate:string}})=><p data-testid="loaded-board">{selectedDate} / {dateMode} / {historicalBoard?.selectedDate}</p>}));
+vi.mock('./HotelRoomBoard',async (importOriginal)=>({...await importOriginal<typeof import('./HotelRoomBoard')>(),HotelRoomBoard:({selectedDate,dateMode,historicalBoard}:{selectedDate:string;dateMode:string;historicalBoard?:{selectedDate:string}})=><p data-testid="loaded-board">{selectedDate} / {dateMode} / {historicalBoard?.selectedDate}</p>}));
 import {HotelOperationsPage} from './HotelOperations';
 const snapshot=(date:string)=>({date,roomTypes:[],rooms:[],settings:null,stays:[],unassignedFuture:[]});
 function deferred<T>() {let resolve!:(v:T)=>void;let reject!:(e:Error)=>void;const promise=new Promise<T>((r,j)=>{resolve=r;reject=j;});return {promise,resolve,reject};}
 afterEach(()=>{cleanup();vi.clearAllMocks();});
-beforeEach(()=>{m.snapshot.mockImplementation(async date=>snapshot(date));m.history.mockImplementation(async date=>({selectedDate:date}));m.completed.mockResolvedValue([]);m.event.mockResolvedValue(new Map());m.shared.mockResolvedValue([]);m.unassigned.mockResolvedValue([]);m.daycare.mockResolvedValue([]);});
+beforeEach(()=>{m.snapshot.mockImplementation(async date=>snapshot(date));m.history.mockImplementation(async date=>({selectedDate:date,unavailable:[]}));m.completed.mockResolvedValue([]);m.event.mockResolvedValue(new Map());m.shared.mockResolvedValue([]);m.unassigned.mockResolvedValue([]);m.daycare.mockResolvedValue([]);});
 it('waits for matching date evidence and makes only one historical call per completed date load',async()=>{
  render(<MemoryRouter><HotelOperationsPage/></MemoryRouter>);
  await waitFor(()=>expect(screen.getByTestId('loaded-board')).toHaveTextContent('2032-01-03 / TODAY'));
@@ -49,12 +49,12 @@ it('ignores late older snapshot responses during rapid selection',async()=>{
 });
 it('keeps the previous board until historical evidence arrives and preserves it on history failure',async()=>{
  render(<MemoryRouter><HotelOperationsPage/></MemoryRouter>);await screen.findByTestId('loaded-board');
- const historyPending=deferred<{selectedDate:string}>();m.history.mockReturnValueOnce(historyPending.promise);
+ const historyPending=deferred<{selectedDate:string;unavailable:never[]}>();m.history.mockReturnValueOnce(historyPending.promise);
  const input=screen.getByLabelText('운영 날짜');fireEvent.change(input,{target:{value:'2032-01-01'}});
  await waitFor(()=>expect(m.history).toHaveBeenCalledWith('2032-01-01'));
  expect(screen.getByTestId('loaded-board')).toHaveTextContent('2032-01-03 / TODAY');
  expect(screen.getByLabelText('운영 날짜')).toBe(input);
- await act(async()=>historyPending.resolve({selectedDate:'2032-01-01'}));
+ await act(async()=>historyPending.resolve({selectedDate:'2032-01-01',unavailable:[]}));
  await waitFor(()=>expect(screen.getByTestId('loaded-board')).toHaveTextContent('2032-01-01 / PAST'));
  m.history.mockRejectedValueOnce(new Error('synthetic failure'));
  fireEvent.change(input,{target:{value:'2032-01-02'}});
@@ -89,7 +89,7 @@ it.each(['success','history_failure','snapshot_failure'] as const)('locks repeat
  fireEvent.change(screen.getByLabelText('운영 날짜'),{target:{value:'2032-01-01'}});
  const retry=await screen.findByRole('button',{name:'다시 시도'});
  const baseCount=m.snapshot.mock.calls.length,historyCount=m.history.mock.calls.length;
- const pending=deferred<ReturnType<typeof snapshot>>(),historyPending=deferred<{selectedDate:string}>(),eventPending=deferred<Map<string,never>>();
+ const pending=deferred<ReturnType<typeof snapshot>>(),historyPending=deferred<{selectedDate:string;unavailable:never[]}>(),eventPending=deferred<Map<string,never>>();
  m.snapshot.mockReturnValueOnce(pending.promise);
  if(outcome!=='snapshot_failure')m.history.mockReturnValueOnce(historyPending.promise);
  if(outcome==='success')m.event.mockReturnValueOnce(eventPending.promise);
@@ -107,7 +107,7 @@ it.each(['success','history_failure','snapshot_failure'] as const)('locks repeat
   fireEvent.click(screen.getByRole('button',{name:'재시도 중…'}));expect(m.snapshot).toHaveBeenCalledTimes(baseCount+1);
   if(outcome==='history_failure')await act(async()=>historyPending.reject(new Error('retry historical failure')));
   else{
-   await act(async()=>historyPending.resolve({selectedDate:'2032-01-01'}));
+   await act(async()=>historyPending.resolve({selectedDate:'2032-01-01',unavailable:[]}));
    expect(screen.getByRole('button',{name:'재시도 중…'})).toBeDisabled();
    await act(async()=>eventPending.resolve(new Map<string,never>()));
   }
@@ -136,4 +136,13 @@ it('012 A→B→C→D starts follow-up reads only for the final completed genera
  await act(async()=>{pending[0].resolve(snapshot(pending[0].date));pending[1].resolve(snapshot(pending[1].date));});
  expect(screen.getByTestId('loaded-board')).toHaveTextContent(pending[2].date);
  expect(m.history.mock.calls.map(call=>call[0])).toEqual([pending[2].date]);expect(m.event).toHaveBeenCalledTimes(eventBefore+1);
+});
+
+it('keeps the completed Shared summary separate from timestamped workspace schedules',async()=>{
+ m.completed.mockResolvedValue([{id:'completed-shared',dogName:'완료견',checkedOutAt:'2032-01-03T01:00:00Z',scheduleEvents:[{eventKind:'check_out',schedule:{id:'checkout-event'}}]}]);
+ render(<MemoryRouter><HotelOperationsPage/></MemoryRouter>);
+ await waitFor(()=>expect(screen.getByTestId('hotel-date-presentation')).not.toHaveAttribute('inert'));
+ expect(screen.getByTestId('loaded-board')).toHaveTextContent('2032-01-03 / TODAY');
+ expect(screen.getByText('선택한 날짜에 표시할 일정이 없습니다.')).toBeInTheDocument();
+ expect(m.completed).toHaveBeenCalledTimes(1);expect(m.snapshot).toHaveBeenCalledTimes(1);
 });

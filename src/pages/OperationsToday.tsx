@@ -1303,6 +1303,7 @@ function ScheduleRow({
   return (
     <button
       type="button"
+      data-operation-card="schedule"
       aria-label={`${operationScheduleDisplayTitle(schedule)} 일정 상세 보기`}
       onClick={onOpen}
       className={cn(

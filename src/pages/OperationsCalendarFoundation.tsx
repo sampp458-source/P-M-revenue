@@ -1,11 +1,10 @@
+import { HotelDayOperationsTimeline } from "./HotelDayOperationsTimeline";
 import {
   CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   Plus,
-  UserRound,
   X,
 } from "lucide-react";
 import {
@@ -19,7 +18,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
-  Badge,
   Button,
   ErrorState,
   LoadingState,
@@ -52,7 +50,6 @@ import {
   attachOperationAssigneeColors,
   canManageOperationSchedule,
   compactDogNames,
-  compactNames,
   defaultOperationCalendarId,
   defaultOperationScheduleTypeId,
   fetchCurrentOperationRole,
@@ -66,6 +63,7 @@ import {
   nextSeoulDate,
   operationPersonColor,
   operationScheduleDisplayTitle,
+  operationScheduleHotelRoomLabel,
   operationScheduleTimeLabel,
   schedulePrimaryAssignee,
   seoulDateKey,
@@ -1058,7 +1056,6 @@ function DayDrawer({
   onAdd,
   onAddDaycare,
   onOpen,
-  currentUserId,
 }: {
   open: boolean;
   date: string;
@@ -1106,14 +1103,14 @@ function DayDrawer({
         aria-modal="true"
         aria-label={`${fullDateLabel(date)} 일정`}
         className={cn(
-          "absolute inset-y-0 right-0 flex w-full max-w-[560px] flex-col border-l border-border bg-surface shadow-2xl transition-transform duration-[180ms] ease-out",
+          "hotel-day-drawer absolute inset-y-0 right-0 flex w-full max-w-[560px] flex-col border-l border-border bg-surface shadow-2xl transition-transform duration-[180ms] ease-out",
           open ? "translate-x-0" : "translate-x-full",
         )}
       >
         <header className="border-b border-border px-4 pb-3.5 pt-[max(0.875rem,env(safe-area-inset-top))] sm:px-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[11px] font-semibold tracking-[0.06em] text-primary">DAY SCHEDULE</p>
+              <p className="text-[11px] font-semibold tracking-[0.06em] text-primary">DAY OPERATIONS</p>
               <h2 className="mt-0.5 text-xl font-bold tracking-[-0.03em] text-text-primary">
                 {fullDateLabel(date)}
               </h2>
@@ -1187,121 +1184,17 @@ function DayDrawer({
               </Button>
             </div>
           ) : (
-            <div className="space-y-2">
-              {schedules.map((schedule) => (
-                <DayScheduleCard
-                  key={schedule.id}
-                  schedule={schedule}
-                  currentUserId={currentUserId}
-                  onClick={() => onOpen(schedule)}
-                />
-              ))}
-            </div>
+            <HotelDayOperationsTimeline items={schedules.map(schedule => ({
+              id: schedule.id, at: schedule.startsAt, allDay: schedule.allDay, timeUnspecified: schedule.timeUnspecified,
+              name: schedule.hotelEventKind ? compactDogNames(schedule.dogs) : operationScheduleDisplayTitle(schedule),
+              detail: schedule.hotelEventKind ? `${schedule.hotelEventKind === "check_in" ? "입실" : "퇴실"} · ${operationScheduleHotelRoomLabel(schedule)}` : schedule.scheduleTypeName,
+              kind: schedule.hotelEventKind ?? "other",
+              status: schedule.status === "completed" ? "완료" : schedule.status === "cancelled" ? "취소" : "예정",
+              onOpen: () => onOpen(schedule),
+            }))} />
           )}
         </div>
       </div>
     </div>
-  );
-}
-
-function DayScheduleCard({
-  schedule,
-  currentUserId,
-  onClick,
-}: {
-  schedule: OperationSchedule;
-  currentUserId?: string | null;
-  onClick: () => void;
-}) {
-  const assignee = schedulePrimaryAssignee(schedule);
-  const dogName = compactDogNames(schedule.dogs);
-  const isMine = isOperationScheduleAssignedTo(schedule, currentUserId);
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "group relative w-full overflow-hidden rounded-2xl border border-border/90 bg-surface px-4 py-3.5 text-left shadow-[0_2px_7px_rgb(23_36_58_/_0.05),0_8px_20px_rgb(23_36_58_/_0.045)] transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out",
-        "hover:-translate-y-0.5 hover:border-primary/30 hover:bg-primary-subtle/35 hover:shadow-[var(--pm-shadow-surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
-        isMine && "border-primary/30 bg-[linear-gradient(135deg,#ffffff_0%,#edf3f8_100%)] shadow-[0_4px_14px_rgb(39_76_119_/_0.1)]",
-        schedule.status !== "scheduled" && "opacity-60",
-      )}
-    >
-      <span
-        className="absolute inset-y-0 left-0 w-1.5"
-        style={{ backgroundColor: schedule.calendarColor }}
-      />
-      <div className="flex min-w-0 items-start gap-3 pl-1">
-        <div className="min-w-0 flex-1">
-          <h3
-            className={cn(
-              "truncate text-[15px] font-bold leading-5 tracking-[-0.015em] text-text-primary",
-              schedule.status === "cancelled" && "line-through",
-            )}
-          >
-            {operationScheduleDisplayTitle(schedule)}
-          </h3>
-          <div className="mt-1.5 flex items-center gap-1 text-xs font-bold tabular-nums text-text-primary">
-            <Clock3 size={13} className="text-text-muted" />
-            {schedule.timeUnspecified ? (
-              <Badge tone="gray">시간 미정</Badge>
-            ) : (
-              operationScheduleTimeLabel(schedule)
-            )}
-          </div>
-          <div className="mt-1.5 truncate text-sm font-semibold text-text-secondary">
-            {dogName}
-          </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-            <span className="flex items-center gap-1 font-bold tabular-nums text-text-primary">
-              <span
-                className="h-3 w-3 shrink-0 rounded-full shadow-[0_1px_4px_rgb(15_23_42_/_0.2)] ring-2 ring-white"
-                style={{
-                  backgroundColor: assignee
-                    ? operationPersonColor(assignee)
-                    : "#5B7FA3",
-                }}
-              />
-              <span className="truncate">
-                {compactNames(schedule.assignees, "담당자 미지정")}
-              </span>
-              {schedule.assignees.slice(1).map((person) => (
-                <span
-                  key={person.id}
-                  className="h-2.5 w-2.5 shrink-0 rounded-full shadow-sm ring-1 ring-white"
-                  style={{ backgroundColor: operationPersonColor(person) }}
-                  aria-label={person.name ?? "담당자"}
-                />
-              ))}
-            </span>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <Badge tone="gray">
-              {schedule.status === "completed"
-                ? "완료"
-                : schedule.status === "cancelled"
-                  ? "취소"
-                  : "예정"}
-            </Badge>
-            {isMine && <Badge tone="blue">내 일정</Badge>}
-          </div>
-          <div className="mt-1.5 flex min-w-0 items-center gap-1 text-xs text-text-secondary">
-            <UserRound size={13} className="shrink-0 text-text-muted" />
-            <span className="truncate">
-              {schedule.customers[0]?.name ?? "보호자 미연결"}
-            </span>
-          </div>
-          {schedule.memo && (
-            <p className="mt-1.5 line-clamp-2 border-t border-border/70 pt-1.5 text-xs leading-5 text-text-muted">
-              {schedule.memo}
-            </p>
-          )}
-        </div>
-        <ChevronRight
-          size={17}
-          className="mt-1 shrink-0 text-text-muted transition group-hover:translate-x-0.5 group-hover:text-primary"
-        />
-      </div>
-    </button>
   );
 }

@@ -77,7 +77,9 @@ describe("Operations foundation UI", () => {
     expect(calendarSource).toContain("schedules.slice(0, 2)");
     expect(calendarSource).toContain("개 일정");
     expect(calendarSource).toContain("duration-[160ms]");
-    expect(calendarSource).toContain("schedule.memo");
+    expect(calendarSource).toContain("<HotelDayOperationsTimeline");
+    expect(calendarSource).toContain("onOpen: () => onOpen(schedule)");
+    expect(todaySource).toContain("schedule.memo");
     expect(todaySource).toContain("oneHourScheduleEnd");
     expect(todaySource.match(/<ModalActions>/g)?.length).toBeGreaterThanOrEqual(2);
     expect(todaySource).toContain("multiple");

@@ -208,7 +208,7 @@ describe("Hotel Room Board mobile projection", () => {
     expect(screen.queryByTestId("hotel-room-board-desktop-projection")).not.toBeInTheDocument();
     expect(screen.getByRole("region", { name: "DELUXE 모바일 Room Board" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "STANDARD 모바일 Room Board" })).toBeInTheDocument();
-    expect(screen.getByTestId("hotel-room-board-room-deluxe-1").parentElement).toHaveClass("col-span-2");
+    expect(screen.getByTestId("hotel-room-board-room-deluxe-1").parentElement).toHaveClass("col-span-3");
     expect(screen.getByTestId("hotel-room-board-room-deluxe-2").parentElement).toHaveClass("col-span-1");
     expect(screen.getByText("아주긴이름의장기호텔반려견")).toHaveClass("truncate");
     expect(mobile.innerHTML).not.toContain("text-[9px]");
@@ -322,4 +322,26 @@ it('uses the compact control slot for read-only meaning in PAST without availabi
   expect(within(control).queryByRole('button')).not.toBeInTheDocument();
   expect(screen.queryByRole('group',{name:'객실 상태'})).not.toBeInTheDocument();
   expect(screen.queryByTestId('hotel-room-board-unassigned-drop-zone')).not.toBeInTheDocument();
+});
+
+describe('compact room slots', () => {
+  it('preserves each room shell through local filters and keeps Shared in one occupied slot', () => {
+    const value=props();
+    render(<HotelRoomBoard {...value} />);
+    const ids=['deluxe-1','deluxe-2','deluxe-3','standard-1','standard-2'];
+    const cells=ids.map(id=>screen.getByTestId(`hotel-room-board-room-${id}`));
+    const filter=screen.getByRole('group',{name:'객실 상태'});
+    const expected:Record<string,string[]>={ '이용중':['deluxe-1','deluxe-3','standard-1'], '입실':[], '퇴실':[], '빈방':['deluxe-2','standard-2'], '전체':ids };
+    for(const [label,visibleIds] of Object.entries(expected)) {
+      fireEvent.click(within(filter).getByRole('button',{name:label}));
+      ids.forEach((id,index)=>{
+        const cell=screen.getByTestId(`hotel-room-board-room-${id}`);
+        expect(cell).toBe(cells[index]);
+        if(visibleIds.includes(id))expect(cell).toBeVisible();else expect(cell).not.toBeVisible();
+      });
+    }
+    expect(cells[2]).toHaveTextContent('함께 투숙 · 3마리 · 객실 1실');
+    expect(cells[2].parentElement).toHaveAttribute('data-room-slot','occupied');
+    expect(cells[1].parentElement).toHaveAttribute('data-room-slot','empty');
+  });
 });
