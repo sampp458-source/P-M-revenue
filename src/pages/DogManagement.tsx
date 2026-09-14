@@ -199,11 +199,11 @@ function DogRowActions({
   onDelete: () => void;
 }) {
   return (
-    <div role="group" aria-label={`${dog.name} 관리`} className="flex flex-wrap items-center justify-start gap-2 sm:justify-center">
+    <div role="group" aria-label={`${dog.name} 관리`} className="flex flex-wrap items-center justify-start gap-2 sm:justify-center xl:min-w-[456px] xl:flex-nowrap">
       <Button variant="secondary" className="gap-1.5 rounded-lg px-2.5 text-xs" onClick={onOpenProfile}>
         <Eye size={15} />프로필
       </Button>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 xl:shrink-0 xl:flex-nowrap">
         {owner && <Button variant="secondary" className="gap-1.5 whitespace-nowrap rounded-lg px-2.5 text-xs" onClick={onEditOwner}>
           <Pencil size={15} />보호자 수정
         </Button>}
@@ -211,7 +211,7 @@ function DogRowActions({
           <Pencil size={15} />반려견 수정
         </Button>}
       </div>
-      {canDeleteDog && <div className="w-full pt-1 sm:w-auto sm:pt-0">
+      {canDeleteDog && <div className="w-full pt-1 sm:w-auto sm:pt-0 xl:shrink-0">
         <button type="button" onClick={onDelete}
           className="inline-flex min-h-11 items-center justify-center whitespace-nowrap rounded-lg border border-error/20 bg-error-soft/30 px-2.5 py-2 text-xs font-medium text-error hover:border-error/40 hover:bg-error-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2">
           반려견 정보 삭제

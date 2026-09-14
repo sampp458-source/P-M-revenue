@@ -217,7 +217,9 @@ describe("dog profile audit and Customer Master connection", () => {
     expect(managementUi).toContain("flex flex-wrap items-center");
     expect(managementUi).toContain("min-h-11");
     expect(managementUi).toContain("border-error/20 bg-error-soft/30");
-    expect(managementUi).toContain("w-full pt-1 sm:w-auto sm:pt-0");
+    expect(managementUi).toContain("w-full pt-1 sm:w-auto sm:pt-0 xl:shrink-0");
+    expect(managementUi).toContain("xl:min-w-[456px] xl:flex-nowrap");
+    expect(managementUi).toContain("gap-2 xl:shrink-0 xl:flex-nowrap");
     expect(managementUi).toContain(
       "UI freeze: preserve this layout after the final polish; bug fixes only.",
     );
