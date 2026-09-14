@@ -25,12 +25,12 @@ describe("shared Dog Master editing for active users", () => {
     expect(dogManagement).toContain("canEditDog={canEditDog}");
   });
 
-  it("keeps dog editing separate from administrator-only deactivation", () => {
+  it("keeps dog editing separate from active-administrator-only hard deletion", () => {
     expect(dogManagement).toContain(
-      'const canDeactivateDog = profile?.role === "admin"',
+      'const canDeleteDog = profile?.isActive === true && profile.role === "admin"',
     );
     expect(dogManagement).toContain(
-      "canDeactivateDog && dog.active",
+      "canDeleteDog",
     );
     expect(migration).not.toContain("drop trigger if exists protect_dog_active_status");
     expect(migration).not.toContain("create or replace function public.protect_dog_active_status");

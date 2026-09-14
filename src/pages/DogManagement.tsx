@@ -6,6 +6,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { DogDeleteModal } from "./DogDeleteModal";
 import { Eye, MoreHorizontal, Pencil, Plus } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
@@ -20,7 +21,6 @@ import {
   Input,
   LoadingState,
   Modal,
-  ConfirmModal,
   Pagination,
   PageHeader,
   SearchBox,
@@ -183,20 +183,20 @@ function DogRowActions({
   dog,
   owner,
   canEditDog,
-  canDeactivateDog,
+  canDeleteDog,
   onOpenProfile,
   onEditOwner,
   onEditDog,
-  onDeactivate,
+  onDelete,
 }: {
   dog: DogRow;
   owner: OwnerOption | null;
   canEditDog: boolean;
-  canDeactivateDog: boolean;
+  canDeleteDog: boolean;
   onOpenProfile: () => void;
   onEditOwner: () => void;
   onEditDog: () => void;
-  onDeactivate: () => void;
+  onDelete: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
@@ -290,17 +290,17 @@ function DogRowActions({
                 반려견 정보 수정
               </button>
             )}
-            {canDeactivateDog && dog.active && (
+            {canDeleteDog && (
               <button
                 type="button"
                 role="menuitem"
                 onClick={() => {
                   setOpen(false);
-                  onDeactivate();
+                  onDelete();
                 }}
                 className="mt-1 w-full border-t border-border px-3 py-2 pt-2.5 text-left text-sm font-semibold text-error transition hover:bg-error-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-error"
               >
-                비활성화
+                반려견 삭제
               </button>
             )}
           </div>
@@ -315,7 +315,7 @@ export function PetManagementPage() {
   const { profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const canEditDog = profile?.isActive === true;
-  const canDeactivateDog = profile?.role === "admin";
+  const canDeleteDog = profile?.isActive === true && profile.role === "admin";
   const [dogs, setDogs] = useState<DogRow[]>([]);
   const [owners, setOwners] = useState<OwnerOption[]>([]);
   const [currentServices, setCurrentServices] = useState<CustomerDogServiceStatus[]>([]);
@@ -337,13 +337,12 @@ export function PetManagementPage() {
   const [ownerForm, setOwnerForm] = useState<OwnerForm>(emptyOwnerForm);
   const [ownerSaving, setOwnerSaving] = useState(false);
   const [ownerError, setOwnerError] = useState("");
-  const [deactivating, setDeactivating] = useState<DogRow | null>(null);
+  const [deleting, setDeleting] = useState<DogRow | null>(null);
   const [duplicateDog, setDuplicateDog] = useState<DogRow | null>(null);
   const [allowDuplicateDog, setAllowDuplicateDog] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [processing, setProcessing] = useState(false);
   const [formError, setFormError] = useState("");
   const [notice, setNotice] = useState("");
   const loadRequestIdRef = useRef(0);
@@ -788,24 +787,6 @@ export function PetManagementPage() {
     await loadData();
   };
 
-  const deactivate = async () => {
-    if (!deactivating) return;
-    setProcessing(true);
-    const result = await supabase
-      .from("dogs")
-      .update({ is_active: false })
-      .eq("id", deactivating.id)
-      .select("id")
-      .single();
-    setProcessing(false);
-    if (result.error) {
-      setNotice(result.error.code === "42501" ? "권한이 없습니다." : "반려견을 비활성화하지 못했습니다.");
-      return;
-    }
-    setDeactivating(null);
-    setNotice("반려견을 비활성화했습니다.");
-    await loadData();
-  };
 
   return (
     <>
@@ -934,11 +915,11 @@ export function PetManagementPage() {
                             dog={dog}
                             owner={owner}
                             canEditDog={canEditDog}
-                            canDeactivateDog={canDeactivateDog}
+                            canDeleteDog={canDeleteDog}
                             onOpenProfile={() => openProfile(dog.id)}
                             onEditOwner={() => openOwnerEdit(owner)}
                             onEditDog={() => openEdit(dog)}
-                            onDeactivate={() => setDeactivating(dog)}
+                            onDelete={() => setDeleting(dog)}
                           />
                         </td>
                       </tr>
@@ -1018,11 +999,11 @@ export function PetManagementPage() {
                         dog={dog}
                         owner={owner}
                         canEditDog={canEditDog}
-                        canDeactivateDog={canDeactivateDog}
+                        canDeleteDog={canDeleteDog}
                         onOpenProfile={() => openProfile(dog.id)}
                         onEditOwner={() => openOwnerEdit(owner)}
                         onEditDog={() => openEdit(dog)}
-                        onDeactivate={() => setDeactivating(dog)}
+                        onDelete={() => setDeleting(dog)}
                       />
                     </div>
                   </article>
@@ -1149,6 +1130,10 @@ export function PetManagementPage() {
           </label>
           <div className="sm:col-span-2"><Field label="메모"><Textarea rows={3} value={editing.memo} disabled={saving} onChange={(e) => setEditing({ ...editing, memo: e.target.value })} /></Field></div>
           {duplicateDog && !allowDuplicateDog && <div className="rounded-xl bg-warning-soft p-3 text-sm text-text-secondary sm:col-span-2"><p>같은 보호자에게 <strong className="text-text-primary">{duplicateDog.name}</strong>이(가) 이미 등록되어 있습니다.</p><div className="mt-3 flex flex-wrap gap-2"><Button type="button" variant="secondary" onClick={() => { setQuery(duplicateDog.name); setEditing(null); setDuplicateDog(null); }}>기존 반려견 보기</Button><Button type="button" variant="ghost" onClick={() => { setAllowDuplicateDog(true); setFormError(""); }}>그래도 새로 등록</Button></div></div>}
+          {editing.id && canDeleteDog && <Button type="button" variant="danger" disabled={saving || !!deleting} onClick={() => {
+            const dog = dogs.find(item => item.id === editing.id);
+            if (dog) setDeleting(dog);
+          }}>반려견 삭제</Button>}
           {formError && <p id="dog-form-error" role="alert" className="text-sm text-error sm:col-span-2">{formError}</p>}<Button className="sm:col-span-2" disabled={saving}>{saving ? "저장 중..." : "저장"}</Button>
         </form>}
       </Modal>
@@ -1190,7 +1175,14 @@ export function PetManagementPage() {
           </div>
         </form>
       </Modal>
-      <ConfirmModal open={!!deactivating} onClose={() => setDeactivating(null)} onConfirm={() => void deactivate()} title="반려견 비활성화" confirmLabel="비활성화" processing={processing} description={<><b className="text-slate-900">{deactivating?.name}</b>을 비활성화하시겠습니까? 기존 매출과 이용 이력은 유지됩니다.</>} />
+      {deleting && canDeleteDog && <DogDeleteModal key={deleting.id} dog={deleting} onClose={() => setDeleting(null)} onDeleted={(id) => {
+        setDogs(current => current.filter(dog => dog.id !== id));
+        setEditing(null);
+        setProfileDogId(null);
+        clearProfileParam("dogId");
+        setDeleting(null);
+        setNotice("반려견 정보를 완전히 삭제했습니다.");
+      }} />}
       {notice && <Toast message={notice} onClose={() => setNotice("")} />}
     </>
   );
