@@ -14,9 +14,9 @@ export interface HistoricalDogIdentity {
 }
 export interface DogRemovalPreview {
   dog: Pick<HistoricalDogIdentity, "recordDogId" | "displayName" | "customerId" | "profileStatus">;
-  version: null;
-  commandAvailable: false;
-  contractVersion: "dog-profile-preview-v2a-1";
+  version: number | null;
+  commandAvailable: boolean;
+  contractVersion: "dog-profile-preview-v2a-1" | "dog-profile-preview-v2b-1";
   categories: Array<{
     category: string;
     userVisibleCount: number;
@@ -33,7 +33,7 @@ export interface DogRemovalPreview {
   proposedMode: "hard_delete" | "profile_remove" | null;
   graphFingerprint: string;
   evaluatedAt: string;
-  fingerprintUsage: "READ_ONLY_NOT_A_WRITE_TOKEN";
+  fingerprintUsage: "READ_ONLY_NOT_A_WRITE_TOKEN" | "REVALIDATE_UNDER_LOCK";
 }
 
 /** Historical references only. Never use this directory as new-operation options. */
@@ -54,8 +54,9 @@ export async function fetchHistoricalDogIdentities(dogIds: string[]): Promise<Hi
 export async function previewDogProfileRemoval(dogId: string): Promise<DogRemovalPreview> {
   const { data, error } = await supabase.rpc("preview_dog_profile_removal", { p_dog_id: dogId });
   if (error) throw new Error("연결된 이용 기록을 확인하지 못했습니다.", { cause: error });
-  if (!data || data.commandAvailable !== false || data.version !== null ||
-      data.contractVersion !== "dog-profile-preview-v2a-1" || data.dog?.recordDogId !== dogId) {
+  const legacy = data?.contractVersion === "dog-profile-preview-v2a-1" && data.version === null && data.commandAvailable === false;
+  const lifecycle = data?.contractVersion === "dog-profile-preview-v2b-1" && Number.isSafeInteger(data.version) && data.version >= 1 && typeof data.commandAvailable === "boolean";
+  if (!data || (!legacy && !lifecycle) || data.dog?.recordDogId !== dogId) {
     throw new Error("지원하지 않는 프로필 조회 응답입니다.");
   }
   return data as DogRemovalPreview;

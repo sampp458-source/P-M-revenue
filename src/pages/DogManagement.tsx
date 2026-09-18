@@ -86,6 +86,7 @@ interface DogRow {
   neutered: boolean | null;
   memo: string | null;
   active: boolean;
+  profileStatus: "active" | "inactive" | "removed" | "merged";
   isDaycareStudent: boolean;
 }
 
@@ -226,7 +227,7 @@ export function PetManagementPage() {
   const { profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const canEditDog = profile?.isActive === true;
-  const canDeleteDog = profile?.isActive === true && profile.role === "admin";
+  const canDeleteDog = profile?.isActive === true;
   const [dogs, setDogs] = useState<DogRow[]>([]);
   const [owners, setOwners] = useState<OwnerOption[]>([]);
   const [currentServices, setCurrentServices] = useState<CustomerDogServiceStatus[]>([]);
@@ -268,7 +269,7 @@ export function PetManagementPage() {
     const [dogsResult, ownersResult, serviceResult] = await Promise.all([
       supabase
         .from("dogs")
-        .select("id, customer_id, name, breed, sex, birth_date, weight, neutered, memo, is_active, is_daycare_student, customers(id, name, phone, is_active)")
+        .select("id, customer_id, name, breed, sex, birth_date, weight, neutered, memo, is_active, profile_status, is_daycare_student, customers(id, name, phone, is_active)")
         .order("name"),
       loadOwnerOptions(),
       loadCurrentCustomerDogServices().catch(() => ({
@@ -302,6 +303,7 @@ export function PetManagementPage() {
             neutered: dog.neutered,
             memo: dog.memo,
             active: dog.is_active,
+            profileStatus: dog.profile_status ?? (dog.is_active ? "active" : "inactive"),
             isDaycareStudent: dog.is_daycare_student === true,
           };
         }),
@@ -370,7 +372,7 @@ export function PetManagementPage() {
       return (
         keywordMatch &&
         (!breed || dog.breed === breed) &&
-        (!activeFilter || dog.active === (activeFilter === "active"))
+        (!activeFilter || dog.profileStatus === activeFilter)
       );
     });
   }, [activeFilter, breed, dogs, query]);
@@ -452,6 +454,7 @@ export function PetManagementPage() {
   }, [loading, owners, searchParams, setSearchParams]);
 
   const openEdit = (dog: DogRow) => {
+    if (dog.profileStatus === "removed" || dog.profileStatus === "merged") return;
     setFormError("");
     setOwnerSearch("");
     setDuplicateDog(null);
@@ -710,7 +713,7 @@ export function PetManagementPage() {
         <FilterToolbar className="sm:grid-cols-[minmax(0,5fr)_minmax(0,3fr)_minmax(9rem,2fr)]">
               <SearchBox className="[&_input]:placeholder:text-[#8793a3]" aria-label="반려견 검색" placeholder="반려견명, 보호자명, 연락처 또는 견종 검색" value={query} onClear={() => { setQuery(""); setPage(1); }} onChange={(e) => { setQuery(e.target.value); setPage(1); }} />
               <Select value={breed} onChange={(e) => { setBreed(e.target.value); setPage(1); }}><option value="">전체 견종</option>{breeds.map((item) => <option key={item}>{item}</option>)}</Select>
-              <Select value={activeFilter} onChange={(e) => { setActiveFilter(e.target.value); setPage(1); }}><option value="">전체 상태</option><option value="active">활성</option><option value="inactive">비활성</option></Select>
+              <Select value={activeFilter} onChange={(e) => { setActiveFilter(e.target.value); setPage(1); }}><option value="">전체 상태</option><option value="active">활성</option><option value="inactive">비활성</option><option value="removed">프로필 삭제됨</option></Select>
         </FilterToolbar>
       </div>
       <Card className="overflow-hidden">
@@ -819,14 +822,14 @@ export function PetManagementPage() {
                           />
                         </td>
                         <td className="px-3 text-center [&>span]:px-3">
-                          <StatusBadge status={dog.active ? "active" : "inactive"} />
+                          {dog.profileStatus === "removed" ? <span className="text-xs text-text-secondary">프로필 삭제됨</span> : <StatusBadge status={dog.active ? "active" : "inactive"} />}
                         </td>
                         <td className="px-3 text-center">
                           <DogRowActions
                             dog={dog}
                             owner={owner}
-                            canEditDog={canEditDog}
-                            canDeleteDog={canDeleteDog}
+                            canEditDog={canEditDog && dog.profileStatus !== "removed" && dog.profileStatus !== "merged"}
+                            canDeleteDog={canDeleteDog && (dog.profileStatus === "active" || dog.profileStatus === "inactive")}
                             onOpenProfile={() => openProfile(dog.id)}
                             onEditOwner={() => openOwnerEdit(owner)}
                             onEditDog={() => openEdit(dog)}
@@ -871,7 +874,7 @@ export function PetManagementPage() {
                             .join(" · ")}
                         </span>
                       </button>
-                      <StatusBadge status={dog.active ? "active" : "inactive"} />
+                      {dog.profileStatus === "removed" ? <span className="text-xs text-text-secondary">프로필 삭제됨</span> : <StatusBadge status={dog.active ? "active" : "inactive"} />}
                     </div>
                     <dl className="mt-4 grid grid-cols-[4.5rem_minmax(0,1fr)] gap-x-3 gap-y-2 border-t border-border pt-4 text-sm">
                       <dt className="text-text-muted">보호자</dt>
@@ -909,8 +912,8 @@ export function PetManagementPage() {
                       <DogRowActions
                         dog={dog}
                         owner={owner}
-                        canEditDog={canEditDog}
-                        canDeleteDog={canDeleteDog}
+                        canEditDog={canEditDog && dog.profileStatus !== "removed" && dog.profileStatus !== "merged"}
+                        canDeleteDog={canDeleteDog && (dog.profileStatus === "active" || dog.profileStatus === "inactive")}
                         onOpenProfile={() => openProfile(dog.id)}
                         onEditOwner={() => openOwnerEdit(owner)}
                         onEditDog={() => openEdit(dog)}
@@ -1086,13 +1089,14 @@ export function PetManagementPage() {
           </div>
         </form>
       </Modal>
-      {deleting && canDeleteDog && <DogDeleteModal key={deleting.id} dog={deleting} onClose={() => setDeleting(null)} onDeleted={(id) => {
+      {deleting && canDeleteDog && <DogDeleteModal key={deleting.id} dog={deleting} onClose={() => setDeleting(null)} onDeleted={(id, mode) => {
         setDogs(current => current.filter(dog => dog.id !== id));
         setEditing(null);
         setProfileDogId(null);
         clearProfileParam("dogId");
         setDeleting(null);
-        setNotice("반려견 정보를 완전히 삭제했습니다.");
+        setNotice(mode === "profile_remove" ? "프로필을 삭제했습니다. 기존 이용 기록은 유지됩니다." : "반려견 정보를 완전히 삭제했습니다.");
+        void loadData();
       }} />}
       {notice && <Toast message={notice} onClose={() => setNotice("")} />}
     </>

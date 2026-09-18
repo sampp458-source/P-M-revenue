@@ -25,9 +25,9 @@ describe("shared Dog Master editing for active users", () => {
     expect(dogManagement).toContain("canEditDog={canEditDog}");
   });
 
-  it("keeps dog editing separate from active-administrator-only hard deletion", () => {
+  it("uses the V2-B active-staff removal flow without rewriting the legacy migration", () => {
     expect(dogManagement).toContain(
-      'const canDeleteDog = profile?.isActive === true && profile.role === "admin"',
+      'const canDeleteDog = profile?.isActive === true',
     );
     expect(dogManagement).toContain(
       "canDeleteDog",

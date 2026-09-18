@@ -1,0 +1,38 @@
+-- First baseline acceptance gate: real RPCs, not guard-helper substitutes.
+BEGIN;
+DO $$ BEGIN IF current_database()<>'dog_current_baseline' OR inet_server_addr() IS NOT NULL THEN RAISE EXCEPTION 'LOCAL_ONLY'; END IF; END $$;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000900',true);
+CREATE FUNCTION pg_temp.f(n integer) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$ SELECT ('00000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid $$;
+DO $$ DECLARE s jsonb; h jsonb; sid uuid; v integer; cv integer; d date:=(now() AT TIME ZONE 'Asia/Seoul')::date; BEGIN
+ s:=public.create_operation_schedule(pg_temp.f(22),pg_temp.f(30),'Synthetic Schedule',now()-interval '2 days',now()-interval '2 days'+interval '1hour',false,false,'Synthetic',ARRAY[pg_temp.f(900)],ARRAY[pg_temp.f(800)],ARRAY[pg_temp.f(1)],gen_random_uuid());
+ sid:=(s->>'id')::uuid;
+ s:=public.update_operation_schedule(sid,(s->>'version')::integer,pg_temp.f(22),pg_temp.f(30),'Synthetic Updated',now()-interval '2 days',now()-interval '2 days'+interval '1hour',false,false,'Updated',ARRAY[pg_temp.f(900)],ARRAY[pg_temp.f(800)],ARRAY[pg_temp.f(1)],gen_random_uuid());
+ PERFORM public.set_operation_schedule_status(sid,(s->>'version')::integer,'completed','Synthetic completion',gen_random_uuid());
+ RAISE NOTICE 'BASELINE_SCHEDULE_CREATE_UPDATE_COMPLETE_PASS';
+ h:=public.create_flexible_hotel_reservation(pg_temp.f(20),pg_temp.f(30),d,'00:00',false,d+2,'15:00',false,pg_temp.f(40),pg_temp.f(2),pg_temp.f(800),ARRAY[pg_temp.f(900)],'Synthetic 016',gen_random_uuid());
+ sid:=(h->>'id')::uuid;
+ SELECT version INTO cv FROM hotel_capacity_reservations WHERE hotel_stay_id=sid AND archived_at IS NULL;
+ h:=public.check_in_unassigned_hotel_stay(sid,(h->>'version')::integer,cv,pg_temp.f(51),statement_timestamp()-interval '1 minute',gen_random_uuid());
+ SELECT version INTO v FROM hotel_stays WHERE id=sid;
+ PERFORM public.complete_hotel_check_out(sid,v,statement_timestamp(),gen_random_uuid());
+ SELECT version INTO v FROM hotel_stays WHERE id=sid;
+ PERFORM public.reverse_hotel_completion(sid,v,'check_out','Synthetic reversal',gen_random_uuid());
+ RAISE NOTICE 'BASELINE_HOTEL_016_CHECKOUT_REVERSAL_PASS';
+ h:=public.create_flexible_hotel_reservation(pg_temp.f(20),pg_temp.f(30),d-2,'00:00',false,d+2,'15:00',false,pg_temp.f(40),pg_temp.f(3),pg_temp.f(800),ARRAY[pg_temp.f(900)],'Synthetic 016B',gen_random_uuid());
+ sid:=(h->>'id')::uuid;
+ SELECT version INTO cv FROM hotel_capacity_reservations WHERE hotel_stay_id=sid AND archived_at IS NULL;
+ PERFORM public.recover_missed_hotel_check_in(sid,(h->>'version')::integer,cv,pg_temp.f(52),(d-2+'09:00'::time) AT TIME ZONE 'Asia/Seoul',gen_random_uuid());
+ RAISE NOTICE 'BASELINE_016B_RECOVERY_PASS';
+ h:=public.create_flexible_hotel_reservation(pg_temp.f(20),pg_temp.f(30),d,'00:00',false,d+2,'15:00',false,NULL,pg_temp.f(4),pg_temp.f(800),ARRAY[pg_temp.f(900)],'Unknown type',gen_random_uuid());
+ sid:=(h->>'id')::uuid;
+ PERFORM public.finalize_and_complete_hotel_check_in(sid,(h->>'version')::integer,statement_timestamp(),pg_temp.f(40),pg_temp.f(53),gen_random_uuid());
+ RAISE NOTICE 'BASELINE_UNKNOWN_TYPE_FINALIZE_PASS';
+ h:=public.create_flexible_hotel_reservation(pg_temp.f(20),pg_temp.f(30),d+3,'09:00',false,d+4,'15:00',false,pg_temp.f(40),pg_temp.f(5),pg_temp.f(800),ARRAY[pg_temp.f(900)],'Preassign',gen_random_uuid());
+ sid:=(h->>'id')::uuid;
+ PERFORM public.assign_hotel_room(sid,(h->>'version')::integer,pg_temp.f(54),'Synthetic preassign',gen_random_uuid());
+ SELECT version INTO v FROM hotel_stays WHERE id=sid;
+ PERFORM public.cancel_hotel_reservation(sid,v,'Synthetic cancellation',gen_random_uuid());
+ RAISE NOTICE 'BASELINE_PREASSIGN_CANCEL_PASS';
+END $$;
+ROLLBACK;

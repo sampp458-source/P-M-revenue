@@ -1006,6 +1006,7 @@ function MonthScheduleCard({
         >
           {displayTitle}
         </span>
+        {schedule.dogs.some(dog => dog.profileStatus === "removed") && <span className="rounded bg-surface px-1 text-[10px] text-text-secondary">프로필 삭제됨</span>}
         <div className="mt-px flex min-w-0 items-center gap-1">
           <span
             className={cn(

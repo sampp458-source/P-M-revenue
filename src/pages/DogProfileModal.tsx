@@ -51,6 +51,7 @@ export interface DogProfileDog {
   neutered: boolean | null;
   memo: string | null;
   active: boolean;
+  profileStatus?: "active" | "inactive" | "removed" | "merged";
   isDaycareStudent: boolean;
 }
 
@@ -92,6 +93,7 @@ export function DogProfileModal({
 }) {
   const [daycareOpen, setDaycareOpen] = useState(false);
   if (!dog) return null;
+  const readOnly = dog.profileStatus === "removed" || dog.profileStatus === "merged";
   const activeActivities = activeDogActivities(activities);
   const usage = summarizeDogUsage(activities);
   const dates = dogUsageDateRange(activities);
@@ -115,7 +117,7 @@ export function DogProfileModal({
         <ProfileHeader
           className="pt-1"
           title={dog.name}
-          status={<StatusBadge status={dog.active ? "active" : "inactive"} />}
+          status={readOnly ? <span className="rounded-full bg-surface px-2 py-1 text-xs">프로필 삭제됨</span> : <StatusBadge status={dog.active ? "active" : "inactive"} />}
           tags={dog.isDaycareStudent ? <DaycareStudentBadge /> : undefined}
           summary={
             <>
@@ -124,7 +126,7 @@ export function DogProfileModal({
             </>
           }
           actions={
-            canEditDog ? (
+            canEditDog && !readOnly ? (
             <ResponsiveActionGroup
               primary={owner ? <Button onClick={() => setDaycareOpen(true)}>
                 <CalendarDays size={16} />
@@ -172,7 +174,7 @@ export function DogProfileModal({
               </span>
             )}
           </button>
-          {owner && canEditDog && (
+          {owner && canEditDog && !readOnly && (
             <Button variant="secondary" onClick={onEditOwner}>
               <Pencil size={15} />
               보호자 수정
@@ -286,7 +288,7 @@ export function DogProfileModal({
           id="dog-profile-memo-title"
           title="메모"
           action={
-            canEditDog ? (
+            canEditDog && !readOnly ? (
               <Button variant="ghost" onClick={onEditDog}>
                 <Pencil size={15} />
                 수정
@@ -301,7 +303,7 @@ export function DogProfileModal({
           </div>
         </div>
 
-        {owner ? (
+        {owner && !readOnly ? (
           <LongStayProfileSection
             customerId={owner.id}
             dogId={dog.id}

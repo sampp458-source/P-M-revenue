@@ -27,6 +27,7 @@ export interface OperationCustomer extends OperationPerson {
 }
 
 export interface OperationDog extends OperationPerson {
+  profileStatus?: "active" | "inactive" | "removed" | "merged";
   name: string;
   customerId: string | null;
   breed?: string | null;
@@ -607,7 +608,7 @@ async function historicalOperationDogs(ids: string[]): Promise<Map<string, Opera
   const identities = await fetchHistoricalDogIdentities(ids);
   return new Map(identities.map((dog) => [dog.recordDogId, {
     id: dog.recordDogId, name: dog.displayName, customerId: dog.customerId,
-    breed: dog.breed, sex: dog.sex,
+    breed: dog.breed, sex: dog.sex, profileStatus: dog.profileStatus,
   }]));
 }
 

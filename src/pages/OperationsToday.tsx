@@ -2456,7 +2456,7 @@ function Detail({ label, value }: { label: string; value: string }) {
   return <div><dt className="text-xs font-semibold text-text-muted">{label}</dt><dd className="mt-1 text-sm font-medium text-text-primary">{value}</dd></div>;
 }
 
-function LinkList<T extends { id: string; name: string | null }>({
+function LinkList<T extends { id: string; name: string | null; profileStatus?: string }>({
   title,
   rows,
   empty,
@@ -2475,6 +2475,7 @@ function LinkList<T extends { id: string; name: string | null }>({
           {rows.map((row) => (
             <button key={row.id} type="button" onClick={() => onOpen(row.id)} className="rounded-full bg-primary-soft px-3 py-1.5 text-sm font-semibold text-primary hover:bg-primary/15">
               {row.name || "이름 미등록"}
+              {row.profileStatus === "removed" && <span className="ml-2 rounded bg-surface px-1.5 py-0.5 text-xs text-text-secondary">프로필 삭제됨</span>}
             </button>
           ))}
         </div>

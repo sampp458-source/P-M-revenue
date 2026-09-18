@@ -51,7 +51,7 @@ describe("Calendar historical adapter", () => {
   it("keeps inactive dogs without active selector options and deduplicates lookup across schedules", async () => {
     const rows = setupCalendar();
     const result = await fetchOperationSchedulesForRange("2026-09-01", "2026-09-02", options);
-    expect(result.map((row) => row.dogs[0])).toEqual(rows.map(() => ({ id: "inactive", name: "과거 반려견", customerId: "customer", breed: null, sex: null })));
+    expect(result.map((row) => row.dogs[0])).toEqual(rows.map(() => ({ id: "inactive", name: "과거 반려견", customerId: "customer", breed: null, sex: null, profileStatus: "inactive" })));
     expect(result.map((row) => [row.id, row.status, row.startsAt, row.endsAt])).toEqual(rows.map((row) => [row.id, row.status, row.starts_at, row.ends_at]));
     expect(db.rpc.mock.calls.filter(([name]) => name === "get_historical_dog_identities")).toHaveLength(1);
     expect(options.dogs).toEqual([]);

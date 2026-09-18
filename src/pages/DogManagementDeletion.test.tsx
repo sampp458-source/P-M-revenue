@@ -17,12 +17,12 @@ vi.mock("../lib/supabase", () => ({supabase:{from:(table:string)=>({
     id:"local-dog",name:"삭제검증견",customer_id:"local-owner",is_active:true,is_daycare_student:false,
     breed:null,sex:null,birth_date:null,weight:null,neutered:null,memo:null,customers:{name:"테스트 보호자",phone:""},
   }]:table==="customers"?[{id:"local-owner",name:"테스트 보호자",phone:"",is_active:true}]:[]})}),
-  delete:()=>({eq:()=>({select:()=>({maybeSingle:async()=>{
-    fixture.deletes++;
-    if(fixture.referenced)return {data:null,error:{code:"23503"}};
-    fixture.exists=false;return {data:{id:"local-dog"},error:null};
-  }})})}),
-})}}));
+}), rpc: async (name:string, input:Record<string,unknown>) => {
+  if (name === "preview_dog_profile_removal") return {data:{dog:{recordDogId:"local-dog"},version:1,commandAvailable:true,contractVersion:"dog-profile-preview-v2b-1",categories:[],warnings:[],activeBlockerCount:0,proposedMode:"hard_delete",graphFingerprint:"graph"},error:null};
+  fixture.deletes++;
+  if (fixture.referenced) return {data:null,error:{message:"STALE_PREVIEW"}};
+  fixture.exists=false;return {data:{dogId:"local-dog",mode:"hard_delete",requestId:input.p_request_id},error:null};
+}}}));
 beforeEach(()=>{Object.assign(fixture,{role:"admin",active:true,exists:true,referenced:false,deletes:0});});
 afterEach(cleanup);
 const openPage=()=>render(<MemoryRouter><PetManagementPage/></MemoryRouter>);
@@ -31,18 +31,18 @@ async function openDelete(){
   fireEvent.click(buttons[0]);
 }
 it("removes the deleted dog from the actual management list and after remount",async()=>{
-  const page=openPage();await openDelete();fireEvent.click(screen.getByRole("button",{name:"완전 삭제"}));
+  const page=openPage();await openDelete();fireEvent.click(await screen.findByRole("button",{name:"완전 삭제"}));
   await waitFor(()=>expect(screen.queryAllByRole("group",{name:"삭제검증견 관리"})).toHaveLength(0));
   expect(screen.getByText("반려견 정보를 완전히 삭제했습니다.")).toBeInTheDocument();
   page.unmount();openPage();await screen.findByText("등록된 반려견이 없습니다");expect(fixture.deletes).toBe(1);
 });
 it("keeps the management row after cancellation or a reference rejection",async()=>{
   openPage();await openDelete();fireEvent.click(screen.getByRole("button",{name:"취소"}));expect(fixture.deletes).toBe(0);
-  fixture.referenced=true;await openDelete();fireEvent.click(screen.getByRole("button",{name:"완전 삭제"}));
+  fixture.referenced=true;await openDelete();fireEvent.click(await screen.findByRole("button",{name:"완전 삭제"}));
   await screen.findByRole("alert");fireEvent.click(screen.getByRole("button",{name:"취소"}));
   expect(screen.getAllByRole("group",{name:"삭제검증견 관리"}).length).toBeGreaterThan(0);expect(fixture.exists).toBe(true);
 });
-it.each([['staff',true],['admin',false]])("does not expose deletion to %s active=%s",async(role,active)=>{
+it.each([['staff',false],['admin',false]])("does not expose deletion to %s active=%s",async(role,active)=>{
   fixture.role=role as string;fixture.active=active as boolean;openPage();
   await screen.findAllByRole("group",{name:"삭제검증견 관리"});
   expect(screen.queryByRole("button",{name:"반려견 정보 삭제"})).not.toBeInTheDocument();expect(fixture.deletes).toBe(0);
@@ -63,3 +63,5 @@ it("opens the unchanged dog edit form from the visible action",async()=>{
   expect(screen.getByDisplayValue("삭제검증견")).toBeInTheDocument();
   expect(fixture.deletes).toBe(0);
 });
+
+it("exposes removal to active staff", async()=>{fixture.role="staff";openPage();await openDelete();expect(await screen.findByRole("button",{name:"완전 삭제"})).toBeEnabled();});
