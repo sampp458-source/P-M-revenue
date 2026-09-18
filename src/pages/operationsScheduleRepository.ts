@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { fetchHistoricalDogIdentities } from "./dogHistoricalIdentityRepository";
 import {
   fetchOperationSettings,
   type OperationCalendar,
@@ -602,6 +603,14 @@ async function attachOperationDomainLinks(schedules: OperationSchedule[]) {
   );
 }
 
+async function historicalOperationDogs(ids: string[]): Promise<Map<string, OperationDog>> {
+  const identities = await fetchHistoricalDogIdentities(ids);
+  return new Map(identities.map((dog) => [dog.recordDogId, {
+    id: dog.recordDogId, name: dog.displayName, customerId: dog.customerId,
+    breed: dog.breed, sex: dog.sex,
+  }]));
+}
+
 export async function fetchLegacyHotelScheduleCandidates(
   anchor: OperationSchedule,
   options: OperationScheduleOptions,
@@ -646,7 +655,7 @@ export async function fetchLegacyHotelScheduleCandidates(
   const calendar = options.calendars.find((row) => row.id === anchor.calendarId);
   const scheduleTypes = new Map(options.scheduleTypes.map((row) => [row.id, row]));
   const people = new Map(options.assignees.map((row) => [row.id, row]));
-  const dogDirectory = new Map(options.dogs.map((row) => [row.id, row]));
+  const dogDirectory = await historicalOperationDogs((dogResult.data ?? []).map((row) => row.dog_id));
   const customerDirectory = new Map(options.customers.map((row) => [row.id, row]));
   const mapped = rows.map((row): OperationSchedule => {
     const scheduleType = scheduleTypes.get(row.schedule_type_id);
@@ -802,7 +811,7 @@ export async function fetchOperationSchedulesForRange(
     options.scheduleTypes.map((row) => [row.id, row]),
   );
   const people = new Map(options.assignees.map((row) => [row.id, row]));
-  const dogs = new Map(options.dogs.map((row) => [row.id, row]));
+  const dogs = await historicalOperationDogs((dogResult.data ?? []).map((row) => row.dog_id));
   const customers = new Map(options.customers.map((row) => [row.id, row]));
   const groupBySchedule = <T extends { schedule_id: string }>(items: T[]) => {
     const grouped = new Map<string, T[]>();

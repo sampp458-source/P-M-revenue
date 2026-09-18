@@ -1,0 +1,71 @@
+-- ISOLATED SYNTHETIC FIXTURE ONLY. Never run against Production.
+DO $$ BEGIN
+ IF current_database()<>'dog_v2a_fixture' OR inet_server_addr() IS NOT NULL THEN RAISE EXCEPTION 'LOCAL_FIXTURE_ONLY'; END IF;
+END $$;
+CREATE ROLE authenticated NOLOGIN;
+CREATE ROLE anon NOLOGIN;
+CREATE ROLE service_role NOLOGIN;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO service_role;
+CREATE SCHEMA auth;
+CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
+CREATE TABLE profiles(id uuid PRIMARY KEY,is_active boolean,account_status text);
+CREATE FUNCTION is_active_user() RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT EXISTS(SELECT 1 FROM profiles WHERE id=auth.uid() AND is_active AND account_status='active') $$;
+CREATE TABLE dogs(id uuid PRIMARY KEY,name text,customer_id uuid,is_active boolean,breed text,sex text);
+CREATE TABLE sales(id uuid PRIMARY KEY,dog_id uuid REFERENCES dogs,status text,outstanding_amount numeric,sale_date date);
+-- Text sale_id deliberately permits malformed/orphan negative fixtures; Production uses UUID FK.
+CREATE TABLE sale_history(id uuid PRIMARY KEY,sale_id text,action text,previous_data jsonb,changed_data jsonb);
+CREATE TABLE operation_schedules(id uuid PRIMARY KEY,status text,starts_at timestamptz,ends_at timestamptz,archived_at timestamptz);
+CREATE TABLE operation_schedule_dogs(id uuid PRIMARY KEY,dog_id uuid NOT NULL REFERENCES dogs ON DELETE RESTRICT,schedule_id uuid REFERENCES operation_schedules,archived_at timestamptz);
+CREATE TABLE hotel_stays(id uuid PRIMARY KEY,dog_id uuid NOT NULL REFERENCES dogs ON DELETE RESTRICT,checked_in_at timestamptz,checked_out_at timestamptz,archived_at timestamptz);
+CREATE TABLE hotel_capacity_reservations(id uuid PRIMARY KEY,hotel_stay_id uuid REFERENCES hotel_stays,reserved_from timestamptz,reserved_until timestamptz);
+CREATE TABLE hotel_room_allocations(id uuid PRIMARY KEY,capacity_reservation_id uuid REFERENCES hotel_capacity_reservations,allocated_from timestamptz,allocated_until timestamptz);
+CREATE TABLE family_bookings(id uuid PRIMARY KEY,status text,archived_at timestamptz,canonical_payload jsonb);
+CREATE TABLE family_shared_room_groups(id uuid PRIMARY KEY,status text,archived_at timestamptz,normalized_starts_at timestamptz,normalized_ends_at timestamptz);
+CREATE TABLE family_booking_members(id uuid PRIMARY KEY,dog_id uuid NOT NULL REFERENCES dogs ON DELETE RESTRICT,family_booking_id uuid REFERENCES family_bookings,status text,archived_at timestamptz,shared_room_group_id uuid REFERENCES family_shared_room_groups);
+CREATE TABLE hotel_physical_occupancies(id uuid PRIMARY KEY,shared_room_group_id uuid,status text,archived_at timestamptz,occupied_from timestamptz,occupied_until timestamptz);
+CREATE TABLE hotel_physical_occupancy_members(id uuid PRIMARY KEY,dog_id uuid NOT NULL REFERENCES dogs ON DELETE RESTRICT,occupancy_id uuid REFERENCES hotel_physical_occupancies,status text,archived_at timestamptz);
+CREATE TABLE long_stay_contracts(id uuid PRIMARY KEY,dog_id uuid NOT NULL REFERENCES dogs ON DELETE RESTRICT,status text,archived_at timestamptz,started_on date,planned_check_out_date date);
+CREATE TABLE long_stay_absence_events(id uuid PRIMARY KEY,long_stay_contract_id uuid REFERENCES long_stay_contracts,is_open boolean,archived_at timestamptz);
+CREATE TABLE long_stay_monthly_occupancies(id uuid PRIMARY KEY,long_stay_contract_id uuid REFERENCES long_stay_contracts);
+CREATE TABLE journal_days(id uuid PRIMARY KEY,business_date date);
+CREATE TABLE journal_entries(id uuid PRIMARY KEY,dog_id uuid NOT NULL REFERENCES dogs ON DELETE RESTRICT,best_friend_dog_id uuid REFERENCES dogs ON DELETE RESTRICT,journal_day_id uuid REFERENCES journal_days,status text);
+CREATE TABLE journal_entry_best_friend_targets(id uuid PRIMARY KEY,journal_entry_id uuid REFERENCES journal_entries,dog_id uuid REFERENCES dogs ON DELETE RESTRICT);
+CREATE TABLE entity_audit_events(id uuid PRIMARY KEY,entity_id uuid,entity_type text,before_data jsonb,after_data jsonb);
+CREATE TABLE hotel_physical_occupancy_requests(request_id uuid PRIMARY KEY,occupancy_id uuid,response jsonb);
+CREATE TABLE long_stay_operation_audit_events(id uuid PRIMARY KEY,long_stay_contract_id uuid,canonical_payload jsonb);
+CREATE TABLE hotel_single_check_in_receipts(request_id uuid PRIMARY KEY,hotel_stay_id uuid,response jsonb);
+CREATE TABLE hotel_missed_check_in_receipts(request_id uuid PRIMARY KEY,hotel_stay_id uuid,response jsonb);
+CREATE TABLE daycare_operation_states(operation_schedule_id uuid PRIMARY KEY,lifecycle_status text,canonical_payload jsonb);
+-- Representative additional legacy request table: discovered without a name allow-list.
+CREATE TABLE fixture_operation_requests(request_id uuid PRIMARY KEY,normalized_input jsonb);
+CREATE FUNCTION fixture_id(i integer) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$ SELECT ('00000000-0000-4000-8000-'||lpad(i::text,12,'0'))::uuid $$;
+CREATE FUNCTION fixture_assert(ok boolean,label text) RETURNS void LANGUAGE plpgsql AS $$ BEGIN IF ok IS DISTINCT FROM true THEN RAISE EXCEPTION 'FAIL: %',label; END IF; END $$;
+INSERT INTO profiles VALUES(fixture_id(900),true,'active'),(fixture_id(901),false,'active'),(fixture_id(902),true,'pending');
+INSERT INTO dogs SELECT fixture_id(n),'Synthetic '||n,fixture_id(800),n NOT IN (2,3),NULL,NULL FROM generate_series(1,20) n;
+INSERT INTO operation_schedules SELECT fixture_id(100+n),CASE WHEN n=5 THEN 'scheduled' WHEN n=12 THEN 'unexpected' ELSE 'completed' END,'2026-09-01 00:00Z','2026-09-01 01:00Z',NULL FROM unnest(ARRAY[2,5,6,11,12]) n;
+INSERT INTO operation_schedule_dogs SELECT fixture_id(200+n),fixture_id(n),fixture_id(100+n),CASE WHEN n=11 THEN '2026-09-02 00:00Z'::timestamptz END FROM unnest(ARRAY[2,5,6,11,12]) n;
+INSERT INTO hotel_stays VALUES(fixture_id(303),fixture_id(3),'2026-09-01 00:00Z','2026-09-02 00:00Z',NULL),(fixture_id(304),fixture_id(4),'2026-09-01 00:00Z',NULL,NULL);
+INSERT INTO hotel_capacity_reservations VALUES(fixture_id(403),fixture_id(303),'2026-09-01 00:00Z','2026-09-02 00:00Z');
+INSERT INTO hotel_room_allocations VALUES(fixture_id(503),fixture_id(403),'2026-09-01 00:00Z','2026-09-02 00:00Z'),(fixture_id(504),fixture_id(403),'2026-09-01 01:00Z','2026-09-02 00:00Z');
+INSERT INTO sales VALUES(fixture_id(607),fixture_id(7),'normal',0,'2026-09-01'),(fixture_id(608),fixture_id(8),'normal',100,'2026-09-01');
+INSERT INTO journal_days VALUES(fixture_id(700),'2026-09-01');
+INSERT INTO journal_entries VALUES(fixture_id(709),fixture_id(9),NULL,fixture_id(700),'in_progress');
+INSERT INTO family_bookings VALUES(fixture_id(710),'pending',NULL,'{}');
+INSERT INTO family_booking_members VALUES(fixture_id(810),fixture_id(10),fixture_id(710),'pending',NULL,NULL);
+INSERT INTO entity_audit_events VALUES(fixture_id(950),fixture_id(1),'dogs',NULL,jsonb_build_object('id',fixture_id(1),'name','Synthetic 1'));
+INSERT INTO fixture_operation_requests VALUES(fixture_id(951),jsonb_build_object('dogIds',jsonb_build_array(fixture_id(13))));
+INSERT INTO journal_entries VALUES(fixture_id(714),fixture_id(14),fixture_id(15),fixture_id(700),'completed');
+INSERT INTO journal_entry_best_friend_targets VALUES(fixture_id(815),fixture_id(714),fixture_id(15));
+INSERT INTO operation_schedules VALUES(fixture_id(116),'scheduled','2026-09-20 00:00Z','2026-09-20 01:00Z',NULL);
+INSERT INTO operation_schedule_dogs VALUES(fixture_id(216),fixture_id(16),fixture_id(116),NULL);
+INSERT INTO daycare_operation_states VALUES(fixture_id(116),'scheduled','{}');
+INSERT INTO long_stay_contracts VALUES(fixture_id(717),fixture_id(17),'active',NULL,'2026-09-01',NULL);
+INSERT INTO long_stay_absence_events VALUES(fixture_id(817),fixture_id(717),true,NULL);
+INSERT INTO hotel_physical_occupancies VALUES(fixture_id(718),NULL,'active',NULL,'2026-09-01 00:00Z','2026-09-20 00:00Z');
+INSERT INTO hotel_physical_occupancy_members VALUES(fixture_id(818),fixture_id(18),fixture_id(718),'active',NULL);
+
+-- Shared requested before physical occupancy, and conflicting completed stay boundary.
+INSERT INTO family_bookings VALUES(fixture_id(719),'pending',NULL,'{}');
+INSERT INTO family_shared_room_groups VALUES(fixture_id(919),'requested',NULL,'2026-09-20 00:00Z','2026-09-21 00:00Z');
+INSERT INTO family_booking_members VALUES(fixture_id(819),fixture_id(19),fixture_id(719),'pending',NULL,fixture_id(919));
+INSERT INTO hotel_stays VALUES(fixture_id(320),fixture_id(20),NULL,'2026-09-02 00:00Z',NULL);
