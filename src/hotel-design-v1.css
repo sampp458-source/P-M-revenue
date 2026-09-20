@@ -1,0 +1,115 @@
+/* Hotel-only material layer. Layout, motion and lifecycle selectors stay owned
+   by their existing styles. Never override transient drop/settling feedback. */
+.pm-design-v1.pm-hotel-v1 {
+  background: var(--pm-v1-canvas);
+  color: var(--pm-v1-ink);
+  border-radius: var(--pm-v1-radius-4);
+}
+.pm-design-v1.pm-hotel-v1 .hotel-command-heading {
+  border-color: var(--pm-v1-navy);
+}
+.pm-design-v1.pm-hotel-v1 .pm-card {
+  background: var(--pm-v1-surface);
+  box-shadow: none;
+  border-color: var(--pm-v1-border);
+}
+.pm-design-v1.pm-hotel-v1 .hotel-board-surface {
+  background: transparent;
+  box-shadow: none;
+  border-color: transparent;
+}
+.pm-design-v1.pm-hotel-v1 .hotel-board-surface .hotel-board-overview {
+  background: #26435a;
+  border: 1px solid #8097a8;
+  border-radius: var(--pm-v1-radius-4);
+  box-shadow: var(--pm-v1-depth-raised);
+}
+.pm-design-v1.pm-hotel-v1 .hotel-board-overview .hotel-attention-queue {
+  background: transparent;
+  box-shadow: none;
+}
+.pm-design-v1.pm-hotel-v1 .hotel-board-overview .hotel-attention-queue button {
+  background: #304f67;
+  box-shadow: inset 1px 1px 0 #ffffff12;
+}
+.pm-design-v1.pm-hotel-v1 .hotel-board-overview .hotel-attention-queue button:hover:not(:disabled) {
+  background: #3b607b;
+}
+.pm-design-v1.pm-hotel-v1 .hotel-room-group {
+  background: var(--pm-v1-tray);
+  border: 1px solid #f5f9fc99;
+  border-radius: var(--pm-v1-radius-4);
+  box-shadow: var(--pm-v1-depth-inset);
+}
+.pm-design-v1.pm-hotel-v1 .hotel-room-group > div:first-child {
+  border-color: var(--pm-v1-border);
+}
+/* Exclusions retain the authoritative interaction visuals from RoomCell. */
+.pm-design-v1.pm-hotel-v1 .hotel-board-surface .hotel-room-cell:not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55) {
+  background: var(--pm-v1-raised);
+  border-color: #f8fcffc9;
+  border-radius: var(--pm-v1-radius-3);
+  box-shadow: var(--pm-v1-depth-raised);
+}
+.pm-design-v1.pm-hotel-v1 .hotel-board-surface .hotel-room-cell[data-room-content="empty"]:not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55) {
+  background: var(--pm-v1-surface);
+  border-radius: var(--pm-v1-radius-2);
+  box-shadow: var(--pm-v1-depth-key);
+}
+.pm-design-v1.pm-hotel-v1 .hotel-board-surface .hotel-room-cell[data-room-content="empty"]:not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55):hover {
+  background: var(--pm-v1-raised);
+  border-color: #9ab0c3;
+}
+.pm-design-v1.pm-hotel-v1 .hotel-room-cell[data-room-phase="check_in"]:not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55) { border-inline-start-color: #5081b3; }
+.pm-design-v1.pm-hotel-v1 .hotel-room-cell[data-room-phase="in_house"]:not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55) { border-inline-start-color: #47876c; }
+.pm-design-v1.pm-hotel-v1 .hotel-room-cell[data-room-phase="check_out"]:not(.border-dashed, .border-2, [class*="ring-"], .hotel-room-drop-settle, .opacity-55) { border-inline-start-color: #b87931; }
+.pm-design-v1.pm-hotel-v1 .hotel-room-cell .hotel-dog-name { color: var(--pm-v1-ink); }
+.pm-design-v1.pm-hotel-v1 .hotel-room-cell .hotel-shared-member { border-color: var(--pm-v1-border); }
+.pm-design-v1.pm-hotel-v1 .hotel-workspace-nav {
+  background: var(--pm-v1-tray);
+  border-color: var(--pm-v1-border);
+  box-shadow: var(--pm-v1-depth-slot);
+}
+.pm-design-v1.pm-hotel-v1 .hotel-workspace-nav button[aria-pressed="true"] {
+  background: var(--pm-v1-navy);
+  color: white;
+  box-shadow: var(--pm-v1-depth-pressed);
+}
+.pm-design-v1.pm-hotel-v1 [aria-label="객실 상태"] button {
+  background: var(--pm-v1-raised);
+  box-shadow: var(--pm-v1-depth-key);
+}
+.pm-design-v1.pm-hotel-v1 [aria-label="객실 상태"] button[aria-pressed="true"] {
+  background: var(--pm-v1-navy);
+  color: white;
+  box-shadow: var(--pm-v1-depth-pressed);
+}
+.pm-design-v1.pm-hotel-v1 .hotel-day-timeline,
+.pm-design-v1.pm-hotel-v1 .hotel-action-dock {
+  background: var(--pm-v1-surface);
+  border-color: var(--pm-v1-border);
+  box-shadow: none;
+}
+.pm-design-v1.pm-hotel-v1 .hotel-action-dock-items button:not(:disabled) {
+  background: var(--pm-v1-raised);
+  box-shadow: var(--pm-v1-depth-key);
+}
+.pm-design-v1.pm-hotel-v1 button:focus-visible {
+  outline: 2px solid var(--pm-v1-navy);
+  outline-offset: 2px;
+}
+.pm-design-v1.pm-hotel-v1 .hotel-board-overview button:focus-visible {
+  outline-color: #c0def4;
+}
+/* Enlarge existing controls without changing their handlers or hit-test logic. */
+.pm-design-v1.pm-hotel-v1 .hotel-room-group-mobile > button,
+.pm-design-v1.pm-hotel-v1 button[aria-label$="호실 이동 시작"],
+.pm-design-v1.pm-hotel-v1 .hotel-board-future button,
+.pm-design-v1.pm-hotel-v1 button[aria-label="이전 달"],
+.pm-design-v1.pm-hotel-v1 button[aria-label="다음 달"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+.pm-design-v1.pm-hotel-v1 [aria-label="객실 상태"] button:disabled {
+  box-shadow: none;
+}

@@ -1385,7 +1385,7 @@ export function HotelOperationsPage() {
   })));
 
   return (
-    <>
+    <div className="pm-design-v1 pm-hotel-v1">
       <div className="hotel-command-heading"><span className="hotel-operation-eyebrow">P&M · HOTEL OPERATIONS</span>
       <PageHeader
         title="호텔 운영"
@@ -1942,7 +1942,7 @@ export function HotelOperationsPage() {
         </button>
       ) : null}
       </HotelDateTransition>
-    </>
+    </div>
   );
 }
 
