@@ -1059,8 +1059,8 @@ export function OperationsTodayPage() {
   }, [schedules]);
 
   return (
-    <section className="mx-auto max-w-7xl">
-      <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <section className="pm-design-v1 pm-today-v1 mx-auto max-w-7xl">
+      <header className="pm-today-heading mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-primary">{fullDate}</p>
           <h1 className="mt-1 text-[clamp(1.75rem,4vw,2.5rem)] font-bold tracking-[-0.045em] text-text-primary">
@@ -1079,9 +1079,9 @@ export function OperationsTodayPage() {
         </Button>
       </header>
 
-      <div className="grid gap-5 md:grid-cols-[minmax(0,1.65fr)_minmax(17rem,0.85fr)] lg:gap-6">
-        <Card className="overflow-hidden">
-          <div className="flex items-center justify-between border-b border-border px-4 py-4 sm:px-5">
+      <div className="pm-today-layout grid gap-5 md:grid-cols-[minmax(0,1.65fr)_minmax(17rem,0.85fr)] lg:gap-6">
+        <Card className="pm-today-schedules overflow-hidden">
+          <div className="pm-today-schedule-heading flex items-center justify-between border-b border-border px-4 py-4 sm:px-5">
             <div>
               <h2 className="text-lg font-bold tracking-[-0.025em] text-text-primary">
                 오늘 일정
@@ -1106,7 +1106,7 @@ export function OperationsTodayPage() {
               retry={() => void loadSchedules()}
             />
           ) : schedules.length ? (
-            <ol className="grid gap-2.5 bg-surface-secondary/55 p-3 sm:p-4">
+            <ol className="pm-today-list grid gap-2.5 bg-surface-secondary/55 p-3 sm:p-4">
               {orderedSchedules.map((schedule) => (
                 <li key={schedule.id}>
                   <ScheduleRow
@@ -1118,7 +1118,7 @@ export function OperationsTodayPage() {
               ))}
             </ol>
           ) : (
-            <div className="pb-5">
+            <div className="pm-today-empty pb-5">
               <EmptyState
                 title="오늘 등록된 일정이 없습니다"
                 description="새 일정을 등록하면 시간 확정 일정부터 표시됩니다."
@@ -1307,7 +1307,7 @@ function ScheduleRow({
       aria-label={`${operationScheduleDisplayTitle(schedule)} 일정 상세 보기`}
       onClick={onOpen}
       className={cn(
-        "group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl border border-border/90 bg-surface px-4 py-3.5 text-left shadow-[0_2px_7px_rgb(23_36_58_/_0.045),0_8px_22px_rgb(23_36_58_/_0.055)] transition-[background-color,border-color,box-shadow,opacity,transform,filter] duration-[160ms] ease-out hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[var(--pm-shadow-surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:px-5",
+        "pm-today-event group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl border border-border/90 bg-surface px-4 py-3.5 text-left shadow-[0_2px_7px_rgb(23_36_58_/_0.045),0_8px_22px_rgb(23_36_58_/_0.055)] transition-[background-color,border-color,box-shadow,opacity,transform,filter] duration-[160ms] ease-out hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[var(--pm-shadow-surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:px-5",
         isMine && "border-primary/25 bg-primary/[0.07] shadow-[0_3px_10px_rgb(39_76_119_/_0.08),0_12px_28px_rgb(39_76_119_/_0.09)]",
         completed && "bg-surface-secondary/45 opacity-70 saturate-50",
         cancelled && "bg-surface-secondary/35 opacity-60 saturate-50",
@@ -1321,7 +1321,7 @@ function ScheduleRow({
       <div className="min-w-0">
         <p
           className={cn(
-            "flex min-w-0 items-center gap-2 truncate text-[15px] font-bold tracking-[-0.015em] transition-colors duration-[160ms] group-hover:text-primary sm:text-base",
+            "pm-today-event-title flex min-w-0 items-center gap-2 truncate text-[15px] font-bold tracking-[-0.015em] transition-colors duration-[160ms] group-hover:text-primary sm:text-base",
             completed || cancelled
               ? "text-text-secondary"
               : "text-text-primary",
@@ -1337,7 +1337,7 @@ function ScheduleRow({
             </Badge>
           )}
         </p>
-        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-text-secondary sm:text-[13px]">
+        <div className="pm-today-event-meta mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-text-secondary sm:text-[13px]">
           {schedule.timeUnspecified ? (
             <Badge tone="gray">시간 미정</Badge>
           ) : (
@@ -1378,7 +1378,7 @@ function ScheduleRow({
           </span>
         </div>
       </div>
-      <span className="flex flex-col items-end gap-2">
+      <span className="pm-today-event-status flex flex-col items-end gap-2">
         <Badge tone={completed ? "gray" : cancelled ? "red" : "blue"}>
           {completed ? "완료" : cancelled ? "취소" : "예정"}
         </Badge>
@@ -1404,7 +1404,7 @@ function TodaySummary({
     ["공통", counts.common, "#5B7FA3"],
   ] as const;
   return (
-    <Card className="p-4 sm:p-5">
+    <Card className="pm-today-summary p-4 sm:p-5">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold text-text-muted">오늘 요약</p>
@@ -1434,7 +1434,7 @@ function TodaySummary({
 
 function TodayAlerts({ alerts }: { alerts: string[] }) {
   return (
-    <Card className="p-4 sm:p-5">
+    <Card className="pm-today-alerts p-4 sm:p-5">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-bold text-text-primary">오늘 확인</h2>

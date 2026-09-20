@@ -1,0 +1,122 @@
+/* Today-only visual layer. Existing schedule ordering, content and actions stay
+   in OperationsToday; shared Calendar/Hotel consumers receive no new scope. */
+.pm-design-v1.pm-today-v1 {
+  color: var(--pm-v1-ink);
+  background: #edf2f7;
+}
+.pm-design-v1.pm-today-v1 .pm-today-heading {
+  padding-left: var(--pm-v1-space-l);
+  border-left: 3px solid var(--pm-v1-navy);
+  margin-bottom: var(--pm-v1-space-xl);
+}
+.pm-design-v1.pm-today-v1 .pm-today-heading h1 { color: var(--pm-v1-ink); }
+.pm-design-v1.pm-today-v1 .pm-today-layout { align-items: start; }
+.pm-design-v1.pm-today-v1 .pm-today-schedules,
+.pm-design-v1.pm-today-v1 .pm-today-summary,
+.pm-design-v1.pm-today-v1 .pm-today-alerts {
+  background: var(--pm-v1-raised);
+  border-color: var(--pm-v1-border);
+  border-radius: var(--pm-v1-radius-3);
+  box-shadow: none;
+}
+.pm-design-v1.pm-today-v1 .pm-today-schedule-heading {
+  gap: var(--pm-v1-space-m);
+  background: var(--pm-v1-surface);
+  border-color: var(--pm-v1-border);
+}
+.pm-design-v1.pm-today-v1 .pm-today-schedule-heading > span {
+  flex-shrink: 0;
+  color: var(--pm-v1-navy);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.pm-design-v1.pm-today-v1 .pm-today-list {
+  gap: 0;
+  background: transparent;
+}
+.pm-design-v1.pm-today-v1 .pm-today-event {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--pm-v1-border);
+  border-radius: 0;
+  box-shadow: none;
+}
+.pm-design-v1.pm-today-v1 .pm-today-event:hover {
+  background: var(--pm-v1-surface);
+  box-shadow: none;
+}
+.pm-design-v1.pm-today-v1 .pm-today-event > span:first-child {
+  top: 16px;
+  bottom: 16px;
+  border-radius: 3px;
+}
+.pm-design-v1.pm-today-v1 .pm-today-event-title {
+  flex-wrap: wrap;
+  white-space: normal;
+  overflow: visible;
+}
+.pm-design-v1.pm-today-v1 .pm-today-event-title > span:first-child {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  overflow: visible;
+}
+.pm-design-v1.pm-today-v1 .pm-today-event-meta > span,
+.pm-design-v1.pm-today-v1 .pm-today-event-meta > span > span {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.pm-design-v1.pm-today-v1 .pm-today-event-meta time {
+  color: var(--pm-v1-navy);
+  font-size: .875rem;
+}
+.pm-design-v1.pm-today-v1 .pm-today-summary > div:first-child {
+  padding-bottom: var(--pm-v1-space-m);
+  border-bottom: 1px solid var(--pm-v1-border);
+}
+.pm-design-v1.pm-today-v1 .pm-today-summary dl {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  margin-top: var(--pm-v1-space-s);
+}
+.pm-design-v1.pm-today-v1 .pm-today-summary dl > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pm-v1-space-m);
+  padding: 10px 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #cbd6e0;
+  border-radius: 0;
+}
+.pm-design-v1.pm-today-v1 .pm-today-summary dd {
+  margin-top: 0;
+  color: var(--pm-v1-navy);
+}
+.pm-design-v1.pm-today-v1 .pm-today-alerts ul > li {
+  border-bottom: 1px solid var(--pm-v1-border);
+  border-radius: 0;
+}
+.pm-design-v1.pm-today-v1 .pm-today-alerts ul > li > span { flex-shrink: 0; }
+.pm-design-v1.pm-today-v1 .pm-today-empty > div:first-child {
+  min-height: 0;
+  padding: 24px 16px;
+}
+.pm-design-v1.pm-today-v1 .pm-today-empty > div:first-child > div:first-child {
+  width: 36px;
+  height: 36px;
+  margin-bottom: 12px;
+}
+.pm-design-v1.pm-today-v1 .pm-today-empty > div:last-child { margin-top: 0; }
+
+/* Mobile schedule rows remain part of one panel, including hover feedback. */
+@media (width < 48rem) {
+  .pm-design-v1.pm-today-v1 .pm-today-list .pm-today-event {
+    background: transparent;
+    border-bottom-color: #ccd6e0;
+    border-radius: 0;
+    box-shadow: none;
+    translate: none;
+  }
+}
