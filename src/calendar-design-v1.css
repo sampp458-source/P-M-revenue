@@ -1,0 +1,114 @@
+/* Calendar-only presentation. Keep date geometry, responsive visibility,
+   event identity, drawer placement and motion owned by existing components. */
+.pm-design-v1.pm-calendar-v1 {
+  background: var(--pm-v1-canvas);
+  color: var(--pm-v1-ink);
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-heading h1 {
+  color: var(--pm-v1-ink);
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-surface {
+  background: var(--pm-v1-surface);
+  border-color: var(--pm-v1-border);
+  box-shadow: none;
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-month-nav {
+  background: var(--pm-v1-surface);
+  border-color: var(--pm-v1-border);
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-month-nav > div > button,
+.pm-design-v1.pm-calendar-v1 .pm-calendar-drawer button[aria-label="닫기"],
+.pm-design-v1.pm-calendar-v1 .pm-calendar-drawer button[aria-label="이전 날짜"],
+.pm-design-v1.pm-calendar-v1 .pm-calendar-drawer button[aria-label="다음 날짜"] {
+  background: var(--pm-v1-raised);
+  color: var(--pm-v1-ink);
+  border-color: var(--pm-v1-border);
+  box-shadow: var(--pm-v1-depth-key);
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-month-nav > div > button:active,
+.pm-design-v1.pm-calendar-v1 .pm-calendar-drawer-actions button:active {
+  box-shadow: var(--pm-v1-depth-slot);
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-weekdays {
+  background: var(--pm-v1-surface);
+  border-color: var(--pm-v1-border);
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-cell {
+  border-color: var(--pm-v1-border);
+  border-radius: 0;
+  background-color: var(--pm-v1-raised);
+  background-image: none;
+  box-shadow: none;
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-cell[class*="bg-surface-secondary"] {
+  background-color: var(--pm-v1-surface);
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-cell:hover {
+  background-color: #e2ebf3;
+  border-radius: 0;
+  box-shadow: none;
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-cell[aria-pressed="true"] {
+  background-color: #dbe6f0;
+  box-shadow: inset 0 0 0 2px var(--pm-v1-navy), inset 0 3px 5px #9aafc32b;
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-cell:focus-visible {
+  outline: 2px solid var(--pm-v1-navy);
+  outline-offset: -4px;
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-day-number,
+.pm-design-v1.pm-calendar-v1 .pm-calendar-dots > span,
+.pm-design-v1.pm-calendar-v1 .pm-calendar-events > span {
+  box-shadow: none;
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-event {
+  background: #e1eaf2;
+  border-color: #c4d2de;
+  border-radius: var(--pm-v1-radius-1);
+  box-shadow: none;
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-event > span:first-child {
+  width: 3px;
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-drawer {
+  background: var(--pm-v1-surface);
+  border-color: var(--pm-v1-border);
+  box-shadow: var(--pm-v1-depth-overlay);
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-drawer > header {
+  background: var(--pm-v1-surface);
+  border-color: var(--pm-v1-border);
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-drawer-actions {
+  background: var(--pm-v1-tray);
+  border-radius: var(--pm-v1-radius-2);
+  box-shadow: var(--pm-v1-depth-slot);
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-drawer-actions > div:first-child {
+  background: transparent;
+  border-color: transparent;
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-drawer .hotel-day-timeline,
+.pm-design-v1.pm-calendar-v1 .pm-calendar-drawer .hotel-time-group button {
+  background: transparent;
+  box-shadow: none;
+  border-color: var(--pm-v1-border);
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-drawer .hotel-time-group button:hover {
+  background: #dfe8f1;
+}
+.pm-design-v1.pm-calendar-v1 .pm-calendar-drawer .hotel-timeline-copy strong {
+  color: var(--pm-v1-ink);
+}
+
+/* Match the existing mobile dots breakpoint; keep tablet/desktop untouched.
+   Compact the count's padding rather than hiding overflow or event data. */
+@media (width < 40rem) {
+  .pm-design-v1.pm-calendar-v1 .pm-calendar-cell-heading {
+    gap: 0;
+    flex-wrap: wrap;
+  }
+  .pm-design-v1.pm-calendar-v1 .pm-calendar-count {
+    padding-inline: 1px;
+  }
+}

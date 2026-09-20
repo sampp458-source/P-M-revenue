@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 const css = readFileSync('src/hotel-design-v1.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 describe('Hotel V1 presentation boundary', () => {
-  it('opts in only the Hotel page, not other consumers of shared primitives', () => {
-    const adopters = readdirSync('src/pages').filter(name => name.endsWith('.tsx') && !name.endsWith('.test.tsx')).filter(name => readFileSync(`src/pages/${name}`, 'utf8').includes('pm-design-v1'));
+  it('keeps the Hotel material scope on the Hotel page only', () => {
+    const adopters = readdirSync('src/pages').filter(name => name.endsWith('.tsx') && !name.endsWith('.test.tsx')).filter(name => readFileSync(`src/pages/${name}`, 'utf8').includes('pm-hotel-v1'));
     expect(adopters).toEqual(['HotelOperations.tsx']);
   });
   it('scopes every rule to Hotel and leaves layout, drag/drop and motion properties alone', () => {

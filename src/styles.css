@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./design-system-v1.css";
 @import "./hotel-design-v1.css";
+@import "./calendar-design-v1.css";
 
 @theme {
   --color-primary: #274c77;

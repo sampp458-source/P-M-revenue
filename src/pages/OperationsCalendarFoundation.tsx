@@ -550,8 +550,8 @@ export function OperationsCalendarFoundationPage() {
   };
 
   return (
-    <section className="mx-auto max-w-[1480px]">
-      <header className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <section className="pm-design-v1 pm-calendar-v1 mx-auto max-w-[1480px]">
+      <header className="pm-calendar-heading mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-primary">Operations</p>
           <h1 className="mt-1 text-[clamp(1.75rem,4vw,2.5rem)] font-bold tracking-[-0.045em] text-text-primary">
@@ -567,8 +567,8 @@ export function OperationsCalendarFoundationPage() {
         </Button>
       </header>
 
-      <div className="overflow-hidden rounded-[22px] border border-border/90 bg-surface shadow-[var(--pm-shadow-surface)] ring-1 ring-inset ring-white/70">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-3 sm:px-5">
+      <div className="pm-calendar-surface overflow-hidden rounded-[22px] border border-border/90 bg-surface shadow-[var(--pm-shadow-surface)] ring-1 ring-inset ring-white/70">
+        <div className="pm-calendar-month-nav flex flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-3 sm:px-5">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -606,7 +606,7 @@ export function OperationsCalendarFoundationPage() {
           </div>
         ) : (
           <div key={visibleMonth} className="animate-[fadeIn_180ms_ease-out]">
-            <div className="grid grid-cols-7 border-b border-border bg-surface-secondary/60">
+            <div className="pm-calendar-weekdays grid grid-cols-7 border-b border-border bg-surface-secondary/60">
               {WEEKDAYS.map((weekday, index) => (
                 <div
                   key={weekday}
@@ -623,7 +623,7 @@ export function OperationsCalendarFoundationPage() {
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7">
+            <div className="pm-calendar-grid grid grid-cols-7">
               {gridDates.map((date) => {
                 const daySchedules = schedulesByDate.get(date) ?? [];
                 return (
@@ -906,17 +906,17 @@ function CalendarCell({
       aria-label={`${fullDateLabel(date)}, 일정 ${schedules.length}건`}
       aria-pressed={selected}
       className={cn(
-        "group relative min-h-[78px] border-b border-r border-border p-1.5 text-left transition-[background-color,border-color,border-radius,box-shadow,transform] duration-[160ms] ease-out sm:min-h-[134px] sm:p-2.5 lg:min-h-[154px] lg:p-3",
+        "pm-calendar-cell group relative min-h-[78px] border-b border-r border-border p-1.5 text-left transition-[background-color,border-color,border-radius,box-shadow,transform] duration-[160ms] ease-out sm:min-h-[134px] sm:p-2.5 lg:min-h-[154px] lg:p-3",
         "focus:z-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
         outside ? "bg-surface-secondary/35" : "bg-surface",
         selected && "z-[2] -translate-y-px rounded-lg bg-[linear-gradient(145deg,#ffffff_0%,#eaf1f7_100%)] shadow-[0_10px_28px_rgb(39_76_119_/_0.2)] ring-2 ring-inset ring-primary",
         !selected && "hover:z-[1] hover:-translate-y-px hover:rounded-lg hover:bg-primary-soft/40 hover:shadow-[0_7px_20px_rgb(23_36_58_/_0.1),inset_0_0_0_1px_rgb(39_76_119_/_0.12)]",
       )}
     >
-      <div className="flex items-center justify-between gap-1">
+      <div className="pm-calendar-cell-heading flex items-center justify-between gap-1">
         <span
           className={cn(
-            "flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs font-semibold tabular-nums sm:text-sm",
+            "pm-calendar-day-number flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs font-semibold tabular-nums sm:text-sm",
             outside && "text-text-muted/60",
             !outside &&
               weekday === 0 &&
@@ -934,12 +934,12 @@ function CalendarCell({
           {Number(date.slice(-2))}
         </span>
         {schedules.length > 0 && (
-          <span className="rounded-full bg-surface-secondary px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-text-muted sm:text-xs">
+          <span className="pm-calendar-count rounded-full bg-surface-secondary px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-text-muted sm:text-xs">
             {schedules.length}
           </span>
         )}
       </div>
-      <div className="mt-2 flex flex-wrap gap-1 sm:hidden" aria-hidden="true">
+      <div className="pm-calendar-dots mt-2 flex flex-wrap gap-1 sm:hidden" aria-hidden="true">
         {schedules.slice(0, 4).map((schedule) => (
           <span
             key={schedule.id}
@@ -953,7 +953,7 @@ function CalendarCell({
           />
         ))}
       </div>
-      <div className="mt-1.5 hidden space-y-1 sm:block">
+      <div className="pm-calendar-events mt-1.5 hidden space-y-1 sm:block">
         {schedules.slice(0, 2).map((schedule) => (
           <MonthScheduleCard
             key={schedule.id}
@@ -987,7 +987,7 @@ function MonthScheduleCard({
   return (
     <div
       className={cn(
-        "relative min-h-[38px] overflow-hidden rounded-lg border border-border/80 bg-surface px-2.5 py-2 shadow-[0_2px_6px_rgb(15_23_42_/_0.06)] transition-[border-color,background-color,box-shadow,opacity,transform] duration-[160ms] ease-out group-hover:border-primary/20 group-hover:shadow-[0_5px_12px_rgb(15_23_42_/_0.09)] lg:min-h-[42px] lg:px-3",
+        "pm-calendar-event relative min-h-[38px] overflow-hidden rounded-lg border border-border/80 bg-surface px-2.5 py-2 shadow-[0_2px_6px_rgb(15_23_42_/_0.06)] transition-[border-color,background-color,box-shadow,opacity,transform] duration-[160ms] ease-out group-hover:border-primary/20 group-hover:shadow-[0_5px_12px_rgb(15_23_42_/_0.09)] lg:min-h-[42px] lg:px-3",
         isMine && "border-primary/30 bg-primary-soft/65 shadow-[0_3px_8px_rgb(39_76_119_/_0.1)]",
         schedule.status !== "scheduled" && "opacity-55",
       )}
@@ -1104,7 +1104,7 @@ function DayDrawer({
         aria-modal="true"
         aria-label={`${fullDateLabel(date)} 일정`}
         className={cn(
-          "hotel-day-drawer absolute inset-y-0 right-0 flex w-full max-w-[560px] flex-col border-l border-border bg-surface shadow-2xl transition-transform duration-[180ms] ease-out",
+          "pm-calendar-drawer hotel-day-drawer absolute inset-y-0 right-0 flex w-full max-w-[560px] flex-col border-l border-border bg-surface shadow-2xl transition-transform duration-[180ms] ease-out",
           open ? "translate-x-0" : "translate-x-full",
         )}
       >
@@ -1129,7 +1129,7 @@ function DayDrawer({
               <X size={20} />
             </button>
           </div>
-          <div className="mt-3.5 flex items-center justify-between gap-2">
+          <div className="pm-calendar-drawer-actions mt-3.5 flex items-center justify-between gap-2">
             <div className="inline-flex rounded-xl border border-border bg-surface-secondary p-1">
               <button
                 type="button"
