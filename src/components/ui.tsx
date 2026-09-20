@@ -32,12 +32,12 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:translate-y-px disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50",
-        variant === "primary" && "bg-primary text-white shadow-[0_5px_14px_rgb(39_76_119_/_0.16),inset_0_1px_0_rgb(255_255_255_/_0.18)] hover:-translate-y-px hover:bg-primary-hover hover:shadow-[0_8px_20px_rgb(39_76_119_/_0.22),inset_0_1px_0_rgb(255_255_255_/_0.2)]",
+        "pm-v1-button inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:translate-y-px disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50",
+        variant === "primary" && "pm-v1-button-primary bg-primary text-white shadow-[0_5px_14px_rgb(39_76_119_/_0.16),inset_0_1px_0_rgb(255_255_255_/_0.18)] hover:-translate-y-px hover:bg-primary-hover hover:shadow-[0_8px_20px_rgb(39_76_119_/_0.22),inset_0_1px_0_rgb(255_255_255_/_0.2)]",
         variant === "secondary" &&
-          "border border-border-strong bg-surface text-text-primary shadow-[0_1px_3px_rgb(23_36_58_/_0.05)] hover:-translate-y-px hover:border-primary/30 hover:bg-primary-subtle hover:shadow-[0_5px_14px_rgb(23_36_58_/_0.08)]",
-        variant === "danger" && "bg-error text-white shadow-[0_5px_14px_rgb(194_77_77_/_0.16)] hover:-translate-y-px hover:bg-[#aa4141] hover:shadow-[0_8px_20px_rgb(194_77_77_/_0.22)]",
-        variant === "ghost" && "text-text-secondary hover:bg-primary-soft hover:text-primary",
+          "pm-v1-button-secondary border border-border-strong bg-surface text-text-primary shadow-[0_1px_3px_rgb(23_36_58_/_0.05)] hover:-translate-y-px hover:border-primary/30 hover:bg-primary-subtle hover:shadow-[0_5px_14px_rgb(23_36_58_/_0.08)]",
+        variant === "danger" && "pm-v1-button-danger bg-error text-white shadow-[0_5px_14px_rgb(194_77_77_/_0.16)] hover:-translate-y-px hover:bg-[#aa4141] hover:shadow-[0_8px_20px_rgb(194_77_77_/_0.22)]",
+        variant === "ghost" && "pm-v1-button-ghost text-text-secondary hover:bg-primary-soft hover:text-primary",
         className,
       )}
       {...p}
@@ -49,7 +49,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     <input
       ref={ref}
       className={cn(
-        "min-h-11 w-full rounded-xl border border-border-strong bg-surface px-3.5 text-sm text-text-primary outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out placeholder:text-text-muted hover:border-[#c5cfdb] focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-muted read-only:bg-surface-secondary aria-[invalid=true]:border-error aria-[invalid=true]:bg-error-soft aria-[invalid=true]:focus:ring-error/15",
+        "pm-v1-input min-h-11 w-full rounded-xl border border-border-strong bg-surface px-3.5 text-sm text-text-primary outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out placeholder:text-text-muted hover:border-[#c5cfdb] focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-muted read-only:bg-surface-secondary aria-[invalid=true]:border-error aria-[invalid=true]:bg-error-soft aria-[invalid=true]:focus:ring-error/15",
         className,
       )}
       {...p}
@@ -75,7 +75,7 @@ export function Select({
   return (
     <select
       className={cn(
-        "min-h-11 w-full appearance-none rounded-xl border border-border-strong bg-surface px-3.5 text-sm text-text-primary outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out hover:border-[#c5cfdb] focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-muted aria-[invalid=true]:border-error aria-[invalid=true]:bg-error-soft",
+        "pm-v1-input min-h-11 w-full appearance-none rounded-xl border border-border-strong bg-surface px-3.5 text-sm text-text-primary outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out hover:border-[#c5cfdb] focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-muted aria-[invalid=true]:border-error aria-[invalid=true]:bg-error-soft",
         className,
       )}
       {...p}
@@ -91,7 +91,7 @@ export function Textarea({
   return (
     <textarea
       className={cn(
-        "min-h-24 w-full resize-y rounded-xl border border-border-strong bg-surface px-3.5 py-3 text-sm text-text-primary outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out placeholder:text-text-muted hover:border-[#c5cfdb] focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-muted read-only:bg-surface-secondary aria-[invalid=true]:border-error aria-[invalid=true]:bg-error-soft",
+        "pm-v1-input min-h-24 w-full resize-y rounded-xl border border-border-strong bg-surface px-3.5 py-3 text-sm text-text-primary outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out placeholder:text-text-muted hover:border-[#c5cfdb] focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-muted read-only:bg-surface-secondary aria-[invalid=true]:border-error aria-[invalid=true]:bg-error-soft",
         className,
       )}
       {...p}
@@ -193,7 +193,7 @@ export function Card({
   );
 }
 export function FilterToolbar({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <Card className="mb-6 p-4 sm:p-5"><div className={cn("grid gap-3 sm:gap-4", className)}>{children}</div></Card>;
+  return <Card className="pm-v1-filter mb-6 p-4 sm:p-5"><div className={cn("grid gap-3 sm:gap-4", className)}>{children}</div></Card>;
 }
 export function Table({
   className = "",
@@ -221,7 +221,7 @@ export function Table({
 }
 
 export function Pagination({ page, totalPages, totalLabel, onPageChange }: { page: number; totalPages: number; totalLabel: string; onPageChange: (page: number) => void }) {
-  return <nav className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" aria-label="페이지 이동"><p className="text-sm text-text-secondary"><span className="tabular-nums">{page} / {Math.max(1, totalPages)}</span> 페이지 · {totalLabel}</p><div className="grid grid-cols-2 gap-2 sm:flex"><Button type="button" variant="secondary" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>이전</Button><Button type="button" variant="secondary" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>다음</Button></div></nav>;
+  return <nav className="pm-v1-pagination mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" aria-label="페이지 이동"><p className="text-sm text-text-secondary"><span className="tabular-nums">{page} / {Math.max(1, totalPages)}</span> 페이지 · {totalLabel}</p><div className="grid grid-cols-2 gap-2 sm:flex"><Button type="button" variant="secondary" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>이전</Button><Button type="button" variant="secondary" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>다음</Button></div></nav>;
 }
 export function PageHeader({
   title,
@@ -233,7 +233,7 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="pm-v1-page-header mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 className="text-2xl font-bold tracking-[-0.02em] text-text-primary sm:text-[1.625rem]">
           {title}
@@ -263,7 +263,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold leading-4",
+        "pm-v1-status inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold leading-4",
         c,
       )}
     >
