@@ -1,0 +1,48 @@
+/* Product list only. Shared forms, queries and lifecycle actions retain their existing contracts. */
+.pm-design-v1.pm-products-v1 { background: #f6f7f9; color: var(--pm-v1-ink); }
+.pm-design-v1.pm-products-v1 > .pm-v1-page-header { border-left: 3px solid var(--pm-v1-navy); padding-left: 16px; }
+.pm-design-v1.pm-products-v1 .pm-v1-filter,
+.pm-design-v1.pm-products-v1 .products-results { background: #fff; border-color: #dfe4ea; border-radius: var(--pm-v1-radius-3); box-shadow: none; }
+.pm-design-v1.pm-products-v1 .pm-v1-filter { margin-bottom: 16px; }
+.pm-design-v1.pm-products-v1 input,
+.pm-design-v1.pm-products-v1 select { min-width: 0; min-height: 44px; background: #fff; box-shadow: none; }
+.pm-design-v1.pm-products-v1 button { min-height: 44px; box-shadow: none; }
+.pm-design-v1.pm-products-v1 .products-table { width: 100%; table-layout: fixed; }
+.pm-design-v1.pm-products-v1 .products-table th { background: #f7f8fa; color: #657181; }
+.pm-design-v1.pm-products-v1 .products-table td { white-space: normal; overflow-wrap: anywhere; background: #fff; border-bottom: 1px solid #e4e8ee; vertical-align: top; }
+.pm-design-v1.pm-products-v1 .products-table th:nth-child(1) { width: 8%; }
+.pm-design-v1.pm-products-v1 .products-table th:nth-child(2) { width: 13%; }
+.pm-design-v1.pm-products-v1 .products-table th:nth-child(3) { width: 23%; }
+.pm-design-v1.pm-products-v1 .products-table th:nth-child(4) { width: 13%; }
+.pm-design-v1.pm-products-v1 .products-table th:nth-child(5) { width: 8%; }
+.pm-design-v1.pm-products-v1 .products-table th:nth-child(6) { width: 17%; }
+.pm-design-v1.pm-products-v1 .products-table th:nth-child(7) { width: 18%; }
+.pm-design-v1.pm-products-v1 .product-name { color: var(--pm-v1-ink); }
+.pm-design-v1.pm-products-v1 .product-price { font-variant-numeric: tabular-nums; font-weight: 600; }
+.pm-design-v1.pm-products-v1 .product-actions > div { flex-wrap: wrap; }
+@media (width < 80rem) {
+  .pm-design-v1.pm-products-v1 .products-table,
+  .pm-design-v1.pm-products-v1 .products-table tbody { display: block; }
+  .pm-design-v1.pm-products-v1 .products-table thead { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .pm-design-v1.pm-products-v1 .products-table tr { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; gap: 8px 16px; padding: 16px; border-bottom: 1px solid #e4e8ee; }
+  .pm-design-v1.pm-products-v1 .products-table tr:last-child { border-bottom: 0; }
+  .pm-design-v1.pm-products-v1 .products-table td { min-width: 0; padding: 0; border: 0; line-height: 1.5; }
+  .pm-design-v1.pm-products-v1 .products-table td[data-label]::before { content: attr(data-label); display: block; font-size: 12px; font-weight: 400; color: #657181; margin-bottom: 3px; }
+  .pm-design-v1.pm-products-v1 .product-name { grid-column: 1 / 3; grid-row: 1; font-size: 16px; }
+  .pm-design-v1.pm-products-v1 .product-status { grid-column: 3; grid-row: 1; }
+  .pm-design-v1.pm-products-v1 .product-division { grid-column: 1; grid-row: 2; }
+  .pm-design-v1.pm-products-v1 .product-category { grid-column: 2 / 4; grid-row: 2; }
+  .pm-design-v1.pm-products-v1 .product-price { grid-column: 1; grid-row: 3; }
+  .pm-design-v1.pm-products-v1 .product-memo { grid-column: 1 / -1; grid-row: 4; color: #657181; }
+  .pm-design-v1.pm-products-v1 .product-actions { grid-column: 2 / 4; grid-row: 3; align-self: center; }
+  .pm-design-v1.pm-products-v1 .product-actions > div { justify-content: flex-end; }
+  .pm-design-v1.pm-products-v1 .product-actions button { background: transparent; border-color: #dfe4ea; padding-inline: 12px; }
+}
+@media (width < 48rem) {
+  .pm-design-v1.pm-products-v1 > .pm-v1-page-header { flex-direction: column; align-items: stretch; }
+  .pm-design-v1.pm-products-v1 .pm-v1-filter { padding: 14px; }
+  .pm-design-v1.pm-products-v1 .pm-v1-filter > div { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+  .pm-design-v1.pm-products-v1 .pm-v1-filter > div > div:first-child { grid-column: 1 / -1; }
+  .pm-design-v1.pm-products-v1 .pm-v1-filter > div > select:last-child { grid-column: 1 / -1; }
+  .pm-design-v1.pm-products-v1 .products-table tr { gap: 8px 12px; padding: 14px 16px; }
+}

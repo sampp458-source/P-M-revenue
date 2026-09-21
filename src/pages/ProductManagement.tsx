@@ -1,3 +1,4 @@
+import "../products-design-v1.css";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Pencil, Plus } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
@@ -362,6 +363,7 @@ export function ProductsPage() {
 
   return (
     <>
+      <div className="pm-design-v1 pm-products-v1">
       <PageHeader
         title="상품 관리"
         description="판매 상품과 기본 판매가를 관리합니다."
@@ -383,18 +385,18 @@ export function ProductsPage() {
             <option value="inactive">비활성</option>
           </Select>
       </FilterToolbar>
-      <Card className="overflow-hidden">
+      <Card className="products-results overflow-hidden">
         {loading ? <LoadingState /> : loadError ? (
           <ErrorState retry={() => void Promise.all([loadProducts(), loadCategories()])} />
         ) : rows.length ? (
-          <Table className="min-w-[900px]">
+          <Table className="products-table">
               <thead><tr><th>사업부</th><th>상품 분류</th><th>상품명</th><th>기본 판매가</th><th>상태</th><th>메모</th><th className="text-right">관리</th></tr></thead>
               <tbody>{rows.map((product) => (
                 <tr key={product.id}>
-                  <td>{product.division}</td><td>{product.categoryName}</td><td className="font-semibold">{product.name}</td>
-                  <td>{won(product.defaultPrice)}</td><td><StatusBadge status={product.active ? "active" : "inactive"} /></td>
-                  <td>{product.memo || "-"}</td>
-                  <td>{isAdmin ? <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => openEdit(product)}><Pencil size={15} />수정</Button>{product.active && <Button variant="secondary" onClick={() => setDeactivating(product)}>비활성화</Button>}</div> : <span className="text-sm text-slate-400">조회 전용</span>}</td>
+                  <td className="product-division" data-label="사업부">{product.division}</td><td className="product-category" data-label="분류">{product.categoryName}</td><td className="product-name font-semibold">{product.name}</td>
+                  <td className="product-price" data-label="기본 판매가">{won(product.defaultPrice)}</td><td className="product-status"><StatusBadge status={product.active ? "active" : "inactive"} /></td>
+                  <td className="product-memo" data-label="메모">{product.memo || "-"}</td>
+                  <td className="product-actions">{isAdmin ? <div className="flex justify-end gap-2"><Button variant="secondary" onClick={() => openEdit(product)}><Pencil size={15} />수정</Button>{product.active && <Button variant="secondary" onClick={() => setDeactivating(product)}>비활성화</Button>}</div> : <span className="text-sm text-slate-400">조회 전용</span>}</td>
                 </tr>
               ))}</tbody>
           </Table>
@@ -403,6 +405,7 @@ export function ProductsPage() {
       {!loading && !loadError && totalCount > 0 && (
         <Pagination page={page} totalPages={Math.max(1, Math.ceil(totalCount / pageSize))} totalLabel={`총 ${totalCount}개`} onPageChange={setPage} />
       )}
+      </div>
       <Modal open={!!editing} onClose={() => !saving && setEditing(null)} title={editing?.id ? "상품 수정" : "상품 등록"} wide>
         {editing && <form onSubmit={save} className="grid gap-4 sm:grid-cols-2">
           <Field label="사업부" required><Select name="businessUnitId" aria-describedby={formError ? "product-form-error" : undefined} value={editing.businessUnitId} disabled={saving} onChange={(e) => { const nextUnit = businessUnits.find((unit) => unit.id === e.target.value); setEditing({ ...editing, businessUnitId: e.target.value, categoryId: "", unitLabel: unitLabelEdited ? editing.unitLabel : suggestUnitLabel({ businessUnitName: nextUnit?.name ?? "", productName: editing.name }) }); }}><option value="">사업부 선택</option>{businessUnits.map((unit) => <option key={unit.id} value={unit.id}>{unit.name}</option>)}</Select></Field>
