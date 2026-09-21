@@ -1,0 +1,63 @@
+/* Journal workspace only. Report preview/template/canvas deliberately receive no rules. */
+.pm-design-v1.pm-journal-home-v1 { background: #f6f7f9; color: #22394e; }
+.pm-design-v1.pm-journal-home-v1 .pm-v1-button { box-shadow: none; }
+.pm-design-v1.pm-journal-home-v1 .pm-v1-button-secondary { background: #fff; border-color: #d6dfe7; }
+.pm-design-v1.pm-journal-home-v1 .pm-v1-input { background: #fff; border-color: #cdd6df; box-shadow: none; }
+.pm-design-v1.pm-journal-home-v1 > div:first-child > div:first-child { border-left: 3px solid #274c77; padding-left: 16px; }
+.pm-design-v1.pm-journal-home-v1 > .pm-card,
+.pm-design-v1.pm-journal-home-v1 [aria-label="오늘의 공통 활동 요약"] { border-radius: 12px; box-shadow: none; }
+.pm-design-v1.pm-journal-home-v1 [aria-label="일지 요약"] { gap: 0; border: 1px solid #dfe4ea; border-radius: 12px; overflow: hidden; background: #fff; }
+.pm-design-v1.pm-journal-home-v1 [aria-label="일지 요약"] > div { background: transparent; border-radius: 0; padding-block: 12px; }
+.pm-design-v1.pm-journal-home-v1 [aria-label="일지 요약"] > div + div { border-left: 1px solid #e4e8ed; }
+.pm-design-v1.pm-journal-home-v1 [aria-label="일지 상태 필터"] { flex-wrap: wrap; overflow: visible; }
+.pm-design-v1.pm-journal-home-v1 [aria-label="일지 상태 필터"] > button { border-radius: 8px; }
+.pm-design-v1.pm-journal-home-v1 .journal-roster-surface { grid-template-columns: minmax(0, 1fr); gap: 0; background: #fff; border: 1px solid #dfe4ea; border-radius: 12px; }
+.pm-design-v1.pm-journal-home-v1 .journal-roster-row { background: transparent; border: 0; border-radius: 0; padding: 12px 16px; box-shadow: none; transform: none; }
+.pm-design-v1.pm-journal-home-v1 .journal-roster-row + .journal-roster-row { border-top: 1px solid #e4e8ed; }
+.pm-design-v1.pm-journal-home-v1 .journal-roster-row:first-child { border-radius: 12px 12px 0 0; }
+.pm-design-v1.pm-journal-home-v1 .journal-roster-row:last-child { border-radius: 0 0 12px 12px; }
+.pm-design-v1.pm-journal-home-v1 .journal-roster-row:hover { background: #f7f9fc; }
+.pm-design-v1.pm-journal-home-v1 .journal-roster-row > div { align-items: center; }
+.pm-design-v1.pm-journal-home-v1 .journal-roster-row > div > button:first-child { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) auto; align-items: center; gap: 12px; }
+.pm-design-v1.pm-journal-home-v1 .journal-roster-row button > div { flex-wrap: wrap; }
+.pm-design-v1.pm-journal-home-v1 .journal-roster-row button > p { margin: 0; }
+.pm-design-v1.pm-journal-home-v1 .journal-roster-row .truncate { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.pm-journal-editor-v1 .journal-editor-form-scrollbar > fieldset { background: #fff; border: 1px solid #dfe4ea; border-radius: 12px; gap: 0; }
+.pm-journal-editor-v1 .journal-editor-section { background: transparent; border: 0; border-bottom: 1px solid #e4e8ed; border-radius: 0; box-shadow: none; padding: 16px; margin: 0; }
+.pm-journal-editor-v1 .journal-editor-section:last-child { border-bottom: 0; }
+.pm-journal-editor-v1 .journal-editor-section .pm-v1-input { border-radius: 8px; box-shadow: none; min-width: 0; }
+.pm-journal-editor-v1 .journal-editor-section button[aria-pressed] { border-radius: 8px; box-shadow: none; }
+.pm-journal-editor-v1 .journal-editor-section button[aria-pressed="false"] { border-color: #dfe4ea; }
+.pm-journal-editor-v1 .journal-editor-section textarea { min-height: 180px; line-height: 1.75; }
+.pm-journal-editor-v1 .journal-editor-control-panel > header { border-radius: 12px; box-shadow: none; }
+.pm-journal-editor-v1 .journal-editor-control-panel > header .truncate { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.pm-journal-editor-v1 [data-testid="journal-editor-final-actions"] { background: #fff; backdrop-filter: none; border-color: #dfe4ea; }
+.pm-journal-editor-v1 [data-testid="journal-editor-final-actions"] .truncate { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.pm-journal-editor-v1 [data-testid="journal-editor-final-actions"] .pm-v1-button,
+.pm-journal-editor-v1 [data-testid="journal-editor-navigation-export"] .pm-v1-button { box-shadow: none; }
+@media (width < 48rem) {
+  .pm-design-v1.pm-journal-home-v1 > .mt-6 > div:last-child > button { padding-inline: 10px; }
+  .pm-design-v1.pm-journal-home-v1 > .mt-6 > div:last-child > button:last-child { flex: 0 0 auto; }
+  .pm-design-v1.pm-journal-home-v1 .journal-roster-row { padding: 10px 12px; }
+  .pm-design-v1.pm-journal-home-v1 .journal-roster-row > div > button:first-child { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; }
+  .pm-design-v1.pm-journal-home-v1 .journal-roster-row button > div { grid-column: 1 / -1; }
+  .pm-design-v1.pm-journal-home-v1 [aria-label="일지 상태 필터"] { gap: 6px; }
+  .pm-design-v1.pm-journal-home-v1 [aria-label="일지 상태 필터"] > button { flex: 1; padding-inline: 10px; }
+  .pm-journal-editor-v1 .journal-editor-section { padding: 14px; }
+}
+@media (width < 80rem) {
+  .pm-journal-editor-v1 { padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)); }
+  .pm-journal-editor-v1 .journal-editor-section :is(input, select, textarea, label, h2) { scroll-margin-block: 24px calc(128px + env(safe-area-inset-bottom, 0px)); }
+  .pm-journal-editor-v1:has(.journal-editor-form-scrollbar :is(input, textarea, select):focus) [data-testid="journal-editor-final-actions"] { position: static; }
+}
+/* Mobile editor polish: keep roster and tablet/desktop presentation frozen. */
+@media (width < 48rem) {
+  .pm-journal-editor-v1 .journal-editor-section { padding-block: 10px; }
+  .pm-journal-editor-v1 .journal-editor-section > div { margin-top: 8px; }
+  .pm-journal-editor-v1 .journal-editor-section .mt-3 { margin-top: 8px; }
+  .pm-journal-editor-v1 .journal-editor-section .mb-2 { margin-bottom: 6px; }
+  .pm-journal-editor-v1 .journal-editor-section .gap-2 { gap: 6px; }
+  .pm-journal-editor-v1 .journal-editor-section button[aria-pressed] { min-height: 44px; padding-block: 6px; }
+  .pm-journal-editor-v1 .journal-editor-section :is(button, input, select, textarea) { scroll-margin-block: 24px calc(96px + env(safe-area-inset-bottom, 0px)); }
+  .pm-journal-editor-v1 [data-testid="journal-editor-final-actions"] { padding-top: 8px; padding-bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
+}

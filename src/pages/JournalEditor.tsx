@@ -1,3 +1,4 @@
+import "../journal-design-v1.css";
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clipboard, Download, Eye, GraduationCap, Image, LoaderCircle, PawPrint, Trash2 } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button, Card, FormAlert, Input, Modal, ModalActions, Textarea } from "../components/ui";
@@ -603,7 +604,7 @@ export function JournalEditor({
   if (loading) return <Card className="flex min-h-72 items-center justify-center"><LoaderCircle className="animate-spin text-primary" /></Card>;
 
   return (
-    <section className="mx-auto max-w-[1600px] overflow-x-hidden pb-24 xl:h-[calc(100dvh-110px)] xl:pb-0" aria-label={`${entry.dog.name} 일지 편집기`}>
+    <section className="pm-journal-editor-v1 mx-auto max-w-[1600px] overflow-x-hidden pb-24 xl:h-[calc(100dvh-110px)] xl:pb-0" aria-label={`${entry.dog.name} 일지 편집기`}>
       <div className="flex min-h-0 flex-col gap-3 xl:grid xl:h-full xl:grid-cols-[minmax(0,1.2fr)_minmax(420px,1fr)] xl:items-stretch xl:gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(480px,1fr)] 2xl:gap-5">
         <div className="journal-editor-form-scrollbar order-3 min-w-0 xl:order-none xl:h-full xl:overflow-y-auto xl:overscroll-contain xl:pb-8 xl:pr-1.5" data-testid="journal-editor-form-scroll">
           <fieldset disabled={completing || deleting} className="space-y-3 disabled:opacity-70 xl:grid xl:grid-cols-2 xl:gap-2 xl:space-y-0" data-testid="journal-editor-form-grid">
@@ -883,7 +884,7 @@ function EditorPersistenceStatus({
 }
 
 function EditorSection({ title, description, children, desktopWide = false }: { title: string; description?: string; children: ReactNode; desktopWide?: boolean }) {
-  return <Card className={`min-w-0 p-3.5 sm:p-4 xl:p-2 ${desktopWide ? "xl:col-span-2" : ""}`}><h2 className="text-base font-bold text-text-primary">{title}</h2>{description ? <p className="mt-0.5 text-xs text-text-muted">{description}</p> : null}<div className="mt-3 xl:mt-1">{children}</div></Card>;
+  return <Card className={`journal-editor-section min-w-0 p-3.5 sm:p-4 xl:p-2 ${desktopWide ? "xl:col-span-2" : ""}`}><h2 className="text-base font-bold text-text-primary">{title}</h2>{description ? <p className="mt-0.5 text-xs text-text-muted">{description}</p> : null}<div className="mt-3 xl:mt-1">{children}</div></Card>;
 }
 
 const selectedChipClass = "border-primary bg-primary-soft text-primary shadow-[inset_0_0_0_1px_rgb(39_76_119_/_0.08)]";

@@ -1,3 +1,4 @@
+import "../journal-design-v1.css";
 import { Archive, BookOpenText, ChevronLeft, ChevronRight, Clipboard, Dog, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SearchSelect } from "../components/SearchSelect";
@@ -373,7 +374,7 @@ export function JournalHomePage() {
   }
 
   return (
-    <section className="mx-auto max-w-5xl overflow-x-hidden" aria-label="유치원 하루 일지">
+    <section className="pm-design-v1 pm-journal-home-v1 mx-auto max-w-5xl overflow-x-hidden" aria-label="유치원 하루 일지">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[11px] font-bold tracking-[0.17em] text-primary">P&amp;M JOURNAL</p>
@@ -488,7 +489,7 @@ export function JournalHomePage() {
           <div className="mt-4 flex gap-2 overflow-x-auto pb-1" role="group" aria-label="일지 상태 필터">
             {([['ALL','전체'],['NOT_STARTED','미작성'],['IN_PROGRESS','작성중'],['COMPLETED','완료']] as const).map(([value,label]) => <button key={value} type="button" aria-pressed={filter===value} onClick={() => setFilter(value)} className={`min-h-11 shrink-0 rounded-xl px-4 text-sm font-semibold ${filter===value?'bg-primary text-white':'border border-border bg-surface text-text-secondary hover:bg-primary-soft'}`}>{label}</button>)}
           </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="오늘의 일지 명단">
+          <div className="journal-roster-surface mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="오늘의 일지 명단">
             {visibleEntries.map((entry) => <JournalEntryCard key={entry.id} entry={entry} removing={removingId===entry.id} onOpen={() => setSelectedEntryId(entry.id)} onRemove={() => setRemoveTarget(entry)} />)}
             {!visibleEntries.length ? <Card className="p-8 text-center text-sm text-text-muted sm:col-span-2 xl:col-span-3">이 상태의 일지가 없습니다.</Card> : null}
           </div>
@@ -584,7 +585,7 @@ function Summary({ label, value, tone }: { label: string; value: number; tone: "
 
 function JournalEntryCard({ entry, removing, onOpen, onRemove }: { entry: JournalRosterEntry; removing: boolean; onOpen: () => void; onRemove: () => void }) {
   const view = statusView[entry.status];
-  return <Card variant="interactive" className="min-w-0 p-4">
+  return <Card variant="interactive" className="journal-roster-row min-w-0 p-4">
     <div className="flex min-w-0 items-start justify-between gap-3">
       <button type="button" className="min-h-11 min-w-0 flex-1 text-left" onClick={onOpen} aria-label={`${entry.dog.name} ${entry.status === "NOT_STARTED" ? "일지 작성" : entry.status === "IN_PROGRESS" ? "일지 이어서 작성" : "일지 보기 및 수정"}`}>
         <div className="flex items-center gap-2"><strong className="truncate text-base text-text-primary">{entry.dog.name}</strong><Badge tone={view.tone}>{view.label}</Badge></div>
