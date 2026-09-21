@@ -1,0 +1,69 @@
+/* Entry and account screens only. Login and application layouts stay independent. */
+.pm-access-v1 {
+  background: #f4f6f9;
+  color: #17243a;
+  min-height: 100dvh;
+  padding: max(32px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+.pm-access-v1 :is(input, button, a) { min-height: 44px; }
+.pm-access-v1 :is(button, a):focus-visible { outline: 3px solid #547ca4; outline-offset: 4px; }
+.pm-access-v1 input { min-width: 0; font-size: 16px; border-radius: 12px; }
+.pm-access-v1 :is(button, a) { white-space: normal; }
+.pm-access-v1 button:disabled { cursor: wait; opacity: .6; }
+.pm-access-v1 .module-gate-orb, .pm-access-v1 > div[aria-hidden="true"] { display: none; }
+.pm-access-v1.pm-module-gate { background-image: none; }
+.pm-access-v1.pm-module-gate .module-gate-card {
+  min-height: 224px; padding: 28px; border: 1px solid #dce2ea;
+  border-radius: 18px; background: #fff; background-image: none;
+  box-shadow: 0 2px 6px #17243a06; transform: none;
+}
+.pm-access-v1.pm-module-gate .module-gate-card:hover { border-color: #7590ae; box-shadow: 0 3px 10px #17243a0a; transform: none; }
+.pm-access-v1.pm-module-gate .module-gate-card > div:last-child { margin-top: 28px; gap: 12px; }
+.pm-access-v1.pm-module-gate .module-gate-card > div:last-child > div { min-width: 0; }
+.pm-access-v1.pm-module-gate .module-gate-card p { line-height: 1.65; }
+.pm-access-v1.pm-signup > section,
+.pm-access-v1.pm-account-recovery > section {
+  background: #fff; border: 1px solid #dce2ea; border-radius: 20px;
+  box-shadow: 0 4px 18px #17243a06; backdrop-filter: none;
+  padding: 32px; width: 100%; max-width: 480px;
+}
+.pm-access-v1.pm-signup :is(h1, label > span:first-child) { color: #17243a; }
+.pm-access-v1.pm-signup :is(section > p, section > div > p, label > span:last-child:not(:first-child)) { color: #64748b; }
+.pm-access-v1.pm-signup section > p:first-child { color: #274c77; font-size: 12px; letter-spacing: .16em; }
+.pm-access-v1.pm-signup label > span > span { color: #b44343; }
+.pm-access-v1.pm-signup input {
+  border: 1px solid #d5dce6; background: #f9fafc; color: #17243a; box-shadow: none;
+}
+.pm-access-v1.pm-signup input:focus { border-color: #547ca4; outline: 2px solid #547ca433; outline-offset: 1px; }
+.pm-access-v1.pm-signup input[aria-invalid="true"] { border-color: #be5555; background: #fff8f8; }
+.pm-access-v1.pm-signup input:disabled { color: #64748b; background: #f0f3f7; }
+.pm-access-v1.pm-signup :is(button, section > div > a),
+.pm-access-v1.pm-account-recovery button { background: #274c77; color: #fff; border-radius: 12px; box-shadow: none; }
+.pm-access-v1.pm-signup :is(button, section > div > a):hover,
+.pm-access-v1.pm-account-recovery button:hover { background: #1f3e63; }
+.pm-access-v1.pm-signup form > a { display: flex; align-items: center; justify-content: center; color: #274c77; }
+.pm-access-v1.pm-signup [role="alert"],
+.pm-access-v1.pm-account-recovery [role="alert"] { color: #a33434; background: #fff5f4; border: 1px solid #efcfcb; border-radius: 10px; padding: 12px; }
+.pm-access-v1.pm-signup section > div > p:nth-of-type(2) { color: #274c77; background: #f0f5fa; border-color: #dce5ef; }
+.pm-access-v1.pm-signup section > div > svg { color: #274c77; }
+.pm-access-v1.pm-account-recovery h1 { letter-spacing: -.035em; color: #17243a; }
+.pm-access-v1.pm-account-recovery > section > div > a { display: inline-flex; align-items: center; color: #274c77; }
+.pm-access-v1.pm-account-recovery > section > a { min-height: 44px; border-radius: 12px; }
+.pm-access-v1.pm-not-found > p:first-child { color: #274c77; font-size: clamp(64px, 12vw, 96px); letter-spacing: -.06em; }
+.pm-access-v1.pm-not-found button { min-height: 48px; border-radius: 12px; padding-inline: 24px; box-shadow: none; }
+@media (max-width: 767px) {
+  .pm-access-v1 { padding: max(24px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
+  .pm-access-v1.pm-signup > section,
+  .pm-access-v1.pm-account-recovery > section { padding: 24px; border-radius: 16px; }
+  .pm-access-v1.pm-module-gate .module-gate-card { min-height: 152px; padding: 20px; border-radius: 16px; }
+  .pm-access-v1.pm-module-gate .module-gate-card > div:last-child { margin-top: 16px; }
+  .pm-access-v1.pm-module-gate section > div:first-child { margin-bottom: 24px; }
+  .pm-access-v1.pm-module-gate section > div:last-child { gap: 12px; }
+}
+@media (max-height: 650px) {
+  .pm-access-v1:not(.pm-not-found) { align-items: flex-start; }
+}
+/* Contain the legacy main.min-h-screen surface override without changing Login. */
+.pm-access-v1.pm-account-recovery > section:first-child { background: #fff !important; }

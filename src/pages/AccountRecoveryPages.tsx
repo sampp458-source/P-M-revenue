@@ -1,3 +1,4 @@
+import "../access-design-v1.css";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, Card, Field, Input, LoadingState, Toast } from "../components/ui";
@@ -10,7 +11,7 @@ const statusMessage: Record<string, string> = {
 };
 
 function AccountShell({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
-  return <main className="flex min-h-screen items-center justify-center bg-[#f0f3f1] p-6"><Card className="w-full max-w-md p-6 sm:p-8"><h1 className="text-2xl font-bold">{title}</h1><p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>{children}</Card></main>;
+  return <main className="pm-access-v1 pm-account-recovery flex min-h-screen items-center justify-center bg-[#f0f3f1] p-6"><Card className="w-full max-w-md p-6 sm:p-8"><h1 className="text-2xl font-bold">{title}</h1><p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>{children}</Card></main>;
 }
 
 export function FindAccountPage() {
