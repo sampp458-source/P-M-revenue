@@ -119,12 +119,13 @@ export function CustomerManagementPage() {
 
   return (
     <>
+      <div className="pm-design-v1 pm-directory-v1 pm-directory-customers">
       <PageHeader
         title="보호자 관리"
         description="Customer를 기준으로 연결된 반려견과 현재 이용 상태를 확인합니다."
       />
 
-      <Card className="mb-4 p-4 sm:p-5">
+      <Card className="directory-toolbar mb-4 p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary">
@@ -154,7 +155,7 @@ export function CustomerManagementPage() {
         </div>
       </Card>
 
-      <Card className="overflow-hidden">
+      <Card className="directory-results overflow-hidden">
         {loading ? (
           <LoadingState />
         ) : error ? (
@@ -242,10 +243,10 @@ export function CustomerManagementPage() {
               </Table>
             </div>
 
-            <div className="divide-y divide-border xl:hidden">
+            <div className="directory-mobile-list divide-y divide-border xl:hidden">
               {visibleRows.map(
                 ({ customer, dogCount, serviceCounts, serviceDogNames, recentUse }) => (
-                  <article key={customer.id} className="p-4 sm:p-5">
+                  <article key={customer.id} className="directory-row p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-3">
                       <button
                         type="button"
@@ -262,7 +263,7 @@ export function CustomerManagementPage() {
                       <Badge tone="blue">반려견 {dogCount}마리</Badge>
                     </div>
                     <CustomerServiceCountGrid
-                      className="mt-4"
+                      className="directory-service-counts mt-4"
                       counts={serviceCounts}
                       dogNames={serviceDogNames}
                       available={data?.serviceStatusAvailable}
@@ -302,6 +303,7 @@ export function CustomerManagementPage() {
         />
       )}
 
+      </div>
       <CustomerProfileModal
         customerId={selectedCustomerId}
         onClose={() => setCustomerProfile(null)}

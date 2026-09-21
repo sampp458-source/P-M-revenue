@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PetManagementPage } from "./DogManagement";
@@ -48,10 +48,10 @@ it.each([['staff',false],['admin',false]])("does not expose deletion to %s activ
   expect(screen.queryByRole("button",{name:"반려견 정보 삭제"})).not.toBeInTheDocument();expect(fixture.deletes).toBe(0);
 });
 
-it("exposes edit actions without overflow and opens the existing forms",async()=>{
+it("preserves direct wider-screen edit actions and opens the existing forms",async()=>{
   openPage();
   const ownerButtons=await screen.findAllByRole("button",{name:"보호자 수정"});
-  expect(screen.queryByRole("button",{name:/관리 더보기/})).not.toBeInTheDocument();
+  expect(document.querySelector(".directory-wide-actions summary")).toBeNull();
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   fireEvent.click(ownerButtons[0]);
   expect(screen.getByRole("dialog")).toHaveTextContent("보호자 정보 수정");
@@ -65,3 +65,22 @@ it("opens the unchanged dog edit form from the visible action",async()=>{
 });
 
 it("exposes removal to active staff", async()=>{fixture.role="staff";openPage();await openDelete();expect(await screen.findByRole("button",{name:"완전 삭제"})).toBeEnabled();});
+
+it("opens the existing delete confirmation through mobile management and closes the disclosure",async()=>{
+  openPage();await screen.findAllByRole("group",{name:"삭제검증견 관리"});
+  const disclosure=document.querySelector("details.directory-action-disclosure") as HTMLDetailsElement;
+  fireEvent.click(disclosure.querySelector("summary")!);
+  expect(disclosure.open).toBe(true);
+  fireEvent.click(within(disclosure).getByRole("button",{name:"반려견 정보 삭제"}));
+  expect(disclosure.open).toBe(false);
+  expect(await screen.findByRole("dialog")).toHaveTextContent("삭제검증견");
+  fireEvent.click(screen.getByRole("button",{name:"취소"}));
+  expect(fixture.deletes).toBe(0);
+});
+it("closes the mobile management disclosure with Escape and restores focus",async()=>{
+  openPage();await screen.findAllByRole("group",{name:"삭제검증견 관리"});
+  const disclosure=document.querySelector("details.directory-action-disclosure") as HTMLDetailsElement;
+  const summary=disclosure.querySelector("summary")!;
+  fireEvent.click(summary);fireEvent.keyDown(disclosure,{key:"Escape"});
+  expect(disclosure.open).toBe(false);expect(summary).toHaveFocus();expect(fixture.deletes).toBe(0);
+});

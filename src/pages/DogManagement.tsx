@@ -200,7 +200,8 @@ function DogRowActions({
   onDelete: () => void;
 }) {
   return (
-    <div role="group" aria-label={`${dog.name} 관리`} className="flex flex-wrap items-center justify-start gap-2 sm:justify-center xl:min-w-[456px] xl:flex-nowrap">
+    <>
+    <div role="group" aria-label={`${dog.name} 관리`} className="directory-wide-actions flex flex-wrap items-center justify-start gap-2 sm:justify-center xl:min-w-[456px] xl:flex-nowrap">
       <Button variant="secondary" className="gap-1.5 rounded-lg px-2.5 text-xs" onClick={onOpenProfile}>
         <Eye size={15} />프로필
       </Button>
@@ -219,6 +220,23 @@ function DogRowActions({
         </button>
       </div>}
     </div>
+    <div className="directory-compact-actions">
+      <Button variant="ghost" onClick={onOpenProfile}><Eye size={15} />프로필</Button>
+      {(owner || canEditDog || canDeleteDog) && <details className="directory-action-disclosure" onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.currentTarget.open = false;
+          event.currentTarget.querySelector("summary")?.focus();
+        }
+      }}>
+        <summary aria-label={`${dog.name} 관리 더보기`}>관리</summary>
+        <div aria-label={`${dog.name} 추가 관리`}>
+          {owner && <Button variant="ghost" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); onEditOwner(); }}>보호자 수정</Button>}
+          {canEditDog && <Button variant="ghost" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); onEditDog(); }}>반려견 수정</Button>}
+          {canDeleteDog && <button type="button" className="directory-delete-action" onClick={(event) => { event.currentTarget.closest("details")?.removeAttribute("open"); onDelete(); }}>반려견 정보 삭제</button>}
+        </div>
+      </details>}
+    </div>
+    </>
   );
 }
 
@@ -704,19 +722,20 @@ export function PetManagementPage() {
 
   return (
     <>
+      <div className="pm-design-v1 pm-directory-v1 pm-directory-pets">
       <PageHeader
         title="반려견 관리"
         description="반려견을 기준으로 보호자 연결 정보와 기본 정보를 관리합니다."
         action={<Button onClick={() => { setFormError(""); setOwnerSearch(""); setDuplicateDog(null); setAllowDuplicateDog(false); setEditing(emptyForm()); }}><Plus size={19} />반려견 등록</Button>}
       />
-      <div className="[&>section]:mb-4">
+      <div className="directory-toolbar [&>section]:mb-4">
         <FilterToolbar className="sm:grid-cols-[minmax(0,5fr)_minmax(0,3fr)_minmax(9rem,2fr)]">
               <SearchBox className="[&_input]:placeholder:text-[#8793a3]" aria-label="반려견 검색" placeholder="반려견명, 보호자명, 연락처 또는 견종 검색" value={query} onClear={() => { setQuery(""); setPage(1); }} onChange={(e) => { setQuery(e.target.value); setPage(1); }} />
               <Select value={breed} onChange={(e) => { setBreed(e.target.value); setPage(1); }}><option value="">전체 견종</option>{breeds.map((item) => <option key={item}>{item}</option>)}</Select>
               <Select value={activeFilter} onChange={(e) => { setActiveFilter(e.target.value); setPage(1); }}><option value="">전체 상태</option><option value="active">활성</option><option value="inactive">비활성</option><option value="removed">프로필 삭제됨</option></Select>
         </FilterToolbar>
       </div>
-      <Card className="overflow-hidden">
+      <Card className="directory-results overflow-hidden">
         {loading ? <LoadingState /> : loadError ? <ErrorState title={loadError} retry={() => void loadData()} /> : rows.length ? (
           <>
             <div className="hidden xl:block">
@@ -842,7 +861,7 @@ export function PetManagementPage() {
                 </tbody>
               </Table>
             </div>
-            <div className="divide-y divide-border xl:hidden">
+            <div className="directory-mobile-list divide-y divide-border xl:hidden">
               {rows.map((dog) => {
                 const owner =
                   owners.find((item) => item.id === dog.customerId) ?? null;
@@ -852,7 +871,7 @@ export function PetManagementPage() {
                   currentServices,
                 );
                 return (
-                  <article key={dog.id} className="p-4 sm:p-5">
+                  <article key={dog.id} className="directory-row p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-3">
                       <button
                         type="button"
@@ -928,6 +947,7 @@ export function PetManagementPage() {
         ) : <EmptyState title="등록된 반려견이 없습니다" description="검색 조건을 확인하거나 반려견을 등록해 주세요." />}
       </Card>
       {!loading && !loadError && filtered.length > 0 && <Pagination page={page} totalPages={totalPages} totalLabel={`총 ${filtered.length}마리`} onPageChange={setPage} />}
+      </div>
       <DogProfileModal
         dog={
           editing || ownerCreating || ownerEditing

@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest';
 const css = readFileSync('src/calendar-design-v1.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 const source = readFileSync('src/pages/OperationsCalendarFoundation.tsx', 'utf8');
 describe('Calendar V1 visual boundary', () => {
-  it('keeps material adoption isolated to Calendar, Hotel, Today and Ledger pages', () => {
+  it('keeps material adoption isolated to the explicitly adopted pages', () => {
     const pages = readdirSync('src/pages').filter(name => name.endsWith('.tsx') && !name.endsWith('.test.tsx'));
     expect(pages.filter(name => readFileSync(`src/pages/${name}`, 'utf8').includes('pm-calendar-v1'))).toEqual(['OperationsCalendarFoundation.tsx']);
-    expect(pages.filter(name => readFileSync(`src/pages/${name}`, 'utf8').includes('pm-design-v1'))).toEqual(['HotelOperations.tsx', 'OperationsCalendarFoundation.tsx', 'OperationsToday.tsx', 'SalesHistoryDB.tsx']);
+    expect(pages.filter(name => readFileSync(`src/pages/${name}`, 'utf8').includes('pm-design-v1'))).toEqual(['CustomerManagement.tsx', 'DogManagement.tsx', 'HotelOperations.tsx', 'OperationsCalendarFoundation.tsx', 'OperationsToday.tsx', 'SalesHistoryDB.tsx']);
   });
   it('scopes all rules and leaves responsive visibility, placement and motion intact', () => {
     for (const [, selector, declarations] of css.replace(/@media \(width < 40rem\) \{/, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {

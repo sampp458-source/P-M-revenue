@@ -1,0 +1,65 @@
+/* Directory-only presentation. Existing queries, filters, permissions and actions remain authoritative. */
+.pm-design-v1.pm-directory-v1 { background: #f6f7f9; color: var(--pm-v1-ink); }
+.pm-design-v1.pm-directory-v1 > .pm-v1-page-header { border-left: 3px solid var(--pm-v1-navy); padding-left: 16px; }
+.pm-design-v1.pm-directory-v1 .directory-toolbar,
+.pm-design-v1.pm-directory-v1 .directory-toolbar > section,
+.pm-design-v1.pm-directory-v1 .directory-results { background: #fff; border-color: #dfe4ea; border-radius: var(--pm-v1-radius-3); box-shadow: none; }
+.pm-design-v1.pm-directory-v1 .directory-toolbar { margin-bottom: 16px; }
+.pm-design-v1.pm-directory-v1 .directory-toolbar input,
+.pm-design-v1.pm-directory-v1 .directory-toolbar select { min-height: 44px; background: #fff; border-color: #d6dee7; box-shadow: none; }
+.pm-design-v1.pm-directory-v1 .directory-toolbar > div > div:first-child > span { background: #f2f5f8; border-radius: 8px; flex-shrink: 0; }
+.pm-design-v1.pm-directory-v1 .directory-results table { width: 100%; border-spacing: 0; }
+.pm-design-v1.pm-directory-v1 .directory-results th { background: #f7f8fa; color: #657181; }
+.pm-design-v1.pm-directory-v1 .directory-results td { background: #fff; border-bottom: 1px solid #e4e8ee; border-radius: 0; box-shadow: none; vertical-align: middle; }
+.pm-design-v1.pm-directory-v1 .directory-results td,
+.pm-design-v1.pm-directory-v1 .directory-row { overflow-wrap: anywhere; }
+.pm-design-v1.pm-directory-v1 .directory-results .truncate { white-space: normal; overflow: visible; text-overflow: clip; }
+.pm-design-v1.pm-directory-v1 .directory-results button { min-height: 44px; }
+.pm-design-v1.pm-directory-v1 .directory-results .pm-v1-button { box-shadow: none; }
+.pm-design-v1.pm-directory-v1 .directory-mobile-list { background: #fff; }
+.pm-design-v1.pm-directory-v1 .directory-row { padding: 16px; background: #fff; border-radius: 0; box-shadow: none; }
+.pm-design-v1.pm-directory-v1 .directory-row > div:first-child > span { flex-shrink: 0; }
+.pm-design-v1.pm-directory-v1 .directory-row > div:last-child { margin-top: 12px; padding-top: 8px; }
+.pm-design-v1.pm-directory-v1 .directory-row > div:last-child > button { flex-shrink: 0; }
+.pm-design-v1.pm-directory-v1 .directory-row dl { margin-top: 12px; padding-top: 10px; row-gap: 4px; }
+.pm-design-v1.pm-directory-v1 .directory-row dd { min-width: 0; white-space: normal; }
+.pm-design-v1.pm-directory-v1 .directory-service-counts { margin-top: 12px; gap: 8px; }
+.pm-design-v1.pm-directory-v1 .directory-service-counts > div { min-width: 0; background: transparent; border-radius: 0; padding: 0 8px; border-left: 2px solid #e4e8ee; }
+.pm-design-v1.pm-directory-v1 .directory-service-counts strong { margin-top: 5px; }
+.pm-design-v1.pm-directory-v1 .directory-results > div.flex.flex-col { min-height: 0; padding: 24px 16px; }
+@media (width < 48rem) {
+  .pm-design-v1.pm-directory-v1 > .pm-v1-page-header { flex-direction: column; align-items: stretch; }
+  .pm-design-v1.pm-directory-v1 .directory-toolbar { padding: 14px; }
+  .pm-design-v1.pm-directory-v1.pm-directory-pets .directory-toolbar { padding: 0; }
+  .pm-design-v1.pm-directory-v1 .directory-toolbar .pm-v1-filter > div { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .pm-design-v1.pm-directory-v1 .directory-toolbar .pm-v1-filter > div > div:first-child { grid-column: 1 / -1; }
+  .pm-design-v1.pm-directory-v1 .directory-row { padding: 14px 16px; }
+}
+@media (width >= 80rem) {
+  .pm-design-v1.pm-directory-v1.pm-directory-pets .directory-results col { width: auto; }
+  .pm-design-v1.pm-directory-v1.pm-directory-pets .directory-results col:nth-child(6) { width: 80px; }
+  .pm-design-v1.pm-directory-v1.pm-directory-pets .directory-results col:last-child { width: 480px; }
+}
+.pm-design-v1.pm-directory-v1 .directory-results td:first-child > button { font-weight: 600; color: var(--pm-v1-ink); }
+.pm-design-v1.pm-directory-v1 .directory-row [role="group"] { gap: 6px; }
+.pm-design-v1.pm-directory-v1 .directory-row [role="group"] .pm-v1-button { font-size: 12px; padding-inline: 8px; }
+
+/* The compact action disclosure is mobile-only; the approved wider layout stays intact. */
+.pm-design-v1.pm-directory-v1 .directory-compact-actions { display: none; }
+@media (width < 48rem) {
+  .pm-design-v1.pm-directory-v1 .directory-row { padding-block: 10px; }
+  .pm-design-v1.pm-directory-v1 .directory-wide-actions { display: none; }
+  .pm-design-v1.pm-directory-v1 .directory-compact-actions { display: flex; align-items: start; gap: 12px; }
+  .pm-design-v1.pm-directory-v1 .directory-compact-actions > button { flex-shrink: 0; }
+  .pm-design-v1.pm-directory-v1 .directory-compact-actions .pm-v1-button { background: transparent; border-color: transparent; box-shadow: none; padding-inline: 8px; }
+  .pm-design-v1.pm-directory-v1 .directory-action-disclosure { min-width: 0; flex: 1; }
+  .pm-design-v1.pm-directory-v1 .directory-action-disclosure summary { cursor: pointer; min-height: 44px; padding: 11px 8px; color: #657181; font-size: 14px; }
+  .pm-design-v1.pm-directory-v1 .directory-action-disclosure summary:focus-visible { outline: 2px solid var(--pm-v1-navy); outline-offset: -2px; }
+  .pm-design-v1.pm-directory-v1 .directory-action-disclosure > div { display: flex; flex-wrap: wrap; gap: 4px 8px; border-top: 1px solid #e4e8ee; }
+  .pm-design-v1.pm-directory-v1 .directory-delete-action { min-height: 44px; padding: 8px; color: var(--color-error); text-align: left; }
+  .pm-design-v1.pm-directory-v1 .directory-delete-action:focus-visible { outline: 2px solid var(--color-error); outline-offset: -2px; }
+  .pm-design-v1.pm-directory-v1 .directory-row dl { border-top: 0; margin-top: 6px; padding-top: 0; row-gap: 2px; }
+  .pm-design-v1.pm-directory-v1 .directory-row > div:last-child { margin-top: 8px; padding-top: 4px; }
+  .pm-design-v1.pm-directory-v1.pm-directory-customers .directory-row > div:last-child > button { background: transparent; border-color: transparent; padding-inline: 8px; box-shadow: none; color: #657181; }
+  .pm-design-v1.pm-directory-v1 .directory-service-counts { margin-top: 8px; }
+}

@@ -166,7 +166,8 @@ describe("dog profile audit and Customer Master connection", () => {
     expect(managementUi).toContain("프로필");
     expect(managementUi).toContain("보호자 수정");
     expect(managementUi).toContain("반려견 정보 수정");
-    expect(managementUi).not.toContain("관리 더보기");
+    expect(managementUi).toContain("directory-wide-actions");
+    expect(managementUi).toContain("directory-action-disclosure");
     expect(managementUi).toContain("반려견 정보 삭제");
     expect(managementUi).toContain(
       'title={editing?.id ? "반려견 수정" : "반려견 등록"}',
@@ -206,7 +207,7 @@ describe("dog profile audit and Customer Master connection", () => {
     expect(managementUi).not.toContain("<th>체중</th>");
     expect(managementUi).not.toContain("<th>중성화</th>");
     expect(managementUi).not.toContain('className="min-w-[1180px]"');
-    expect(managementUi).toContain('className="divide-y divide-border xl:hidden"');
+    expect(managementUi).toContain('className="directory-mobile-list divide-y divide-border xl:hidden"');
     expect(managementUi).toContain('<col className="w-[17%]" />');
     expect(managementUi).toContain('<col className="w-[480px]" />');
     expect(managementUi).toContain(
