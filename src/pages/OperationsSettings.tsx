@@ -1,3 +1,4 @@
+import "../settings-design-v1.css";
 import {
   useCallback,
   useEffect,
@@ -98,14 +99,14 @@ export function OperationsSettingsPage() {
   }, [load]);
 
   return (
-    <section className="mx-auto max-w-6xl">
+    <section className="pm-design-v1 pm-settings-v1 pm-operation-settings-v1 mx-auto max-w-6xl">
       <PageHeader
         title="일정 설정"
         description="스케줄 운영에 필요한 기준을 한곳에서 관리합니다."
       />
 
-      <div className="grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <Card className="relative overflow-visible lg:sticky lg:top-16">
+      <div className="settings-layout grid items-start gap-5 lg:grid-cols-[260px_minmax(0,1fr)]">
+        <Card className="settings-menu relative overflow-visible lg:sticky lg:top-16">
           <div className="flex items-center gap-3 border-b border-border px-4 py-4">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-soft text-primary">
               <Settings2 aria-hidden="true" size={18} />
@@ -166,7 +167,7 @@ export function OperationsSettingsPage() {
             </p>
           </div>
 
-          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-primary/15 bg-primary-soft/55 px-4 py-3.5 text-sm leading-6 text-text-secondary">
+          <div className="settings-readonly mb-5 flex items-start gap-3 rounded-2xl border border-primary/15 bg-primary-soft/55 px-4 py-3.5 text-sm leading-6 text-text-secondary">
             <LockKeyhole
               aria-hidden="true"
               className="mt-0.5 shrink-0 text-primary"
@@ -191,7 +192,7 @@ export function OperationsSettingsPage() {
               />
             </Card>
           ) : (
-            <div className="grid gap-5 xl:grid-cols-2">
+            <div className="settings-lists grid gap-5 xl:grid-cols-2">
               <SettingsListCard
                 icon={CalendarDays}
                 title="캘린더"
@@ -278,7 +279,7 @@ function SettingsListCard({
     : Boolean(children);
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="settings-list overflow-hidden">
       <div className="flex items-start gap-3 border-b border-border px-4 py-4 sm:px-5">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
           <Icon aria-hidden="true" size={18} />

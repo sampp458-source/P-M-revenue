@@ -7,7 +7,7 @@ describe('Calendar V1 visual boundary', () => {
   it('keeps material adoption isolated to the explicitly adopted pages', () => {
     const pages = readdirSync('src/pages').filter(name => name.endsWith('.tsx') && !name.endsWith('.test.tsx'));
     expect(pages.filter(name => readFileSync(`src/pages/${name}`, 'utf8').includes('pm-calendar-v1'))).toEqual(['OperationsCalendarFoundation.tsx']);
-    expect(pages.filter(name => readFileSync(`src/pages/${name}`, 'utf8').includes('pm-design-v1'))).toEqual(['CustomerManagement.tsx', 'DogManagement.tsx', 'HotelOperations.tsx', 'JournalHome.tsx', 'Management.tsx', 'OperationsCalendarFoundation.tsx', 'OperationsToday.tsx', 'ProductManagement.tsx', 'SaleRegistration.tsx', 'Sales.tsx', 'SalesHistoryDB.tsx', 'StaffManagement.tsx']);
+    expect(pages.filter(name => readFileSync(`src/pages/${name}`, 'utf8').includes('pm-design-v1'))).toEqual(['CustomerManagement.tsx', 'DogManagement.tsx', 'HotelOperations.tsx', 'JournalHome.tsx', 'Management.tsx', 'OperationsCalendarFoundation.tsx', 'OperationsSettings.tsx', 'OperationsToday.tsx', 'ProductManagement.tsx', 'SaleRegistration.tsx', 'Sales.tsx', 'SalesHistoryDB.tsx', 'SettingsDB.tsx', 'StaffManagement.tsx']);
   });
   it('scopes all rules and leaves responsive visibility, placement and motion intact', () => {
     for (const [, selector, declarations] of css.replace(/@media \(width < 40rem\) \{/, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
