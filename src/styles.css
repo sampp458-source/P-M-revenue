@@ -3,6 +3,7 @@
 @import "./hotel-design-v1.css";
 @import "./calendar-design-v1.css";
 @import "./today-design-v1.css";
+@import "./ledger-design-v1.css";
 
 @theme {
   --color-primary: #274c77;

@@ -1,0 +1,72 @@
+/* Ledger presentation only. Accounting, filtering, permissions and row actions
+   stay in the existing page; no shared theme or component behavior is changed. */
+.pm-design-v1.pm-ledger-v1 { background: #f6f7f9; color: var(--pm-v1-ink); }
+.pm-design-v1.pm-ledger-v1 > .pm-v1-page-header { border-left: 3px solid var(--pm-v1-navy); padding-left: 16px; }
+.pm-design-v1.pm-ledger-v1 .ledger-view-switch { background: #eef1f5; border-color: #dfe4ea; box-shadow: none; }
+.pm-design-v1.pm-ledger-v1 .ledger-view-switch button { min-height: 44px; box-shadow: none; }
+.pm-design-v1.pm-ledger-v1 .ledger-view-switch button.bg-surface { background: #fff; color: var(--pm-v1-navy); }
+.pm-design-v1.pm-ledger-v1 .ledger-summary,
+.pm-design-v1.pm-ledger-v1 > .pm-v1-filter,
+.pm-design-v1.pm-ledger-v1 .ledger-results { background: #fff; border: 1px solid #dfe4ea; border-radius: var(--pm-v1-radius-3); box-shadow: none; }
+.pm-design-v1.pm-ledger-v1 .ledger-summary > div:first-child { background: #fff; border-color: #e4e8ee; padding: 16px 20px; }
+.pm-design-v1.pm-ledger-v1 .ledger-summary > div:nth-child(2) { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.pm-design-v1.pm-ledger-v1 .ledger-summary > div:nth-child(2) > div { min-width: 0; background: transparent; padding: 14px 16px; border: 0; border-top: 1px solid #e4e8ee; }
+.pm-design-v1.pm-ledger-v1 .ledger-summary > div:nth-child(2) > div:nth-child(even) { border-left: 1px solid #e4e8ee; }
+.pm-design-v1.pm-ledger-v1 .ledger-summary > div:nth-child(2) > div:last-child { grid-column: 1 / -1; border-left: 3px solid #b88b47; }
+.pm-design-v1.pm-ledger-v1 .ledger-summary strong { color: var(--pm-v1-navy); font-size: clamp(1rem,1.7vw,1.375rem); overflow-wrap: anywhere; }
+.pm-design-v1.pm-ledger-v1 .ledger-filters { padding: 0; }
+.pm-design-v1.pm-ledger-v1 .ledger-filter-grid { align-items: end; }
+.pm-design-v1.pm-ledger-v1 .ledger-filter-grid > * { min-width: 0; }
+.pm-design-v1.pm-ledger-v1 .ledger-filters input,
+.pm-design-v1.pm-ledger-v1 .ledger-filters select { background: #fff; box-shadow: none; border-color: #d6dee7; min-height: 44px; }
+.pm-design-v1.pm-ledger-v1 .ledger-filters button { min-height: 44px; }
+.pm-design-v1.pm-ledger-v1 .ledger-mobile-results { background: #fff; gap: 0; padding: 0; }
+.pm-design-v1.pm-ledger-v1 .ledger-event { min-width: 0; min-height: 0; border: 0; border-bottom: 1px solid #e4e8ee; border-radius: 0; background: #fff; padding: 16px; box-shadow: none; }
+.pm-design-v1.pm-ledger-v1 .ledger-event:hover { background: #f7f9fb; }
+.pm-design-v1.pm-ledger-v1 .ledger-event > strong { margin-top: 10px; }
+.pm-design-v1.pm-ledger-v1 .ledger-event > strong,
+.pm-design-v1.pm-ledger-v1 .ledger-event > span { white-space: normal; overflow-wrap: anywhere; }
+.pm-design-v1.pm-ledger-v1 .ledger-event > div:nth-last-child(2) { margin-top: 10px; }
+.pm-design-v1.pm-ledger-v1 .ledger-event > div:nth-last-child(2) > * { min-width: 0; overflow-wrap: anywhere; }
+.pm-design-v1.pm-ledger-v1 .ledger-table { border-spacing: 0; }
+.pm-design-v1.pm-ledger-v1 .ledger-table th { background: #f7f8fa; color: #657181; }
+.pm-design-v1.pm-ledger-v1 .ledger-table td { background: #fff; border-bottom: 1px solid #e4e8ee; padding-block: 12px; box-shadow: none; border-radius: 0; }
+.pm-design-v1.pm-ledger-v1 .ledger-table tr:hover td { background: #f7f9fb; }
+.pm-design-v1.pm-ledger-v1 .ledger-table td strong,
+.pm-design-v1.pm-ledger-v1 .ledger-table td span { white-space: normal; overflow-wrap: anywhere; }
+.pm-design-v1.pm-ledger-v1 .ledger-empty { padding-bottom: 24px; }
+.pm-design-v1.pm-ledger-v1 .ledger-empty > div:first-child { min-height: 0; padding: 24px 16px; }
+.pm-design-v1.pm-ledger-v1 .ledger-empty > div:last-child { margin-top: 0; }
+@media (width < 48rem) {
+  .pm-design-v1.pm-ledger-v1 > .pm-v1-page-header { flex-direction: column; align-items: stretch; }
+  .pm-design-v1.pm-ledger-v1 .ledger-filter-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .pm-design-v1.pm-ledger-v1 .ledger-event > div:nth-last-child(2) { font-size: 12px; }
+  .pm-design-v1.pm-ledger-v1 .ledger-search { grid-column: 1 / -1; grid-row: 1; }
+  .pm-design-v1.pm-ledger-v1 .ledger-filter-grid > button { width: 100%; }
+}
+@media (width >= 48rem) {
+  .pm-design-v1.pm-ledger-v1 .ledger-event:nth-child(even) { border-left: 1px solid #e4e8ee; }
+}
+@media (width >= 80rem) {
+  .pm-design-v1.pm-ledger-v1 .ledger-summary > div:nth-child(2) { grid-template-columns: repeat(5,minmax(0,1fr)); }
+  .pm-design-v1.pm-ledger-v1 .ledger-summary > div:nth-child(2) > div { border-top: 0; border-right: 1px solid #e4e8ee; border-left: 0; }
+  .pm-design-v1.pm-ledger-v1 .ledger-summary > div:nth-child(2) > div:last-child { grid-column: auto; border-right: 0; border-left: 3px solid #b88b47; }
+}
+
+/* Mobile transactions share the existing outer ledger surface. */
+@media (390px <= width < 48rem) {
+  .pm-design-v1.pm-ledger-v1 .ledger-mobile-results > .ledger-event {
+    padding-block: 10px;
+    border: 0;
+    border-bottom: 1px solid #e4e8ee;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .pm-design-v1.pm-ledger-v1 .ledger-mobile-results > .ledger-event:last-child {
+    border-bottom: 0;
+  }
+  .pm-design-v1.pm-ledger-v1 .ledger-mobile-results > .ledger-event > strong,
+  .pm-design-v1.pm-ledger-v1 .ledger-mobile-results > .ledger-event > div:nth-last-child(2) {
+    margin-top: 6px;
+  }
+}

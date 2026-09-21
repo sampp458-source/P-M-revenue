@@ -1809,7 +1809,7 @@ export function SalesHistoryPage() {
   );
 
   return (
-    <>
+    <div className="pm-design-v1 pm-ledger-v1">
       <PageHeader
         title={ledgerView ? "거래 원장" : "판매건별 보기"}
         description={
@@ -1824,7 +1824,7 @@ export function SalesHistoryPage() {
           </Button>
         }
       />
-      <div className="mb-5 inline-flex rounded-xl border border-border bg-surface-secondary p-1">
+      <div className="ledger-view-switch mb-5 inline-flex rounded-xl border border-border bg-surface-secondary p-1">
         <button
           type="button"
           className={cn(
@@ -1881,7 +1881,7 @@ export function SalesHistoryPage() {
           />
         </>
       )}
-      <FilterToolbar className="gap-4">
+      <FilterToolbar className="ledger-filters gap-4">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="text-sm font-semibold text-text-primary">
@@ -1897,7 +1897,7 @@ export function SalesHistoryPage() {
             현재 결과 {resultCount.toLocaleString("ko-KR")}건
           </span>
         </div>
-        <div className={cn("grid gap-3 md:grid-cols-2", isFinanceAdmin ? "xl:grid-cols-[150px_150px_150px_minmax(260px,1fr)_auto]" : "xl:grid-cols-[180px_150px_minmax(260px,1fr)]")}>
+        <div className={cn("ledger-filter-grid grid gap-3 md:grid-cols-2", isFinanceAdmin ? "xl:grid-cols-[150px_150px_150px_minmax(260px,1fr)_auto]" : "xl:grid-cols-[180px_150px_minmax(260px,1fr)]")}>
           {isFinanceAdmin ? <label className="block">
             <span className="mb-1.5 block text-xs font-semibold text-text-secondary">
               기간
@@ -1972,7 +1972,7 @@ export function SalesHistoryPage() {
               ))}
             </Select>
           </label>
-          <label className="block">
+          <label className="ledger-search block">
             <span className="mb-1.5 block text-xs font-semibold text-text-secondary">
               검색
             </span>
@@ -2106,7 +2106,7 @@ export function SalesHistoryPage() {
           <span className="text-xs text-text-muted">검색 결과 갱신 중…</span>
         )}
       </div>
-      <Card className="overflow-hidden shadow-none">
+      <Card className="ledger-results overflow-hidden shadow-none">
         {loading ? (
           <SalesHistoryLoadingState />
         ) : loadError ? (
@@ -2123,7 +2123,7 @@ export function SalesHistoryPage() {
                 onOpen={showDetail}
               />
             </div>
-            <div className="grid gap-3 bg-surface-secondary/60 p-3 md:grid-cols-2 xl:hidden">
+            <div className="ledger-mobile-results grid gap-3 bg-surface-secondary/60 p-3 md:grid-cols-2 xl:hidden">
               {ledgerRows.map((event) => {
                 const sale = salesById.get(event.saleId);
                 return sale ? (
@@ -2162,7 +2162,7 @@ export function SalesHistoryPage() {
             </div>
           </>
         ) : (
-          <div className="pb-8">
+          <div className="ledger-empty pb-8">
             <EmptyState
               title={
                 sales.length === 0
@@ -2936,7 +2936,7 @@ export function SalesHistoryPage() {
         )}
       </Modal>
       {notice && <Toast message={notice} onClose={() => setNotice("")} />}
-    </>
+    </div>
   );
 }
 
@@ -3656,7 +3656,7 @@ function AccountingLedgerSummary({
   ] as const;
 
   return (
-    <section className="mb-5 overflow-hidden rounded-2xl border border-primary/15 bg-surface">
+    <section className="ledger-summary mb-5 overflow-hidden rounded-2xl border border-primary/15 bg-surface">
       <div className="flex flex-col gap-2 border-b border-border bg-primary-subtle px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-5">
         <div>
           <p className="text-xs font-semibold text-text-secondary">
@@ -3745,7 +3745,7 @@ function AccountingLedgerTable({
   onOpen: (sale: SaleRow) => void;
 }) {
   return (
-    <Table className="min-w-[1080px]">
+    <Table className="ledger-table min-w-[1080px]">
       <thead className="sticky top-0 z-10 bg-surface">
         <tr>
           <th>발생일</th>
@@ -3840,7 +3840,7 @@ function AccountingLedgerCard({
   return (
     <button
       type="button"
-      className="min-h-32 rounded-2xl border border-border bg-surface p-4 text-left transition-colors hover:border-primary/25 hover:bg-primary-subtle/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="ledger-event min-h-32 rounded-2xl border border-border bg-surface p-4 text-left transition-colors hover:border-primary/25 hover:bg-primary-subtle/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       onClick={onOpen}
     >
       <div className="flex items-start justify-between gap-3">
