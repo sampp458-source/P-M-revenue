@@ -1,3 +1,4 @@
+import "../sales-form-design-v1.css";
 import { useMemo, useState, type FormEvent } from "react";
 import {
   ChevronDown,
@@ -153,12 +154,13 @@ export function SaleFormPage() {
   };
   return (
     <>
+      <div className="pm-design-v1 pm-sales-form-v1 pm-sale-edit">
       <PageHeader
         title={existing ? "매출 수정" : "매출 등록"}
         description="매출 정보를 업무 순서대로 입력합니다."
       />
       <form onSubmit={submit}>
-        <Card className="p-5">
+        <Card className="sale-edit-surface p-5">
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             <Field label="사업부" required>
               <Select
@@ -330,7 +332,7 @@ export function SaleFormPage() {
               </button>
             </div>
             {advancedOpen && (
-              <div className="grid gap-5 rounded-lg border border-slate-200 bg-slate-50/60 p-4 md:col-span-2 md:grid-cols-2 xl:col-span-3 xl:grid-cols-3">
+              <div className="sale-edit-advanced grid gap-5 rounded-lg border border-slate-200 bg-slate-50/60 p-4 md:col-span-2 md:grid-cols-2 xl:col-span-3 xl:grid-cols-3">
                 <Field label="할인 금액">
                   <Input
                     type="number"
@@ -396,6 +398,7 @@ export function SaleFormPage() {
           </div>
         </Card>
       </form>
+      </div>
       <QuickCustomer
         open={customerModal}
         onClose={() => setCustomerModal(false)}

@@ -1,3 +1,4 @@
+import "../sales-form-design-v1.css";
 import {
   useCallback,
   useEffect,
@@ -1990,7 +1991,7 @@ export function SaleFormPage() {
           <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
           <p className="mt-0.5 text-xs text-text-muted">{description}</p>
         </div>
-        <div className="flex snap-x gap-2 overflow-x-auto pb-2">
+        <div className="sale-product-options flex snap-x gap-2 overflow-x-auto pb-2">
           {items.map(({ product, lastUsed, useCount }) => (
             <button
               key={product.id}
@@ -2066,6 +2067,7 @@ export function SaleFormPage() {
 
   return (
     <>
+      <div className="pm-design-v1 pm-sales-form-v1 pm-sale-new">
       <PageHeader
         title="매출 등록"
         description="고객 정보 없이도 상품과 금액만으로 빠르게 등록할 수 있습니다."
@@ -2323,7 +2325,7 @@ export function SaleFormPage() {
                       </Button>
                     </div>
                     {recentParties.length ? (
-                      <div className="flex snap-x gap-2 overflow-x-auto pb-2">
+                      <div className="sale-product-options flex snap-x gap-2 overflow-x-auto pb-2">
                         {recentParties.map((party) => (
                           <button
                             key={party.key}
@@ -3535,7 +3537,7 @@ export function SaleFormPage() {
               </div>
               </section>
             </div>
-            <aside className="h-fit border-t border-white/10 bg-[#172f4d] p-5 text-white shadow-[0_18px_45px_rgba(23,47,77,0.14)] sm:p-6 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:border-l lg:border-t-0">
+            <aside className="sale-summary h-fit border-t border-white/10 bg-[#172f4d] p-5 text-white shadow-[0_18px_45px_rgba(23,47,77,0.14)] sm:p-6 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:border-l lg:border-t-0">
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-200">
                 실시간 결제 요약
               </p>
@@ -3686,7 +3688,7 @@ export function SaleFormPage() {
           </div>
         </Card>
         {!mobileInputActive && (
-          <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(23,36,58,0.08)] backdrop-blur lg:hidden">
+          <div className="sale-mobile-cta fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(23,36,58,0.08)] backdrop-blur lg:hidden">
             <div className="mx-auto max-w-5xl">
               <div className="mb-2 flex items-end justify-between gap-3">
                 <div className="min-w-0">
@@ -3731,6 +3733,7 @@ export function SaleFormPage() {
           </div>
         )}
       </form>
+      </div>
 
       {notice && (
         <Toast

@@ -1,0 +1,59 @@
+/* Sales entry only; calculations, form behavior and modal scopes stay unchanged. */
+.pm-design-v1.pm-sales-form-v1 { background: #f6f7f9; color: var(--pm-v1-ink); max-width: 1280px; margin-inline: auto; }
+.pm-design-v1.pm-sales-form-v1 > .pm-v1-page-header { border-left: 3px solid var(--pm-v1-navy); padding-left: 16px; }
+.pm-design-v1.pm-sales-form-v1 .sale-registration-step,
+.pm-design-v1.pm-sales-form-v1 .sale-edit-surface { background: #fff; border-color: #dfe4ea; border-radius: 16px; box-shadow: none; }
+.pm-design-v1.pm-sales-form-v1 .pm-v1-input { min-width: 0; min-height: 44px; background: #fff; border-color: #cdd6df; border-radius: 8px; box-shadow: none; }
+.pm-design-v1.pm-sales-form-v1 .pm-v1-input:disabled,
+.pm-design-v1.pm-sales-form-v1 input.pm-v1-input:read-only,
+.pm-design-v1.pm-sales-form-v1 textarea.pm-v1-input:read-only { background: #f4f6f8; }
+.pm-design-v1.pm-sales-form-v1 .pm-v1-input[aria-invalid="true"] { border-color: var(--pm-v1-danger); background: #fcf4f4; }
+.pm-design-v1.pm-sales-form-v1 .pm-v1-button { box-shadow: none; }
+.pm-design-v1.pm-sales-form-v1 .pm-v1-button-secondary { background: #fff; border-color: #d6dfe7; }
+.pm-design-v1.pm-sales-form-v1 .sale-summary { box-shadow: none; font-variant-numeric: tabular-nums; }
+.pm-design-v1.pm-sales-form-v1 .truncate { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.pm-design-v1.pm-sales-form-v1 .sale-summary dd { text-align: right; overflow-wrap: anywhere; min-width: 0; }
+.pm-design-v1.pm-sales-form-v1 .sale-summary dt { flex-shrink: 0; }
+.pm-design-v1.pm-sales-form-v1 .sale-summary .whitespace-nowrap { white-space: normal; overflow-wrap: anywhere; }
+.pm-design-v1.pm-sales-form-v1 .sale-edit-advanced { background: #fff; border: 0; border-top: 1px solid #e1e6ec; border-radius: 0; padding: 20px 0 0; }
+.pm-design-v1.pm-sales-form-v1 .sale-mobile-cta { background: #fff; border-color: #dce3ea; box-shadow: 0 -2px 10px #17243a08; backdrop-filter: none; }
+@media (width < 48rem) {
+  .pm-design-v1.pm-sales-form-v1 > .pm-v1-page-header { align-items: stretch; }
+  .pm-design-v1.pm-sales-form-v1 .sale-registration-step:not(:has(.sale-summary)),
+  .pm-design-v1.pm-sales-form-v1 .sale-edit-surface { padding: 16px; border-radius: 12px; }
+  .pm-design-v1.pm-sales-form-v1 .sale-registration-step:has(.sale-summary) > div > div:first-child { padding: 16px; }
+  .pm-design-v1.pm-sales-form-v1 .sale-summary { padding: 20px 16px; }
+  .pm-design-v1.pm-sales-form-v1 .sale-edit-surface > .grid { gap: 18px; }
+  .pm-design-v1.pm-sales-form-v1 label,
+  .pm-design-v1.pm-sales-form-v1 .grid > div { min-width: 0; }
+  .pm-design-v1.pm-sales-form-v1 .sale-product-options { flex-wrap: wrap; overflow: visible; }
+  .pm-design-v1.pm-sales-form-v1 .sale-product-options > button { min-width: 0; width: 100%; min-height: 72px; border-radius: 8px; box-shadow: none; }
+  .pm-design-v1.pm-sales-form-v1 .sale-product-options .truncate { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+  .pm-design-v1.pm-sales-form-v1 .sale-mobile-cta .truncate { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+  .pm-design-v1.pm-sales-form-v1 input,
+  .pm-design-v1.pm-sales-form-v1 select,
+  .pm-design-v1.pm-sales-form-v1 textarea { scroll-margin-block: 24px 140px; }
+}
+
+/* New-sale mobile footer only. Reserve its full safe-area footprint for scrolling. */
+@media (width < 48rem) {
+  html:has(.pm-design-v1.pm-sales-form-v1.pm-sale-new) { scroll-padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px)); }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-registration-form { padding-bottom: calc(128px + env(safe-area-inset-bottom, 0px)); }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-mobile-cta { padding: 8px 12px max(8px, env(safe-area-inset-bottom, 0px)); }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-mobile-cta > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-mobile-cta > div > div:first-child { display: contents; }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-mobile-cta > div > div:first-child > div { grid-column: 1; grid-row: 1; }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-mobile-cta > div > div:first-child > p { grid-column: 1 / -1; grid-row: 2; max-width: none; text-align: left; }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-mobile-cta > div > div:last-child { grid-column: 2; grid-row: 1; }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-mobile-cta button { min-height: 44px; padding-inline: 10px; }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-registration-step,
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-registration-step :is(input, select, textarea, label, section, h2, h3, strong, dd) { scroll-margin-bottom: calc(140px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (width < 30rem) {
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-summary { padding-block: 16px; }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-summary > .mt-4 { margin-top: 10px; padding: 10px; }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-summary > .mt-3 { margin-top: 10px; }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-summary > .my-5 { margin-block: 12px; padding-block: 12px; }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-summary dl > :not(:last-child) { margin-bottom: 6px; }
+  .pm-design-v1.pm-sales-form-v1.pm-sale-new .sale-summary > .mt-5 { margin-top: 12px; }
+}
