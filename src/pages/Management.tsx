@@ -1,3 +1,4 @@
+import "../admin-directory-design-v1.css";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Eye, Pencil, Plus, RotateCcw, Search } from "lucide-react";
 import { useData } from "../store/DataContext";
@@ -175,7 +176,7 @@ export function CategoriesPage() {
     await loadCategories();
   };
   return (
-    <>
+    <section className="pm-design-v1 pm-admin-directory-v1 pm-categories-v1">
       <PageHeader
         title="상품 분류 관리"
         description="사업부별 상품 분류를 추가하고 활성 상태를 관리합니다."
@@ -221,12 +222,12 @@ export function CategoriesPage() {
               {rows.map((c) => {
                 return (
                   <tr key={c.id}>
-                    <td className="font-semibold">{c.name}</td>
-                    <td>{c.linked}개</td>
-                    <td>
+                    <td className="category-name font-semibold">{c.name}</td>
+                    <td data-label="연결 상품" className="category-linked">{c.linked}개</td>
+                    <td className="category-status">
                       <StatusBadge status={c.active ? "active" : "inactive"} />
                     </td>
-                    <td>
+                    <td className="category-actions">
                       {isAdmin ? <div className="flex justify-end gap-2">
                         <Button
                           variant="secondary"
@@ -314,7 +315,7 @@ export function CategoriesPage() {
         )}
       </Modal>
       {notice && <Toast message={notice} onClose={() => setNotice("")} />}
-    </>
+    </section>
   );
 }
 

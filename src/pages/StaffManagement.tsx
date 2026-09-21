@@ -1,3 +1,4 @@
+import "../admin-directory-design-v1.css";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { ChevronDown } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
@@ -168,7 +169,7 @@ export function StaffManagementPage() {
     await load();
   };
 
-  return <>
+  return <section className="pm-design-v1 pm-admin-directory-v1 pm-staff-v1">
     <PageHeader title="직원 관리" description="직원 계정 신청을 승인하고 재직 상태를 관리합니다." />
     <FilterToolbar className="sm:grid-cols-2"><SearchBox aria-label="직원 검색" placeholder="이름, 이메일 또는 휴대폰 검색" value={query} onClear={() => setQuery("")} onChange={(event) => setQuery(event.target.value)} /><Select aria-label="직원 상태 필터" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">전체 상태</option>{Object.entries(statusLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></FilterToolbar>
     {operationLoadError && <p role="alert" className="mb-3 text-sm text-amber-700">{operationLoadError}</p>}
@@ -204,11 +205,11 @@ export function StaffManagementPage() {
           <tbody>
             {filtered.map((row) => (
               <tr key={row.id}>
-                <td className="overflow-hidden text-ellipsis font-semibold">{row.name}</td>
-                <td className="overflow-hidden text-ellipsis" title={row.email || undefined}>{row.email || "-"}</td>
-                <td>{row.phone ? formatPhone(row.phone) : "-"}</td>
-                <td>{row.role === "admin" ? "관리자" : "직원"}</td>
-                <td>
+                <td className="staff-name overflow-hidden text-ellipsis font-semibold">{row.name}</td>
+                <td className="staff-email overflow-hidden text-ellipsis" title={row.email || undefined}>{row.email || "-"}</td>
+                <td data-label="휴대폰" className="staff-phone">{row.phone ? formatPhone(row.phone) : "-"}</td>
+                <td data-label="Finance 역할" className="staff-finance">{row.role === "admin" ? "관리자" : "직원"}</td>
+                <td data-label="운영 권한" className="staff-operation">
                   {operationLoadError ? <span className="text-sm text-error">권한 조회 실패</span> : row.operationRole ? (
                     <div className="flex items-center gap-1.5">
                       {scheduleColorAvailable && (
@@ -223,11 +224,11 @@ export function StaffManagementPage() {
                     </div>
                   ) : <span className="text-sm text-amber-700">Membership 없음</span>}
                 </td>
-                <td><Badge tone={row.status === "active" ? "green" : row.status === "pending" ? "amber" : row.status === "rejected" ? "red" : "gray"}>{statusLabel[row.status]}</Badge></td>
-                <td><DateTimeCell value={row.createdAt} /></td>
-                <td><DateTimeCell value={row.approvedAt} /></td>
-                <td><DateTimeCell value={row.deactivatedAt} /></td>
-                <td>
+                <td className="staff-status"><Badge tone={row.status === "active" ? "green" : row.status === "pending" ? "amber" : row.status === "rejected" ? "red" : "gray"}>{statusLabel[row.status]}</Badge></td>
+                <td data-label="가입일" className="staff-date"><DateTimeCell value={row.createdAt} /></td>
+                <td data-label="승인일" className="staff-date"><DateTimeCell value={row.approvedAt} /></td>
+                <td data-label="퇴사일" className="staff-date"><DateTimeCell value={row.deactivatedAt} /></td>
+                <td className="staff-actions">
                   <div className="flex items-center justify-end gap-1.5">
                     {!operationLoadError && canManageOperationRoles && row.status !== "pending" && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedOperationRole(row.operationRole ?? "staff"); setRoleEditing(row); }}>운영 권한</Button>}
                     {!operationLoadError && scheduleColorAvailable && canManageOperationScheduleColors && row.operationActive && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ? operationPersonColor(row) : ""); setColorEditing(row); }}>캘린더 색상</Button>}
@@ -334,5 +335,5 @@ export function StaffManagementPage() {
       </form>
     </Modal>
     {notice && <Toast message={notice} onClose={() => setNotice("")} />}
-  </>;
+  </section>;
 }
