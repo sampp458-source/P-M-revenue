@@ -1,3 +1,5 @@
+import "../design-system-v2.css";
+import "../today-design-v2.css";
 import {
   CheckCircle2,
   ChevronRight,
@@ -1059,7 +1061,7 @@ export function OperationsTodayPage() {
   }, [schedules]);
 
   return (
-    <section className="pm-design-v1 pm-today-v1 mx-auto max-w-7xl">
+    <section className="pm-design-v1 pm-today-v1 pm-design-v2 pm-today-v2 mx-auto max-w-7xl">
       <header className="pm-today-heading mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-primary">{fullDate}</p>

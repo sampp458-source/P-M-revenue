@@ -1,3 +1,5 @@
+import "../design-system-v2.css";
+import "../calendar-design-v2.css";
 import { HotelDayOperationsTimeline } from "./HotelDayOperationsTimeline";
 import {
   CalendarDays,
@@ -550,7 +552,7 @@ export function OperationsCalendarFoundationPage() {
   };
 
   return (
-    <section className="pm-design-v1 pm-calendar-v1 mx-auto max-w-[1480px]">
+    <section className="pm-design-v1 pm-calendar-v1 pm-design-v2 pm-calendar-v2 mx-auto max-w-[1480px]">
       <header className="pm-calendar-heading mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-primary">Operations</p>

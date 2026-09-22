@@ -1,3 +1,5 @@
+import "../design-system-v2.css";
+import "../ledger-design-v2.css";
 import {
   useCallback,
   useEffect,
@@ -1809,7 +1811,7 @@ export function SalesHistoryPage() {
   );
 
   return (
-    <div className="pm-design-v1 pm-ledger-v1">
+    <div className="pm-design-v1 pm-ledger-v1 pm-design-v2 pm-ledger-v2">
       <PageHeader
         title={ledgerView ? "거래 원장" : "판매건별 보기"}
         description={
