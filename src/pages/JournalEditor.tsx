@@ -1,3 +1,4 @@
+import "../journal-design-v2.css";
 import "../journal-design-v1.css";
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clipboard, Download, Eye, GraduationCap, Image, LoaderCircle, PawPrint, Trash2 } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -604,7 +605,7 @@ export function JournalEditor({
   if (loading) return <Card className="flex min-h-72 items-center justify-center"><LoaderCircle className="animate-spin text-primary" /></Card>;
 
   return (
-    <section className="pm-journal-editor-v1 mx-auto max-w-[1600px] overflow-x-hidden pb-24 xl:h-[calc(100dvh-110px)] xl:pb-0" aria-label={`${entry.dog.name} 일지 편집기`}>
+    <section className="pm-journal-editor-v1 pm-journal-editor-v2 mx-auto max-w-[1600px] overflow-x-hidden pb-24 xl:h-[calc(100dvh-110px)] xl:pb-0" aria-label={`${entry.dog.name} 일지 편집기`}>
       <div className="flex min-h-0 flex-col gap-3 xl:grid xl:h-full xl:grid-cols-[minmax(0,1.2fr)_minmax(420px,1fr)] xl:items-stretch xl:gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(480px,1fr)] 2xl:gap-5">
         <div className="journal-editor-form-scrollbar order-3 min-w-0 xl:order-none xl:h-full xl:overflow-y-auto xl:overscroll-contain xl:pb-8 xl:pr-1.5" data-testid="journal-editor-form-scroll">
           <fieldset disabled={completing || deleting} className="space-y-3 disabled:opacity-70 xl:grid xl:grid-cols-2 xl:gap-2 xl:space-y-0" data-testid="journal-editor-form-grid">

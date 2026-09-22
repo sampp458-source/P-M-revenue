@@ -1,0 +1,48 @@
+/* Transaction workspace opt-in. No field, amount, sticky positioning or payload changes. */
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2{background:radial-gradient(ellipse at 100% 0%,#dfedfb99,transparent 60%),linear-gradient(135deg,#faf7f2,#eef3f9);padding:20px;border-radius:24px;color:#173852}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2>.pm-v1-page-header{border:0;padding-left:0}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 :is(h1,h2,h3){color:#143753}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 :is(.sale-registration-step,.sale-edit-surface){background:linear-gradient(140deg,#fffffff0,#eef5fcdd);border-color:#fff;border-radius:20px;box-shadow:0 2px 4px #24496513,0 10px 20px #24496514,inset 0 1px #fff}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .pm-v1-input{background:linear-gradient(145deg,#e7eff8,#fcfdff);border-color:#d0dfeb;box-shadow:inset 1px 2px 4px #21496715,inset -1px -1px #fff;border-radius:10px;color:#173853}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .pm-v1-input:disabled,.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 input.pm-v1-input:read-only,.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 textarea.pm-v1-input:read-only{background:#e9eef3;box-shadow:none;color:#617487}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .pm-v1-input[aria-invalid="true"]{background:#fff0f1;border-color:#d88593}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .pm-v1-button-primary{background:linear-gradient(145deg,#446e94,#163c5c);box-shadow:0 2px 4px #24496525,inset 0 1px #a5cbe4}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .pm-v1-button-secondary{background:linear-gradient(145deg,#fff,#e2edf8);border-color:#d7e4ef;box-shadow:0 2px 3px #24496516,inset 0 1px #fff;color:#285b82}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-summary{background:linear-gradient(140deg,#234e73,#122f4a);color:#f5faff;box-shadow:inset 0 1px #88abc8,0 4px 12px #14365722}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-summary :is(h2,h3){color:#f5faff}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-advanced{background:transparent;border-color:#d6e4ef}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-mobile-cta{background:linear-gradient(130deg,#fdfefe,#e5eff9);border-color:#fff;box-shadow:0 -2px 5px #24496516,0 -8px 20px #24496512}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-product-options>button{background:linear-gradient(145deg,#fff,#e6f1fa);border-color:#d4e3f0;box-shadow:0 2px 3px #24496514,inset 0 1px #fff}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-product-options>button[aria-pressed="true"]{background:#daeaf9;box-shadow:inset 1px 2px 4px #24496522}
+@media(width < 48rem){.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2{padding:12px;border-radius:18px}.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-registration-step:not(:has(.sale-summary)),.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface{border-radius:16px}}
+/* Sales-only final polish: section identity without changing field order or controls. */
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-registration-step:first-child{background:linear-gradient(115deg,#ecf9fcf5,#fffffff2 65%);border-top:3px solid #72bdd0}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-registration-step:nth-child(2){background:linear-gradient(115deg,#edf3fff5,#fffffff2 65%);border-top:3px solid #88aee2}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 section[aria-labelledby="sale-adjustment-title"]{border-left:3px solid #d5a455;padding-left:16px}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 section[aria-labelledby="sale-payment-title"]{border-left:3px solid #55aa9e;padding-left:16px}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 section[aria-labelledby="sale-memo-title"]{border-left:3px solid #b0bdca;padding-left:16px}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-summary{background:linear-gradient(145deg,#284e6b,#152f47 65%,#183c49)}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-summary>div.border-y{background:linear-gradient(110deg,#ffffff0c,#7dcfc51a);border-color:#b4dbdd38;padding-left:12px;padding-right:12px;border-radius:12px;box-shadow:inset 0 1px #ffffff14}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-summary>dl>div:nth-child(3)>dd{color:#ffc1b9}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-summary>dl>div:nth-child(4)>dd{color:#a1e9df}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-summary>dl>div:nth-child(6)>dd.text-amber-300{color:#ffd18b}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface{background:linear-gradient(125deg,#f9fcff,#f0f6fa 70%,#edf5f4)}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid{column-gap:24px;row-gap:22px}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(-n+12){min-width:0}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(-n+3){border-top:2px solid #80bacb;padding-top:14px}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(n+4):nth-child(-n+6){border-top:2px solid #93b3db;padding-top:14px}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(n+7):nth-child(-n+9){border-top:2px solid #83b8b0;padding-top:14px}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface .pm-v1-input{background:#ffffffc9;box-shadow:inset 0 1px 2px #23445d0d,0 1px 0 #fff;border-color:#ccdce6}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(12)>div{background:linear-gradient(120deg,#dcefe9,#e9f2fa);border-color:#b7d8d2;box-shadow:inset 0 1px #fff,0 2px 4px #204b5810;color:#103f4e;font-size:1.25rem;min-height:44px;font-variant-numeric:tabular-nums}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-advanced{background:#e8edf34d;border-style:dashed;box-shadow:none}
+@media(width < 48rem){
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(-n+12){border-top:0;padding-top:0}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(1),.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(4),.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(7),.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(10){border-top:2px solid #a2bfcc;padding-top:16px;margin-top:6px}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(7){border-color:#83b8b0}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 section[aria-labelledby]{padding-left:12px}
+}
+@media(width < 48rem){
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(n+4):nth-child(-n+9){border-top:0;padding-top:0}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(4):nth-child(-n+9),.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(7):nth-child(-n+9){border-top:2px solid #93b3db;padding-top:16px}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(7):nth-child(-n+9){border-color:#83b8b0}
+}

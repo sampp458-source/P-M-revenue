@@ -5,6 +5,9 @@ const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 describe('Finance Design V1 contract boundary', () => {
   it('preserves all dashboard calculations, permission paths, queries and drawer handlers', () => {
     let source = readFileSync('src/pages/DashboardDB.tsx', 'utf8')
+      .replace('import "../design-system-v2.css";\n', '')
+      .replace('import "../finance-design-v2.css";\n', '')
+      .replace(' pm-design-v2 pm-finance-v2', '')
       .replace('import "../finance-design-v1.css";\n', '')
       .replace('pm-finance-v1 pm-dashboard-v1 ', '');
     const filter = source.split('\n').find(line => line.includes('{isAdmin && <DashboardPeriodFilters'))!;
@@ -16,6 +19,9 @@ describe('Finance Design V1 contract boundary', () => {
   });
   it('preserves report calculations, month semantics, chart data, rankings and refund history', () => {
     let source = readFileSync('src/pages/ReportsDB.tsx', 'utf8')
+      .replace('import "../design-system-v2.css";\n', '')
+      .replace('import "../finance-design-v2.css";\n', '')
+      .replace(' pm-design-v2 pm-finance-v2', '')
       .replace('import "../finance-design-v1.css";\n', '')
       .replace('return <section className="pm-finance-v1 pm-reports-v1">', 'return <>')
       .replace('  </section>;\n}', '  </>;\n}');

@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest';
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const source = (name: string) => readFileSync(`src/pages/${name}.tsx`, 'utf8');
 const removeScope = (text: string, kind: string, following: string) => text
+  .replace('import "../design-system-v2.css";\n', '')
+  .replace('import "../sales-form-design-v2.css";\n', '')
+  .replace(' pm-design-v2 pm-sales-form-v2', '')
   .replace('import "../sales-form-design-v1.css";\n', '')
   .replace(`      <div className="pm-design-v1 pm-sales-form-v1 pm-sale-${kind}">\n`, '')
   .replace(`      </form>\n      </div>\n${following}`, `      </form>\n${following}`);

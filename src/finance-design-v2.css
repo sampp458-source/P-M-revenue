@@ -1,0 +1,38 @@
+/* Finance-only material layer; chart series, amounts and interactions remain unchanged. */
+.pm-finance-v1.pm-finance-v2{background:radial-gradient(ellipse at 100% 0%,#ddeafa99,transparent 60%),linear-gradient(135deg,#faf7f2,#edf2f8);padding:20px;border-radius:24px;color:#193750}
+.pm-finance-v1.pm-finance-v2 .pm-card{background:linear-gradient(145deg,#ffffffed,#edf4fbdc);border-color:#fff;border-radius:18px;box-shadow:0 2px 3px #24476312,0 10px 22px #24476314,inset 0 1px #fff}
+.pm-finance-v1.pm-finance-v2 :is(h1,h2,h3){color:#123553}
+.pm-finance-v1.pm-finance-v2 :is(.pm-v1-input,input,select){background:linear-gradient(145deg,#e9f0f8,#fcfdff);border-color:#d4e1ed;box-shadow:inset 1px 2px 4px #21496718,inset -1px -1px #fff;min-height:44px}
+.pm-finance-v1.pm-finance-v2 .pm-v1-button-secondary{background:linear-gradient(145deg,#fff,#e5eef8);box-shadow:0 2px 3px #24496518,inset 0 1px #fff}
+.pm-finance-v1.pm-finance-v2.pm-dashboard-v1 > section:first-child > div{border:1px solid #fff;border-radius:22px;box-shadow:0 3px 5px #24496516,0 12px 25px #24496517;background:#f7faff}
+.pm-finance-v1.pm-finance-v2 .dashboard-hero-surface{background:linear-gradient(125deg,#173e60,#244f73);color:#f2f8ff;border:0;border-radius:0;box-shadow:inset 0 1px #96bad7,0 4px 8px #183e6620}
+.pm-finance-v1.pm-finance-v2 .dashboard-hero-surface :is(p,span,strong,button){color:inherit}
+.pm-finance-v1.pm-finance-v2 .dashboard-hero-number{color:#fff;letter-spacing:-.035em}
+.pm-finance-v1.pm-finance-v2 .dashboard-hero-accent{background:#75c6e1;box-shadow:0 0 10px #75c6e144}
+.pm-finance-v1.pm-finance-v2 .dashboard-kpi-card{background:linear-gradient(150deg,#fff,#edf5fd);border-color:#d8e4ef;box-shadow:none}
+.pm-finance-v1.pm-finance-v2 .dashboard-card-number{color:#173e63;font-weight:800}
+.pm-finance-v1.pm-finance-v2 .dashboard-business-card{background:linear-gradient(135deg,#fff,var(--pm-theme-soft,#eaf2fb));border-color:#fff;border-radius:18px;box-shadow:0 2px 3px #24496514,0 8px 18px #24496512,inset 0 1px #fff}
+.pm-finance-v1.pm-finance-v2 :is(.dashboard-calendar-surface,.dashboard-trend-surface,.dashboard-activity-surface){background:linear-gradient(140deg,#ffffffef,#eef4fa);border-color:#fff;border-radius:20px;box-shadow:0 2px 4px #24496515,0 10px 22px #24496512}
+.pm-finance-v1.pm-finance-v2 .dashboard-trend-chart{background:linear-gradient(145deg,#eaf1f9,#f9fbfe);box-shadow:inset 1px 2px 4px #21496712;border-radius:12px}
+.pm-finance-v1.pm-finance-v2 .dashboard-activity-row{background:transparent;border-color:#d6e1ed}
+.pm-finance-v1.pm-finance-v2.pm-reports-v1 :is(.finance-summary,.finance-divisions){background:linear-gradient(130deg,#fff,#eaf2fb);border-color:#fff;border-radius:20px;box-shadow:0 2px 4px #24496514,0 10px 24px #24496517}
+.pm-finance-v1.pm-finance-v2 .finance-metric{background:transparent;box-shadow:none;border-radius:0;border-color:#d7e3ee}
+.pm-finance-v1.pm-finance-v2 .finance-summary .finance-metric:nth-child(2){background:linear-gradient(145deg,#20496e,#153854);color:#f7fbff}
+.pm-finance-v1.pm-finance-v2 .finance-summary .finance-metric:nth-child(2)>p{color:#f2f8ff}
+.pm-finance-v1.pm-finance-v2 .finance-summary .finance-metric:nth-child(3)>p:nth-child(2){color:#b04960}
+.pm-finance-v1.pm-finance-v2 .finance-summary .finance-metric:nth-child(4)>p:nth-child(2){color:#996218}
+.pm-finance-v1.pm-finance-v2 .finance-methods>.grid>div{border-left-color:#78a8c9;background:linear-gradient(135deg,#f6fbff,#e5eff8);border-radius:8px}
+.pm-finance-v1.pm-finance-v2 .finance-list>h2{background:linear-gradient(135deg,#eff6fd,#dce9f6);border-color:#d5e2ee}
+.pm-finance-v1.pm-finance-v2 .finance-rank-row>span:first-child{background:linear-gradient(145deg,#fff,#dcebf8);color:#245a85;box-shadow:0 1px 2px #21496716,inset 0 1px #fff;border-radius:8px}
+.pm-finance-v1.pm-finance-v2 .finance-rank-row>b{color:#194969;font-variant-numeric:tabular-nums}
+.pm-finance-v1.pm-finance-v2 .finance-event-row{border-color:#e8dce1;background:linear-gradient(110deg,#fff8f7aa,#f7faff77)}
+@media(width < 48rem){.pm-finance-v1.pm-finance-v2{padding:12px;border-radius:18px}.pm-finance-v1.pm-finance-v2 .dashboard-hero-surface>div{padding:18px 16px}.pm-finance-v1.pm-finance-v2 .finance-metric{padding:12px}}
+/* Large financial values remain intact instead of breaking through digits. */
+@media(width < 30rem){
+ .pm-finance-v1.pm-finance-v2 .dashboard-kpi-card{padding:10px}
+ .pm-finance-v1.pm-finance-v2 .dashboard-card-number{font-size:15px;letter-spacing:-.035em;white-space:nowrap}
+ .pm-finance-v1.pm-finance-v2 .finance-summary .finance-metric>p:nth-child(2){font-size:15px;letter-spacing:-.035em;white-space:nowrap}
+}
+/* Keep wide currency-axis glyphs inside the chart's scrollable gutter. */
+.pm-finance-v1.pm-finance-v2 .finance-chart>div{padding-left:14px}
+.pm-finance-v1.pm-finance-v2 .finance-chart .recharts-surface{overflow:visible}

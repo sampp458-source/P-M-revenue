@@ -1,3 +1,5 @@
+import "../design-system-v2.css";
+import "../finance-design-v2.css";
 import "../finance-design-v1.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -564,7 +566,7 @@ export function DashboardPage() {
   if (loading) return <DashboardSkeleton />;
   if (error) return <ErrorState title="대시보드 데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요." retry={() => void load()} />;
   return <div
-    className="pm-finance-v1 pm-dashboard-v1 dashboard-shell"
+    className="pm-finance-v1 pm-dashboard-v1 pm-design-v2 pm-finance-v2 dashboard-shell"
     data-dashboard-theme={selectedThemeCode}
     style={dashboardThemeStyle(selectedThemeCode)}
   >

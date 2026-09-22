@@ -1,0 +1,23 @@
+/* Editor UI only: no selector reaches the report preview or export template. */
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2{background:radial-gradient(ellipse at 100% 0%,#daf2f299,transparent 65%),linear-gradient(135deg,#faf7f2,#edf3fa);padding:20px;border-radius:24px;color:#173a53}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2>div:first-child>div:first-child{border:0;padding-left:0}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 :is(h1,h2){color:#143a54}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 :is(.pm-card,[aria-label="오늘의 공통 활동 요약"],[aria-label="일지 요약"],.journal-roster-surface){background:linear-gradient(140deg,#fffffff0,#eaf4f9);border-color:#fff;border-radius:20px;box-shadow:0 2px 4px #24496513,0 10px 22px #24496515,inset 0 1px #fff}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 [aria-label="일지 요약"]>div{border-color:#d8e6ed}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 .journal-roster-row{background:transparent;box-shadow:none;border-radius:0;border-color:#d6e5ee}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 .journal-roster-row:hover{background:#e7f3f9}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 .pm-v1-button-secondary{background:linear-gradient(145deg,#fff,#dfeef6);box-shadow:0 2px 3px #24496516,inset 0 1px #fff;color:#225b78}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 .pm-v1-input{background:linear-gradient(145deg,#e6eff8,#fbfdff);box-shadow:inset 1px 2px 4px #24496518;border-color:#d1e1ec}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 .bg-success-soft{background:#dbf1e7;color:#257653}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 .bg-primary-soft{background:#dbeafa;color:#315f93}
+.pm-journal-editor-v1.pm-journal-editor-v2 .journal-editor-form-scrollbar>fieldset{background:linear-gradient(130deg,#fff,#edf5fa);border-color:#fff;border-radius:20px;box-shadow:0 2px 4px #24496514,0 10px 22px #24496515}
+.pm-journal-editor-v1.pm-journal-editor-v2 .journal-editor-section{background:transparent;border-color:#d8e5ee;color:#193c55}
+.pm-journal-editor-v1.pm-journal-editor-v2 .journal-editor-section h2{color:#143954}
+.pm-journal-editor-v1.pm-journal-editor-v2 .journal-editor-section button[aria-pressed]{background:linear-gradient(145deg,#fff,#e3eff8);border-color:#d4e3ec;box-shadow:0 2px 3px #24496512,inset 0 1px #fff;border-radius:10px;color:#335975}
+.pm-journal-editor-v1.pm-journal-editor-v2 .journal-editor-section button[aria-pressed="true"]{background:linear-gradient(140deg,#d5eafa,#d4eeed);border-color:#75a9bd;color:#184f69;box-shadow:inset 1px 2px 4px #24496522,inset -1px -1px #fff;font-weight:700}
+.pm-journal-editor-v1.pm-journal-editor-v2 .journal-editor-section :is(.pm-v1-input,textarea){background:linear-gradient(145deg,#e8f1f8,#fcfdff);border-color:#ccdeea;box-shadow:inset 1px 2px 4px #24496515,inset -1px -1px #fff;color:#193b54}
+.pm-journal-editor-v1.pm-journal-editor-v2 .journal-editor-section :is(button,input,select,textarea):focus-visible{outline:2px solid #437eaa;outline-offset:2px}
+.pm-journal-editor-v1.pm-journal-editor-v2 .journal-editor-control-panel>header{background:linear-gradient(140deg,#fff,#e1eff8);border-color:#fff;box-shadow:0 2px 4px #24496516,inset 0 1px #fff;border-radius:18px}
+.pm-journal-editor-v1.pm-journal-editor-v2 [data-testid="journal-editor-final-actions"]{background:linear-gradient(135deg,#fbfdff,#dfedf6);border-color:#fff;box-shadow:0 -2px 5px #24496513}
+.pm-journal-editor-v1.pm-journal-editor-v2 [data-testid="journal-editor-final-actions"] .pm-v1-button-primary{background:linear-gradient(145deg,#396d90,#153d5b);box-shadow:0 2px 4px #24496522,inset 0 1px #a8cedf}
+@media(width < 48rem){.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2{padding:12px;border-radius:18px}}

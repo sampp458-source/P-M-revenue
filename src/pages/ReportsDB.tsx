@@ -1,3 +1,5 @@
+import "../design-system-v2.css";
+import "../finance-design-v2.css";
 import "../finance-design-v1.css";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
@@ -219,7 +221,7 @@ export function ReportsPage() {
 
   if (loading) return <ReportsSkeleton />;
   if (error) return <ErrorState title="월별 보고서 데이터를 불러오지 못했습니다." retry={() => void load()} />;
-  return <section className="pm-finance-v1 pm-reports-v1">
+  return <section className="pm-finance-v1 pm-reports-v1 pm-design-v2 pm-finance-v2">
     <PageHeader title="월별 보고서" description="판매금액은 매출일, 실수납액은 결제일 기준으로 분석합니다." action={<label className="block w-48"><span className="mb-1 block text-xs font-medium text-slate-600">조회 월</span><Select aria-label="보고서 조회 월" value={month} onChange={(event) => setMonth(event.target.value)}>{months.map((value) => <option key={value} value={value}>{monthLabel(value)}</option>)}</Select></label>} />
     <div className="finance-summary grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Metric label="판매금액" value={won(report.total)} detail="매출일 기준 · 기준금액 + 추가금 - 할인" /><Metric label="실수납액" value={won(report.real)} detail="결제일 기준 유효 결제원장 합계" /><Metric label="환불" value={won(report.refund)} detail="환불 처리일 기준 유효 환불" /><Metric label="현재 미수금" value={won(report.outstanding)} detail="조회 월과 관계없는 현재 미수잔액" /></div>
     <div className="mt-4 grid gap-4 lg:grid-cols-2"><Summary target={report.target} real={report.real} achievement={report.achievement} diff={report.diff} rate={report.rate} /><Card className="p-5"><h2 className="font-bold">목표 달성률</h2><p className="mt-3 text-3xl font-bold">{report.achievement.toFixed(1)}%</p><div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-label="목표 달성률" aria-valuenow={Math.min(100, report.achievement)} aria-valuemin={0} aria-valuemax={100}><div className="h-full rounded-full bg-[#274c77]" style={{ width: `${Math.min(100, Math.max(0, report.achievement))}%` }} /></div><p className="mt-2 text-sm text-slate-500">{won(report.real)} / {won(report.target)}</p></Card></div>

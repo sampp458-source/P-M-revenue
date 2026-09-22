@@ -5,6 +5,9 @@ const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 describe('Journal V1 presentation boundary', () => {
   it('preserves roster ordering, filters, registration, deletion, navigation and batch export', () => {
     const source = readFileSync('src/pages/JournalHome.tsx', 'utf8')
+      .replace('import "../design-system-v2.css";\n', '')
+      .replace('import "../journal-design-v2.css";\n', '')
+      .replace(' pm-design-v2 pm-journal-home-v2', '')
       .replace('import "../journal-design-v1.css";\n', '')
       .replace('pm-design-v1 pm-journal-home-v1 ', '')
       .replace('journal-roster-surface ', '')
@@ -13,13 +16,19 @@ describe('Journal V1 presentation boundary', () => {
   });
   it('preserves editor autosave timing, version, payloads, completion and export exactly', () => {
     const source = readFileSync('src/pages/JournalEditor.tsx', 'utf8')
+      .replace('import "../design-system-v2.css";\n', '')
+      .replace('import "../journal-design-v2.css";\n', '')
+      .replace(' pm-journal-editor-v2', '')
       .replace('import "../journal-design-v1.css";\n', '')
       .replace('pm-journal-editor-v1 ', '')
       .replace('journal-editor-section ', '');
     expect(hash(source)).toBe('fc529c21d3e5f490e53d0b326350bf6002f041e797ddb4abf6d47fe0c1e8c31e');
   });
   it('does not opt the report preview into shared visual primitives', () => {
-    const source = readFileSync('src/pages/JournalEditor.tsx', 'utf8');
+    const source = readFileSync('src/pages/JournalEditor.tsx', 'utf8')
+      .replace('import "../design-system-v2.css";\n', '')
+      .replace('import "../journal-design-v2.css";\n', '')
+      .replace(' pm-journal-editor-v2', '');
     expect(source).not.toContain('pm-design-v1');
     const css = readFileSync('src/journal-design-v1.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     for (const [, selectors, declarations] of css.replace(/@media[^{}]*\{/g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {

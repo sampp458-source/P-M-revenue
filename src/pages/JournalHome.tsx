@@ -1,3 +1,5 @@
+import "../design-system-v2.css";
+import "../journal-design-v2.css";
 import "../journal-design-v1.css";
 import { Archive, BookOpenText, ChevronLeft, ChevronRight, Clipboard, Dog, LoaderCircle, Pencil, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -374,7 +376,7 @@ export function JournalHomePage() {
   }
 
   return (
-    <section className="pm-design-v1 pm-journal-home-v1 mx-auto max-w-5xl overflow-x-hidden" aria-label="유치원 하루 일지">
+    <section className="pm-design-v1 pm-journal-home-v1 pm-design-v2 pm-journal-home-v2 mx-auto max-w-5xl overflow-x-hidden" aria-label="유치원 하루 일지">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-[11px] font-bold tracking-[0.17em] text-primary">P&amp;M JOURNAL</p>

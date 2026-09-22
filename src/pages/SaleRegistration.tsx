@@ -1,3 +1,5 @@
+import "../design-system-v2.css";
+import "../sales-form-design-v2.css";
 import "../sales-form-design-v1.css";
 import {
   useCallback,
@@ -2067,7 +2069,7 @@ export function SaleFormPage() {
 
   return (
     <>
-      <div className="pm-design-v1 pm-sales-form-v1 pm-sale-new">
+      <div className="pm-design-v1 pm-sales-form-v1 pm-sale-new pm-design-v2 pm-sales-form-v2">
       <PageHeader
         title="매출 등록"
         description="고객 정보 없이도 상품과 금액만으로 빠르게 등록할 수 있습니다."
