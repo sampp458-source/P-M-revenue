@@ -1,3 +1,4 @@
+import "../settings-design-v2.css";
 import "../settings-design-v1.css";
 import {
   useCallback,
@@ -99,7 +100,7 @@ export function OperationsSettingsPage() {
   }, [load]);
 
   return (
-    <section className="pm-design-v1 pm-settings-v1 pm-operation-settings-v1 mx-auto max-w-6xl">
+    <section className="pm-design-v1 pm-settings-v1 pm-settings-v2 pm-operation-settings-v1 mx-auto max-w-6xl">
       <PageHeader
         title="일정 설정"
         description="스케줄 운영에 필요한 기준을 한곳에서 관리합니다."

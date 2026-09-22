@@ -1,0 +1,31 @@
+/* Team workspace: presentation-only opt-in, all permissions/actions stay intact. */
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2{padding:20px;border-radius:24px;background:radial-gradient(ellipse at 90% 0%,#deebf9aa,transparent 65%),linear-gradient(135deg,#faf8f4,#edf3f8);color:#153651}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .pm-card{background:linear-gradient(135deg,#fffffff2,#f0f5fbeb);border-color:#fff;border-radius:20px;box-shadow:inset 0 1px #fff,0 2px 4px #26496310,0 10px 24px #26496312}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 thead{background:linear-gradient(120deg,#e4eef8,#edf3f8);color:#204a6b}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 th{background:transparent;color:#37566d;padding-block:16px}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 td{border-color:#d8e4ed90}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 tbody tr:hover{background:#e6f1fa88}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 td:first-child{font-weight:700;color:#143b58}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .pm-v1-input{background:linear-gradient(145deg,#e8f0f8,#fcfdff);border-color:#cbdce8;box-shadow:inset 1px 2px 3px #22486514,inset -1px -1px #fff;color:#193d59}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .pm-v1-button-secondary{background:linear-gradient(145deg,#fff,#e4edf7);border-color:#d0dfeb;box-shadow:0 2px 3px #27496212,inset 0 1px #fff;color:#245579}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .pm-v1-button-primary{background:linear-gradient(145deg,#38698d,#173b59);box-shadow:inset 0 1px #aac8df,0 2px 4px #21465f20}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .bg-emerald-50{background:#dcf3e9;color:#146753}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .bg-amber-50{background:#fff0d4;color:#935a17}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .bg-red-50{background:#ffe5e1;color:#a14042}
+@media(width < 48rem){.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2{padding:12px;border-radius:18px}.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 tbody tr{background:transparent;border-radius:0;box-shadow:none}.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 td:first-child{font-size:17px}}
+/* Desktop-only final directory polish. Mobile presentation is frozen. */
+@media(width >= 48rem){
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 thead{background:linear-gradient(115deg,#cfdfef,#e4eef7 70%,#dce9f3);box-shadow:inset 0 1px #fff,inset 0 -2px #b6cddd66}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 th{color:#214665;font-weight:700}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 tbody tr{background:linear-gradient(100deg,#e5eff833,transparent 38%,#eaf2f733)}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 tbody tr:hover{background:linear-gradient(100deg,#dcebf8aa,#edf5fbaa);box-shadow:inset 3px 0 #6b9fc4,inset 0 1px #fff,inset 0 -1px #bfd3e266}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 td.staff-name{font-size:14px;line-height:1.55;font-weight:750;color:#103650}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 td.staff-email,.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 td.staff-phone{color:#5c7082}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 td.staff-finance{font-weight:600;color:#31536e}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-status>span{box-shadow:inset 0 1px #ffffffc0,0 1px 2px #23445c12;border:1px solid #ffffffa0;font-weight:700}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-status .bg-success-soft{background:#d4eee3;color:#176950}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-status .bg-warning-soft{background:#ffeac5;color:#895412}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-status .bg-error-soft{background:#ffddd8;color:#9d3944}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-actions .pm-v1-button{background:linear-gradient(145deg,#fff,#dce9f5);border-color:#c6d9e8;box-shadow:inset 0 1px #fff,0 1px 2px #28496320,0 3px 5px #28496310;color:#224e70}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-actions .pm-v1-button:active{box-shadow:inset 1px 2px 3px #28496322}
+}

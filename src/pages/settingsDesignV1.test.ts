@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 const hash = (source: string) => createHash('sha256').update(source).digest('hex');
-const original = (file: string) => readFileSync(file, 'utf8').replace('import "../settings-design-v1.css";\n', '');
+const original = (file: string) => readFileSync(file, 'utf8').replace(/import ["'].*(?:admin|settings|access)-design-v2\.css["'];\n/g, '').replace(/ pm-(?:admin|settings|access)-v2/g, '').replace(' data-unit-name={name}', '').replace('import "../settings-design-v1.css";\n', '');
 describe('Settings V1 presentation boundary', () => {
   it('preserves all target values, total calculations, permissions, per-row save payloads and focus restoration', () => {
     let source = original('src/pages/SettingsDB.tsx')

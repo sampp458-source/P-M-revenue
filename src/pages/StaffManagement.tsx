@@ -1,3 +1,4 @@
+import "../admin-design-v2.css";
 import "../admin-directory-design-v1.css";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { ChevronDown } from "lucide-react";
@@ -169,7 +170,7 @@ export function StaffManagementPage() {
     await load();
   };
 
-  return <section className="pm-design-v1 pm-admin-directory-v1 pm-staff-v1">
+  return <section className="pm-design-v1 pm-admin-directory-v1 pm-staff-v1 pm-admin-v2">
     <PageHeader title="직원 관리" description="직원 계정 신청을 승인하고 재직 상태를 관리합니다." />
     <FilterToolbar className="sm:grid-cols-2"><SearchBox aria-label="직원 검색" placeholder="이름, 이메일 또는 휴대폰 검색" value={query} onClear={() => setQuery("")} onChange={(event) => setQuery(event.target.value)} /><Select aria-label="직원 상태 필터" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">전체 상태</option>{Object.entries(statusLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></FilterToolbar>
     {operationLoadError && <p role="alert" className="mb-3 text-sm text-amber-700">{operationLoadError}</p>}

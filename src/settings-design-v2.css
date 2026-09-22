@@ -1,0 +1,21 @@
+/* Financial controls and read-only operations reference, independently scoped. */
+.pm-design-v1.pm-settings-v1.pm-settings-v2{padding:20px;border-radius:24px;color:#173853;background:radial-gradient(ellipse at 90% 0%,#dceaf8aa,transparent 60%),linear-gradient(135deg,#faf8f3,#eef4f9)}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .pm-card{background:linear-gradient(130deg,#fffffff0,#edf4fbea);border-color:#fff;border-radius:20px;box-shadow:inset 0 1px #fff,0 2px 4px #24445d10,0 10px 22px #24445d12}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .pm-v1-input{background:linear-gradient(140deg,#e5eef7,#fcfdff);color:#153b59;border-color:#cbdce8;box-shadow:inset 1px 2px 3px #254e6918,inset -1px -1px #fff}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .pm-v1-input:disabled{background:#e9eef3;color:#64798c;box-shadow:none}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .pm-v1-button-primary{background:linear-gradient(140deg,#416f93,#163c5a);box-shadow:inset 0 1px #91b5d0,0 2px 4px #24496122}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .pm-v1-button-secondary{background:linear-gradient(140deg,#fff,#e2edf7);color:#265a7e;border-color:#d3e2ed;box-shadow:inset 0 1px #fff,0 2px 3px #24496114}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-overall{background:linear-gradient(120deg,#e1edf9,#f7fbff 65%,#e5f4f1);border-top:3px solid #4e7ca5;border-radius:20px 20px 0 0;box-shadow:inset 0 1px #fff}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-overall input{font-size:clamp(20px,3vw,28px);font-weight:700;letter-spacing:-.035em;min-height:56px;color:#143c5d}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-units{border-radius:0 0 20px 20px}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-unit-row{background:linear-gradient(100deg,#e7f2fb55,transparent 55%);border-color:#d4e2ec}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-unit-row[data-unit-name^="유치원"]{border-left:3px solid #55b4cb;background:linear-gradient(100deg,#dff4f955,transparent 60%)}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-unit-row[data-unit-name^="교육센터"]{border-left:3px solid #719ee0}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-unit-row[data-unit-name^="호텔"]{border-left:3px solid #d9ab63;background:linear-gradient(100deg,#fff0d855,transparent 60%)}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-summary dd{color:#153e5e;font-weight:700}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-menu nav>div{background:transparent;border-color:#d7e3ed}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-menu nav>div[aria-current]{background:linear-gradient(130deg,#345e7f,#173e5c);color:#fff;border-radius:12px;box-shadow:inset 0 1px #92b3ce,0 2px 4px #21415a20}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-readonly{background:linear-gradient(110deg,#e1eef8,#eff6fb);border-color:#cbdfea;border-left-color:#527fa4;color:#315673}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-list>div:first-child{background:linear-gradient(120deg,#dfeaf6,#edf5fa);border-color:#d9e6f0}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-list li{background:transparent;border-color:#d9e5ee}
+@media(width < 48rem){.pm-design-v1.pm-settings-v1.pm-settings-v2{padding:12px;border-radius:18px}.pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-menu nav>div{background:transparent}.pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-menu nav>div[aria-current]{padding:10px;border-radius:10px}.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-overall input{font-size:24px}}

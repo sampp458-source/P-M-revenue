@@ -1,3 +1,4 @@
+import "./access-design-v2.css";
 import "./access-design-v1.css";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
@@ -621,7 +622,7 @@ function ModuleGatePage() {
   const { chooseModule } = useModule();
   const modules = workspaceOptions;
   return (
-    <main className="pm-access-v1 pm-module-gate module-gate-shell relative flex min-h-[100dvh] items-center justify-center overflow-x-hidden bg-app-background px-4 py-6 sm:px-7 sm:py-8 lg:px-10">
+    <main className="pm-access-v1 pm-access-v2 pm-module-gate module-gate-shell relative flex min-h-[100dvh] items-center justify-center overflow-x-hidden bg-app-background px-4 py-6 sm:px-7 sm:py-8 lg:px-10">
       <div className="module-gate-orb module-gate-orb-one" aria-hidden="true" />
       <div className="module-gate-orb module-gate-orb-two" aria-hidden="true" />
       <section className="relative z-10 w-full max-w-[1080px]">
@@ -1063,7 +1064,7 @@ function OperationsAdminOnly({ children }: { children: ReactNode }) {
 function NotFound({ loggedIn }: { loggedIn: boolean }) {
   const nav = useNavigate();
   return (
-    <main className="pm-access-v1 pm-not-found flex min-h-screen flex-col items-center justify-center bg-slate-50 p-6 text-center">
+    <main className="pm-access-v1 pm-access-v2 pm-not-found flex min-h-screen flex-col items-center justify-center bg-slate-50 p-6 text-center">
       <p className="text-7xl font-black text-emerald-800">404</p>
       <h1 className="mt-4 text-xl font-bold">페이지를 찾을 수 없습니다.</h1>
       <p className="mt-2 text-sm text-slate-500">주소를 다시 확인해 주세요.</p>
