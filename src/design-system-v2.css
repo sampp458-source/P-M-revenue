@@ -1,0 +1,27 @@
+/* V2 opt-in foundation. No :root tokens, resets or unscoped component rules. */
+.pm-design-v2 {
+  --pm-v2-ink:#153352;
+  --pm-v2-muted:#5d7793;
+  --pm-v2-navy:#173f65;
+  --pm-v2-canvas:linear-gradient(135deg,#faf8f6 0%,#f4f7fb 48%,#f0f4f7 100%);
+  --pm-v2-surface:linear-gradient(145deg,#ffffffed,#f8faffdd);
+  --pm-v2-contact:0 1px 2px #233e5b0d;
+  --pm-v2-raised:0 2px 3px #213e5810,0 7px 16px #2947630c,inset 0 1px 0 #fff;
+  --pm-v2-inset:inset 1px 2px 4px #6e8ca61c,inset -1px -1px 2px #fff;
+  --pm-v2-radius-surface:22px;
+  --pm-v2-radius-object:17px;
+  --pm-v2-radius-control:12px;
+  color:var(--pm-v2-ink);
+}
+.pm-design-v2 :is(.pm-v2-surface,.pm-v2-section,.pm-modal-panel,.pm-drawer-panel){background:var(--pm-v2-surface);border-color:#ffffffc9;border-radius:var(--pm-v2-radius-surface);box-shadow:var(--pm-v2-raised)}
+.pm-design-v2 :is(.pm-v2-entity,.pm-v2-kpi){border-radius:var(--pm-v2-radius-object);box-shadow:var(--pm-v2-raised)}
+.pm-design-v2 :is(.pm-v2-list-row,.pm-v2-empty){color:var(--pm-v2-muted)}
+.pm-design-v2 :is(.pm-v1-input,.pm-v1-select,.pm-v1-textarea){background:linear-gradient(145deg,#edf2f8,#f8faff);border-color:#d9e3ed;box-shadow:var(--pm-v2-inset);border-radius:var(--pm-v2-radius-control);color:var(--pm-v2-ink)}
+.pm-design-v2 .pm-v1-button-primary{background:linear-gradient(145deg,#35648a,#173f65 75%);color:white;box-shadow:0 2px 3px #17324c26,0 6px 12px #29476319,inset 0 1px 1px #b4d6f899,inset 0 -1px 1px #102d4c;border-color:#a9cbe1;border-radius:var(--pm-v2-radius-control)}
+.pm-design-v2 .pm-v1-button-secondary{background:var(--pm-v2-surface);box-shadow:var(--pm-v2-raised);border-color:#e4eaf2;color:var(--pm-v2-navy);border-radius:var(--pm-v2-radius-control)}
+.pm-design-v2 .pm-v1-button-danger{background:linear-gradient(145deg,#d6636b,#b94250);box-shadow:var(--pm-v2-contact),inset 0 1px #f5b8bc;color:white}
+.pm-design-v2 :is(button,input,select,textarea):focus-visible{outline:3px solid #527eb6;outline-offset:3px}
+.pm-design-v2 :is(.pm-v1-button,.pm-v2-icon-button){transition:background-color 180ms ease,box-shadow 180ms ease,border-color 180ms ease}
+.pm-design-v2 .pm-v1-button:active:not(:disabled){box-shadow:var(--pm-v2-inset)}
+.pm-design-v2 .pm-v1-button:disabled{box-shadow:none}
+@media(prefers-reduced-motion:reduce){.pm-design-v2 :is(.pm-v1-button,.pm-v2-icon-button){transition:none}}

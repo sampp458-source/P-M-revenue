@@ -1,3 +1,5 @@
+import "../design-system-v2.css";
+import "../hotel-design-v2.css";
 import { HistoricalBoardWarning } from "./HotelHistoricalRoomGrid";
 import { HotelOperationsWorkspace } from "./HotelOperationsWorkspace";
 import { HotelAttentionQueue } from "./HotelAttentionQueue";
@@ -1385,7 +1387,7 @@ export function HotelOperationsPage() {
   })));
 
   return (
-    <div className="pm-design-v1 pm-hotel-v1">
+    <div className="pm-design-v1 pm-hotel-v1 pm-design-v2 pm-hotel-v2">
       <div className="hotel-command-heading"><span className="hotel-operation-eyebrow">P&M · HOTEL OPERATIONS</span>
       <PageHeader
         title="호텔 운영"
