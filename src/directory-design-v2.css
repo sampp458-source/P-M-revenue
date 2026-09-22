@@ -1,0 +1,69 @@
+/* V2 directory opt-in: presentation only, existing state and controls remain authoritative. */
+.pm-design-v1.pm-directory-v2.pm-design-v2{background:radial-gradient(ellipse at 95% 0%,#dceafa99,transparent 58%),linear-gradient(135deg,#faf6f1,#edf2f8);color:#173653;padding:20px;border-radius:24px}
+.pm-design-v1.pm-directory-v2.pm-design-v2 > .pm-v1-page-header{border:0;padding-left:0}
+.pm-design-v1.pm-directory-v2.pm-design-v2 h1{color:#102e4e}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .text-text-muted{color:#5c7185}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .pm-v1-filter{background:linear-gradient(130deg,#fff,#e9f1fa);border-color:#fff;box-shadow:0 2px 3px #24486413,0 8px 18px #24486418,inset 0 1px #fff;border-radius:18px}
+.pm-design-v1.pm-directory-v2.pm-design-v2 input, .pm-design-v1.pm-directory-v2.pm-design-v2 select{min-height:44px;background:linear-gradient(145deg,#e5eef8,#fafcff);border-color:#d0deeb;box-shadow:inset 1px 2px 4px #24496514,inset -1px -1px #fff}
+.pm-design-v1.pm-directory-v2.pm-design-v2 input:focus, .pm-design-v1.pm-directory-v2.pm-design-v2 select:focus{outline:2px solid #547fa9;outline-offset:2px}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .pm-v1-button-primary{background:linear-gradient(140deg,#4b7aa1,#153d62);box-shadow:0 2px 3px #22496923,0 6px 12px #22496920,inset 0 1px #c5e2f7}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .pm-v1-button-secondary{background:linear-gradient(140deg,#fdfefe,#e5eef8);border-color:#dbe6f0;color:#285578;box-shadow:0 2px 3px #22496912,inset 0 1px #fff}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .pm-v1-status{border-radius:8px;box-shadow:inset 0 1px #ffffffbb;line-height:1.4}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .bg-success-soft{background:linear-gradient(135deg,#edfaf4,#d5eee3);color:#28765a}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .bg-error-soft{background:linear-gradient(135deg,#fff3f2,#f8dce0);color:#ad4156}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .bg-warning-soft{background:linear-gradient(135deg,#fff8e9,#f5e0bc);color:#875a20}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .bg-primary-soft{background:linear-gradient(135deg,#edf5ff,#dae8fa);color:#315f93}
+@media(width < 48rem){.pm-design-v1.pm-directory-v2.pm-design-v2{padding:12px;border-radius:18px}}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-toolbar,.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-toolbar>section{background:linear-gradient(135deg,#ffffffee,#e6eff9);border-color:#fff;border-radius:18px;box-shadow:0 3px 4px #24466312,0 8px 18px #24466319,inset 0 1px #fff}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-toolbar{background:transparent;box-shadow:none}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-results{background:linear-gradient(135deg,#fff,#eef4fa);border-color:#fff;border-radius:22px;box-shadow:0 2px 3px #25476316,0 12px 24px #25476320,inset 0 1px #fff}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-results th{background:linear-gradient(180deg,#edf4fc,#d5e3f1);color:#355573;border-color:#c5d7e8}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-results td{background:linear-gradient(180deg,#fdfefe,#f1f6fc);border-color:#dbe5ef}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-results tr:hover td{background:linear-gradient(180deg,#eff7ff,#e0edf9);box-shadow:inset 0 1px #fff}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-results td:first-child>button{color:#153d63;font-weight:800}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-mobile-list{background:transparent}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-row{background:linear-gradient(110deg,#ffffffd9,#eef5fc77);border-color:#d3e0ed;border-radius:0;box-shadow:none}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-row strong{color:#153956}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-service-counts>div{background:linear-gradient(140deg,#f9fbff,#e7eff9);border-radius:10px;border-left:2px solid #83a0c5;padding:7px 8px;box-shadow:inset 0 1px #fff}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-service-counts>div[aria-label^="호텔 "]{background:linear-gradient(140deg,#fffaf0,#f6e9ce);border-left-color:#c99b50;color:#81581e}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-service-counts>div[aria-label^="교육 "]{background:linear-gradient(140deg,#f2f7ff,#dfeafa);border-left-color:#638dcd;color:#345e93}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-service-counts>div[aria-label^="유치원 "]{background:linear-gradient(140deg,#f1fcfd,#d6f0f1);border-left-color:#52a9b8;color:#246775}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-results .text-warning{color:#99621d}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-results .text-success{color:#197984}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-compact-actions{gap:10px}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-action-disclosure>summary{background:linear-gradient(140deg,#fcfeff,#dfeaf5);border-color:#d7e3ee;border-radius:10px;box-shadow:0 2px 3px #24486717,inset 0 1px #fff;min-height:44px}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-action-disclosure[open]>div{background:linear-gradient(135deg,#fff,#eaf2fb);border-color:#fff;box-shadow:0 4px 8px #173b6120,0 10px 24px #173b6125}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-delete-action,.pm-design-v1.pm-directory-v2.pm-design-v2 button.text-error{color:#ac3d54;background:#fff0f1;border-color:#efcbd2}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-row>div:first-child strong{font-size:1.125rem;letter-spacing:-.02em}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-row>div:last-child>button{background:transparent;box-shadow:none;border-color:transparent;color:#315e82}
+@media(width < 48rem){
+ .pm-design-v1.pm-directory-v2.pm-design-v2 .directory-row{padding:15px 13px}
+ .pm-design-v1.pm-directory-v2.pm-design-v2 .directory-service-counts{gap:6px}
+ .pm-design-v1.pm-directory-v2.pm-design-v2 .directory-service-counts>div{padding:6px}
+}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-row span:has(>svg.lucide-hotel){background:#f7e8cf;color:#976525;padding:3px;border-radius:6px}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-row span:has(>svg.lucide-graduation-cap){background:#dfeafb;color:#3865a2;padding:3px;border-radius:6px}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-row span:has(>svg.lucide-school){background:#d8f0f2;color:#247b87;padding:3px;border-radius:6px}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-wide-actions>div .pm-v1-button{background:transparent;box-shadow:none;border-color:#dce6ef}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-results span:has(>svg.lucide-hotel){background:#f7e8cf;color:#976525;padding:3px;border-radius:6px}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-results span:has(>svg.lucide-graduation-cap){background:#dfeafb;color:#3865a2;padding:3px;border-radius:6px}
+.pm-design-v1.pm-directory-v2.pm-design-v2 .directory-results span:has(>svg.lucide-school){background:#d8f0f2;color:#247b87;padding:3px;border-radius:6px}
+
+/* Pets desktop: reserve real column space and contain long identities. */
+@media (width >= 80rem) {
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results table {table-layout:fixed;min-width:0}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results col:nth-child(1) {width:19%}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results col:nth-child(2) {width:16%}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results col:nth-child(3) {width:12%}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results col:nth-child(4) {width:12%}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results col:nth-child(5) {width:15%}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results col:nth-child(6) {width:7%}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results col:nth-child(7) {width:19%}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results th,
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results td {padding-inline:10px;white-space:normal;overflow-wrap:anywhere;line-height:1.55}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results td>button,
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results td>button span {min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-wide-actions {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));min-width:0;gap:6px}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-wide-actions>div {display:contents}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-wide-actions button {min-height:44px;padding-inline:8px;gap:4px;white-space:normal}
+}

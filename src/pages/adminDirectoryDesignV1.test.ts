@@ -4,6 +4,9 @@ import { describe, expect, it } from 'vitest';
 
 const hash = (source: string) => createHash('sha256').update(source).digest('hex');
 const stripHooks = (source: string) => source
+  .replace('import "../design-system-v2.css";\n', '')
+  .replace('import "../catalog-design-v2.css";\n', '')
+  .replace(' pm-design-v2 pm-catalog-v2', '')
   .replace('import "../admin-directory-design-v1.css";\n', '')
   .replace(/ data-label="(?:연결 상품|휴대폰|Finance 역할|운영 권한|가입일|승인일|퇴사일)"/g, '')
   .replace(/className="([^"]*)"/g, (_, classes: string) => {

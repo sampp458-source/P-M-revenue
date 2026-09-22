@@ -1,3 +1,5 @@
+import "../design-system-v2.css";
+import "../directory-design-v2.css";
 import {
   useCallback,
   useEffect,
@@ -722,7 +724,7 @@ export function PetManagementPage() {
 
   return (
     <>
-      <div className="pm-design-v1 pm-directory-v1 pm-directory-pets">
+      <div className="pm-design-v1 pm-directory-v1 pm-directory-pets pm-design-v2 pm-directory-v2">
       <PageHeader
         title="반려견 관리"
         description="반려견을 기준으로 보호자 연결 정보와 기본 정보를 관리합니다."

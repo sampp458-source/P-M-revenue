@@ -1,3 +1,5 @@
+import "../design-system-v2.css";
+import "../directory-design-v2.css";
 import { Dog, Eye, UsersRound } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -119,7 +121,7 @@ export function CustomerManagementPage() {
 
   return (
     <>
-      <div className="pm-design-v1 pm-directory-v1 pm-directory-customers">
+      <div className="pm-design-v1 pm-directory-v1 pm-directory-customers pm-design-v2 pm-directory-v2">
       <PageHeader
         title="보호자 관리"
         description="Customer를 기준으로 연결된 반려견과 현재 이용 상태를 확인합니다."

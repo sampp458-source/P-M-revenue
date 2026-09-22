@@ -1,3 +1,5 @@
+import "../design-system-v2.css";
+import "../catalog-design-v2.css";
 import "../products-design-v1.css";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Pencil, Plus } from "lucide-react";
@@ -363,7 +365,7 @@ export function ProductsPage() {
 
   return (
     <>
-      <div className="pm-design-v1 pm-products-v1">
+      <div className="pm-design-v1 pm-products-v1 pm-design-v2 pm-catalog-v2">
       <PageHeader
         title="상품 관리"
         description="판매 상품과 기본 판매가를 관리합니다."

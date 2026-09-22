@@ -1,3 +1,5 @@
+import "../design-system-v2.css";
+import "../catalog-design-v2.css";
 import "../admin-directory-design-v1.css";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Eye, Pencil, Plus, RotateCcw, Search } from "lucide-react";
@@ -176,7 +178,7 @@ export function CategoriesPage() {
     await loadCategories();
   };
   return (
-    <section className="pm-design-v1 pm-admin-directory-v1 pm-categories-v1">
+    <section className="pm-design-v1 pm-admin-directory-v1 pm-categories-v1 pm-design-v2 pm-catalog-v2">
       <PageHeader
         title="상품 분류 관리"
         description="사업부별 상품 분류를 추가하고 활성 상태를 관리합니다."
