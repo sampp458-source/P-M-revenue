@@ -19,3 +19,59 @@
 .pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-list>div:first-child{background:linear-gradient(120deg,#dfeaf6,#edf5fa);border-color:#d9e6f0}
 .pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-list li{background:transparent;border-color:#d9e5ee}
 @media(width < 48rem){.pm-design-v1.pm-settings-v1.pm-settings-v2{padding:12px;border-radius:18px}.pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-menu nav>div{background:transparent}.pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-menu nav>div[aria-current]{padding:10px;border-radius:10px}.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-overall input{font-size:24px}}
+
+/* Phase 2: target-only operational material and density. */
+.pm-design-v1.pm-settings-v1.pm-settings-v2{background:radial-gradient(ellipse at 95% 0%,#e4ecf333,transparent 60%),linear-gradient(135deg,#f8f7f5,#f4f6f8)}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 :is(input,select,textarea){background-color:#fcfdfe;border-color:#c8d3de;box-shadow:inset 0 1px 2px #18334c08}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 input,.pm-design-v1.pm-settings-v1.pm-settings-v2 textarea{background-image:none}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 select{appearance:none;padding-right:32px;background-image:linear-gradient(45deg,transparent 50%,#355b7b 50%),linear-gradient(135deg,#355b7b 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .pm-v1-button-secondary{background:#fafcfd;border-color:#ccd7e1;color:#284a65;box-shadow:none}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .pm-v1-button-secondary:hover{background:#edf3f7;box-shadow:none}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .pm-v1-status{box-shadow:none}
+
+/* Phase 2: target-only operational material and density. */
+.pm-design-v1.pm-settings-v1.pm-settings-v2{padding:8px;border-radius:0}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 h1{font-size:1.75rem;line-height:1.25;letter-spacing:-.035em}
+@media(width < 48rem){.pm-design-v1.pm-settings-v1.pm-settings-v2{padding:0}.pm-design-v1.pm-settings-v1.pm-settings-v2 h1{font-size:1.6rem}}
+
+/* Phase 2: target-only operational material and density. */
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-unit-row{background:transparent;box-shadow:none}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-period{background:transparent;box-shadow:none;border:0;padding-inline:0}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-summary{background:#fafcfd;box-shadow:none;border-radius:12px}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-list{background:#fafcfd;box-shadow:0 2px 8px #2346630c;border-radius:14px}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-menu{background:transparent;box-shadow:none;border:0}
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-layout{gap:16px}
+@media(width < 48rem){
+ .pm-design-v1.pm-settings-v1.pm-settings-v2 .target-unit-row{padding-block:10px;gap:6px 10px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2 .target-summary dl>div{grid-template-columns:minmax(0,1fr) auto;gap:6px;padding-block:8px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-menu nav>div{padding-block:6px;gap:2px 8px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-menu [role="tooltip"]{line-height:1.35}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-list li{padding-block:9px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-layout{gap:12px}
+}
+@media(width < 48rem){
+ .pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-menu nav>div{padding-block:6px;gap:2px 8px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2 .settings-menu>div:first-child{padding-block:8px}
+}
+
+/* Phase 2B: final density bottlenecks, presentation only. */
+@media(width < 64rem){
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1>.pm-v1-page-header{margin-bottom:12px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-menu>div:first-child{padding:6px 10px;gap:8px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-menu>div:first-child>div{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 8px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-menu>div:first-child p{margin:0}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-menu nav{padding:0 8px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-menu nav>div{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:2px 7px;padding:5px 0;border-radius:0}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-menu nav>div[aria-current]{padding:6px;min-height:44px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-menu nav>div>span:first-child{width:24px;height:24px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-menu nav>div>span:nth-child(2){display:flex;flex-wrap:wrap;align-items:baseline;gap:1px 7px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-menu nav>div>span:nth-child(2)>span{white-space:normal;overflow:visible;margin:0}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-menu nav>div>span:nth-child(3):not([role]){padding:2px 5px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-menu [role="tooltip"]{position:static;grid-column:2/-1;visibility:visible;opacity:1;width:auto;padding:0;border:0;background:transparent;box-shadow:none;line-height:1.3;color:#657181;font-weight:400}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-layout{gap:10px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-layout>div>div:first-child{margin-bottom:8px}
+ .pm-design-v1.pm-settings-v1.pm-settings-v2.pm-operation-settings-v1 .settings-readonly{padding:8px 10px;line-height:1.45;margin-bottom:12px}
+}
+
+/* Phase 3: audited issue closure; presentation only. */
+.pm-design-v1.pm-settings-v1.pm-settings-v2 .target-period select.pm-v1-input{appearance:none;padding-right:32px;background-color:#fcfdfe;background-image:linear-gradient(45deg,transparent 50%,#355b7b 50%),linear-gradient(135deg,#355b7b 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat}

@@ -67,3 +67,104 @@
  .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-wide-actions>div {display:contents}
  .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-wide-actions button {min-height:44px;padding-inline:8px;gap:4px;white-space:normal}
 }
+
+/* Architecture phase 1: customer directory only, Pets remains unchanged. */
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers{padding:8px;border-radius:0}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-toolbar{padding:10px 0;background:transparent;border:0;box-shadow:none;border-radius:0;margin-bottom:12px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-results{box-shadow:0 3px 10px #2547630d;border-radius:16px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-service-counts>div{box-shadow:none;border-radius:0;background:transparent;padding:3px 7px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-row{padding:12px 14px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-service-counts{margin-top:10px;gap:6px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-row>div:last-child{margin-top:10px;padding-top:7px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-row>div:last-child>button{border:1px solid #cbdce9;background:#f3f8fc;min-height:44px;text-decoration:underline;text-underline-offset:3px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers select{appearance:none;padding-right:32px;background-image:linear-gradient(45deg,transparent 50%,#355b7b 50%),linear-gradient(135deg,#355b7b 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+@media(width < 48rem){
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers{padding:0}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-toolbar>div{gap:8px}
+ .bg-app-background:has(.pm-directory-customers.pm-directory-v2)>div>header button[aria-label="보호자와 반려견 검색"]{width:auto;padding:0 12px;gap:7px;color:#214e72;border:1px solid #cbdce9;background:#f1f7fd}
+ .bg-app-background:has(.pm-directory-customers.pm-directory-v2)>div>header button[aria-label="보호자와 반려견 검색"]::after{content:"검색";font-size:13px;font-weight:600}
+}
+@media(width >= 48rem) and (width < 80rem){
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:8px 20px}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-service-counts{margin-top:0}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-row>div:last-child{grid-column:1/-1;margin-top:0}
+}
+
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers > .pm-v1-page-header{margin-bottom:16px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers h1{font-size:1.75rem;line-height:1.25;letter-spacing:-.035em}
+@media(width < 48rem){.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers h1{font-size:1.6rem}}
+
+/* Phase 1B: neutral ambient canvas; depth belongs to controls and workspaces. */
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers{background:radial-gradient(ellipse at 95% 0%,#e4ecf333,transparent 60%),linear-gradient(135deg,#f8f7f5,#f4f6f8)}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-service-counts>div[aria-label]{background:transparent;box-shadow:none;border-radius:0;padding:3px 7px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-service-counts>div :is(span,svg){box-shadow:none}
+
+/* Phase 1C: crisp tools, quiet secondary actions, data-led density. */
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers :is(input,select,textarea){background-color:#fcfdfe;box-shadow:inset 0 1px 2px #18334c08;border-color:#c8d3de}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers input,.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers textarea{background-image:none}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .pm-v1-button-secondary{background:#f9fbfc;box-shadow:none;border-color:#ccd7e1;color:#284a65}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .pm-v1-button-secondary:hover{background:#edf3f7;box-shadow:none}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .pm-v1-status{box-shadow:none}
+
+/* Phase 1C: crisp tools, quiet secondary actions, data-led density. */
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-row>div:last-child>button{background:#fafcfd;box-shadow:none;text-decoration:none;border-color:#ccd7e1;padding-inline:12px;font-size:13px;font-weight:600}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-results .pm-v1-button-secondary{box-shadow:none;background:#fafcfd}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-service-counts>div>span:first-child{background:transparent;padding:0;border-radius:0}
+@media(width < 48rem){
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-service-counts{grid-template-columns:minmax(0,1fr);gap:5px;margin-top:8px}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-service-counts>div[aria-label]{display:grid;grid-template-columns:58px 20px minmax(0,1fr);align-items:baseline;gap:5px;padding:1px 7px}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-service-counts>div>strong{margin:0;font-size:14px;line-height:1.4}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-service-counts>div>span:last-child:not(:first-child){margin:0;line-height:1.45;white-space:normal;overflow:visible}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-row{padding-block:10px}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers .directory-row>div:last-child{margin-top:8px;padding-top:5px}
+}
+
+/* Phase 2: target-only operational material and density. */
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets{background:radial-gradient(ellipse at 95% 0%,#e4ecf333,transparent 60%),linear-gradient(135deg,#f8f7f5,#f4f6f8)}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets :is(input,select,textarea){background-color:#fcfdfe;border-color:#c8d3de;box-shadow:inset 0 1px 2px #18334c08}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets input,.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets textarea{background-image:none}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets select{appearance:none;padding-right:32px;background-image:linear-gradient(45deg,transparent 50%,#355b7b 50%),linear-gradient(135deg,#355b7b 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .pm-v1-button-secondary{background:#fafcfd;border-color:#ccd7e1;color:#284a65;box-shadow:none}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .pm-v1-button-secondary:hover{background:#edf3f7;box-shadow:none}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .pm-v1-status{box-shadow:none}
+
+/* Phase 2: target-only operational material and density. */
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets{padding:8px;border-radius:0}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets h1{font-size:1.75rem;line-height:1.25;letter-spacing:-.035em}
+@media(width < 48rem){.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets{padding:0}.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets h1{font-size:1.6rem}}
+
+/* Phase 2: target-only operational material and density. */
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-toolbar{background:transparent;box-shadow:none;border:0;padding:10px 0}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results .pm-v1-button-secondary{background:#fafcfd;box-shadow:none}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-row :is(.bg-primary-subtle,.bg-surface-secondary){box-shadow:none}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-results span:has(>svg){box-shadow:none}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets ~ .pm-modal-overlay .pm-modal-panel{background:#f8fafc;border-color:#e1e8ee;box-shadow:0 8px 32px #16334c2b;border-radius:20px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets ~ .pm-modal-overlay .pm-modal-panel .pm-card{background:transparent;border:0;border-radius:0;box-shadow:none;padding:12px 0;border-bottom:1px solid #dce5ed}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets ~ .pm-modal-overlay .pm-modal-panel nav[aria-label="반려견 프로필 구성"]{flex-wrap:wrap;overflow:visible;gap:6px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets ~ .pm-modal-overlay .pm-modal-panel nav[aria-label="반려견 프로필 구성"] span{line-height:1.4}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets ~ .pm-modal-overlay .pm-modal-panel dl{gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets ~ .pm-modal-overlay .pm-modal-panel dd{margin-top:4px}
+@media(width >= 80rem){.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-wide-actions button{padding-inline:4px;word-break:keep-all;line-height:1.35;font-size:12px}}
+@media(width >= 48rem) and (width < 80rem){.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-row{padding:12px 14px;gap:8px}.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-row>div{margin-top:4px}}
+@media(width < 48rem){.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-row{padding-block:10px}.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-row>div{margin-top:5px}}
+/* Keep the toolbar as tools rather than a second raised workspace. */
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-toolbar{padding:0}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-toolbar>section{background:transparent;box-shadow:none;border:0;padding:8px 0;margin-bottom:12px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets>.pm-v1-page-header{margin-bottom:12px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-row>dl{padding-top:8px;margin-top:8px;row-gap:5px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-row>div:last-child{padding-top:8px;margin-top:8px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-compact-actions{background:transparent;box-shadow:none}
+
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets ~ .pm-modal-overlay .pm-v1-button-secondary{background:#fafcfd;border-color:#ccd7e1;box-shadow:none}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets ~ .pm-modal-overlay .pm-modal-panel input{background:#fcfdfe;box-shadow:inset 0 1px 2px #18334c08}
+
+/* Phase 3: audited issue closure; presentation only. */
+@media(width >= 64rem) and (width < 80rem){
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-row>dl{grid-template-columns:80px minmax(0,1fr) 52px minmax(0,1fr);column-gap:10px}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-row>dl>dd{min-width:0;margin:0;overflow-wrap:anywhere}
+ .pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-pets .directory-row>dl>dd:last-child{grid-column:2/-1}
+}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers ~ .pm-modal-overlay .pm-modal-panel:has([aria-labelledby="customer-profile-summary-title"]){background:#f8fafc;border-color:#e1e8ee;border-radius:20px}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers ~ .pm-modal-overlay .pm-modal-panel:has([aria-labelledby="customer-profile-summary-title"]) .pm-card{background:transparent;border:0;border-radius:0;box-shadow:none;padding:12px 0;border-bottom:1px solid #dce5ed}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers ~ .pm-modal-overlay .pm-modal-panel:has([aria-labelledby="customer-profile-summary-title"]) dl{gap:12px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.pm-design-v1.pm-directory-v2.pm-design-v2.pm-directory-customers ~ .pm-modal-overlay .pm-modal-panel:has([aria-labelledby="customer-profile-summary-title"]) dd{margin-top:4px;overflow-wrap:anywhere}

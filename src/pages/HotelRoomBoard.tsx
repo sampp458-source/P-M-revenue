@@ -1774,7 +1774,6 @@ export function HotelRoomBoard({
               </div>
             ))}
           </dl>
-          {dateMode === "TODAY" ? attention : null}
           <nav className="hotel-board-support-links" aria-label="보조 운영 바로가기">
             {!readOnly ? <>
               <button type="button" data-active={boardSummary.unassigned > 0 || unassignedSharedGroupsUnavailable || undefined} aria-controls={`${supportId}-unassigned`} onClick={() => revealSupport(unassignedRef.current)}>
@@ -1883,6 +1882,8 @@ export function HotelRoomBoard({
               })}
             </div>
           )}
+
+          {dateMode === "TODAY" ? attention : null}
 
           <section className="hotel-board-support space-y-4" aria-label="보조 운영 정보" id={supportId} ref={supportRef} tabIndex={-1}>
           <div className={cn("mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 font-medium text-text-muted", mobileProjection ? "text-xs" : "text-[11px]")}>

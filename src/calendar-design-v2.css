@@ -55,3 +55,52 @@
  .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-grid{margin:0 4px 6px;padding:4px;gap:3px;border-radius:12px}
  .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-count{min-width:17px;padding-inline:4px}
 }
+
+/* Architecture phase 1: date first, event presence second, color third. */
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2{border-radius:0;padding:12px}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-cell{display:flex;flex-direction:column;align-items:stretch;justify-content:flex-start;box-shadow:none}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-cell-heading{flex:none;min-height:26px}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-count{color:#486680;background:#e3ecf6;box-shadow:none;font-weight:600}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-dots>span{width:4px;height:4px;box-shadow:none;filter:none;opacity:.8}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-month-nav{box-shadow:none;background:transparent;border:0;margin:0;padding:14px 16px}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-grid{box-shadow:none;border-radius:12px;background:#e5edf5}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-event{box-shadow:none;background:#ffffffa6}
+@media(width >= 48rem) and (width < 80rem){
+ .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-cell{padding:7px;min-height:144px}
+ .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-event{padding:6px;min-height:44px}
+ .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-event .truncate{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+ .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-event .min-w-0{min-width:0}
+}
+@media(width < 48rem){
+ .pm-design-v1.pm-calendar-v1.pm-calendar-v2{padding:0}
+ .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-month-nav{padding:10px}
+ .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-cell{min-height:72px}
+ .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-count{background:transparent;min-width:0;padding:0;font-size:10px}
+ .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-dots{gap:3px;margin-top:7px}
+}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 select{appearance:none;padding-right:32px;background-image:linear-gradient(45deg,transparent 50%,#355b7b 50%),linear-gradient(135deg,#355b7b 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 > .pm-v1-page-header{margin-bottom:16px}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 h1{font-size:1.75rem;line-height:1.25;letter-spacing:-.035em}
+@media(width < 48rem){.pm-design-v1.pm-calendar-v1.pm-calendar-v2 h1{font-size:1.6rem}}
+
+/* Phase 1B: neutral ambient canvas; depth belongs to controls and workspaces. */
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2{background:radial-gradient(ellipse at 95% 0%,#e4ecf333,transparent 60%),linear-gradient(135deg,#f8f7f5,#f4f6f8)}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-surface{background:#fbfcfd;box-shadow:0 3px 12px #23466312}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-grid{background:#e3e8ed;padding:1px;gap:1px;border-radius:6px}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-cell{background:#f8fafb;border-color:transparent;border-radius:0;box-shadow:none}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-cell:has(.pm-calendar-event),.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-cell:has(.pm-calendar-count){background:#eff5fa;border-color:transparent;border-radius:0;box-shadow:none}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-cell:has(.pm-calendar-day-number.bg-primary){background:#edf4fa;border-color:#8eaec9;border-radius:4px;box-shadow:none}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-cell[aria-pressed="true"],.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-cell[aria-pressed="true"]:has(.pm-calendar-count),.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-cell[aria-pressed="true"]:has(.pm-calendar-day-number.bg-primary){background:linear-gradient(145deg,#edf5ff,#dceafa);border-color:#5886ac;border-radius:8px;box-shadow:0 2px 4px #254d7324,inset 0 1px #fff;z-index:1}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-cell:hover:not([aria-pressed="true"]){background:#eaf1f7;box-shadow:none}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-event{background:transparent;border-color:#d4e0eb;border-radius:3px;box-shadow:none}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-event>span[style]{box-shadow:none}
+.pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-day-number.bg-primary{box-shadow:none}
+
+/* Phase 3: audited issue closure; presentation only. */
+@media(width >= 64rem){
+ .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-event.opacity-55{opacity:1;background:#eef2f5;box-shadow:none}
+ .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-event.opacity-55 .text-text-primary{color:#485f73}
+ .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-event.opacity-55 .text-text-secondary{color:#556c80}
+ .pm-design-v1.pm-calendar-v1.pm-calendar-v2 .pm-calendar-event.opacity-55>span:first-child{opacity:.55}
+}

@@ -46,3 +46,38 @@
 .pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(4):nth-child(-n+9),.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(7):nth-child(-n+9){border-top:2px solid #93b3db;padding-top:16px}
 .pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid> :nth-child(7):nth-child(-n+9){border-color:#83b8b0}
 }
+
+/* Phase 2: target-only operational material and density. */
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2{background:radial-gradient(ellipse at 95% 0%,#e4ecf333,transparent 60%),linear-gradient(135deg,#f8f7f5,#f4f6f8)}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 :is(input,select,textarea){background-color:#fcfdfe;border-color:#c8d3de;box-shadow:inset 0 1px 2px #18334c08}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 input,.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 textarea{background-image:none}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 select{appearance:none;padding-right:32px;background-image:linear-gradient(45deg,transparent 50%,#355b7b 50%),linear-gradient(135deg,#355b7b 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .pm-v1-button-secondary{background:#fafcfd;border-color:#ccd7e1;color:#284a65;box-shadow:none}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .pm-v1-button-secondary:hover{background:#edf3f7;box-shadow:none}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .pm-v1-status{box-shadow:none}
+
+/* Phase 2: target-only operational material and density. */
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2{padding:8px;border-radius:0}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 h1{font-size:1.75rem;line-height:1.25;letter-spacing:-.035em}
+@media(width < 48rem){.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2{padding:0}.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 h1{font-size:1.6rem}}
+
+/* Phase 2: target-only operational material and density. */
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-registration-step:not(:has(.sale-summary)),.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface{box-shadow:0 2px 8px #2346630c}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-product-options>button:not([aria-pressed="true"]){background:#fafcfd;box-shadow:none;border-color:#d5dfe7}
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface .pm-v1-input{box-shadow:inset 0 1px 2px #18334c08;background-color:#fcfdfe}
+@media(width < 48rem){
+ .pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-product-options>button{min-height:56px;padding-block:8px}
+ .pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-registration-step:not(:has(.sale-summary)),.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface{padding:12px}
+ .pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-edit-surface>.grid{row-gap:14px}
+ .pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-mobile-cta{box-shadow:0 -2px 8px #24496510;background:#fbfcfd}
+}
+
+/* Phase 3: audited issue closure; presentation only. */
+.pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .pm-card select.pm-v1-input{appearance:none;padding-right:32px;background-color:#fcfdfe;background-image:linear-gradient(45deg,transparent 50%,#355b7b 50%),linear-gradient(135deg,#355b7b 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+
+/* UI-22: retain every recommendation while reducing repeated mobile spacing. */
+@media(width < 48rem){
+ .pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-product-options{padding-bottom:4px}
+ .pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-product-options>button{padding-block:6px}
+ .pm-design-v1.pm-sales-form-v1.pm-sales-form-v2 .sale-product-options>button>span{margin-top:2px}
+}

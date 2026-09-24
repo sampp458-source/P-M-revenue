@@ -124,7 +124,7 @@ export function CustomerManagementPage() {
       <div className="pm-design-v1 pm-directory-v1 pm-directory-customers pm-design-v2 pm-directory-v2">
       <PageHeader
         title="보호자 관리"
-        description="Customer를 기준으로 연결된 반려견과 현재 이용 상태를 확인합니다."
+        description="보호자를 기준으로 연결된 반려견과 현재 이용 상태를 확인합니다."
       />
 
       <Card className="directory-toolbar mb-4 p-4 sm:p-5">
@@ -135,7 +135,7 @@ export function CustomerManagementPage() {
             </span>
             <div>
               <strong className="text-sm text-text-primary">
-                Customer {rows.length.toLocaleString("ko-KR")}명
+                보호자 {rows.length.toLocaleString("ko-KR")}명
               </strong>
               <p className="mt-0.5 text-xs text-text-muted">
                 검색은 화면 상단 통합 검색을 이용하세요.
@@ -235,7 +235,7 @@ export function CustomerManagementPage() {
                             onClick={() => setCustomerProfile(customer.id)}
                           >
                             <Eye size={15} />
-                            Profile
+                            프로필
                           </Button>
                         </td>
                       </tr>
@@ -280,7 +280,7 @@ export function CustomerManagementPage() {
                         className="min-h-9 px-3 py-1.5 text-xs"
                         onClick={() => setCustomerProfile(customer.id)}
                       >
-                        Profile
+                        프로필
                       </Button>
                     </div>
                   </article>

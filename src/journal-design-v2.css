@@ -21,3 +21,44 @@
 .pm-journal-editor-v1.pm-journal-editor-v2 [data-testid="journal-editor-final-actions"]{background:linear-gradient(135deg,#fbfdff,#dfedf6);border-color:#fff;box-shadow:0 -2px 5px #24496513}
 .pm-journal-editor-v1.pm-journal-editor-v2 [data-testid="journal-editor-final-actions"] .pm-v1-button-primary{background:linear-gradient(145deg,#396d90,#153d5b);box-shadow:0 2px 4px #24496522,inset 0 1px #a8cedf}
 @media(width < 48rem){.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2{padding:12px;border-radius:18px}}
+
+/* Phase 2: target-only operational material and density. */
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2{background:radial-gradient(ellipse at 95% 0%,#e4ecf333,transparent 60%),linear-gradient(135deg,#f8f7f5,#f4f6f8)}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 :is(input,select,textarea){background-color:#fcfdfe;border-color:#c8d3de;box-shadow:inset 0 1px 2px #18334c08}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 input,.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 textarea{background-image:none}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 select{appearance:none;padding-right:32px;background-image:linear-gradient(45deg,transparent 50%,#355b7b 50%),linear-gradient(135deg,#355b7b 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 .pm-v1-button-secondary{background:#fafcfd;border-color:#ccd7e1;color:#284a65;box-shadow:none}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 .pm-v1-button-secondary:hover{background:#edf3f7;box-shadow:none}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 .pm-v1-status{box-shadow:none}
+
+/* Phase 2: target-only operational material and density. */
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2{padding:8px;border-radius:0}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 h1{font-size:1.75rem;line-height:1.25;letter-spacing:-.035em}
+@media(width < 48rem){.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2{padding:0}.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 h1{font-size:1.6rem}}
+
+/* Phase 2: target-only operational material and density. */
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 [aria-label="일지 요약"],.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 [aria-label="오늘의 공통 활동 요약"]{background:#f8fafc;box-shadow:none;border-radius:12px}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 [aria-label="일지 요약"]>div{padding-block:8px}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 .journal-roster-row{padding-block:9px}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 .journal-roster-row>div>button:first-child>p{border:1px solid #ccd7e1;border-radius:8px;padding:8px 10px;background:#fafcfd;min-height:36px;text-align:center}
+@media(width < 48rem){.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 [aria-label="오늘의 공통 활동 요약"]{padding:12px}.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2>.mt-6{margin-top:16px}}
+.pm-journal-editor-v1.pm-journal-editor-v2 .journal-editor-form-scrollbar>fieldset{background:#fafcfd;box-shadow:0 2px 8px #2346630c;border-color:#e0e7ed;border-radius:14px}
+.pm-journal-editor-v1.pm-journal-editor-v2 .journal-editor-section button[aria-pressed="false"]{background:#fbfcfd;box-shadow:none;border-color:#cfdbe5}
+.pm-journal-editor-v1.pm-journal-editor-v2 .journal-editor-section :is(input,select,textarea){background-color:#fcfdfe;background-image:none;box-shadow:inset 0 1px 2px #18334c08;border-color:#c8d3de}
+.pm-journal-editor-v1.pm-journal-editor-v2 .journal-editor-section select{appearance:auto}
+.pm-journal-editor-v1.pm-journal-editor-v2 .journal-editor-control-panel>header{background:#f8fafc;box-shadow:none;border-color:#e0e7ed;border-radius:12px}
+
+/* Phase 2B: final density bottlenecks, presentation only. */
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 [aria-label="오늘의 공통 활동 요약"]{margin-top:10px;padding:8px 12px}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 [aria-label="일지 요약"]{margin-top:10px}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 [aria-label="일지 요약"]>div{display:flex;align-items:baseline;justify-content:center;gap:8px;padding-block:6px}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 [aria-label="일지 요약"]>div>span{margin:0}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 [aria-label="일지 상태 필터"]{margin-top:6px;padding-bottom:0}
+.pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 .journal-roster-surface{margin-top:8px}
+@media(width < 48rem){
+ .pm-design-v1.pm-journal-home-v1.pm-journal-home-v2>div:first-child{gap:8px}
+ .pm-design-v1.pm-journal-home-v1.pm-journal-home-v2>div:first-child>div:last-child{padding:0;background:transparent;box-shadow:none;border-color:#d4dfe8}
+ .pm-design-v1.pm-journal-home-v1.pm-journal-home-v2>.mt-6{margin-top:8px;gap:6px}
+ .pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 [aria-label="오늘의 공통 활동 요약"]{margin-top:8px;padding:6px 10px}
+ .pm-design-v1.pm-journal-home-v1.pm-journal-home-v2 [aria-label="오늘의 공통 활동 요약"]>div>div{margin-top:2px;column-gap:10px}
+}

@@ -29,3 +29,64 @@
 .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-actions .pm-v1-button{background:linear-gradient(145deg,#fff,#dce9f5);border-color:#c6d9e8;box-shadow:inset 0 1px #fff,0 1px 2px #28496320,0 3px 5px #28496310;color:#224e70}
 .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-actions .pm-v1-button:active{box-shadow:inset 1px 2px 3px #28496322}
 }
+
+/* Architecture phase 1: responsive directory, direct actions at every width. */
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2{padding:8px;border-radius:0}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2>.pm-card.pm-v1-filter{padding:10px 0;border:0;background:transparent;box-shadow:none;border-radius:0}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .pm-card{box-shadow:0 3px 10px #2547630d;border-radius:16px}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 select{appearance:none;padding-right:32px;background-image:linear-gradient(45deg,transparent 50%,#355b7b 50%),linear-gradient(135deg,#355b7b 50%,transparent 50%);background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;background-size:5px 5px;background-repeat:no-repeat}
+@media(width < 80rem){
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .data-table,.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .data-table tbody{display:block;min-width:0;width:100%}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .data-table colgroup{display:none}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .data-table thead{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .data-table tr{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:7px 14px;padding:12px 14px;border-bottom:1px solid #dce6ef;background:transparent;box-shadow:none}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .data-table td{min-width:0;padding:0;border:0;background:transparent;line-height:1.5;overflow-wrap:anywhere;white-space:normal}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 td[data-label]::before{content:attr(data-label);display:block;font-size:12px;font-weight:400;color:#5d7185;margin-bottom:2px}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-name{grid-column:1/5;grid-row:1;font-size:17px}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-status{grid-column:5/-1;grid-row:1;justify-self:end}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-email{grid-column:1/-1;grid-row:2}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-phone{grid-column:1/4;grid-row:3}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-finance{grid-column:4/-1;grid-row:3}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-operation{grid-column:1/-1;grid-row:4}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-date{grid-column:span 2;grid-row:5;padding-top:6px;border-top:1px solid #e3ebf2;font-size:12px}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-actions{grid-column:1/-1;grid-row:6;padding-top:2px}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-actions>div{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:6px}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-actions button{min-height:44px}
+}
+@media(width >= 48rem) and (width < 80rem){
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .data-table tr{grid-template-columns:repeat(12,minmax(0,1fr));gap:10px 18px}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-name{grid-column:1/5}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-status{grid-column:10/-1}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-email{grid-column:1/8;grid-row:2}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-phone{grid-column:8/-1;grid-row:2}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-finance{grid-column:1/5;grid-row:3}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-operation{grid-column:5/-1;grid-row:3}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-date{grid-column:span 4;grid-row:4}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-actions{grid-row:5}
+}
+@media(width >= 80rem){
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .data-table{table-layout:fixed;min-width:0}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .data-table th,.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .data-table td{padding:10px 7px;overflow-wrap:anywhere;white-space:normal}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-actions>div{display:flex;flex-wrap:wrap;gap:4px}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-actions button{padding-inline:7px;white-space:normal}
+}
+@media(width < 48rem){.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2{padding:0}}
+
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 > .pm-v1-page-header{margin-bottom:16px}
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 h1{font-size:1.75rem;line-height:1.25;letter-spacing:-.035em}
+@media(width < 48rem){.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 h1{font-size:1.6rem}}
+@media(width >= 80rem){
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .data-table col:nth-child(6){width:9%}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-status>span{white-space:nowrap}
+}
+
+/* Phase 1B: neutral ambient canvas; depth belongs to controls and workspaces. */
+.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2{background:radial-gradient(ellipse at 95% 0%,#e4ecf333,transparent 60%),linear-gradient(135deg,#f8f7f5,#f4f6f8)}
+@media(width >= 48rem) and (width < 80rem){
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .data-table tr{padding:9px 14px;gap:5px 18px}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 td[data-label]::before{margin-bottom:0}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-date{padding-top:4px;display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 7px}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-actions{padding-top:0}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-actions>div{gap:5px}
+ .pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-phone,.pm-design-v1.pm-admin-directory-v1.pm-staff-v1.pm-admin-v2 .staff-finance{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 7px}
+}

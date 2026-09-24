@@ -44,6 +44,13 @@ function SignupField({
   );
 }
 
+function SignupError({ message }: { message: string }) {
+  return <div id="signup-error" role="alert" className="flex items-start gap-2 rounded-xl border border-red-300/30 bg-red-950/35 px-3.5 py-3 text-sm leading-5 text-red-100">
+    <AlertCircle className="mt-0.5 shrink-0" size={17} />
+    <span>{message}</span>
+  </div>;
+}
+
 export function SignupPage() {
   const { signUp } = useAuth();
   const [form, setForm] = useState({
@@ -172,6 +179,7 @@ export function SignupPage() {
                   }
                 />
               </SignupField>
+              {error && errorField === "name" && <SignupError message={error} />}
               <SignupField label="휴대폰 번호" help="010-1234-5678 형식">
                 <Input
                   className={darkInputClass}
@@ -187,6 +195,7 @@ export function SignupPage() {
                   }
                 />
               </SignupField>
+              {error && errorField === "phone" && <SignupError message={error} />}
               <SignupField label="이메일">
                 <Input
                   className={darkInputClass}
@@ -202,6 +211,7 @@ export function SignupPage() {
                   }
                 />
               </SignupField>
+              {error && errorField === "email" && <SignupError message={error} />}
               <SignupField
                 label="비밀번호"
                 help={`${minimumPasswordLength}자 이상 입력해 주세요.`}
@@ -220,6 +230,7 @@ export function SignupPage() {
                   }
                 />
               </SignupField>
+              {error && errorField === "password" && <SignupError message={error} />}
               <SignupField label="비밀번호 확인">
                 <Input
                   className={darkInputClass}
@@ -235,16 +246,8 @@ export function SignupPage() {
                   }
                 />
               </SignupField>
-              {error && (
-                <div
-                  id="signup-error"
-                  role="alert"
-                  className="flex items-start gap-2 rounded-xl border border-red-300/30 bg-red-950/35 px-3.5 py-3 text-sm leading-5 text-red-100"
-                >
-                  <AlertCircle className="mt-0.5 shrink-0" size={17} />
-                  <span>{error}</span>
-                </div>
-              )}
+              {error && errorField === "confirmPassword" && <SignupError message={error} />}
+              {error && !errorField && <SignupError message={error} />}
               <Button
                 className="w-full bg-[#3d75ad] shadow-[0_10px_26px_rgba(0,8,28,0.18)] hover:bg-[#4a83bb] focus-visible:ring-[#9bd0ec] focus-visible:ring-offset-[#071a39]"
                 disabled={submitting}
