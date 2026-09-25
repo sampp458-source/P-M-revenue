@@ -688,9 +688,9 @@ function JournalAppLayout() {
     "오늘의 일지";
 
   return (
-    <div className="min-h-screen bg-app-background">
+    <div className="pm-d-shell-host min-h-screen bg-app-background">
       <aside
-        className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`app-sidebar pm-d-sidebar pm-design-d fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-[68px] shrink-0 items-center justify-start border-b border-white/[0.035]">
           <SidebarHomeLogo onNavigate={() => setOpen(false)} />
@@ -717,7 +717,7 @@ function JournalAppLayout() {
                   to={to}
                   onClick={() => setOpen(false)}
                   className={({ isActive }) =>
-                    `app-sidebar-link group relative flex min-h-9 items-center gap-3.5 rounded-[11px] px-3 py-1 text-sm font-medium transition-[color,background-color,transform] duration-150 ${
+                    `app-sidebar-link pm-d-nav group relative flex min-h-9 items-center gap-3.5 rounded-[11px] px-3 py-1 text-sm font-medium transition-[color,background-color,transform] duration-150 ${
                       isActive
                         ? "is-active bg-white/[0.1] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]"
                         : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-white"
@@ -737,7 +737,7 @@ function JournalAppLayout() {
           </div>
         </nav>
         <div className="shrink-0 border-t border-white/[0.055] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
-          <div className="app-sidebar-profile mb-4 flex items-center gap-1.5 rounded-xl border border-white/[0.045] px-1.5 py-0.5">
+          <div className="app-sidebar-profile pm-d-account mb-4 flex items-center gap-1.5 rounded-xl border border-white/[0.045] px-1.5 py-0.5">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-blue-50"><UserRound size={14} /></div>
             <div className="min-w-0 flex-1">
               <b className="block truncate text-xs text-white">{profile?.name || "이름 미등록"}</b>
@@ -806,7 +806,7 @@ function AppLayout() {
   return (
     <div className="pm-d-shell-host min-h-screen bg-app-background">
       <aside
-        className={`app-sidebar pm-d-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`app-sidebar pm-d-sidebar pm-design-d fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-[68px] shrink-0 items-center justify-start border-b border-white/[0.035]">
           <SidebarHomeLogo onNavigate={() => setOpen(false)} />
@@ -896,7 +896,7 @@ function OperationsAppLayout() {
   return (
     <div className="pm-d-shell-host min-h-screen bg-app-background">
       <aside
-        className={`app-sidebar pm-d-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`app-sidebar pm-d-sidebar pm-design-d fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-[68px] shrink-0 items-center justify-start border-b border-white/[0.035]">
           <SidebarHomeLogo onNavigate={() => setOpen(false)} />

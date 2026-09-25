@@ -18,7 +18,7 @@ expect(sha(normalizeVisualSystemD(readFileSync(file,'utf8')))).toBe(hash);
 });
 it('freezes Foundation and Rollout 1 adoption material', () => {
 expect(sha(readFileSync('src/visual-system-d.css','utf8'))).toBe('976c988622debfa6303ef967df89f7d29ad09308888416e7d2d29db5864e6455');
-expect(sha(readFileSync('src/visual-system-d-adoption.css','utf8'))).toBe('9ab9e93b3a09e153476d96b23a63e73a5e90d492cb49844d4ae76de5ae0d7e51');
+expect(sha(readFileSync('src/visual-system-d-adoption.css','utf8'))).toBe('5de1f8db0b5254cb2d71d65256723b0669630c8a7204c3c5e0d3aa628c968cb6');
  });
 it('contains only target-scoped paint, never behavioral hiding', () => {
 const css=readFileSync('src/visual-system-d-rollout2.css','utf8').replace(/\/\*[\s\S]*?\*\//g,'').replace(/@(?:layer|media)[^{}]*\{/g,'');

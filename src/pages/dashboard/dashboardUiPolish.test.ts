@@ -14,7 +14,7 @@ describe("Dashboard final UI polish", () => {
   it("keeps the sidebar logo compact and section labels readable", () => {
     expect(appUi).toContain('imageClassName="h-32 w-32"');
     expect(appUi).toContain("text-blue-100/55");
-    expect(appUi).toContain("app-sidebar-profile mb-4");
+    expect(appUi).toMatch(/app-sidebar-profile(?: pm-d-account)? mb-4/);
   });
 
   it("starts with the KPI hero without the duplicated criteria summary", () => {

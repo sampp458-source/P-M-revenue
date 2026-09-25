@@ -16,3 +16,17 @@ export function normalizeStaffDirectoryPresentation(source: string) {
   return source.replace(`          <thead>\n            <tr>\n              <th colSpan={3} scope="colgroup">직원</th>\n              <th colSpan={2} scope="colgroup">접근 권한</th>\n              <th colSpan={4} scope="colgroup">상태 · 이력</th>\n              <th scope="col" className="text-right">관리</th>\n            </tr>\n          </thead>`, `          <thead>\n            <tr>\n              <th>이름</th>\n              <th>이메일</th>\n              <th>휴대폰 번호</th>\n              <th>Finance 역할</th>\n              <th>운영 권한</th>\n              <th>상태</th>\n              <th>가입일</th>\n              <th>승인일</th>\n              <th>퇴사일</th>\n              <th className="text-right">관리</th>\n            </tr>\n          </thead>`)
     .replace(/ data-staff-action="(?:role|color|approve|reject|deactivate|restore)"/g, "");
 }
+
+// Hotfix 1 adds only persistent shell paint hooks, never route/auth behavior.
+export function normalizePersistentDShell(source: string) {
+  source = source.replaceAll('app-sidebar pm-d-sidebar pm-design-d fixed', 'app-sidebar pm-d-sidebar fixed');
+  const start = source.indexOf('function JournalAppLayout()');
+  const end = source.indexOf('function AppLayout()', start);
+  if (start < 0 || end < 0) return source;
+  const journal = source.slice(start, end)
+    .replace('pm-d-shell-host min-h-screen', 'min-h-screen')
+    .replace('app-sidebar pm-d-sidebar fixed', 'app-sidebar fixed')
+    .replace('app-sidebar-link pm-d-nav group', 'app-sidebar-link group')
+    .replace('app-sidebar-profile pm-d-account mb', 'app-sidebar-profile mb');
+  return source.slice(0, start) + journal + source.slice(end);
+}

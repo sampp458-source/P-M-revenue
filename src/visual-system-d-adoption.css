@@ -49,8 +49,8 @@
 .pm-design-d.pm-d-page .pm-d-room-tray h3{font-size:15px!important;letter-spacing:.07em!important;font-weight:650!important;}
 .pm-design-d.pm-d-page .pm-d-room-object:not(.border-dashed,.border-2,[class*="ring-"],.hotel-room-drop-settle,.opacity-55){border:1px solid #bdd4cc!important;border-radius:11px!important;box-shadow:0 1px 2px #193b2910!important;background:linear-gradient(155deg,#fff,#edf8f1)!important;}
 .pm-design-d.pm-d-page .pm-d-room-object[data-room-content=empty]:not(.border-dashed,.border-2,[class*="ring-"],.hotel-room-drop-settle,.opacity-55){background:var(--pm-d-surface-muted)!important;border-color:#e1e4dc!important;box-shadow:none!important;}
-.pm-design-d.pm-d-page .pm-d-room-object:has(.pm-d-shared-member):not(.border-dashed,.border-2,[class*="ring-"],.hotel-room-drop-settle,.opacity-55){background:linear-gradient(140deg,#f7fbff,#eaf4fc)!important;border-color:#abcce5!important;box-shadow:inset 0 2px #82b3e9,0 1px 2px #183b6510!important;}
-.pm-design-d.pm-d-page .pm-d-room-object[data-room-phase=check_in]:not(.border-dashed,.border-2,[class*="ring-"],.hotel-room-drop-settle,.opacity-55){background:var(--pm-d-semantic-amber-soft)!important;border-color:var(--pm-d-border-attention)!important;}
+.pm-design-d.pm-d-page .pm-d-room-object:has(.pm-d-shared-member):not(.border-dashed,.border-2,[class*="ring-"],.hotel-room-drop-settle,.opacity-55){background:linear-gradient(155deg,#fff,#edf8f1)!important;border-color:#bdd4cc!important;box-shadow:0 1px 2px #193b2910!important;}
+.pm-design-d.pm-d-page .pm-d-room-object[data-room-phase=check_in]:not(.border-dashed,.border-2,[class*="ring-"],.hotel-room-drop-settle,.opacity-55){background:var(--pm-d-brand-cobalt-soft)!important;border-color:var(--pm-d-border-selected)!important;}
 .pm-design-d.pm-d-page .pm-d-room-object[data-room-phase=check_out]:not(.border-dashed,.border-2,[class*="ring-"],.hotel-room-drop-settle,.opacity-55){background:var(--pm-d-semantic-coral-soft)!important;border-color:#e5b8aa!important;}
 .pm-design-d.pm-d-page .pm-d-room-entity{color:var(--pm-d-ink)!important;font-size:19px!important;font-weight:650!important;letter-spacing:-.025em!important;line-height:1.45!important;}
 .pm-design-d.pm-d-page .pm-d-shared-member{background:#ffffffa0!important;border-color:var(--pm-d-border)!important;box-shadow:none!important;border-radius:7px!important;}
@@ -114,5 +114,30 @@
 .pm-design-d.pm-d-page .pm-d-pane-control button{line-height:1.35!important;}
 .pm-design-d.pm-d-page .pm-d-metric-secondary{font-size:18px!important;}
 .pm-design-d.pm-d-page .pm-d-metric{font-size:23px!important;}
+}
+}
+
+/* Hotel: lifecycle is primary; shared occupancy remains a text/badge identity. */
+@layer pm-d-adoption {
+.pm-design-d.pm-d-page.pm-hotel-v2 :is(.hotel-room-cell[data-room-phase=check_in],.hotel-room-cell [data-room-phase=check_in],.hotel-room-card-settle[data-room-phase=check_in]):not(.border-dashed,.border-2,[class*="ring-"],.hotel-room-drop-settle,.opacity-55) {background:var(--pm-d-brand-cobalt-soft)!important;border-color:var(--pm-d-border-selected)!important;color:var(--pm-d-selected-ink)!important;}
+.pm-design-d.pm-d-page.pm-hotel-v2 :is(.hotel-room-cell[data-room-phase=check_out],.hotel-room-cell [data-room-phase=check_out],.hotel-room-card-settle[data-room-phase=check_out]):not(.border-dashed,.border-2,[class*="ring-"],.hotel-room-drop-settle,.opacity-55) {background:var(--pm-d-semantic-coral-soft)!important;border-color:#e5b8aa!important;color:var(--pm-d-semantic-coral)!important;}
+.pm-design-d.pm-d-page.pm-hotel-v2 :is(.hotel-room-cell[data-room-phase=in_house],.hotel-room-cell [data-room-phase=in_house],.hotel-room-card-settle[data-room-phase=in_house]):not(.border-dashed,.border-2,[class*="ring-"],.hotel-room-drop-settle,.opacity-55) {background:var(--pm-d-semantic-mint-soft)!important;border-color:#bdd4cc!important;color:var(--pm-d-semantic-mint)!important;}
+@media(min-width:1280px) {
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-group[data-room-group=DELUXE]>.hotel-room-plate-layout {grid-template-columns:repeat(6,minmax(0,1fr))!important;gap:10px!important;}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-group[data-room-group=STANDARD]>.hotel-room-plate-layout {grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:10px!important;}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-plate-layout>.hotel-room-cell {grid-column:auto!important;order:0!important;min-width:0!important;padding:10px!important;}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-plate-layout::after {content:none!important;}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-plate-layout .hotel-dog-name {white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere;font-size:16px!important;line-height:1.45!important;}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-plate-layout .hotel-shared-member {grid-template-columns:minmax(0,1fr)!important;row-gap:4px;padding:6px!important;}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-plate-layout .hotel-shared-member>* {grid-column:1!important;white-space:normal!important;}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-plate-layout .hotel-shared-label {flex-wrap:wrap;}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-plate-layout .hotel-shared-label strong {white-space:normal;overflow:visible;}
+}
+}
+
+@layer pm-d-adoption {
+@media(min-width:1280px) {
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-plate-layout .hotel-actual-time time {white-space:normal!important;overflow-wrap:anywhere;}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-plate-layout .hotel-room-card-settle .truncate {white-space:normal!important;overflow:visible!important;text-overflow:clip!important;flex-wrap:wrap;overflow-wrap:anywhere;}
 }
 }
