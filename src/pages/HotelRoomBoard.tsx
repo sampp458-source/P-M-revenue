@@ -554,7 +554,7 @@ function DraggableStayCard({
           className="min-w-0 flex-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           <span className="min-w-0 flex-1">
-            <span className={cn("hotel-dog-name block truncate font-extrabold tracking-[-0.015em] text-slate-950", mobile ? "text-base leading-6" : "text-[15px] leading-5")}>
+            <span className={cn("hotel-dog-name pm-d-room-entity block truncate font-extrabold tracking-[-0.015em] text-slate-950", mobile ? "text-base leading-6" : "text-[15px] leading-5")}>
               {stay.dogName}
             </span>
             <span className="mt-0.5 block">
@@ -643,8 +643,8 @@ export function SharedRoomCard({
           const status = stay ? hotelRoomBoardDogStatus(stay, selectedDate) : null;
           const phaseTime = stay ? hotelRoomBoardPhaseTime(stay, selectedDate) : null;
           return (
-            <span key={member.id} className="hotel-shared-member grid min-w-0 grid-cols-[1fr_auto] items-center gap-x-1.5">
-              <span className={cn("hotel-dog-name truncate font-extrabold", mobile ? "text-sm leading-5" : "text-xs")}>{member.dogName}</span>
+            <span key={member.id} className="hotel-shared-member pm-d-shared-member grid min-w-0 grid-cols-[1fr_auto] items-center gap-x-1.5">
+              <span className={cn("hotel-dog-name pm-d-room-entity truncate font-extrabold", mobile ? "text-sm leading-5" : "text-xs")}>{member.dogName}</span>
               {status ? (
                 <span className={cn("hotel-status shrink-0 rounded-full px-1.5 py-px font-extrabold ring-1 ring-inset", mobile ? "text-xs leading-5" : "text-[9px] leading-[0.875rem]", stageBadgeClass(status.stage, false))}>
                   {status.label}
@@ -1735,7 +1735,7 @@ export function HotelRoomBoard({
 
   return (
     <Card
-      className="hotel-board-surface mb-6 overflow-hidden"
+      className="hotel-board-surface pm-d-board mb-6 overflow-hidden"
     >
       <RoomBoardMotion date={selectedDate}>
       <div data-testid="hotel-room-board"
@@ -1743,7 +1743,7 @@ export function HotelRoomBoard({
         onPointerUp={readOnly ? undefined : endDrag}
         onPointerCancel={readOnly ? undefined : endDrag}
       >
-        <div className="hotel-board-overview border-b border-border px-4 py-4 sm:px-5 lg:px-6">
+        <div className="hotel-board-overview pm-d-operational-strip border-b border-border px-4 py-4 sm:px-5 lg:px-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className={cn("font-extrabold uppercase tracking-[0.16em] text-primary", mobileProjection ? "text-xs" : "text-[11px]")}>
@@ -1757,8 +1757,8 @@ export function HotelRoomBoard({
               </p>
             </div>
           </div>
-          <div className="hotel-board-room-total"><span>{readOnly ? "선택일 사용 기록" : selectedDateIsToday ? "현재 배정·이용 객실" : "선택일 배정 계획"}</span><strong>{presentationOccupied.size}<small>실</small></strong><p>{readOnly ? "확인된 투숙 구간 기준 · 공실 여부를 의미하지 않습니다" : "사전 배정 포함 · 실제 투숙 여부는 각 객실에서 확인"}</p></div>
-          <dl className="hotel-board-summary hotel-board-pulse" aria-label={readOnly ? "선택일 투숙 요약" : "객실 운영 요약"}>
+          <div className="hotel-board-room-total pm-d-room-total"><span>{readOnly ? "선택일 사용 기록" : selectedDateIsToday ? "현재 배정·이용 객실" : "선택일 배정 계획"}</span><strong>{presentationOccupied.size}<small>실</small></strong><p>{readOnly ? "확인된 투숙 구간 기준 · 공실 여부를 의미하지 않습니다" : "사전 배정 포함 · 실제 투숙 여부는 각 객실에서 확인"}</p></div>
+          <dl className="hotel-board-summary hotel-board-pulse pm-d-count-strip" aria-label={readOnly ? "선택일 투숙 요약" : "객실 운영 요약"}>
             {(readOnly ? [
               ["투숙견", historicalCount()],
               ["당일 입실", historicalCount("check_in")],

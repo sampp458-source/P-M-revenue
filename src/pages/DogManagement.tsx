@@ -724,7 +724,7 @@ export function PetManagementPage() {
 
   return (
     <>
-      <div className="pm-design-v1 pm-directory-v1 pm-directory-pets pm-design-v2 pm-directory-v2">
+      <div className="pm-design-v1 pm-directory-v1 pm-directory-pets pm-design-v2 pm-directory-v2 pm-design-d pm-d-page pm-d-rollout2">
       <PageHeader
         title="반려견 관리"
         description="반려견을 기준으로 보호자 연결 정보와 기본 정보를 관리합니다."
@@ -737,7 +737,7 @@ export function PetManagementPage() {
               <Select value={activeFilter} onChange={(e) => { setActiveFilter(e.target.value); setPage(1); }}><option value="">전체 상태</option><option value="active">활성</option><option value="inactive">비활성</option><option value="removed">프로필 삭제됨</option></Select>
         </FilterToolbar>
       </div>
-      <Card className="directory-results overflow-hidden">
+      <Card className="directory-results pm-d-pet-directory overflow-hidden">
         {loading ? <LoadingState /> : loadError ? <ErrorState title={loadError} retry={() => void loadData()} /> : rows.length ? (
           <>
             <div className="hidden xl:block">
@@ -873,7 +873,7 @@ export function PetManagementPage() {
                   currentServices,
                 );
                 return (
-                  <article key={dog.id} className="directory-row p-4 sm:p-5">
+                  <article key={dog.id} className="directory-row pm-d-pet-row p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-3">
                       <button
                         type="button"

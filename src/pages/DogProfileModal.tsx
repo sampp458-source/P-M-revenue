@@ -113,7 +113,7 @@ export function DogProfileModal({
       resetKey={dog.id}
       wide
     >
-      <ProfileContent className="pt-1">
+      <ProfileContent className="pm-d-dog-profile pt-1">
         <ProfileHeader
           className="pt-1"
           title={dog.name}

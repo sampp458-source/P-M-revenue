@@ -365,7 +365,7 @@ export function ProductsPage() {
 
   return (
     <>
-      <div className="pm-design-v1 pm-products-v1 pm-design-v2 pm-catalog-v2">
+      <div className="pm-design-v1 pm-products-v1 pm-design-v2 pm-catalog-v2 pm-design-d pm-d-page pm-d-rollout2">
       <PageHeader
         title="상품 관리"
         description="판매 상품과 기본 판매가를 관리합니다."
@@ -387,7 +387,7 @@ export function ProductsPage() {
             <option value="inactive">비활성</option>
           </Select>
       </FilterToolbar>
-      <Card className="products-results overflow-hidden">
+      <Card className="products-results pm-d-catalog-workspace overflow-hidden">
         {loading ? <LoadingState /> : loadError ? (
           <ErrorState retry={() => void Promise.all([loadProducts(), loadCategories()])} />
         ) : rows.length ? (

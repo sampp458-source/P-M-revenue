@@ -44,7 +44,7 @@ export function HistoricalOccupants({segments,onOpenStay,mobile,date}:{segments:
  return <><div className="space-y-1.5">{groups.map(slice=>{const {key,items}=slice;return <div key={key} className={cn('hotel-history-occupant w-full rounded-xl border text-left shadow-sm',mobile?'px-3 py-3':'px-2 py-2',roomStageClass(historicalRoomPhase(items)))}>
   {items[0].lifecycleKind==='shared'&&items.length>1?<span className="hotel-shared-label flex items-center justify-between gap-1"><strong className="min-w-0 break-words text-sm">같은 방 투숙</strong><Badge tone="blue">공유</Badge></span>:null}
   {items.map(s=><button type="button" key={s.segmentId} onClick={()=>onOpenStay(s.stayId)} className="block w-full rounded-lg py-1 text-left transition-colors duration-150 hover:bg-white/40 motion-reduce:transition-none focus:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-   <span className={cn('hotel-dog-name break-words font-extrabold',mobile?'text-sm leading-5':'text-xs')}>{s.dogName}</span>
+   <span className={cn('hotel-dog-name pm-d-room-entity break-words font-extrabold',mobile?'text-sm leading-5':'text-xs')}>{s.dogName}</span>
    {s.lifecycleKind==='shared'&&items.length===1?<Badge tone="blue">공유</Badge>:null}
    {s.lifecycleKind==='longstay'?<Badge tone="blue">장기호텔</Badge>:null}
    <span className="hotel-historical-status block text-xs font-bold">{s.selectedDayEvents.map(e=>labels[e]).join(' · ')}</span>

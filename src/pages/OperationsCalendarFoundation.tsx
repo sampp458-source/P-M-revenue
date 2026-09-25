@@ -552,7 +552,7 @@ export function OperationsCalendarFoundationPage() {
   };
 
   return (
-    <section className="pm-design-v1 pm-calendar-v1 pm-design-v2 pm-calendar-v2 mx-auto max-w-[1480px]">
+    <section className="pm-design-v1 pm-calendar-v1 pm-design-v2 pm-calendar-v2 pm-design-d pm-d-page pm-d-rollout2 mx-auto max-w-[1480px]">
       <header className="pm-calendar-heading mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-primary">Operations</p>
@@ -569,8 +569,8 @@ export function OperationsCalendarFoundationPage() {
         </Button>
       </header>
 
-      <div className="pm-calendar-surface overflow-hidden rounded-[22px] border border-border/90 bg-surface shadow-[var(--pm-shadow-surface)] ring-1 ring-inset ring-white/70">
-        <div className="pm-calendar-month-nav flex flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-3 sm:px-5">
+      <div className="pm-calendar-surface pm-d-calendar-board overflow-hidden rounded-[22px] border border-border/90 bg-surface shadow-[var(--pm-shadow-surface)] ring-1 ring-inset ring-white/70">
+        <div className="pm-calendar-month-nav pm-d-calendar-nav flex flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-3 sm:px-5">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -908,7 +908,7 @@ function CalendarCell({
       aria-label={`${fullDateLabel(date)}, 일정 ${schedules.length}건`}
       aria-pressed={selected}
       className={cn(
-        "pm-calendar-cell group relative min-h-[78px] border-b border-r border-border p-1.5 text-left transition-[background-color,border-color,border-radius,box-shadow,transform] duration-[160ms] ease-out sm:min-h-[134px] sm:p-2.5 lg:min-h-[154px] lg:p-3",
+        "pm-calendar-cell pm-d-calendar-day group relative min-h-[78px] border-b border-r border-border p-1.5 text-left transition-[background-color,border-color,border-radius,box-shadow,transform] duration-[160ms] ease-out sm:min-h-[134px] sm:p-2.5 lg:min-h-[154px] lg:p-3",
         "focus:z-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
         outside ? "bg-surface-secondary/35" : "bg-surface",
         selected && "z-[2] -translate-y-px rounded-lg bg-[linear-gradient(145deg,#ffffff_0%,#eaf1f7_100%)] shadow-[0_10px_28px_rgb(39_76_119_/_0.2)] ring-2 ring-inset ring-primary",
@@ -1106,7 +1106,7 @@ function DayDrawer({
         aria-modal="true"
         aria-label={`${fullDateLabel(date)} 일정`}
         className={cn(
-          "pm-calendar-drawer hotel-day-drawer absolute inset-y-0 right-0 flex w-full max-w-[560px] flex-col border-l border-border bg-surface shadow-2xl transition-transform duration-[180ms] ease-out",
+          "pm-calendar-drawer pm-d-calendar-detail hotel-day-drawer absolute inset-y-0 right-0 flex w-full max-w-[560px] flex-col border-l border-border bg-surface shadow-2xl transition-transform duration-[180ms] ease-out",
           open ? "translate-x-0" : "translate-x-full",
         )}
       >

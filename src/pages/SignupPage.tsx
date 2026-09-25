@@ -1,3 +1,4 @@
+import "../visual-system-d-rollout4.css";
 import "../access-design-v2.css";
 import "../access-design-v1.css";
 import { useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -125,7 +126,7 @@ export function SignupPage() {
   };
 
   return (
-    <main className="pm-access-v1 pm-access-v2 pm-signup relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#071a39] px-4 py-8 sm:px-6">
+    <main className="pm-access-v1 pm-access-v2 pm-signup pm-design-d pm-d-page pm-d-rollout4 relative flex min-h-[100dvh] items-center justify-center overflow-hidden bg-[#071a39] px-4 py-8 sm:px-6">
       <div
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_15%_12%,rgba(67,119,190,0.38),transparent_34%),radial-gradient(circle_at_85%_85%,rgba(24,85,142,0.2),transparent_36%),linear-gradient(145deg,#0b2b59_0%,#071a39_58%,#06152f_100%)]"
         aria-hidden="true"

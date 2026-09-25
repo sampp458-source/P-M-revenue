@@ -1,8 +1,9 @@
+import { normalizeVisualSystemD } from './visualSystemDTestNormalization';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
-const source = (name: string) => readFileSync(`src/pages/${name}.tsx`, 'utf8');
+const source = (name: string) => normalizeVisualSystemD(readFileSync(`src/pages/${name}.tsx`, 'utf8'));
 const removeScope = (text: string, kind: string, following: string) => text
   .replace('import "../design-system-v2.css";\n', '')
   .replace('import "../sales-form-design-v2.css";\n', '')

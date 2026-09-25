@@ -177,27 +177,27 @@ export function DashboardDateDrawer({
       <button
         type="button"
         aria-label="날짜 상세 닫기"
-        className="pm-drawer-overlay fixed inset-0 z-30 bg-slate-950/35 backdrop-blur-[1px] sm:hidden"
+        className="pm-drawer-overlay pm-d-overlay fixed inset-0 z-30 bg-slate-950/35 backdrop-blur-[1px] sm:hidden"
         onClick={onClose}
       />
       <aside
         aria-labelledby={titleId}
         data-dashboard-theme={themeCode}
         style={dashboardThemeStyle(themeCode)}
-        className="dashboard-date-drawer pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(480px,44vw)]"
+        className="dashboard-date-drawer pm-modal-panel pm-d-drawer fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l text-white pm-d-drawer-ink shadow-[var(--pm-shadow-modal)] sm:w-[min(480px,44vw)]"
       >
-        <div className="dashboard-drawer-header flex shrink-0 items-start justify-between gap-3 border-b px-4 py-[7px] sm:px-5">
+        <div className="dashboard-drawer-header pm-d-drawer-band flex shrink-0 items-start justify-between gap-3 border-b px-4 py-[7px] sm:px-5">
           <div className="flex min-w-0 items-start gap-3">
             <span className="dashboard-drawer-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-lg">
               <CalendarDays size={17} />
             </span>
             <div className="min-w-0">
-              <h2 id={titleId} className="text-lg font-bold tracking-[-0.025em] text-white tabular-nums">
+              <h2 id={titleId} className="text-lg font-bold tracking-[-0.025em] text-white pm-d-drawer-ink tabular-nums">
                 {date}
               </h2>
               <p className="dashboard-drawer-accent-text mt-0.5 break-keep text-sm font-semibold leading-5">
                 {unitName}
-                <span className="ml-1.5 font-normal text-slate-300">· 날짜별 거래 상세</span>
+                <span className="ml-1.5 font-normal text-slate-300 pm-d-drawer-muted">· 날짜별 거래 상세</span>
               </p>
             </div>
           </div>
@@ -206,19 +206,19 @@ export function DashboardDateDrawer({
             type="button"
             aria-label="날짜 상세 닫기"
             onClick={onClose}
-            className="dashboard-drawer-control flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-300 transition-colors hover:text-white focus:outline-none focus-visible:ring-2"
+            className="dashboard-drawer-control flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-300 pm-d-drawer-muted transition-colors hover:text-white focus:outline-none focus-visible:ring-2"
           >
             <X size={20} />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto overscroll-contain">
-          <div className="dashboard-drawer-summary sticky top-0 z-10 border-b p-2 backdrop-blur sm:px-5 sm:py-2.5">
-          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035] p-2 text-white sm:p-2.5">
+          <div className="dashboard-drawer-summary pm-d-drawer-band sticky top-0 z-10 border-b p-2 backdrop-blur sm:px-5 sm:py-2.5">
+          <div className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.035] p-2 text-white pm-d-drawer-ink sm:p-2.5">
             <p className="dashboard-drawer-accent-text text-xs font-semibold">
               {unitName === "전체 사업부" ? "전체 판매금액" : `${unitName} 판매금액`}
             </p>
-            <strong className="mt-0.5 block whitespace-nowrap text-[clamp(1.6rem,7vw,2.3rem)] font-bold tracking-[-0.045em] text-white tabular-nums">
+            <strong className="mt-0.5 block whitespace-nowrap text-[clamp(1.6rem,7vw,2.3rem)] font-bold tracking-[-0.045em] text-white pm-d-drawer-ink tabular-nums">
               {won(summary.salesAmount)}
             </strong>
             <div className="mt-1.5 grid grid-cols-1 gap-1 border-t border-white/[0.08] pt-1.5 min-[430px]:grid-cols-3 min-[430px]:gap-2">
@@ -239,13 +239,13 @@ export function DashboardDateDrawer({
           <div className="p-3.5 pb-[max(0.875rem,env(safe-area-inset-bottom))] sm:p-5">
           <div>
             <div className="mb-2 px-0.5">
-              <h3 className="text-sm font-bold text-white">해당 날짜 전체 사업부</h3>
-              <p className="mt-0.5 text-[11px] leading-4 text-slate-300">
+              <h3 className="text-sm font-bold text-white pm-d-drawer-ink">해당 날짜 전체 사업부</h3>
+              <p className="mt-0.5 text-[11px] leading-4 text-slate-300 pm-d-drawer-muted">
                 선택한 사업부와 관계없이 실제 매출을 모두 표시합니다.
               </p>
             </div>
             <div className="-mx-1 mb-2 overflow-x-auto px-1 pb-1">
-              <div className="flex min-w-max gap-1 rounded-xl bg-white/[0.045] p-0.5" role="tablist" aria-label="날짜 상세 사업부">
+              <div className="flex min-w-max gap-1 rounded-xl bg-white/[0.045] pm-d-drawer-flat p-0.5" role="tablist" aria-label="날짜 상세 사업부">
                 <UnitTab active={selectedUnitId === "all"} onClick={() => setSelectedUnitId("all")}>
                   전체
                 </UnitTab>
@@ -274,7 +274,7 @@ export function DashboardDateDrawer({
                   />
                 ))}
                 {!rows.length && (
-                  <p className="rounded-xl bg-white/[0.045] p-4 text-center text-sm text-slate-300">
+                  <p className="rounded-xl bg-white/[0.045] pm-d-drawer-flat p-4 text-center text-sm text-slate-300 pm-d-drawer-muted">
                     이 날짜의 매출이 없습니다.
                   </p>
                 )}
@@ -298,11 +298,11 @@ export function DashboardDateDrawer({
           </div>
         </div>
 
-        <div className="flex shrink-0 justify-center border-t border-white/[0.08] bg-[#142b46] px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-5">
+        <div className="flex shrink-0 justify-center border-t border-white/[0.08] bg-[#142b46] pm-d-drawer-band px-4 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-5">
           <button
             type="button"
             onClick={onOpenSales}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/[0.055] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-semibold text-slate-300 pm-d-drawer-muted transition-colors hover:bg-white/[0.055] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
           >
             전체 매출 내역 보기
             <ExternalLink size={14} />
@@ -336,7 +336,7 @@ function UnitTab({
         "dashboard-drawer-tab inline-flex min-h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2",
         active
           ? "dashboard-drawer-tab-active bg-white"
-          : "text-slate-300 hover:bg-white/[0.07] hover:text-white",
+          : "text-slate-300 pm-d-drawer-muted hover:bg-white/[0.07] hover:text-white",
         focused && !active && "dashboard-drawer-tab-focused",
       )}
     >
@@ -369,10 +369,10 @@ function UnitLedgerSections({
       <section aria-labelledby="dashboard-date-payments-title">
         <div className="mb-3 flex items-end justify-between gap-3">
           <div>
-            <h3 id="dashboard-date-payments-title" className="font-semibold text-white">수납 내역</h3>
-            <p className="mt-1 text-xs text-slate-300">결제일 기준 유효 결제원장</p>
+            <h3 id="dashboard-date-payments-title" className="font-semibold text-white pm-d-drawer-ink">수납 내역</h3>
+            <p className="mt-1 text-xs text-slate-300 pm-d-drawer-muted">결제일 기준 유효 결제원장</p>
           </div>
-          <span className="text-xs font-semibold text-blue-100">
+          <span className="text-xs font-semibold text-blue-100 pm-d-drawer-cobalt">
             {payments.length.toLocaleString("ko-KR")}건
           </span>
         </div>
@@ -380,8 +380,8 @@ function UnitLedgerSections({
           <dl className="mb-3 flex flex-wrap gap-x-4 gap-y-2 border-y border-white/10 py-3">
             {[...paymentMethodTotals.entries()].map(([method, amount]) => (
               <div key={method} className="min-w-0">
-                <dt className="text-[10px] text-slate-300">{paymentLabels[method] || method}</dt>
-                <dd className="mt-0.5 whitespace-nowrap text-xs font-semibold text-white tabular-nums">{won(amount)}</dd>
+                <dt className="text-[10px] text-slate-300 pm-d-drawer-muted">{paymentLabels[method] || method}</dt>
+                <dd className="mt-0.5 whitespace-nowrap text-xs font-semibold text-white pm-d-drawer-ink tabular-nums">{won(amount)}</dd>
               </div>
             ))}
           </dl>
@@ -393,25 +393,25 @@ function UnitLedgerSections({
                 key={payment.id}
                 type="button"
                 onClick={() => onOpenSale(sale.id)}
-                className="flex min-h-10 w-full flex-col items-stretch gap-1 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2 text-left transition-colors hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between min-[430px]:gap-3"
+                className="flex min-h-10 w-full flex-col items-stretch gap-1 rounded-xl border border-white/10 bg-white/[0.045] pm-d-drawer-flat px-3 py-2 text-left transition-colors hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 min-[430px]:flex-row min-[430px]:items-center min-[430px]:justify-between min-[430px]:gap-3"
               >
                 <span className="min-w-0">
-                  <strong className="block break-keep text-sm leading-5 text-white">
+                  <strong className="block break-keep text-sm leading-5 text-white pm-d-drawer-ink">
                     {sale.dogName || "(반려견 없음)"} · {sale.customerName || "보호자 미등록"}
                   </strong>
-                  <span className="mt-1 line-clamp-2 text-xs leading-5 text-slate-300">
+                  <span className="mt-1 line-clamp-2 text-xs leading-5 text-slate-300 pm-d-drawer-muted">
                     {sale.productName} · {paymentLabels[payment.paymentMethod || "other"] || payment.paymentMethod}
                     {payment.source === "outstanding_collection" ? " · 미수 수납" : ""}
                   </span>
                 </span>
-                <strong className="shrink-0 self-end whitespace-nowrap text-sm text-blue-100 tabular-nums">
+                <strong className="shrink-0 self-end whitespace-nowrap text-sm text-blue-100 pm-d-drawer-cobalt tabular-nums">
                   {won(payment.amount)}
                 </strong>
               </button>
             ))}
           </div>
         ) : (
-          <p className="rounded-xl bg-white/[0.04] p-4 text-center text-sm text-slate-300">
+          <p className="rounded-xl bg-white/[0.04] p-4 text-center text-sm text-slate-300 pm-d-drawer-muted">
             이 사업부의 수납 내역이 없습니다.
           </p>
         )}
@@ -419,8 +419,8 @@ function UnitLedgerSections({
 
       <section aria-labelledby="dashboard-date-refunds-title">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h3 id="dashboard-date-refunds-title" className="font-semibold text-white">환불 내역</h3>
-          <span className="text-xs font-semibold text-rose-200">
+          <h3 id="dashboard-date-refunds-title" className="font-semibold text-white pm-d-drawer-ink">환불 내역</h3>
+          <span className="text-xs font-semibold text-rose-200 pm-d-drawer-coral">
             {refunds.length.toLocaleString("ko-KR")}건
           </span>
         </div>
@@ -434,21 +434,21 @@ function UnitLedgerSections({
                 className="flex min-h-10 w-full items-center justify-between gap-3 rounded-xl border border-rose-200/15 bg-rose-100/[0.045] px-3 py-2 text-left transition-colors hover:border-rose-200/30 hover:bg-rose-100/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-200"
               >
                 <span className="min-w-0">
-                  <strong className="block truncate text-sm text-white">
+                  <strong className="block truncate text-sm text-white pm-d-drawer-ink">
                     {sale.dogName || "(반려견 없음)"} · {sale.customerName || "보호자 미등록"}
                   </strong>
-                  <span className="mt-1 block line-clamp-2 text-xs leading-5 text-slate-300">
+                  <span className="mt-1 block line-clamp-2 text-xs leading-5 text-slate-300 pm-d-drawer-muted">
                     {sale.productName}
                   </span>
                 </span>
-                <strong className="shrink-0 whitespace-nowrap text-sm text-rose-200 tabular-nums">
+                <strong className="shrink-0 whitespace-nowrap text-sm text-rose-200 pm-d-drawer-coral tabular-nums">
                   -{won(amount)}
                 </strong>
               </button>
             ))}
           </div>
         ) : (
-          <p className="rounded-xl bg-white/[0.04] p-4 text-center text-sm text-slate-300">
+          <p className="rounded-xl bg-white/[0.04] p-4 text-center text-sm text-slate-300 pm-d-drawer-muted">
             이 사업부의 환불 내역이 없습니다.
           </p>
         )}
@@ -493,8 +493,8 @@ function BusinessUnitSummaryRow({
       <span className="inline-flex min-w-0 items-center gap-2.5">
         <span className="dashboard-theme-dot h-2 w-2 shrink-0 rounded-full" aria-hidden="true" />
         <span className="min-w-0">
-          <strong className="block truncate text-sm text-white">{group.name}</strong>
-          <span className="mt-1 block text-[11px] text-slate-300">
+          <strong className="block truncate text-sm text-white pm-d-drawer-ink">{group.name}</strong>
+          <span className="mt-1 block text-[11px] text-slate-300 pm-d-drawer-muted">
             {stats.activeRows.length.toLocaleString("ko-KR")}건
             {stats.cancelledCount > 0
               ? ` · 취소 ${stats.cancelledCount.toLocaleString("ko-KR")}건`
@@ -502,7 +502,7 @@ function BusinessUnitSummaryRow({
           </span>
         </span>
       </span>
-      <strong className="shrink-0 whitespace-nowrap text-sm text-white tabular-nums">
+      <strong className="shrink-0 whitespace-nowrap text-sm text-white pm-d-drawer-ink tabular-nums">
         {won(stats.total)}
       </strong>
     </button>
@@ -522,18 +522,18 @@ function BusinessUnitTransactions({
     <section
       aria-labelledby={`dashboard-date-unit-${group.id}`}
       style={dashboardThemeStyle(themeCode)}
-      className="dashboard-drawer-unit-section overflow-hidden rounded-2xl border"
+      className="dashboard-drawer-unit-section pm-d-drawer-flat overflow-hidden rounded-2xl border"
       role="tabpanel"
     >
-      <div className="dashboard-drawer-unit-header flex items-center justify-between gap-3 border-b px-3.5 py-2.5">
+      <div className="dashboard-drawer-unit-header pm-d-drawer-band flex items-center justify-between gap-3 border-b px-3.5 py-2.5">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="dashboard-theme-dot h-2 w-2 shrink-0 rounded-full" aria-hidden="true" />
-            <h3 id={`dashboard-date-unit-${group.id}`} className="truncate text-sm font-bold text-white">
+            <h3 id={`dashboard-date-unit-${group.id}`} className="truncate text-sm font-bold text-white pm-d-drawer-ink">
               {group.name}
             </h3>
           </div>
-          <p className="mt-1 text-[11px] text-slate-300">
+          <p className="mt-1 text-[11px] text-slate-300 pm-d-drawer-muted">
             유효 {stats.activeRows.length.toLocaleString("ko-KR")}건
             {stats.cancelledCount > 0
               ? ` · 취소 ${stats.cancelledCount.toLocaleString("ko-KR")}건`
@@ -541,8 +541,8 @@ function BusinessUnitTransactions({
           </p>
         </div>
         <div className="shrink-0 text-right">
-          <span className="block text-[10px] font-semibold text-slate-300">사업부 판매</span>
-          <strong className="mt-1 block whitespace-nowrap text-sm text-white tabular-nums">
+          <span className="block text-[10px] font-semibold text-slate-300 pm-d-drawer-muted">사업부 판매</span>
+          <strong className="mt-1 block whitespace-nowrap text-sm text-white pm-d-drawer-ink tabular-nums">
             {won(stats.total)}
           </strong>
         </div>
@@ -555,25 +555,25 @@ function BusinessUnitTransactions({
               key={sale.id}
               type="button"
               onClick={() => onOpenSale(sale.id)}
-              className="group block min-h-10 w-full rounded-xl border border-white/10 bg-white/[0.045] p-2 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+              className="group block min-h-10 w-full rounded-xl border border-white/10 bg-white/[0.045] pm-d-drawer-flat p-2 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
             >
               <span className="flex flex-col items-stretch gap-2 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-3">
                 <span className="min-w-0">
-                  <strong className="block break-keep text-base leading-6 text-white">
+                  <strong className="block break-keep text-base leading-6 text-white pm-d-drawer-ink">
                     {sale.dogName || "(반려견 없음)"}
                   </strong>
-                  <span className="mt-1 block break-keep text-sm leading-5 text-slate-200">
+                  <span className="mt-1 block break-keep text-sm leading-5 text-slate-200 pm-d-drawer-muted">
                     {sale.customerName || "보호자 미등록"}
                   </span>
-                  <span className="mt-1.5 block break-keep text-xs leading-5 text-slate-300">
+                  <span className="mt-1.5 block break-keep text-xs leading-5 text-slate-300 pm-d-drawer-muted">
                     {sale.productName} · {paymentLabels[sale.paymentMethod] || sale.paymentMethod}
                   </span>
                 </span>
                 <span className="shrink-0 self-end text-right">
-                  <strong className="block whitespace-nowrap text-base text-white tabular-nums">
+                  <strong className="block whitespace-nowrap text-base text-white pm-d-drawer-ink tabular-nums">
                     {won(finalSaleAmount(sale))}
                   </strong>
-                  <span className="mt-1 block text-[11px] font-semibold text-slate-300 tabular-nums">
+                  <span className="mt-1 block text-[11px] font-semibold text-slate-300 pm-d-drawer-muted tabular-nums">
                     {timeLabel(sale.createdAt)}
                   </span>
                 </span>
@@ -587,7 +587,7 @@ function BusinessUnitTransactions({
                     | "cancelled"}
                 />
                 <Badge>{sale.businessUnitName}</Badge>
-                <span className="w-full text-[12px] leading-5 text-slate-300 sm:ml-auto sm:w-auto">
+                <span className="w-full text-[12px] leading-5 text-slate-300 pm-d-drawer-muted sm:ml-auto sm:w-auto">
                   보호자 {sale.customerName || "미등록"}
                   <span className="mx-1.5 text-slate-500">·</span>
                   담당자 {sale.staffName || "미등록"}
@@ -602,7 +602,7 @@ function BusinessUnitTransactions({
           ))}
         </div>
       ) : (
-        <p className="p-5 text-center text-sm text-slate-300">이 사업부의 매출이 없습니다.</p>
+        <p className="p-5 text-center text-sm text-slate-300 pm-d-drawer-muted">이 사업부의 매출이 없습니다.</p>
       )}
     </section>
   );
@@ -619,10 +619,10 @@ function Summary({
 }) {
   return (
     <div className="min-w-0">
-      <span className="block text-[10px] font-semibold text-slate-300">{label}</span>
+      <span className="block text-[10px] font-semibold text-slate-300 pm-d-drawer-muted">{label}</span>
       <strong className={cn(
-        "mt-1 block whitespace-nowrap text-[clamp(0.78rem,3.8vw,0.9rem)] text-white tabular-nums",
-        warning && "text-amber-200",
+        "mt-1 block whitespace-nowrap text-[clamp(0.78rem,3.8vw,0.9rem)] text-white pm-d-drawer-ink tabular-nums",
+        warning && "text-amber-200 pm-d-drawer-amber",
       )}>
         {value}
       </strong>

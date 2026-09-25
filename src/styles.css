@@ -1,4 +1,8 @@
+@layer pm-d-adoption;
+@import "./visual-system-d.css";
 @import "tailwindcss";
+@import "./visual-system-d-adoption.css";
+@import "./visual-system-d-rollout2.css";
 @import "./design-system-v1.css";
 @import "./hotel-design-v1.css";
 @import "./calendar-design-v1.css";

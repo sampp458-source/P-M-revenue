@@ -180,16 +180,16 @@ export function OutstandingPaymentsDrawer({
       <button
         type="button"
         aria-label={`${title} 닫기`}
-        className="pm-drawer-overlay fixed inset-0 z-30 bg-slate-950/35 backdrop-blur-[1px]"
+        className="pm-drawer-overlay pm-d-overlay fixed inset-0 z-30 bg-slate-950/35 backdrop-blur-[1px]"
         onClick={() => !saving && !collecting && onClose()}
       />
       <aside
         aria-labelledby={titleId}
         className={cn(
-          "pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l shadow-[var(--pm-shadow-modal)] sm:w-[min(680px,58vw)]",
+          "pm-modal-panel pm-d-drawer fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l shadow-[var(--pm-shadow-modal)] sm:w-[min(680px,58vw)]",
           collectionMode
             ? "pm-collection-drawer border-border !bg-[#f5f7fb] text-text-primary"
-            : "border-white/10 bg-[#111e31] text-white",
+            : "border-white/10 bg-[#111e31] pm-d-drawer-band text-white pm-d-drawer-ink",
         )}
       >
         <div
@@ -204,7 +204,7 @@ export function OutstandingPaymentsDrawer({
                 "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
                 collectionMode
                   ? "bg-amber-50 text-amber-700"
-                  : "bg-amber-200/15 text-amber-200",
+                  : "bg-amber-200/15 text-amber-200 pm-d-drawer-amber",
               )}
             >
               <Banknote size={19} />
@@ -214,7 +214,7 @@ export function OutstandingPaymentsDrawer({
                 id={titleId}
                 className={cn(
                   "text-xl font-bold tracking-[-0.025em]",
-                  collectionMode ? "text-text-primary" : "text-white",
+                  collectionMode ? "text-text-primary" : "text-white pm-d-drawer-ink",
                 )}
               >
                 {title}
@@ -222,7 +222,7 @@ export function OutstandingPaymentsDrawer({
               <p
                 className={cn(
                   "mt-1 break-keep text-sm leading-5",
-                  collectionMode ? "text-text-secondary" : "text-slate-300",
+                  collectionMode ? "text-text-secondary" : "text-slate-300 pm-d-drawer-muted",
                 )}
               >
                 {description ?? `${unitName} · 발생일과 관계없이 남은 미수 전체`}
@@ -238,7 +238,7 @@ export function OutstandingPaymentsDrawer({
               "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors focus:outline-none focus-visible:ring-2",
               collectionMode
                 ? "text-text-secondary hover:bg-surface-secondary hover:text-text-primary focus-visible:ring-primary"
-                : "text-slate-300 hover:bg-white/10 hover:text-white focus-visible:ring-blue-300",
+                : "text-slate-300 pm-d-drawer-muted hover:bg-white/10 hover:text-white focus-visible:ring-blue-300",
             )}
           >
             <X size={20} />
@@ -249,7 +249,7 @@ export function OutstandingPaymentsDrawer({
             "sticky top-0 z-10 grid grid-cols-2 gap-2 border-b p-3.5 backdrop-blur sm:gap-3 sm:px-6 sm:py-4",
             collectionMode
               ? "border-border bg-[#f5f7fb]/95"
-              : "border-white/10 bg-[#111e31]/95",
+              : "border-white/10 bg-[#111e31]/95 pm-d-drawer-band",
           )}
         >
           <div
@@ -257,13 +257,13 @@ export function OutstandingPaymentsDrawer({
               "min-w-0 rounded-2xl border p-3 sm:p-4",
               collectionMode
                 ? "border-border bg-surface text-text-primary shadow-[var(--pm-shadow-surface)]"
-                : "border-white/10 bg-white/[0.055] text-white",
+                : "border-white/10 bg-white/[0.055] text-white pm-d-drawer-ink",
             )}
           >
-            <span className={cn("text-xs", collectionMode ? "text-text-secondary" : "text-blue-200")}>
+            <span className={cn("text-xs", collectionMode ? "text-text-secondary" : "text-blue-200 pm-d-drawer-cobalt")}>
               {collectionMode ? "받아야 할 결제" : "남은 미수금"}
             </span>
-            <strong className={cn("mt-1 block whitespace-nowrap text-[clamp(1rem,5vw,1.25rem)] tracking-[-0.035em] tabular-nums", collectionMode ? "text-text-primary" : "text-white")}>{won(outstandingTotal)}</strong>
+            <strong className={cn("mt-1 block whitespace-nowrap text-[clamp(1rem,5vw,1.25rem)] tracking-[-0.035em] tabular-nums", collectionMode ? "text-text-primary" : "text-white pm-d-drawer-ink")}>{won(outstandingTotal)}</strong>
           </div>
           <div
             className={cn(
@@ -273,10 +273,10 @@ export function OutstandingPaymentsDrawer({
                 : "border-amber-200/15 bg-amber-200/[0.07]",
             )}
           >
-            <span className={cn("text-xs", collectionMode ? "text-amber-800" : "text-amber-200")}>
+            <span className={cn("text-xs", collectionMode ? "text-amber-800" : "text-amber-200 pm-d-drawer-amber")}>
               {collectionMode ? "수금 대기 고객" : "미수 거래"}
             </span>
-            <strong className={cn("mt-1 block whitespace-nowrap text-[clamp(1rem,5vw,1.25rem)] tabular-nums", collectionMode ? "text-text-primary" : "text-white")}>{rows.length}건</strong>
+            <strong className={cn("mt-1 block whitespace-nowrap text-[clamp(1rem,5vw,1.25rem)] tabular-nums", collectionMode ? "text-text-primary" : "text-white pm-d-drawer-ink")}>{rows.length}건</strong>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto overscroll-contain p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-6">
@@ -289,7 +289,7 @@ export function OutstandingPaymentsDrawer({
                     "rounded-2xl border transition-[border-color,box-shadow,background-color] duration-150",
                     collectionMode
                       ? "border-border bg-surface p-3.5 shadow-[var(--pm-shadow-surface)] md:hover:-translate-y-0.5 md:hover:border-primary/25 md:hover:shadow-[0_10px_28px_rgba(23,54,93,0.09)] sm:p-5"
-                      : "border-white/10 bg-white/[0.045] p-4 md:hover:border-white/20 md:hover:shadow-[0_10px_26px_rgba(0,0,0,0.16)] sm:p-5",
+                      : "border-white/10 bg-white/[0.045] pm-d-drawer-flat p-4 md:hover:border-white/20 md:hover:shadow-[0_10px_26px_rgba(0,0,0,0.16)] sm:p-5",
                   )}
                 >
                   {collectionMode ? (
@@ -359,25 +359,25 @@ export function OutstandingPaymentsDrawer({
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge tone="blue">{sale.businessUnitName}</Badge>
-                          <span className="text-xs text-slate-300 tabular-nums">
+                          <span className="text-xs text-slate-300 pm-d-drawer-muted tabular-nums">
                             발생일 {sale.saleDate}
                           </span>
                         </div>
-                        <h3 className="mt-2 break-keep text-lg font-bold leading-6 text-white">
+                        <h3 className="mt-2 break-keep text-lg font-bold leading-6 text-white pm-d-drawer-ink">
                           {sale.dogName || "(반려견 없음)"}
                         </h3>
-                        <p className="mt-1 break-keep text-sm leading-5 text-slate-200">
+                        <p className="mt-1 break-keep text-sm leading-5 text-slate-200 pm-d-drawer-muted">
                           {sale.customerName || "보호자 미등록"}
                         </p>
-                        <p className="mt-1 break-keep text-xs leading-5 text-slate-300">
+                        <p className="mt-1 break-keep text-xs leading-5 text-slate-300 pm-d-drawer-muted">
                           {sale.productName}
                         </p>
                       </div>
                       <div className="shrink-0 text-right">
-                        <span className="text-xs font-semibold text-amber-200">
+                        <span className="text-xs font-semibold text-amber-200 pm-d-drawer-amber">
                           현재 미수
                         </span>
-                        <strong className="mt-1 block whitespace-nowrap text-[clamp(1.05rem,5vw,1.25rem)] text-white tabular-nums">
+                        <strong className="mt-1 block whitespace-nowrap text-[clamp(1.05rem,5vw,1.25rem)] text-white pm-d-drawer-ink tabular-nums">
                           {won(sale.outstandingAmount)}
                         </strong>
                       </div>
@@ -492,8 +492,8 @@ export function OutstandingPaymentsDrawer({
 function LedgerValue({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <dt className="text-xs text-slate-300">{label}</dt>
-      <dd className={cn("mt-1 break-words font-semibold leading-5 text-white", label !== "메모" && "whitespace-nowrap tabular-nums")}>{value}</dd>
+      <dt className="text-xs text-slate-300 pm-d-drawer-muted">{label}</dt>
+      <dd className={cn("mt-1 break-words font-semibold leading-5 text-white pm-d-drawer-ink", label !== "메모" && "whitespace-nowrap tabular-nums")}>{value}</dd>
     </div>
   );
 }
@@ -513,7 +513,7 @@ function OutstandingAgeBadge({
         days <= 3 &&
           (light
             ? "border-border bg-surface-secondary text-text-secondary"
-            : "border-white/10 bg-white/[0.06] text-slate-200"),
+            : "border-white/10 bg-white/[0.06] text-slate-200 pm-d-drawer-muted"),
         days >= 4 &&
           days <= 7 &&
           (light

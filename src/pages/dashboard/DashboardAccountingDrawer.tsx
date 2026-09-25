@@ -109,32 +109,32 @@ export function DashboardAccountingDrawer({
       <button
         type="button"
         aria-label={`${meta.title} 닫기`}
-        className="pm-drawer-overlay fixed inset-0 z-30 bg-slate-950/45 backdrop-blur-[1px]"
+        className="pm-drawer-overlay pm-d-overlay fixed inset-0 z-30 bg-slate-950/45 backdrop-blur-[1px]"
         onClick={onClose}
       />
       <aside
         aria-labelledby={titleId}
-        className="pm-modal-panel fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-white/10 bg-[#111e31] text-white shadow-[var(--pm-shadow-modal)] sm:w-[min(680px,58vw)]"
+        className="pm-modal-panel pm-d-drawer fixed inset-y-0 right-0 z-40 flex w-full flex-col border-l border-white/10 bg-[#111e31] pm-d-drawer-band text-white pm-d-drawer-ink shadow-[var(--pm-shadow-modal)] sm:w-[min(680px,58vw)]"
       >
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-white/10 px-5 py-5 sm:px-6">
           <div className="flex min-w-0 items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-blue-100">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-blue-100 pm-d-drawer-cobalt">
               <BookOpenText size={19} />
             </span>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h2
                   id={titleId}
-                  className="text-xl font-bold tracking-[-0.025em] text-white"
+                  className="text-xl font-bold tracking-[-0.025em] text-white pm-d-drawer-ink"
                 >
                   {meta.title}
                 </h2>
                 <Badge tone={meta.tone}>{rows.length}건</Badge>
               </div>
-              <p className="mt-1 break-keep text-sm leading-5 text-slate-300">
+              <p className="mt-1 break-keep text-sm leading-5 text-slate-300 pm-d-drawer-muted">
                 {meta.description}
               </p>
-              <p className="mt-1 break-keep text-xs leading-5 text-slate-300">
+              <p className="mt-1 break-keep text-xs leading-5 text-slate-300 pm-d-drawer-muted">
                 {rangeLabel} · {unitName}
               </p>
             </div>
@@ -144,13 +144,13 @@ export function DashboardAccountingDrawer({
             type="button"
             aria-label={`${meta.title} 닫기`}
             onClick={onClose}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-300 pm-d-drawer-muted transition-colors hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
           >
             <X size={20} />
           </button>
         </div>
 
-        <div className="sticky top-0 z-10 grid shrink-0 grid-cols-2 gap-2 border-b border-white/10 bg-[#111e31]/95 p-4 backdrop-blur sm:grid-cols-4 sm:px-6">
+        <div className="sticky top-0 z-10 grid shrink-0 grid-cols-2 gap-2 border-b border-white/10 bg-[#111e31]/95 pm-d-drawer-band p-4 backdrop-blur sm:grid-cols-4 sm:px-6">
           <Summary label="판매" value={salesAmount} />
           <Summary label="실수납" value={paidAmount} />
           <Summary label="환불" value={refundAmount} danger />
@@ -171,7 +171,7 @@ export function DashboardAccountingDrawer({
                     key={event.id}
                     type="button"
                     onClick={() => onOpenSale(event.saleId, event.eventDate)}
-                    className="group w-full rounded-2xl border border-white/10 bg-white/[0.045] p-4 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
+                    className="group w-full rounded-2xl border border-white/10 bg-white/[0.045] pm-d-drawer-flat p-4 text-left transition-[transform,border-color,background-color] duration-200 hover:-translate-y-px hover:border-blue-300/35 hover:bg-white/[0.075] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300"
                   >
                     <span className="flex flex-col items-stretch gap-2 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between min-[430px]:gap-3">
                       <span className="min-w-0">
@@ -187,18 +187,18 @@ export function DashboardAccountingDrawer({
                           >
                             {accountingEventLabel(event.kind)}
                           </Badge>
-                          <span className="text-xs text-slate-300 tabular-nums">
+                          <span className="text-xs text-slate-300 pm-d-drawer-muted tabular-nums">
                             {event.eventDate}
                           </span>
                         </span>
-                        <strong className="mt-2 block break-keep text-base leading-6 text-white">
+                        <strong className="mt-2 block break-keep text-base leading-6 text-white pm-d-drawer-ink">
                           {sale.dogName || "(반려견 없음)"} ·{" "}
                           {sale.customerName || "보호자 미등록"}
                         </strong>
-                        <span className="mt-1 block break-keep text-sm leading-5 text-slate-300">
+                        <span className="mt-1 block break-keep text-sm leading-5 text-slate-300 pm-d-drawer-muted">
                           {sale.productName} · {sale.businessUnitName}
                         </span>
-                        <span className="mt-1 block break-keep text-xs leading-5 text-slate-300">
+                        <span className="mt-1 block break-keep text-xs leading-5 text-slate-300 pm-d-drawer-muted">
                           {event.paymentMethod
                             ? paymentLabels[event.paymentMethod] ||
                               event.paymentMethod
@@ -209,13 +209,13 @@ export function DashboardAccountingDrawer({
                         <strong
                           className={cn(
                             "block text-lg font-bold tabular-nums",
-                            refund ? "text-rose-200" : "text-white",
+                            refund ? "text-rose-200 pm-d-drawer-coral" : "text-white pm-d-drawer-ink",
                           )}
                         >
                           {refund ? "-" : ""}
                           {won(amount)}
                         </strong>
-                        <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-200">
+                        <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-200 pm-d-drawer-cobalt">
                           상세 <ArrowRight size={13} />
                         </span>
                       </span>
@@ -234,7 +234,7 @@ export function DashboardAccountingDrawer({
           )}
         </div>
 
-        <div className="shrink-0 border-t border-white/10 bg-[#111e31] p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+        <div className="shrink-0 border-t border-white/10 bg-[#111e31] pm-d-drawer-band p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
           <Button type="button" className="w-full" onClick={onOpenLedger}>
             거래 원장에서 전체 보기 <ArrowRight size={16} />
           </Button>
@@ -254,14 +254,14 @@ function Summary({
   danger?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.045] p-3">
-      <span className="block text-[11px] font-semibold text-slate-300">
+    <div className="rounded-xl border border-white/10 bg-white/[0.045] pm-d-drawer-flat p-3">
+      <span className="block text-[11px] font-semibold text-slate-300 pm-d-drawer-muted">
         {label}
       </span>
       <strong
         className={cn(
-          "mt-1 block whitespace-nowrap text-[clamp(0.76rem,3.7vw,0.9rem)] tracking-[-0.025em] text-white tabular-nums",
-          danger && value > 0 && "text-rose-200",
+          "mt-1 block whitespace-nowrap text-[clamp(0.76rem,3.7vw,0.9rem)] tracking-[-0.025em] text-white pm-d-drawer-ink tabular-nums",
+          danger && value > 0 && "text-rose-200 pm-d-drawer-coral",
         )}
       >
         {won(value)}

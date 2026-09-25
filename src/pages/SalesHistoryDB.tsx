@@ -1811,7 +1811,7 @@ export function SalesHistoryPage() {
   );
 
   return (
-    <div className="pm-design-v1 pm-ledger-v1 pm-design-v2 pm-ledger-v2">
+    <div className="pm-design-v1 pm-ledger-v1 pm-design-v2 pm-ledger-v2 pm-design-d pm-d-page pm-d-rollout2">
       <PageHeader
         title={ledgerView ? "거래 원장" : "판매건별 보기"}
         description={
@@ -2108,7 +2108,7 @@ export function SalesHistoryPage() {
           <span className="text-xs text-text-muted">검색 결과 갱신 중…</span>
         )}
       </div>
-      <Card className="ledger-results overflow-hidden shadow-none">
+      <Card className="ledger-results pm-d-ledger-workspace overflow-hidden shadow-none">
         {loading ? (
           <SalesHistoryLoadingState />
         ) : loadError ? (
@@ -3009,7 +3009,7 @@ function SaleDetailContent({
 
   return (
     <div className="space-y-7">
-      <section className="overflow-hidden rounded-[22px] border border-slate-700/50 bg-[#172f4d] text-white" aria-labelledby="sale-summary-title">
+      <section className="pm-d-ledger-detail-summary overflow-hidden rounded-[22px] border border-slate-700/50 bg-[#172f4d] text-white" aria-labelledby="sale-summary-title">
         <div className="grid gap-0 lg:grid-cols-[minmax(0,0.95fr)_minmax(420px,1.05fr)]">
           <div className="min-w-0 p-5 sm:p-7 lg:p-8">
             <HeroStatusBadges sale={sale} />
@@ -3658,7 +3658,7 @@ function AccountingLedgerSummary({
   ] as const;
 
   return (
-    <section className="ledger-summary mb-5 overflow-hidden rounded-2xl border border-primary/15 bg-surface">
+    <section className="ledger-summary pm-d-ledger-summary mb-5 overflow-hidden rounded-2xl border border-primary/15 bg-surface">
       <div className="flex flex-col gap-2 border-b border-border bg-primary-subtle px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-5">
         <div>
           <p className="text-xs font-semibold text-text-secondary">
@@ -3747,7 +3747,7 @@ function AccountingLedgerTable({
   onOpen: (sale: SaleRow) => void;
 }) {
   return (
-    <Table className="ledger-table min-w-[1080px]">
+    <Table className="ledger-table pm-d-transaction-table min-w-[1080px]">
       <thead className="sticky top-0 z-10 bg-surface">
         <tr>
           <th>발생일</th>
@@ -3842,7 +3842,7 @@ function AccountingLedgerCard({
   return (
     <button
       type="button"
-      className="ledger-event min-h-32 rounded-2xl border border-border bg-surface p-4 text-left transition-colors hover:border-primary/25 hover:bg-primary-subtle/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="ledger-event pm-d-transaction-row min-h-32 rounded-2xl border border-border bg-surface p-4 text-left transition-colors hover:border-primary/25 hover:bg-primary-subtle/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       onClick={onOpen}
     >
       <div className="flex items-start justify-between gap-3">

@@ -1,0 +1,79 @@
+/* Rollout 2: explicit page opt-in, existing corrected geometry stays authoritative.
+   This layer changes material and typography only, never visibility or interaction. */
+@layer pm-d-adoption {
+.pm-design-d.pm-d-page.pm-d-rollout2 { --pm-theme-ink:var(--pm-d-ink); }
+.pm-design-d.pm-d-page.pm-d-rollout2 :is(.pm-v1-card,.pm-d-panel,.pm-d-catalog-workspace,.pm-d-pet-directory,.pm-d-ledger-workspace,.pm-d-schedule-workspace) { background:var(--pm-d-workspace)!important;border-color:var(--pm-d-border)!important;box-shadow:none!important;border-radius:var(--pm-d-radius-workspace)!important; }
+.pm-design-d.pm-d-page.pm-d-rollout2 :is(.pm-v1-filter-toolbar,.directory-toolbar,.ledger-filters) { background:transparent!important;box-shadow:none!important;border-color:var(--pm-d-divider)!important; }
+.pm-design-d.pm-d-page.pm-d-rollout2 :is(.pm-d-pet-row,.product-memo,.category-linked) { box-shadow:none!important; }
+.pm-design-d.pm-d-page.pm-d-rollout2 :is(.pm-v1-button-secondary,.pm-d-button-secondary) { background:var(--pm-d-surface)!important;color:var(--pm-d-ink-secondary)!important;border-color:var(--pm-d-border-control)!important;box-shadow:none!important; }
+.pm-design-d.pm-d-page.pm-d-rollout2 :is(.pm-v1-button-danger,.directory-delete-action) { color:var(--pm-d-semantic-coral)!important;background:var(--pm-d-semantic-coral-soft)!important;box-shadow:none!important; }
+/* Calendar is a calm monthly grid, not a collection of raised date cards. */
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-calendar-board {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-border)!important;box-shadow:none!important;border-radius:14px!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-calendar-nav {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-calendar-nav button {background:var(--pm-d-surface)!important;color:var(--pm-d-ink)!important;border-color:var(--pm-d-border-control)!important;box-shadow:none!important;border-radius:7px!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 :is(.pm-calendar-grid,.pm-calendar-weekdays) {background:transparent!important;box-shadow:none!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-calendar-day {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;border-radius:0!important;color:var(--pm-d-ink)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-calendar-day:has(.pm-calendar-count) {background:#f4f7fb!important;box-shadow:none!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-calendar-day:has(.pm-calendar-day-number.bg-primary) {background:var(--pm-d-brand-cobalt-soft)!important;box-shadow:inset 0 2px var(--pm-d-brand-cobalt)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-calendar-day[aria-pressed=true] {background:#e8efff!important;color:var(--pm-d-ink)!important;border-color:var(--pm-d-border-selected)!important;box-shadow:inset 0 0 0 2px var(--pm-d-brand-cobalt)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-calendar-day-number.bg-primary {background:var(--pm-d-brand-cobalt)!important;color:white!important;box-shadow:none!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-calendar-count {background:var(--pm-d-brand-cobalt-soft)!important;color:var(--pm-d-selected-ink)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-calendar-event {background:#ffffff9c!important;box-shadow:none!important;border-radius:4px!important;color:var(--pm-d-ink)!important;}
+.pm-d-shell-host:has(.pm-d-rollout2) .pm-d-calendar-detail {background:var(--pm-d-workspace)!important;color:var(--pm-d-ink)!important;border-color:var(--pm-d-border)!important;box-shadow:var(--pm-d-shadow-floating)!important;}
+.pm-d-shell-host:has(.pm-d-rollout2) .pm-d-calendar-detail>header {background:var(--pm-d-surface)!important;border-color:var(--pm-d-divider)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-calendar-drawer-actions {background:var(--pm-d-surface-muted)!important;box-shadow:none!important;}
+/* Schedule titles and time lead; original business rails and completion states remain. */
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-list {background:var(--pm-d-workspace)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-schedule-row {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;border-radius:0!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-schedule-row:hover {background:var(--pm-d-brand-cobalt-soft)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-passive-summary {background:var(--pm-d-workspace)!important;box-shadow:none!important;border-color:var(--pm-d-divider)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-passive-summary dl>div {background:transparent!important;box-shadow:none!important;border-color:var(--pm-d-divider)!important;}
+/* Financial strip and transactions keep their compact, corrected positions. */
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-ledger-summary {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-border)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-ledger-summary>div:first-child {background:var(--pm-d-surface)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-ledger-summary>div:nth-child(2)>div {background:transparent!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-ledger-summary>div:nth-child(2)>div:last-child {background:var(--pm-d-semantic-amber-soft)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-ledger-summary strong {color:var(--pm-d-ink)!important;letter-spacing:-.035em!important;font-variant-numeric:tabular-nums;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-ledger-summary>div:nth-child(2)>div:nth-child(3) strong {color:var(--pm-d-semantic-coral)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-ledger-summary>div:nth-child(2)>div:last-child strong {color:var(--pm-d-semantic-amber)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .ledger-view-switch {background:var(--pm-d-surface-muted)!important;box-shadow:none!important;border-color:var(--pm-d-border)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .ledger-mobile-results {background:var(--pm-d-workspace)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-transaction-row {background:var(--pm-d-workspace)!important;box-shadow:none!important;border-color:var(--pm-d-divider)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-transaction-row:hover {background:#f5f7fb!important;}
+/* Directory/catalog: entity and price lead; service remains a small semantic marker. */
+.pm-design-d.pm-d-page.pm-d-rollout2 :is(.pm-d-pet-directory,.pm-d-catalog-workspace,.pm-categories-v1) th {background:var(--pm-d-surface-muted)!important;color:var(--pm-d-ink-secondary)!important;box-shadow:none!important;border-color:var(--pm-d-divider)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 :is(.pm-d-pet-directory,.pm-d-catalog-workspace) td {background:var(--pm-d-workspace)!important;box-shadow:none!important;border-color:var(--pm-d-divider)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-transaction-table th {background:var(--pm-d-surface-muted)!important;color:var(--pm-d-ink-secondary)!important;box-shadow:none!important;border-color:var(--pm-d-divider)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-d-transaction-table td {background:var(--pm-d-workspace)!important;box-shadow:none!important;border-color:var(--pm-d-divider)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 :is(.pm-d-pet-row,.products-table tr) {background:var(--pm-d-workspace)!important;box-shadow:none!important;border-color:var(--pm-d-divider)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 :is(.product-name,.product-price,.category-name,.pm-d-pet-row strong) {color:var(--pm-d-ink)!important;font-weight:650!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 :is(.product-memo,.category-linked) {color:var(--pm-d-ink-muted)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2 .directory-action-disclosure {background:var(--pm-d-surface)!important;box-shadow:none!important;border-color:var(--pm-d-border-control)!important;}
+.pm-d-shell-host:has(.pm-design-d) .pm-d-dog-profile {color:var(--pm-d-ink);}
+.pm-d-shell-host:has(.pm-design-d) .pm-d-dog-profile article {background:var(--pm-d-workspace)!important;box-shadow:none!important;border-color:var(--pm-d-divider)!important;}
+/* Existing selected view state, no artificial selection. */
+.pm-design-d.pm-d-page.pm-d-rollout2 .ledger-view-switch button.bg-surface {background:var(--pm-d-selected-background)!important;color:white!important;box-shadow:var(--pm-d-shadow-selected)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2.pm-categories-v1 :is(th,td,tr) {background:var(--pm-d-workspace)!important;box-shadow:none!important;border-color:var(--pm-d-divider)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2.pm-categories-v1 th {background:var(--pm-d-surface-muted)!important;color:var(--pm-d-ink-secondary)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout2.pm-categories-v1>.mb-4 {background:var(--pm-d-surface-muted)!important;box-shadow:none!important;border-color:var(--pm-d-border)!important;}
+@media(max-width:767px) {
+.pm-design-d.pm-d-page.pm-d-rollout2.pm-ledger-v1 .pm-d-page-heading {margin-bottom:10px!important;}
+}
+
+.pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-schedule-heading {background:var(--pm-d-surface)!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+.pm-d-shell-host:has(.pm-d-rollout2) .pm-d-ledger-detail-summary {background:var(--pm-d-surface)!important;color:var(--pm-d-ink)!important;box-shadow:none!important;border-color:var(--pm-d-border)!important;border-radius:14px!important;}
+.pm-d-shell-host:has(.pm-d-rollout2) .pm-d-ledger-detail-summary :is(.text-white,.text-slate-300,.text-blue-200) {color:var(--pm-d-ink-secondary)!important;}
+.pm-d-shell-host:has(.pm-d-rollout2) .pm-d-ledger-detail-summary :is(h3,strong) {color:var(--pm-d-ink)!important;}
+.pm-d-shell-host:has(.pm-d-rollout2) .pm-d-ledger-detail-summary .bg-black\/10 {background:var(--pm-d-surface-muted)!important;}
+.pm-d-shell-host:has(.pm-design-d) .pm-d-dog-profile :is(section,nav>span) {box-shadow:none!important;border-color:var(--pm-d-divider)!important;}
+.pm-d-shell-host:has(.pm-design-d) .pm-d-dog-profile button.bg-primary-subtle {background:var(--pm-d-surface)!important;box-shadow:none!important;border-color:var(--pm-d-border-control)!important;}
+@media(min-width:768px) and (max-width:1023px) {
+.pm-design-d.pm-d-page.pm-d-rollout2.pm-ledger-v1 .pm-d-page-heading {margin-bottom:8px!important;}
+}
+
+.pm-d-shell-host:has(.pm-d-rollout2) .pm-d-modal .pm-d-ledger-detail-summary :is(h3,strong,dd) {color:var(--pm-d-ink)!important;}
+.pm-d-shell-host:has(.pm-d-rollout2) .pm-d-modal .pm-d-ledger-detail-summary dd.text-amber-300 {color:var(--pm-d-semantic-amber)!important;}
+.pm-d-shell-host:has(.pm-d-rollout2) .pm-d-modal .pm-d-ledger-detail-summary dd.text-rose-300 {color:var(--pm-d-semantic-coral)!important;}
+
+.pm-d-shell-host:has(.pm-d-rollout2) .pm-d-modal>div:first-child {background:var(--pm-d-surface)!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+}

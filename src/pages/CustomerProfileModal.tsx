@@ -312,7 +312,7 @@ export function CustomerProfileModal({
                   return (
                     <article
                       key={dog.id}
-                      className="rounded-2xl border border-border bg-surface p-4 shadow-sm"
+                      className="pm-d-profile-entry rounded-2xl border border-border bg-surface p-4 shadow-sm"
                     >
                       <div className="flex items-start gap-3">
                         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">

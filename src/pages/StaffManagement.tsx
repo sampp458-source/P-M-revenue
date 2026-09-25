@@ -1,3 +1,4 @@
+import "../visual-system-d-rollout4.css";
 import "../admin-design-v2.css";
 import "../admin-directory-design-v1.css";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
@@ -170,7 +171,7 @@ export function StaffManagementPage() {
     await load();
   };
 
-  return <section className="pm-design-v1 pm-admin-directory-v1 pm-staff-v1 pm-admin-v2">
+  return <section className="pm-design-v1 pm-admin-directory-v1 pm-staff-v1 pm-admin-v2 pm-design-d pm-d-page pm-d-rollout4">
     <PageHeader title="직원 관리" description="직원 계정 신청을 승인하고 재직 상태를 관리합니다." />
     <FilterToolbar className="sm:grid-cols-2"><SearchBox aria-label="직원 검색" placeholder="이름, 이메일 또는 휴대폰 검색" value={query} onClear={() => setQuery("")} onChange={(event) => setQuery(event.target.value)} /><Select aria-label="직원 상태 필터" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">전체 상태</option>{Object.entries(statusLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></FilterToolbar>
     {operationLoadError && <p role="alert" className="mb-3 text-sm text-amber-700">{operationLoadError}</p>}
@@ -191,16 +192,10 @@ export function StaffManagementPage() {
           </colgroup>
           <thead>
             <tr>
-              <th>이름</th>
-              <th>이메일</th>
-              <th>휴대폰 번호</th>
-              <th>Finance 역할</th>
-              <th>운영 권한</th>
-              <th>상태</th>
-              <th>가입일</th>
-              <th>승인일</th>
-              <th>퇴사일</th>
-              <th className="text-right">관리</th>
+              <th colSpan={3} scope="colgroup">직원</th>
+              <th colSpan={2} scope="colgroup">접근 권한</th>
+              <th colSpan={4} scope="colgroup">상태 · 이력</th>
+              <th scope="col" className="text-right">관리</th>
             </tr>
           </thead>
           <tbody>
@@ -231,14 +226,14 @@ export function StaffManagementPage() {
                 <td data-label="퇴사일" className="staff-date"><DateTimeCell value={row.deactivatedAt} /></td>
                 <td className="staff-actions">
                   <div className="flex items-center justify-end gap-1.5">
-                    {!operationLoadError && canManageOperationRoles && row.status !== "pending" && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedOperationRole(row.operationRole ?? "staff"); setRoleEditing(row); }}>운영 권한</Button>}
-                    {!operationLoadError && scheduleColorAvailable && canManageOperationScheduleColors && row.operationActive && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ? operationPersonColor(row) : ""); setColorEditing(row); }}>캘린더 색상</Button>}
+                    {!operationLoadError && canManageOperationRoles && row.status !== "pending" && <Button data-staff-action="role" className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedOperationRole(row.operationRole ?? "staff"); setRoleEditing(row); }}>운영 권한</Button>}
+                    {!operationLoadError && scheduleColorAvailable && canManageOperationScheduleColors && row.operationActive && <Button data-staff-action="color" className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ? operationPersonColor(row) : ""); setColorEditing(row); }}>캘린더 색상</Button>}
                     {row.role === "staff" && row.status === "pending" && <>
-                      <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setConfirming({ row, action: "approve" }); }}>승인</Button>
-                      <Button className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setReason(""); setReasoning({ row, action: "reject" }); }}>거절</Button>
+                      <Button data-staff-action="approve" className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setConfirming({ row, action: "approve" }); }}>승인</Button>
+                      <Button data-staff-action="reject" className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setReason(""); setReasoning({ row, action: "reject" }); }}>거절</Button>
                     </>}
-                    {row.role === "staff" && row.status === "active" && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setReason(""); setReasoning({ row, action: "deactivate" }); }}>퇴사 처리</Button>}
-                    {row.role === "staff" && row.status === "inactive" && <Button className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setConfirming({ row, action: "restore" }); }}>계정 복구</Button>}
+                    {row.role === "staff" && row.status === "active" && <Button data-staff-action="deactivate" className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setReason(""); setReasoning({ row, action: "deactivate" }); }}>퇴사 처리</Button>}
+                    {row.role === "staff" && row.status === "inactive" && <Button data-staff-action="restore" className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setConfirming({ row, action: "restore" }); }}>계정 복구</Button>}
                     {row.role === "admin" && <span className="text-xs text-slate-400">Finance 관리자 보호</span>}
                   </div>
                 </td>

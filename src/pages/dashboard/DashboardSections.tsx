@@ -148,9 +148,9 @@ export function DashboardKpiHero({
   ];
 
   return (
-    <div className="space-y-4">
-      <Card className="dashboard-surface dashboard-hero-surface relative overflow-hidden p-0 shadow-none">
-        <span className="dashboard-hero-accent absolute inset-y-4 left-0 w-1 rounded-r-full" aria-hidden="true" />
+    <div className="pm-d-financial-workspace space-y-4">
+      <Card className="dashboard-surface pm-d-workspace dashboard-hero-surface pm-d-hero-plane relative overflow-hidden p-0 shadow-none">
+        <span className="dashboard-hero-accent pm-d-hero-rail absolute inset-y-4 left-0 w-1 rounded-r-full" aria-hidden="true" />
         <button
           type="button"
           aria-label="결제·환불 통합 원장 열기"
@@ -162,7 +162,7 @@ export function DashboardKpiHero({
             <p className="text-[11px] font-bold tracking-[0.04em] text-primary">
               {periodLabel} 순수납
             </p>
-            <strong className="dashboard-hero-number mt-2 block whitespace-nowrap font-bold leading-none text-[#234f79]">
+            <strong className="dashboard-hero-number pm-d-metric-hero mt-2 block whitespace-nowrap font-bold leading-none text-[#234f79]">
               {won(paidAmount - refund)}
             </strong>
             <p className="mt-2.5 text-[13px] leading-5 text-[#66758a]">실제 입금에서 환불을 뺀 순유입</p>
@@ -183,7 +183,7 @@ export function DashboardKpiHero({
           <Card
             key={item.label}
             className={cn(
-              "dashboard-surface dashboard-supporting-surface dashboard-kpi-card relative flex h-full min-h-40 min-w-0 flex-col p-5 shadow-none transition-[border-color,background-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-primary/20 sm:min-h-44 sm:p-6",
+              "dashboard-surface pm-d-workspace dashboard-supporting-surface dashboard-kpi-card pm-d-metric-cell relative flex h-full min-h-40 min-w-0 flex-col p-5 shadow-none transition-[border-color,background-color,box-shadow,transform] duration-200 hover:-translate-y-px hover:border-primary/20 sm:min-h-44 sm:p-6",
               item.className,
             )}
           >
@@ -200,7 +200,7 @@ export function DashboardKpiHero({
             </p>
             <strong
               className={cn(
-                "dashboard-card-number mt-3.5 block whitespace-nowrap font-bold leading-none",
+                "dashboard-card-number pm-d-metric-secondary mt-3.5 block whitespace-nowrap font-bold leading-none",
                 item.valueClass,
               )}
             >
@@ -267,7 +267,7 @@ export function BusinessUnitCard({
     <div className="h-full" style={dashboardThemeStyle(themeCode)}>
       <Card
         className={cn(
-          "dashboard-surface dashboard-business-card group relative h-full min-h-[20rem] overflow-hidden p-0 shadow-none transition-[transform,border-color,background-color,box-shadow,opacity] duration-200 ease-out hover:-translate-y-0.5",
+          "dashboard-surface pm-d-workspace dashboard-business-card pm-d-business-comparison group relative h-full min-h-[20rem] overflow-hidden p-0 shadow-none transition-[transform,border-color,background-color,box-shadow,opacity] duration-200 ease-out hover:-translate-y-0.5",
           selected && "dashboard-business-card-selected",
           muted && "dashboard-business-card-muted",
         )}
@@ -296,7 +296,7 @@ export function BusinessUnitCard({
           <span className="text-xs font-semibold text-text-secondary">
             {restricted ? "선택 날짜 순수납" : "선택 기간 순수납"}
           </span>
-          <strong className="dashboard-section-number mt-2 block whitespace-nowrap font-bold text-primary">
+          <strong className="dashboard-section-number pm-d-metric mt-2 block whitespace-nowrap font-bold text-primary">
             {won(netAmount)}
           </strong>
           <span className="mt-2 block text-[11px] leading-5 text-text-muted">

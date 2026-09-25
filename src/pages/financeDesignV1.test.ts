@@ -1,10 +1,11 @@
+import { normalizeVisualSystemD } from './visualSystemDTestNormalization';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 describe('Finance Design V1 contract boundary', () => {
   it('preserves all dashboard calculations, permission paths, queries and drawer handlers', () => {
-    let source = readFileSync('src/pages/DashboardDB.tsx', 'utf8')
+    let source = normalizeVisualSystemD(readFileSync('src/pages/DashboardDB.tsx', 'utf8'))
       .replace('import "../design-system-v2.css";\n', '')
       .replace('import "../finance-design-v2.css";\n', '')
       .replace(' pm-design-v2 pm-finance-v2', '')
@@ -18,7 +19,7 @@ describe('Finance Design V1 contract boundary', () => {
     expect(hash(source)).toBe('e8142ba060d092c248291e73a7c02a26b4a960e7e6682d0be654b4c282f8df2f');
   });
   it('preserves report calculations, month semantics, chart data, rankings and refund history', () => {
-    let source = readFileSync('src/pages/ReportsDB.tsx', 'utf8')
+    let source = normalizeVisualSystemD(readFileSync('src/pages/ReportsDB.tsx', 'utf8'))
       .replace('import "../design-system-v2.css";\n', '')
       .replace('import "../finance-design-v2.css";\n', '')
       .replace(' pm-design-v2 pm-finance-v2', '')

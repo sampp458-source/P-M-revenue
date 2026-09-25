@@ -1,0 +1,63 @@
+/* D Rollout 3: role mapping only. Journal output/preview is deliberately outside
+   the editor's D opt-in subtree; no report, canvas, export or template selectors. */
+@layer pm-d-adoption {
+.pm-design-d.pm-d-page.pm-d-rollout3 {color:var(--pm-d-ink);}
+.pm-design-d.pm-d-page.pm-d-rollout3 .pm-v1-card {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-border)!important;box-shadow:none!important;border-radius:var(--pm-d-radius-workspace)!important;}
+.pm-design-d.pm-d-page.pm-d-rollout3 .pm-d-button-secondary {background:var(--pm-d-surface)!important;box-shadow:none!important;border-color:var(--pm-d-border-control)!important;}
+/* Reports remain a compact analysis document: metrics flat, charts elevated. */
+.pm-design-d.pm-d-rollout3.pm-reports-v1 .finance-summary {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-border)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-reports-v1 .finance-metric {background:transparent!important;box-shadow:none!important;border-color:var(--pm-d-divider)!important;border-radius:0!important;}
+.pm-design-d.pm-d-rollout3.pm-reports-v1 .finance-metric p:nth-child(2) {color:var(--pm-d-ink)!important;letter-spacing:-.035em;font-variant-numeric:tabular-nums;}
+.pm-design-d.pm-d-rollout3.pm-reports-v1 .finance-summary>.finance-metric:nth-child(3) p:nth-child(2) {color:var(--pm-d-semantic-coral)!important;}
+.pm-design-d.pm-d-rollout3.pm-reports-v1 .finance-summary>.finance-metric:nth-child(4) p:nth-child(2) {color:var(--pm-d-semantic-amber)!important;}
+.pm-design-d.pm-d-rollout3.pm-reports-v1>div:nth-of-type(3) {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-reports-v1 .finance-divisions {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-reports-v1 .finance-methods :is(.rounded-xl,.rounded-lg) {background:transparent!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;border-radius:0!important;}
+.pm-design-d.pm-d-rollout3.pm-reports-v1 .finance-chart {background:var(--pm-d-workspace)!important;box-shadow:var(--pm-d-shadow-workspace)!important;border-color:var(--pm-d-border)!important;}
+.pm-design-d.pm-d-rollout3.pm-reports-v1 .finance-list {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-reports-v1 .finance-list h2 {background:var(--pm-d-surface)!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-reports-v1 :is(.finance-rank-row,.finance-event-row) {background:transparent!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-reports-v1 .finance-rank-row>span:first-child {background:var(--pm-d-surface-muted)!important;color:var(--pm-d-ink-muted)!important;box-shadow:none!important;}
+/* Sales Edit stays in the existing field order and native form contract. */
+.pm-design-d.pm-d-rollout3.pm-sale-edit .sale-edit-surface {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-border)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-sale-edit .sale-edit-surface>.grid>label {background:transparent!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-sale-edit .sale-edit-surface>.grid>label>span:first-child {color:var(--pm-d-ink-secondary)!important;}
+.pm-design-d.pm-d-rollout3.pm-sale-edit .sale-edit-surface>.grid>label:nth-child(3n+1) {border-top-color:var(--pm-d-brand-cobalt)!important;}
+.pm-design-d.pm-d-rollout3.pm-sale-edit .sale-edit-surface>.grid>label:nth-child(3)>div {background:var(--pm-d-surface-muted)!important;color:var(--pm-d-ink-secondary)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-sale-edit input[readonly] {background:var(--pm-d-brand-cobalt-soft)!important;color:var(--pm-d-selected-ink)!important;font-weight:650!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-sale-edit details {background:var(--pm-d-surface)!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-sale-edit .sale-edit-surface>.grid>label:nth-child(12)>div {background:var(--pm-d-brand-cobalt-soft)!important;color:var(--pm-d-selected-ink)!important;border-color:var(--pm-d-border-selected)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-sale-edit .sale-edit-advanced {background:var(--pm-d-surface)!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+/* Journal roster: preserve existing density and status semantics. */
+.pm-design-d.pm-d-rollout3.pm-journal-home-v1 h1 {font-size:28px!important;line-height:35px!important;}
+@media(max-width:767px) {
+.pm-design-d.pm-d-rollout3.pm-journal-home-v1 h1 {font-size:25.6px!important;line-height:32px!important;}
+}
+.pm-design-d.pm-d-rollout3.pm-journal-home-v1>div:first-child {background:transparent!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-journal-home-v1>div:first-child>div:last-child {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-border-control)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-journal-home-v1 [aria-label="오늘의 공통 활동 요약"] {background:var(--pm-d-surface)!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+.pm-design-d.pm-d-rollout3.pm-journal-home-v1 [aria-label="일지 요약"]>div {background:transparent!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;border-radius:0!important;}
+.pm-design-d.pm-d-rollout3.pm-journal-home-v1 [aria-label="일지 상태 필터"] button {background:var(--pm-d-workspace)!important;color:var(--pm-d-ink-secondary)!important;box-shadow:none!important;border-color:var(--pm-d-border-control)!important;border-radius:var(--pm-d-radius-control)!important;}
+.pm-design-d.pm-d-rollout3.pm-journal-home-v1 [aria-label="일지 상태 필터"] button[aria-pressed=true] {background:var(--pm-d-selected-background)!important;color:white!important;box-shadow:var(--pm-d-shadow-selected)!important;}
+.pm-design-d.pm-d-rollout3.pm-journal-home-v1 :is(.journal-roster-surface,.journal-roster-row) {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+.pm-d-journal-editor .pm-d-editor-workspace button[aria-pressed] {white-space:normal!important;}
+.pm-d-journal-editor .pm-d-editor-workspace button[aria-pressed]>span {max-width:100%;min-width:0;white-space:normal;}
+/* Editor paint is restricted to form / header / export controls / complete bar.
+   Do not opt the outer editor into .pm-design-d: its preview must stay isolated. */
+.pm-d-journal-editor .pm-d-editor-workspace {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-border)!important;border-radius:var(--pm-d-radius-workspace)!important;box-shadow:none!important;}
+.pm-d-journal-editor .pm-d-editor-workspace .journal-editor-section {background:transparent!important;border-color:var(--pm-d-divider)!important;border-radius:0!important;box-shadow:none!important;}
+.pm-d-journal-editor .pm-d-editor-workspace :is(h2,label) {color:var(--pm-d-ink)!important;}
+.pm-d-journal-editor .pm-d-editor-workspace :is(input,select,textarea) {background:var(--pm-d-workspace)!important;color:var(--pm-d-ink)!important;border-color:var(--pm-d-border-control)!important;box-shadow:none!important;border-radius:var(--pm-d-radius-control)!important;}
+.pm-d-journal-editor .pm-d-editor-workspace button[aria-pressed] {background:var(--pm-d-workspace)!important;color:var(--pm-d-ink-secondary)!important;border-color:var(--pm-d-border-control)!important;border-radius:var(--pm-d-radius-control)!important;box-shadow:none!important;}
+.pm-d-journal-editor .pm-d-editor-workspace button[aria-pressed=true] {background:var(--pm-d-brand-cobalt-soft)!important;color:var(--pm-d-selected-ink)!important;border-color:var(--pm-d-border-selected)!important;box-shadow:inset 0 0 0 1px var(--pm-d-border-selected)!important;}
+.pm-d-journal-editor .pm-d-editor-header {background:var(--pm-d-surface)!important;border-color:var(--pm-d-border)!important;box-shadow:none!important;}
+.pm-d-journal-editor .pm-d-editor-header h1 {font-size:18px!important;line-height:28px!important;}
+@media(min-width:640px) {
+.pm-d-journal-editor .pm-d-editor-header h1 {font-size:20px!important;}
+}
+.pm-d-journal-editor .pm-d-editor-complete {background:var(--pm-d-workspace)!important;border-color:var(--pm-d-border-control)!important;box-shadow:0 -2px 8px #1827380b!important;backdrop-filter:none!important;}
+.pm-d-journal-editor :is(.pm-d-editor-complete,.pm-d-editor-export-controls) .pm-d-button-primary {background:var(--pm-d-primary-background)!important;color:white!important;border-color:var(--pm-d-brand-cobalt)!important;box-shadow:var(--pm-d-shadow-selected)!important;border-radius:var(--pm-d-radius-control)!important;}
+.pm-d-journal-editor :is(.pm-d-editor-complete,.pm-d-editor-export-controls) .pm-d-button-secondary {background:var(--pm-d-surface)!important;color:var(--pm-d-ink-secondary)!important;border-color:var(--pm-d-border-control)!important;box-shadow:none!important;border-radius:var(--pm-d-radius-control)!important;}
+.pm-d-journal-editor .pm-d-editor-complete button[aria-label="일지 삭제"] {color:var(--pm-d-semantic-coral)!important;border-color:var(--pm-d-semantic-coral-soft)!important;}
+.pm-d-journal-editor .pm-d-editor-export-controls [aria-label="일지 이미지 저장"] {background:transparent!important;border-color:var(--pm-d-divider)!important;box-shadow:none!important;}
+}

@@ -1,3 +1,4 @@
+import "../visual-system-d-rollout3.css";
 import "../design-system-v2.css";
 import "../sales-form-design-v2.css";
 import "../sales-form-design-v1.css";
@@ -156,7 +157,7 @@ export function SaleFormPage() {
   };
   return (
     <>
-      <div className="pm-design-v1 pm-sales-form-v1 pm-sale-edit pm-design-v2 pm-sales-form-v2">
+      <div className="pm-design-v1 pm-sales-form-v1 pm-sale-edit pm-design-v2 pm-sales-form-v2 pm-design-d pm-d-page pm-d-rollout3">
       <PageHeader
         title={existing ? "매출 수정" : "매출 등록"}
         description="매출 정보를 업무 순서대로 입력합니다."

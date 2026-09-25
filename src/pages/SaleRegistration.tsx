@@ -1988,12 +1988,12 @@ export function SaleFormPage() {
     items: ProductRecommendation[],
   ) =>
     items.length ? (
-      <section className="space-y-2" aria-label={title}>
+      <section className="pm-d-recommendation-group space-y-2" aria-label={title}>
         <div>
           <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
           <p className="mt-0.5 text-xs text-text-muted">{description}</p>
         </div>
-        <div className="sale-product-options flex snap-x gap-2 overflow-x-auto pb-2">
+        <div className="sale-product-options pm-d-recommendations flex snap-x gap-2 overflow-x-auto pb-2">
           {items.map(({ product, lastUsed, useCount }) => (
             <button
               key={product.id}
@@ -2069,7 +2069,7 @@ export function SaleFormPage() {
 
   return (
     <>
-      <div className="pm-design-v1 pm-sales-form-v1 pm-sale-new pm-design-v2 pm-sales-form-v2">
+      <div className="pm-design-v1 pm-sales-form-v1 pm-sale-new pm-design-v2 pm-sales-form-v2 pm-design-d pm-d-page">
       <PageHeader
         title="매출 등록"
         description="고객 정보 없이도 상품과 금액만으로 빠르게 등록할 수 있습니다."
@@ -2100,7 +2100,7 @@ export function SaleFormPage() {
           );
         }}
       >
-        <Card className="sale-registration-step relative z-20 p-5 transition-colors duration-200 focus-within:border-primary/25 sm:p-6">
+        <Card className="sale-registration-step pm-d-form-section pm-d-section-rail relative z-20 p-5 transition-colors duration-200 focus-within:border-primary/25 sm:p-6">
           <button
             type="button"
             className="flex min-h-12 w-full items-center justify-between gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -2327,7 +2327,7 @@ export function SaleFormPage() {
                       </Button>
                     </div>
                     {recentParties.length ? (
-                      <div className="sale-product-options flex snap-x gap-2 overflow-x-auto pb-2">
+                      <div className="sale-product-options pm-d-recommendations flex snap-x gap-2 overflow-x-auto pb-2">
                         {recentParties.map((party) => (
                           <button
                             key={party.key}
@@ -2627,7 +2627,7 @@ export function SaleFormPage() {
           )}
         </Card>
 
-        <Card className="sale-registration-step mt-4 p-5 transition-colors duration-200 focus-within:border-primary/25 sm:p-6">
+        <Card className="sale-registration-step pm-d-form-section pm-d-section-rail mt-4 p-5 transition-colors duration-200 focus-within:border-primary/25 sm:p-6">
           <div ref={productSectionRef} className="scroll-mt-5">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
@@ -3001,7 +3001,7 @@ export function SaleFormPage() {
           </div>
         </Card>
 
-        <Card className="sale-registration-step mt-4 overflow-hidden p-0">
+        <Card className="sale-registration-step pm-d-form-section pm-d-section-rail mt-4 overflow-hidden p-0">
           <div className="grid lg:grid-cols-[minmax(0,1fr)_340px]">
             <div className="min-w-0 space-y-8 p-5 sm:p-6 lg:p-8">
               {error && (
@@ -3539,7 +3539,7 @@ export function SaleFormPage() {
               </div>
               </section>
             </div>
-            <aside className="sale-summary h-fit border-t border-white/10 bg-[#172f4d] p-5 text-white shadow-[0_18px_45px_rgba(23,47,77,0.14)] sm:p-6 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:border-l lg:border-t-0">
+            <aside className="sale-summary pm-d-financial-summary h-fit border-t border-white/10 bg-[#172f4d] p-5 text-white shadow-[0_18px_45px_rgba(23,47,77,0.14)] sm:p-6 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:overflow-y-auto lg:border-l lg:border-t-0">
               <p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-200">
                 실시간 결제 요약
               </p>
@@ -3690,7 +3690,7 @@ export function SaleFormPage() {
           </div>
         </Card>
         {!mobileInputActive && (
-          <div className="sale-mobile-cta fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(23,36,58,0.08)] backdrop-blur lg:hidden">
+          <div className="sale-mobile-cta pm-d-sticky-action fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(23,36,58,0.08)] backdrop-blur lg:hidden">
             <div className="mx-auto max-w-5xl">
               <div className="mb-2 flex items-end justify-between gap-3">
                 <div className="min-w-0">

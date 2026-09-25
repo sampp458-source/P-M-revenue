@@ -33,11 +33,11 @@ export function Button({
     <button
       className={cn(
         "pm-v1-button inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-[color,background-color,border-color,box-shadow,transform,opacity] duration-150 ease-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 active:translate-y-px disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-50",
-        variant === "primary" && "pm-v1-button-primary bg-primary text-white shadow-[0_5px_14px_rgb(39_76_119_/_0.16),inset_0_1px_0_rgb(255_255_255_/_0.18)] hover:-translate-y-px hover:bg-primary-hover hover:shadow-[0_8px_20px_rgb(39_76_119_/_0.22),inset_0_1px_0_rgb(255_255_255_/_0.2)]",
+        variant === "primary" && "pm-v1-button-primary pm-d-button-primary bg-primary text-white shadow-[0_5px_14px_rgb(39_76_119_/_0.16),inset_0_1px_0_rgb(255_255_255_/_0.18)] hover:-translate-y-px hover:bg-primary-hover hover:shadow-[0_8px_20px_rgb(39_76_119_/_0.22),inset_0_1px_0_rgb(255_255_255_/_0.2)]",
         variant === "secondary" &&
-          "pm-v1-button-secondary border border-border-strong bg-surface text-text-primary shadow-[0_1px_3px_rgb(23_36_58_/_0.05)] hover:-translate-y-px hover:border-primary/30 hover:bg-primary-subtle hover:shadow-[0_5px_14px_rgb(23_36_58_/_0.08)]",
+          "pm-v1-button-secondary pm-d-button-secondary border border-border-strong bg-surface text-text-primary shadow-[0_1px_3px_rgb(23_36_58_/_0.05)] hover:-translate-y-px hover:border-primary/30 hover:bg-primary-subtle hover:shadow-[0_5px_14px_rgb(23_36_58_/_0.08)]",
         variant === "danger" && "pm-v1-button-danger bg-error text-white shadow-[0_5px_14px_rgb(194_77_77_/_0.16)] hover:-translate-y-px hover:bg-[#aa4141] hover:shadow-[0_8px_20px_rgb(194_77_77_/_0.22)]",
-        variant === "ghost" && "pm-v1-button-ghost text-text-secondary hover:bg-primary-soft hover:text-primary",
+        variant === "ghost" && "pm-v1-button-ghost pm-d-button-ghost text-text-secondary hover:bg-primary-soft hover:text-primary",
         className,
       )}
       {...p}
@@ -49,7 +49,7 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     <input
       ref={ref}
       className={cn(
-        "pm-v1-input min-h-11 w-full rounded-xl border border-border-strong bg-surface px-3.5 text-sm text-text-primary outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out placeholder:text-text-muted hover:border-[#c5cfdb] focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-muted read-only:bg-surface-secondary aria-[invalid=true]:border-error aria-[invalid=true]:bg-error-soft aria-[invalid=true]:focus:ring-error/15",
+        "pm-v1-input pm-d-input min-h-11 w-full rounded-xl border border-border-strong bg-surface px-3.5 text-sm text-text-primary outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out placeholder:text-text-muted hover:border-[#c5cfdb] focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-muted read-only:bg-surface-secondary aria-[invalid=true]:border-error aria-[invalid=true]:bg-error-soft aria-[invalid=true]:focus:ring-error/15",
         className,
       )}
       {...p}
@@ -75,7 +75,7 @@ export function Select({
   return (
     <select
       className={cn(
-        "pm-v1-input min-h-11 w-full appearance-none rounded-xl border border-border-strong bg-surface px-3.5 text-sm text-text-primary outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out hover:border-[#c5cfdb] focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-muted aria-[invalid=true]:border-error aria-[invalid=true]:bg-error-soft",
+        "pm-v1-input pm-d-input min-h-11 w-full appearance-none rounded-xl border border-border-strong bg-surface px-3.5 text-sm text-text-primary outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out hover:border-[#c5cfdb] focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-muted aria-[invalid=true]:border-error aria-[invalid=true]:bg-error-soft",
         className,
       )}
       {...p}
@@ -91,7 +91,7 @@ export function Textarea({
   return (
     <textarea
       className={cn(
-        "pm-v1-input min-h-24 w-full resize-y rounded-xl border border-border-strong bg-surface px-3.5 py-3 text-sm text-text-primary outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out placeholder:text-text-muted hover:border-[#c5cfdb] focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-muted read-only:bg-surface-secondary aria-[invalid=true]:border-error aria-[invalid=true]:bg-error-soft",
+        "pm-v1-input pm-d-input min-h-24 w-full resize-y rounded-xl border border-border-strong bg-surface px-3.5 py-3 text-sm text-text-primary outline-none transition-[border-color,box-shadow,background-color] duration-200 ease-out placeholder:text-text-muted hover:border-[#c5cfdb] focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:bg-surface-secondary disabled:text-text-muted read-only:bg-surface-secondary aria-[invalid=true]:border-error aria-[invalid=true]:bg-error-soft",
         className,
       )}
       {...p}
@@ -180,9 +180,9 @@ export function Card({
     <section
       className={cn(
         "rounded-[20px]",
-        variant === "surface" && "pm-card border border-border/90 bg-surface",
-        variant === "emphasized" && "pm-card border border-primary/15 bg-[linear-gradient(145deg,#ffffff_0%,#f5f8fb_100%)]",
-        variant === "interactive" && "pm-card pm-card-interactive border border-border/90 bg-surface transition-[background-color,border-color,transform,box-shadow] duration-150 ease-out hover:border-primary/25 hover:bg-primary-subtle",
+        variant === "surface" && "pm-card pm-d-panel border border-border/90 bg-surface",
+        variant === "emphasized" && "pm-card pm-d-panel border border-primary/15 bg-[linear-gradient(145deg,#ffffff_0%,#f5f8fb_100%)]",
+        variant === "interactive" && "pm-card pm-d-panel pm-card-interactive border border-border/90 bg-surface transition-[background-color,border-color,transform,box-shadow] duration-150 ease-out hover:border-primary/25 hover:bg-primary-subtle",
         variant === "flat" && "bg-transparent",
         selected && "border-primary/35 bg-primary-soft ring-1 ring-primary/10",
         className,
@@ -233,7 +233,7 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="pm-v1-page-header mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="pm-v1-page-header pm-d-page-heading mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 className="text-2xl font-bold tracking-[-0.02em] text-text-primary sm:text-[1.625rem]">
           {title}
@@ -263,7 +263,7 @@ export function Badge({
   return (
     <span
       className={cn(
-        "pm-v1-status inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold leading-4",
+        "pm-v1-status pm-d-status inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold leading-4",
         c,
       )}
     >
@@ -343,7 +343,7 @@ export function Modal({
   const resolvedSize = size ?? (extraWide ? "extraLarge" : wide ? "large" : "medium");
   return (
     <div
-      className="pm-modal-overlay fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4"
+      className="pm-modal-overlay pm-d-overlay fixed inset-0 z-50 flex items-end justify-center bg-slate-950/40 p-0 sm:items-center sm:p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -355,7 +355,7 @@ export function Modal({
         aria-labelledby={titleId}
         tabIndex={-1}
         className={cn(
-          "pm-modal-panel flex max-h-[calc(100dvh-0.5rem)] w-full flex-col overflow-hidden rounded-t-[24px] bg-surface sm:max-h-[90vh] sm:rounded-[24px]",
+          "pm-modal-panel pm-d-modal flex max-h-[calc(100dvh-0.5rem)] w-full flex-col overflow-hidden rounded-t-[24px] bg-surface sm:max-h-[90vh] sm:rounded-[24px]",
           resolvedSize === "small" && "max-w-sm",
           resolvedSize === "medium" && "max-w-lg",
           resolvedSize === "large" && "max-w-3xl",

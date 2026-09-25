@@ -121,13 +121,13 @@ export function CustomerManagementPage() {
 
   return (
     <>
-      <div className="pm-design-v1 pm-directory-v1 pm-directory-customers pm-design-v2 pm-directory-v2">
+      <div className="pm-design-v1 pm-directory-v1 pm-directory-customers pm-design-v2 pm-directory-v2 pm-design-d pm-d-page">
       <PageHeader
         title="보호자 관리"
         description="보호자를 기준으로 연결된 반려견과 현재 이용 상태를 확인합니다."
       />
 
-      <Card className="directory-toolbar mb-4 p-4 sm:p-5">
+      <Card className="directory-toolbar pm-d-toolbar-flat mb-4 p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary-soft text-primary">
@@ -157,7 +157,7 @@ export function CustomerManagementPage() {
         </div>
       </Card>
 
-      <Card className="directory-results overflow-hidden">
+      <Card className="directory-results pm-d-directory overflow-hidden">
         {loading ? (
           <LoadingState />
         ) : error ? (
@@ -248,7 +248,7 @@ export function CustomerManagementPage() {
             <div className="directory-mobile-list divide-y divide-border xl:hidden">
               {visibleRows.map(
                 ({ customer, dogCount, serviceCounts, serviceDogNames, recentUse }) => (
-                  <article key={customer.id} className="directory-row p-4 sm:p-5">
+                  <article key={customer.id} className="directory-row pm-d-row p-4 sm:p-5">
                     <div className="flex items-start justify-between gap-3">
                       <button
                         type="button"
@@ -265,7 +265,7 @@ export function CustomerManagementPage() {
                       <Badge tone="blue">반려견 {dogCount}마리</Badge>
                     </div>
                     <CustomerServiceCountGrid
-                      className="directory-service-counts mt-4"
+                      className="directory-service-counts pm-d-service-markers mt-4"
                       counts={serviceCounts}
                       dogNames={serviceDogNames}
                       available={data?.serviceStatusAvailable}

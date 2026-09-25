@@ -1,3 +1,4 @@
+import "./visual-system-d-rollout4.css";
 import "./access-design-v2.css";
 import "./access-design-v1.css";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -622,7 +623,7 @@ function ModuleGatePage() {
   const { chooseModule } = useModule();
   const modules = workspaceOptions;
   return (
-    <main className="pm-access-v1 pm-access-v2 pm-module-gate module-gate-shell relative flex min-h-[100dvh] items-center justify-center overflow-x-hidden bg-app-background px-4 py-6 sm:px-7 sm:py-8 lg:px-10">
+    <main className="pm-access-v1 pm-access-v2 pm-module-gate pm-design-d pm-d-page pm-d-rollout4 module-gate-shell relative flex min-h-[100dvh] items-center justify-center overflow-x-hidden bg-app-background px-4 py-6 sm:px-7 sm:py-8 lg:px-10">
       <div className="module-gate-orb module-gate-orb-one" aria-hidden="true" />
       <div className="module-gate-orb module-gate-orb-two" aria-hidden="true" />
       <section className="relative z-10 w-full max-w-[1080px]">
@@ -803,9 +804,9 @@ function AppLayout() {
     )?.label || "P&M OS";
   const visibleMenus = menus.filter((item) => !item.adminOnly || profile?.role === "admin");
   return (
-    <div className="min-h-screen bg-app-background">
+    <div className="pm-d-shell-host min-h-screen bg-app-background">
       <aside
-        className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`app-sidebar pm-d-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-[68px] shrink-0 items-center justify-start border-b border-white/[0.035]">
           <SidebarHomeLogo onNavigate={() => setOpen(false)} />
@@ -822,13 +823,13 @@ function AppLayout() {
         </div>
         <nav className="app-sidebar-nav flex-1 overflow-y-auto px-3 pb-2 pt-0.5">
           {(["업무", "관리", "분석"] as const).map((group) => <div key={group} className="mb-4 last:mb-0"><p className="mb-1.5 px-3 text-[9px] font-medium uppercase leading-none tracking-[0.16em] text-blue-100/55">{group}</p><div className="space-y-0.5">{visibleMenus.filter((item) => item.group === group).map(({ to, label, icon: Icon, end }) => (
-              <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `app-sidebar-link group relative flex min-h-9 items-center gap-3.5 rounded-[11px] px-3 py-1 text-sm font-medium transition-[color,background-color,transform] duration-150 ${isActive ? "is-active bg-white/[0.075] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-white"}`}>
+              <NavLink end={end} key={to} to={to} onClick={() => setOpen(false)} className={({ isActive }) => `app-sidebar-link pm-d-nav group relative flex min-h-9 items-center gap-3.5 rounded-[11px] px-3 py-1 text-sm font-medium transition-[color,background-color,transform] duration-150 ${isActive ? "is-active bg-white/[0.075] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-white"}`}>
                 {({ isActive }) => <><span className={`absolute inset-y-2.5 left-0 w-0.5 rounded-full transition-colors ${isActive ? "bg-[#8fc1e8]" : "bg-transparent"}`} /><Icon size={18} strokeWidth={isActive ? 2.2 : 1.75} /><span>{label}</span></>}
               </NavLink>
             ))}</div></div>)}
         </nav>
         <div className="shrink-0 border-t border-white/[0.055] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
-          <div className="app-sidebar-profile mb-4 flex items-center gap-1.5 rounded-xl border border-white/[0.045] px-1.5 py-0.5"><div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-blue-50"><UserRound size={14} /></div><div className="min-w-0 flex-1"><b className="block truncate text-xs text-white">{profile?.name || "이름 미등록"}</b><span className="mt-0.5 block truncate text-[10px] text-blue-100/52">{profile?.role === "admin" ? "관리자" : "직원"} · {user?.email}</span></div></div>
+          <div className="app-sidebar-profile pm-d-account mb-4 flex items-center gap-1.5 rounded-xl border border-white/[0.045] px-1.5 py-0.5"><div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-blue-50"><UserRound size={14} /></div><div className="min-w-0 flex-1"><b className="block truncate text-xs text-white">{profile?.name || "이름 미등록"}</b><span className="mt-0.5 block truncate text-[10px] text-blue-100/52">{profile?.role === "admin" ? "관리자" : "직원"} · {user?.email}</span></div></div>
           <button
             onClick={() => void signOut()}
             className="flex min-h-10 w-full items-center gap-3 rounded-[13px] px-2.5 py-2 text-sm text-blue-50/60 transition hover:bg-white/[0.055] hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
@@ -893,9 +894,9 @@ function OperationsAppLayout() {
         : location.pathname.startsWith(item.to),
     )?.label || "스케줄 관리";
   return (
-    <div className="min-h-screen bg-app-background">
+    <div className="pm-d-shell-host min-h-screen bg-app-background">
       <aside
-        className={`app-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
+        className={`app-sidebar pm-d-sidebar fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col text-white shadow-2xl shadow-slate-950/10 transition-transform duration-200 ease-out lg:w-64 lg:translate-x-0 lg:shadow-none ${open ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-[68px] shrink-0 items-center justify-start border-b border-white/[0.035]">
           <SidebarHomeLogo onNavigate={() => setOpen(false)} />
@@ -923,7 +924,7 @@ function OperationsAppLayout() {
                   to={to}
                   onClick={() => setOpen(false)}
                   className={({ isActive }) =>
-                    `app-sidebar-link group relative flex min-h-9 items-center gap-3.5 rounded-[11px] px-3 py-1 text-sm font-medium transition-[color,background-color,transform] duration-150 ${
+                    `app-sidebar-link pm-d-nav group relative flex min-h-9 items-center gap-3.5 rounded-[11px] px-3 py-1 text-sm font-medium transition-[color,background-color,transform] duration-150 ${
                       isActive
                         ? "is-active bg-white/[0.1] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.055)]"
                         : "text-blue-50/68 hover:translate-x-0.5 hover:bg-white/[0.04] hover:text-white"
@@ -952,7 +953,7 @@ function OperationsAppLayout() {
           </div>
         </nav>
         <div className="shrink-0 border-t border-white/[0.055] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
-          <div className="app-sidebar-profile mb-4 flex items-center gap-1.5 rounded-xl border border-white/[0.045] px-1.5 py-0.5">
+          <div className="app-sidebar-profile pm-d-account mb-4 flex items-center gap-1.5 rounded-xl border border-white/[0.045] px-1.5 py-0.5">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.08] text-blue-50">
               <UserRound size={14} />
             </div>
@@ -1064,7 +1065,7 @@ function OperationsAdminOnly({ children }: { children: ReactNode }) {
 function NotFound({ loggedIn }: { loggedIn: boolean }) {
   const nav = useNavigate();
   return (
-    <main className="pm-access-v1 pm-access-v2 pm-not-found flex min-h-screen flex-col items-center justify-center bg-slate-50 p-6 text-center">
+    <main className="pm-access-v1 pm-access-v2 pm-not-found pm-design-d pm-d-page pm-d-rollout4 flex min-h-screen flex-col items-center justify-center bg-slate-50 p-6 text-center">
       <p className="text-7xl font-black text-emerald-800">404</p>
       <h1 className="mt-4 text-xl font-bold">페이지를 찾을 수 없습니다.</h1>
       <p className="mt-2 text-sm text-slate-500">주소를 다시 확인해 주세요.</p>

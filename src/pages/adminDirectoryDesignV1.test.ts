@@ -1,3 +1,4 @@
+import { normalizeVisualSystemD } from './visualSystemDTestNormalization';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -16,13 +17,13 @@ const stripHooks = (source: string) => source
 
 describe('Admin directory visual contract', () => {
   it('preserves category CRUD, linked-product restrictions and all non-category pages byte-for-byte', () => {
-    const source = stripHooks(readFileSync('src/pages/Management.tsx', 'utf8'))
+    const source = stripHooks(normalizeVisualSystemD(readFileSync('src/pages/Management.tsx', 'utf8')))
       .replace('<section className="pm-design-v1 pm-admin-directory-v1 pm-categories-v1">', '<>')
       .replace('    </section>\n  );', '    </>\n  );');
     expect(hash(source)).toBe('31b3fee8d937a3ffcc1e9b88e7ecb35a240ddf1dec98255148c7f3f9cc5f6937');
   });
   it('preserves every staff permission branch, handler, query, payload and modal', () => {
-    const source = stripHooks(readFileSync('src/pages/StaffManagement.tsx', 'utf8').replace(/import ["'].*(?:admin|settings|access)-design-v2\.css["'];\n/g, '').replace(/ pm-(?:admin|settings|access)-v2/g, ''))
+    const source = stripHooks(normalizeVisualSystemD(readFileSync('src/pages/StaffManagement.tsx', 'utf8')).replace(/import ["'].*(?:admin|settings|access)-design-v2\.css["'];\n/g, '').replace(/ pm-(?:admin|settings|access)-v2/g, ''))
       .replace('<section className="pm-design-v1 pm-admin-directory-v1 pm-staff-v1">', '<>')
       .replace('  </section>;', '  </>;');
     expect(hash(source)).toBe('6adace84b29e91cbb351454a022b46a7bc440f8284839b550ba8170c3a425b0f');

@@ -1,3 +1,4 @@
+import { normalizeVisualSystemD } from './visualSystemDTestNormalization';
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -505,7 +506,7 @@ describe("Hotel Room Board", () => {
   });
 
   it("keeps keyed room shells in one presentation parent per room type", () => {
-    const board = readFileSync(resolve(import.meta.dirname, "./HotelRoomBoard.tsx"), "utf8");
+    const board = normalizeVisualSystemD(readFileSync(resolve(import.meta.dirname, "./HotelRoomBoard.tsx"), "utf8"));
     const presentation = readFileSync(resolve(import.meta.dirname, "./HotelRoomBoardPresentation.tsx"), "utf8");
     expect(board).toContain("<RoomBoardDesktopGroup");
     expect(presentation).toContain("hotel-room-plate-layout");
@@ -515,14 +516,14 @@ describe("Hotel Room Board", () => {
   });
 
   it("places the unassigned queue above the room rows as a horizontal strip", () => {
-    const board = readFileSync(resolve(import.meta.dirname, "./HotelRoomBoard.tsx"), "utf8");
+    const board = normalizeVisualSystemD(readFileSync(resolve(import.meta.dirname, "./HotelRoomBoard.tsx"), "utf8"));
     expect(board).toContain("flex gap-3 overflow-x-auto");
     expect(board).toContain("flex-[0_0_260px]");
     expect(board).not.toContain("md:grid-cols-[minmax(260px,32%)");
   });
 
   it("separates eligible rooms, the active hover target, and duplicate drop protection", () => {
-    const board = readFileSync(resolve(import.meta.dirname, "./HotelRoomBoard.tsx"), "utf8");
+    const board = normalizeVisualSystemD(readFileSync(resolve(import.meta.dirname, "./HotelRoomBoard.tsx"), "utf8"));
     expect(board).toContain("border-dashed border-primary/55");
     expect(board).toContain("isHoveredDropTarget");
     expect(board).toContain("border-2 border-solid border-primary");
@@ -583,7 +584,7 @@ describe("Hotel Room Board", () => {
   });
 
   it("promotes the Room Board summary and keeps the reservation list collapsed", () => {
-    const board = readFileSync(resolve(import.meta.dirname, "./HotelRoomBoard.tsx"), "utf8");
+    const board = normalizeVisualSystemD(readFileSync(resolve(import.meta.dirname, "./HotelRoomBoard.tsx"), "utf8"));
     const page = readFileSync(resolve(import.meta.dirname, "./HotelOperations.tsx"), "utf8");
     expect(board).toContain("hotelRoomBoardDateCopy[dateMode].title");
     expect(board).toContain('["빈방", boardSummary.empty');

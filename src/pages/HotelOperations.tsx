@@ -1387,8 +1387,8 @@ export function HotelOperationsPage() {
   })));
 
   return (
-    <div className="pm-design-v1 pm-hotel-v1 pm-design-v2 pm-hotel-v2">
-      <div className="hotel-command-heading"><span className="hotel-operation-eyebrow">P&M · HOTEL OPERATIONS</span>
+    <div className="pm-design-v1 pm-hotel-v1 pm-design-v2 pm-hotel-v2 pm-design-d pm-d-page">
+      <div className="hotel-command-heading pm-d-command-heading"><span className="hotel-operation-eyebrow pm-d-eyebrow">P&M · HOTEL OPERATIONS</span>
       <PageHeader
         title="호텔 운영"
         description={hotelRoomBoardDateCopy[dateMode].description}
@@ -1407,7 +1407,7 @@ export function HotelOperationsPage() {
       />
 
       </div>
-      <div className="hotel-date-controls mb-3 flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-border bg-surface px-3 py-2.5 shadow-sm sm:px-4">
+      <div className="hotel-date-controls pm-d-date-control mb-3 flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-border bg-surface px-3 py-2.5 shadow-sm sm:px-4">
         <Field label="운영 날짜">
           <Input
             type="date"

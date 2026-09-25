@@ -1,3 +1,4 @@
+import "../visual-system-d-rollout3.css";
 import "../journal-design-v2.css";
 import "../journal-design-v1.css";
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Clipboard, Download, Eye, GraduationCap, Image, LoaderCircle, PawPrint, Trash2 } from "lucide-react";
@@ -605,9 +606,9 @@ export function JournalEditor({
   if (loading) return <Card className="flex min-h-72 items-center justify-center"><LoaderCircle className="animate-spin text-primary" /></Card>;
 
   return (
-    <section className="pm-journal-editor-v1 pm-journal-editor-v2 mx-auto max-w-[1600px] overflow-x-hidden pb-24 xl:h-[calc(100dvh-110px)] xl:pb-0" aria-label={`${entry.dog.name} 일지 편집기`}>
+    <section className="pm-journal-editor-v1 pm-journal-editor-v2 pm-d-journal-editor mx-auto max-w-[1600px] overflow-x-hidden pb-24 xl:h-[calc(100dvh-110px)] xl:pb-0" aria-label={`${entry.dog.name} 일지 편집기`}>
       <div className="flex min-h-0 flex-col gap-3 xl:grid xl:h-full xl:grid-cols-[minmax(0,1.2fr)_minmax(420px,1fr)] xl:items-stretch xl:gap-4 2xl:grid-cols-[minmax(0,1.2fr)_minmax(480px,1fr)] 2xl:gap-5">
-        <div className="journal-editor-form-scrollbar order-3 min-w-0 xl:order-none xl:h-full xl:overflow-y-auto xl:overscroll-contain xl:pb-8 xl:pr-1.5" data-testid="journal-editor-form-scroll">
+        <div className="journal-editor-form-scrollbar pm-d-editor-workspace order-3 min-w-0 xl:order-none xl:h-full xl:overflow-y-auto xl:overscroll-contain xl:pb-8 xl:pr-1.5" data-testid="journal-editor-form-scroll">
           <fieldset disabled={completing || deleting} className="space-y-3 disabled:opacity-70 xl:grid xl:grid-cols-2 xl:gap-2 xl:space-y-0" data-testid="journal-editor-form-grid">
         <EditorSection title="컨디션" description="하나 이상 선택해 주세요." desktopWide>
           <MultiChips options={conditionOptions} values={draft.conditionCodes} desktopNoWrap onChange={(conditionCodes) => update((value) => ({ ...value, conditionCodes }))} />
@@ -696,7 +697,7 @@ export function JournalEditor({
         </div>
 
         <aside className="journal-editor-control-panel contents xl:sticky xl:top-[78px] xl:grid xl:h-full xl:min-h-0 xl:grid-rows-[auto_auto_minmax(0,1fr)_auto] xl:gap-0.5 xl:overflow-hidden xl:rounded-2xl" aria-label={`${previewViewModel.dogName} 일지 작업 패널`} data-testid="journal-editor-control-panel">
-          <header className="order-1 rounded-2xl border border-border bg-surface p-3 shadow-sm sm:p-4 xl:order-none xl:px-3 xl:py-0.5">
+          <header className="pm-design-d pm-d-page pm-d-editor-header order-1 rounded-2xl border border-border bg-surface p-3 shadow-sm sm:p-4 xl:order-none xl:px-3 xl:py-0.5">
             <div className="flex min-h-11 items-center gap-3 xl:min-h-9 xl:gap-2.5 xl:pr-44">
               <button type="button" aria-busy={navigationIntent === "list"} disabled={completing || deleting} onClick={() => void close()} className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-xl px-2 text-sm font-semibold text-text-secondary hover:bg-primary-soft hover:text-primary disabled:cursor-not-allowed disabled:opacity-50 xl:min-h-9 xl:py-1">{navigationIntent === "list" ? <LoaderCircle className="animate-spin" size={18} /> : <ArrowLeft size={18} />}목록</button>
               <div className="min-w-0 flex-1 border-l border-border pl-3">
@@ -746,7 +747,7 @@ export function JournalEditor({
           ) : null}
           </div>
 
-          <div className="order-4 xl:absolute xl:right-3 xl:top-1 xl:z-10" data-testid="journal-editor-navigation-export">
+          <div className="pm-d-editor-export-controls order-4 xl:absolute xl:right-3 xl:top-1 xl:z-10" data-testid="journal-editor-navigation-export">
             <div className="mb-2 xl:hidden">
               <Button type="button" variant="secondary" className="w-full" onClick={() => setPreviewOpen(true)}><Eye size={17} />미리보기</Button>
             </div>
@@ -755,7 +756,7 @@ export function JournalEditor({
 
           <DesktopJournalPreview viewModel={previewViewModel} teacherCommentFontFamily={customFont.activeFontFamily} teacherCommentFontSize={commentFontSize} />
 
-          <div className="order-5 fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:left-64 xl:static xl:z-auto xl:rounded-2xl xl:border xl:bg-surface xl:p-1.5 xl:backdrop-blur-none" data-testid="journal-editor-final-actions">
+          <div className="pm-d-editor-complete order-5 fixed inset-x-0 bottom-0 z-20 border-t border-border bg-white/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur lg:left-64 xl:static xl:z-auto xl:rounded-2xl xl:border xl:bg-surface xl:p-1.5 xl:backdrop-blur-none" data-testid="journal-editor-final-actions">
           <div className="flex min-w-0 items-center gap-2">
             <span className="min-w-0 flex-1 text-xs text-text-secondary"><EditorPersistenceStatus state={saveState} failure={saveFailure} completing={completing} completionFailure={completionFailure} externalVersionFailure={externalVersionFailure} /></span>
             {saveFailure || completionFailure || externalVersionFailure ? (

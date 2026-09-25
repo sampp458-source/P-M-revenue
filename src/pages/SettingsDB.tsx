@@ -1,3 +1,4 @@
+import "../visual-system-d-rollout4.css";
 import "../settings-design-v2.css";
 import "../settings-design-v1.css";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
@@ -76,7 +77,7 @@ export function SettingsPage() {
   const years = Array.from({ length: 11 }, (_, index) => currentKoreaYear - 5 + index);
   const submit = (event: FormEvent) => event.preventDefault();
 
-  return <section className="pm-design-v1 pm-settings-v1 pm-settings-v2 pm-target-settings-v1">
+  return <section className="pm-design-v1 pm-settings-v1 pm-settings-v2 pm-target-settings-v1 pm-design-d pm-d-page pm-d-rollout4">
     <PageHeader title="설정" description="사업부별 월 매출 목표를 관리합니다." />
     <Card className="target-period mb-4 p-5"><div className="grid gap-4 sm:grid-cols-2"><label><span className="mb-1.5 block text-sm font-medium text-slate-700">연도</span><Select aria-label="목표 연도" value={year} onChange={(event) => setPeriod(`${event.target.value}-${String(month).padStart(2, "0")}`)}>{years.map((value) => <option key={value} value={value}>{value}년</option>)}</Select></label><label><span className="mb-1.5 block text-sm font-medium text-slate-700">월</span><Select aria-label="목표 월" value={month} onChange={(event) => setPeriod(`${year}-${String(event.target.value).padStart(2, "0")}`)}>{Array.from({ length: 12 }, (_, index) => index + 1).map((value) => <option key={value} value={value}>{value}월</option>)}</Select></label></div></Card>
     {loading ? <SettingsSkeleton /> : loadError ? <ErrorState title="목표 정보를 불러오지 못했습니다." retry={() => void loadTargets(period)} /> : <form onSubmit={submit} className="target-form space-y-4">
