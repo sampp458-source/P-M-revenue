@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { normalizeVisualSystemD } from './visualSystemDTestNormalization';
+// HotelRoomBoard baseline includes the cutover physical-occupancy and legacy checkout-access changes;
+// behavioral invariants live in hotelPhysicalOccupancy.test.ts. Other screens remain frozen.
 const originalHashes = {
   "src/pages/CustomerProfileModal.tsx": "7ee747aa1e001e6d19d2a881a440ff4e36ee0347230b37a8a4b4dfbaafeeb37c",
   "src/App.tsx": "0119b2f35e63de3199ea2edc4abf8fa689025c9b82bfeb2554680d2060e08923",
@@ -11,7 +13,7 @@ const originalHashes = {
   "src/pages/HotelHistoricalRoomGrid.tsx": "1319e5ba934d2e36a8116517505c53ca0df5606ab994dff4758e5d6fb59c5a96",
   "src/pages/HotelOperations.tsx": "c1f791b1eee781bfe78ae87f9e7e3ec0f64479f4cbe011dfe6bffaa7fa9a0fc4",
   "src/pages/HotelOperationsWorkspace.tsx": "62876b46fc4021a1d3c34a6fece777ee42a9469e0b75af979b56a37426ee1cbd",
-  "src/pages/HotelRoomBoard.tsx": "6ca7bb9ed072c2f6cc9dcf58ceec72adffbaacd32d00f6c85d4aab98a5fe4a7b",
+  "src/pages/HotelRoomBoard.tsx": "0de6d8370e36c3f4339a5b10e57607693188f17f8b71e8940548227bc280ddb2",
   "src/pages/HotelRoomBoardPresentation.tsx": "e63f5c43f536a98cb730b389d8809d99cf3db4b2ae3d8d7195b2ae27c85a34e1",
   "src/pages/SaleRegistration.tsx": "353491d3f22b8c021fe6369f7e245faa619edf11074b7efa102331234e38b3a4",
   "src/pages/dashboard/DashboardAccountingDrawer.tsx": "4e2c767834f022780034a421688b70825a8650b1a5f24c49ed0bc5250edd4924",

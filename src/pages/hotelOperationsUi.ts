@@ -38,6 +38,58 @@ export function activeHotelAllocation(
   )[0] ?? null;
 }
 
+/** New physical holds begin with actual entry at this instant; no legacy backfill. */
+export const HOTEL_PHYSICAL_CUTOVER = "2026-09-25T00:00:00+09:00";
+
+export function hotelStayHasPhysicalHold(stay: HotelStay, instant = new Date().toISOString()) {
+  return Boolean(!stay.archivedAt && !stay.checkedOutAt && stay.checkedInAt
+    && new Date(stay.checkedInAt).getTime() >= new Date(HOTEL_PHYSICAL_CUTOVER).getTime()
+    && new Date(stay.checkedInAt).getTime() <= new Date(instant).getTime());
+}
+
+/** Legacy departure access is separate from room occupancy and never locks a room. */
+export function hotelStayNeedsCheckoutReview(stay: HotelStay, instant: string) {
+  const checkout = hotelStayScheduleEvent(stay, "check_out");
+  if (stay.archivedAt || !stay.checkedInAt || stay.checkedOutAt || !checkout
+    || new Date(stay.checkedInAt).getTime() >= new Date(HOTEL_PHYSICAL_CUTOVER).getTime()
+    || new Date(checkout.startsAt).getTime() < new Date(HOTEL_PHYSICAL_CUTOVER).getTime()) return false;
+  return checkout.timeUnspecified
+    ? seoulInputParts(checkout.startsAt).date < seoulInputParts(instant).date
+    : new Date(checkout.startsAt).getTime() <= new Date(instant).getTime();
+}
+
+/** Current operational allocation; planned intervals remain unchanged for history/planning.
+ * roomAllocations belongs to the active capacity segment (released Long Stay segments
+ * are absent from hotel_stay_json). Never revive an older room after a room move.
+ */
+export function currentHotelAllocation(stay: HotelStay, selectedInstant?: string) {
+  if (!selectedInstant) return activeHotelAllocation(stay);
+  const instant = new Date(selectedInstant).getTime();
+  if (stay.archivedAt || stay.checkedOutAt) return null;
+  if (!hotelStayHasPhysicalHold(stay, selectedInstant)) {
+    return activeHotelAllocation(stay, selectedInstant);
+  }
+  return [...stay.roomAllocations]
+    .filter(allocation => new Date(allocation.allocatedFrom).getTime() <= instant)
+    .sort((left, right) =>
+      new Date(right.allocatedFrom).getTime() - new Date(left.allocatedFrom).getTime()
+      || right.id.localeCompare(left.id))[0] ?? null;
+}
+
+export function hotelStayCheckoutOverdue(stay: HotelStay, instant = new Date().toISOString()) {
+  const checkout = hotelStayScheduleEvent(stay, "check_out");
+  return Boolean(hotelStayHasPhysicalHold(stay, instant)
+    && checkout && !checkout.timeUnspecified
+    && new Date(checkout.startsAt).getTime() < new Date(instant).getTime());
+}
+
+export function hotelOverdueCheckoutLabel(stay: HotelStay, instant = new Date().toISOString()) {
+  if (!hotelStayCheckoutOverdue(stay, instant)) return null;
+  const checkout = hotelStayScheduleEvent(stay, "check_out")!;
+  const { date, time } = seoulInputParts(checkout.startsAt);
+  return `${date === seoulInputParts(instant).date ? "" : `${date} `}${time} 퇴실 예정`;
+}
+
 export function hotelStayStatus(stay: HotelStay): HotelStayStatus {
   if (stay.checkedOutAt) return "퇴실 완료";
   if (stay.checkedInAt) {

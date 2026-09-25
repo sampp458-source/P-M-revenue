@@ -29,6 +29,10 @@ import type {
 import type { DaycareReservation } from "./daycareOperationsRepository";
 import {
   activeHotelAllocation,
+  currentHotelAllocation,
+  hotelStayHasPhysicalHold,
+  hotelStayNeedsCheckoutReview,
+  hotelOverdueCheckoutLabel,
   hotelEventRoomLabel,
   formatHotelScheduleTime,
   hotelStayDayPhase,
@@ -154,7 +158,7 @@ export function hotelRoomBoardUnassigned(stays: HotelStay[], selectedInstant?: s
     (stay) =>
       !stay.archivedAt &&
       !stay.checkedOutAt &&
-      !activeHotelAllocation(stay, selectedInstant),
+      !currentHotelAllocation(stay, selectedInstant),
   );
 }
 
@@ -184,7 +188,7 @@ export function canDropHotelStayToUnassigned(stay: HotelStay) {
 }
 
 export function hotelRoomBoardOccupiesRoom(stay: HotelStay, selectedInstant?: string) {
-  return !stay.checkedOutAt && activeHotelAllocation(stay, selectedInstant) !== null;
+  return !stay.checkedOutAt && currentHotelAllocation(stay, selectedInstant) !== null;
 }
 
 export function hotelRoomBoardRecommendedRoom(
@@ -308,13 +312,14 @@ function compareUnassignedStay(left: HotelStay, right: HotelStay) {
 export function hotelRoomBoardUnassignedGroups(
   stays: HotelStay[],
   selectedDate: string,
+  selectedInstant?: string,
 ) {
   const groups: Record<HotelRoomBoardUnassignedGroup, HotelStay[]> = {
     overdue: [],
     today: [],
     future: [],
   };
-  hotelRoomBoardUnassigned(stays).forEach((stay) => {
+  hotelRoomBoardUnassigned(stays, selectedInstant).forEach((stay) => {
     const checkInDate = hotelStayScheduleDate(stay, "check_in");
     const group = !checkInDate || checkInDate < selectedDate
       ? "overdue"
@@ -366,6 +371,9 @@ function stageBadgeClass(stage: RoomBoardStage, waiting: boolean) {
 }
 
 export function hotelRoomBoardDogStatus(stay: HotelStay, selectedDate: string) {
+  if (selectedDate === seoulInputParts(new Date().toISOString()).date && stay.checkedInAt && !stay.checkedOutAt) {
+    return { label: "이용중", stage: "in_house" as const };
+  }
   const checkInDate = hotelStayScheduleDate(stay, "check_in");
   const checkOutDate = hotelStayScheduleDate(stay, "check_out");
   if (checkInDate === selectedDate && checkOutDate === selectedDate) {
@@ -418,7 +426,7 @@ function roomBoardRoomStage(
 }
 
 function stayRoomId(stay: HotelStay, selectedInstant?: string) {
-  return activeHotelAllocation(stay, selectedInstant)?.roomId ?? null;
+  return currentHotelAllocation(stay, selectedInstant)?.roomId ?? null;
 }
 
 function DraggableStayCard({
@@ -467,7 +475,9 @@ function DraggableStayCard({
     stay.capacityReservation?.roomTypeCode ??
     stay.capacityReservation?.roomTypeName ??
     "객실 미정";
-  const phaseTime = hotelRoomBoardPhaseTime(stay, selectedDate);
+  const overdueLabel = selectedDate === seoulInputParts(new Date().toISOString()).date ? hotelOverdueCheckoutLabel(stay) : null;
+  const overdue = overdueLabel !== null;
+  const phaseTime = overdueLabel ?? hotelRoomBoardPhaseTime(stay, selectedDate);
   return (
     <div
       draggable={draggable}
@@ -570,13 +580,14 @@ function DraggableStayCard({
                   : dogStatus.label}
               </span>
             </span>
+            {overdue ? <span className="block text-xs font-bold text-amber-800" role="status">퇴실 지연</span> : null}
             {stay.checkedInAt ? <span className="hotel-actual-time"><small>실제 입실</small><time dateTime={stay.checkedInAt}>{seoulInputParts(stay.checkedInAt).date} {seoulInputParts(stay.checkedInAt).time}</time></span> : null}
             {phaseTime ? (
               <span className={cn("mt-0.5 flex min-w-0 items-center gap-1 truncate font-bold tabular-nums text-slate-800", mobile ? "text-xs leading-5" : "text-[11px]")}>
-                <Clock3 className="shrink-0" size={12} /><span className="hotel-planned-label">예정</span>
-                {variant === "waiting"
+                <Clock3 className="shrink-0" size={12} />{!overdue ? <span className="hotel-planned-label">예정</span> : null}
+                <span className={overdue ? "min-w-0 flex-1 whitespace-normal break-words" : undefined}>{variant === "waiting"
                   ? formatHotelScheduleTime(stay, "check_in")
-                  : phaseTime}
+                  : phaseTime}</span>
               </span>
             ) : null}
             {variant === "waiting" || unspecified.roomType || !["DELUXE", "STANDARD"].includes(roomType) ? <span className={cn("block truncate font-semibold text-slate-500", mobile ? "text-xs leading-5" : "text-[10px]")}>
@@ -641,7 +652,9 @@ export function SharedRoomCard({
         {activeMembers.map((member) => {
           const stay = staysById.get(member.hotelStayId);
           const status = stay ? hotelRoomBoardDogStatus(stay, selectedDate) : null;
-          const phaseTime = stay ? hotelRoomBoardPhaseTime(stay, selectedDate) : null;
+          const overdueLabel = stay && selectedDate === seoulInputParts(new Date().toISOString()).date ? hotelOverdueCheckoutLabel(stay) : null;
+          const overdue = overdueLabel !== null;
+          const phaseTime = overdueLabel ?? (stay ? hotelRoomBoardPhaseTime(stay, selectedDate) : null);
           return (
             <span key={member.id} className="hotel-shared-member pm-d-shared-member grid min-w-0 grid-cols-[1fr_auto] items-center gap-x-1.5">
               <span className={cn("hotel-dog-name pm-d-room-entity truncate font-extrabold", mobile ? "text-sm leading-5" : "text-xs")}>{member.dogName}</span>
@@ -650,7 +663,8 @@ export function SharedRoomCard({
                   {status.label}
                 </span>
               ) : <span className={cn("font-bold text-slate-500", mobile ? "text-xs" : "text-[9px]")}>일정 확인</span>}
-              {phaseTime ? <span className={cn("col-span-2 truncate font-semibold tabular-nums text-slate-600", mobile ? "text-xs leading-5" : "text-[9px]")}>{phaseTime}</span> : null}
+              {overdue ? <span className="col-span-2 text-xs font-bold text-amber-800">퇴실 지연</span> : null}
+              {phaseTime ? <span className={cn("col-span-2 font-semibold tabular-nums text-slate-600", overdue ? "whitespace-normal break-words" : "truncate", mobile ? "text-xs leading-5" : "text-[9px]")}>{phaseTime}</span> : null}
             </span>
           );
         })}
@@ -1119,9 +1133,12 @@ export function HotelRoomBoard({
   >({});
   const mobileProjection = useMobileRoomBoardProjection();
   const unassignedSharedGroupsUnavailable = Boolean(unassignedSharedGroupsError);
-  const boardInstant = selectedDateIsToday
-    ? new Date().toISOString()
-    : undefined;
+  const [clock, setClock] = useState(() => new Date().toISOString());
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(new Date().toISOString()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const boardInstant = selectedDateIsToday ? clock : undefined;
   const draggedStayIdRef = useRef<string | null>(null);
   const draggedSharedGroupIdRef = useRef<string | null>(null);
   const draggedSharedOccupancyRef = useRef<{
@@ -1170,8 +1187,8 @@ export function HotelRoomBoard({
     [boardInstant, boardStays],
   );
   const unassignedGroups = useMemo(
-    () => hotelRoomBoardUnassignedGroups(boardStays, selectedDate),
-    [boardStays, selectedDate],
+    () => hotelRoomBoardUnassignedGroups(boardStays, selectedDate, boardInstant),
+    [boardInstant, boardStays, selectedDate],
   );
   const allKnownStays = useMemo(() => {
     const byId = new Map<string, HotelStay>();
@@ -1212,17 +1229,34 @@ export function HotelRoomBoard({
       if (!roomId) return;
       entries.set(roomId, [...(entries.get(roomId) ?? []), stay]);
     });
+    // A future/preassigned arrival must not cover the guest still physically inside.
+    if (selectedDateIsToday) entries.forEach((items, roomId) => {
+      const physical = items.filter(stay => hotelStayHasPhysicalHold(stay, boardInstant));
+      if (physical.length) entries.set(roomId, physical);
+    });
     return entries;
-  }, [boardInstant, sharedMemberStayIds, stays]);
+  }, [boardInstant, selectedDateIsToday, sharedMemberStayIds, stays]);
   const sharedByRoom = useMemo(
-    () => new Map(sharedOccupancies.filter((occupancy) => occupancy.status === "active").map((occupancy) => [occupancy.roomId, occupancy])),
-    [sharedOccupancies],
+    () => new Map(sharedOccupancies.filter((occupancy) => occupancy.status === "active"
+      && (!boardInstant || (new Date(occupancy.occupiedFrom).getTime() <= new Date(boardInstant).getTime()
+        && new Date(occupancy.occupiedUntil).getTime() > new Date(boardInstant).getTime())
+        || occupancy.members.some(member => member.status === "active"
+          && Boolean(staysById.get(member.hotelStayId) && hotelStayHasPhysicalHold(staysById.get(member.hotelStayId)!, boardInstant))))
+      && (!selectedDateIsToday || !roomStays.get(occupancy.roomId)?.some(stay => hotelStayHasPhysicalHold(stay, boardInstant))))
+      .map((occupancy) => [occupancy.roomId, occupancy])),
+    [boardInstant, roomStays, selectedDateIsToday, sharedOccupancies, staysById],
   );
   const daycareByRoom = useMemo(
     () => new Map(daycareReservations
-      .filter((reservation) => reservation.roomAllocation && reservation.lifecycleStatus !== "completed" && reservation.lifecycleStatus !== "cancelled")
+      .filter((reservation) => reservation.roomAllocation && reservation.lifecycleStatus !== "completed" && reservation.lifecycleStatus !== "cancelled"
+        && (!selectedDateIsToday || reservation.lifecycleStatus === "checked_in"
+          || (!roomStays.get(reservation.roomAllocation.roomId)?.some(stay => hotelStayHasPhysicalHold(stay, boardInstant))
+            && !sharedByRoom.get(reservation.roomAllocation.roomId)?.members.some(member => {
+              const stay = staysById.get(member.hotelStayId);
+              return member.status === "active" && Boolean(stay && hotelStayHasPhysicalHold(stay, boardInstant));
+            }))))
       .map((reservation) => [reservation.roomAllocation!.roomId, reservation])),
-    [daycareReservations],
+    [boardInstant, daycareReservations, roomStays, selectedDateIsToday, sharedByRoom, staysById],
   );
   const activeRooms = useMemo(
     () =>
@@ -1668,6 +1702,25 @@ export function HotelRoomBoard({
   );
   };
 
+  const checkoutReview = selectedDateIsToday
+    ? allKnownStays.filter(stay => hotelStayNeedsCheckoutReview(stay, clock)) : [];
+  const checkoutReviewPanel = checkoutReview.length ? (
+    <section aria-label="퇴실 처리 확인" data-testid="hotel-checkout-review" className="rounded-xl border border-amber-200 p-4">
+      <h3 className="font-bold text-text-primary">퇴실 처리 확인 · {checkoutReview.length}건</h3>
+      <p className="mb-3 text-xs text-text-secondary">기존 입실 기록입니다. 실제 퇴실 여부를 확인한 후 상세에서 처리해 주세요. 현재 객실 점유로 자동 반영하지 않습니다.</p>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {checkoutReview.map(stay => {
+          const occupancy = sharedOccupancies.find(item => item.members.some(member => member.hotelStayId === stay.id && member.status === "active"));
+          return <button key={stay.id} type="button" disabled={processing} className="min-h-11 rounded-lg border border-border px-3 py-2 text-left focus-visible:ring-2 focus-visible:ring-primary"
+            onClick={() => occupancy ? onOpenSharedOccupancy(occupancy.id) : onOpenStay(stay.id)}>
+            <strong className="block text-sm">{stay.dogName}</strong>
+            <span className="text-xs text-text-secondary">{formatHotelScheduleTime(stay, "check_out")} 퇴실 예정 · {occupancy ? "공유 객실 상세" : "상세 확인"}</span>
+          </button>;
+        })}
+      </div>
+    </section>
+  ) : null;
+
   const completedPanel = (completedCheckouts.length ? (
             <section
               aria-label="퇴실 완료 명단"
@@ -2060,6 +2113,7 @@ export function HotelRoomBoard({
             {historicalBoard ? <HistoricalBoardWarning history={historicalBoard} onOpenStay={onOpenStay}/> : null}
           </div> : null}
           {completedSharedError ? <p role="alert">{completedSharedError}</p> : null}
+          {checkoutReviewPanel}
           {completedPanel}
           </section>
 

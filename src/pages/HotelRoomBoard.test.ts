@@ -1,7 +1,7 @@
 import { normalizeVisualSystemD } from './visualSystemDTestNormalization';
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import type { SharedHotelOccupancy } from "../platform/multiDogSharedRoomContract";
@@ -126,6 +126,34 @@ const renderBoard = (selectedDate: string, stays: HotelStay[], sharedOccupancies
   }));
 
 describe("Hotel Room Board", () => {
+  it.each(['single', 'shared', 'daycare'] as const)('keeps overdue physical guest visible over a later %s preallocation', (kind) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-26T03:00:00Z'));
+    try {
+      const occupied = allocatedStay({checkedInAt: '2026-09-25T00:00:00Z'});
+      const incoming = allocatedStay({id:'incoming',dogName:'예정손님',roomAllocations:[{
+        ...occupied.roomAllocations[0],id:'incoming-allocation',allocatedFrom:'2026-09-26T00:00:00Z',allocatedUntil:'2026-09-27T00:00:00Z',
+      }]});
+      const shared: SharedHotelOccupancy = {
+        id:'planned-shared',familyBookingId:'family',sharedRoomGroupId:'group',customerId:'customer',
+        roomId:room.id,roomName:room.name,roomTypeId:room.roomTypeId,roomTypeCode:'DELUXE',
+        occupiedFrom:'2026-09-26T00:00:00Z',occupiedUntil:'2026-09-27T00:00:00Z',status:'active',version:1,
+        capacityReservationId:'planned-capacity',roomAllocationId:'planned-allocation',capacityUsed:1,dogCount:1,
+        members:[{id:'member',familyBookingMemberId:'family-member',hotelStayId:'incoming',dogId:'dog',dogName:'예정손님',status:'active',joinedAt:'2026-09-26T00:00:00Z',leftAt:null}],
+      };
+      const daycare = {lifecycleStatus:'scheduled',roomAllocation:{roomId:room.id}} as NonNullable<Parameters<typeof HotelRoomBoard>[0]['daycareReservations']>[number];
+      const markup = renderToStaticMarkup(createElement(HotelRoomBoard, {
+        snapshot:snapshot([occupied,incoming]), selectedDate:'2026-09-26',selectedDateIsToday:true,dateMode:'TODAY',processing:false,
+        sharedOccupancies:kind==='shared'?[shared]:[],daycareReservations:kind==='daycare'?[daycare]:[],
+        allowCrossTypeChange:false,onOpenStay:()=>undefined,onDropStay:()=>undefined,onUnassignStay:()=>undefined,
+      }));
+      expect(markup).toContain('hotel-room-board-stay-stay-1');
+      expect(markup).toContain('퇴실 지연');
+      expect(markup).not.toContain('hotel-room-board-stay-incoming');
+      expect(markup).toContain('data-room-phase="in_house"');
+    } finally { vi.useRealTimers(); }
+  });
+
   it("round-trips discriminated Stay, shared-group, and shared-occupancy drag payloads", () => {
     const stayPayload = { kind: "stay" as const, stayId: "stay-1" };
     const groupPayload = { kind: "shared_group" as const, sharedRoomGroupId: "group-1" };
