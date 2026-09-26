@@ -51,7 +51,7 @@ describe('Operations schedule presentation contract', () => {
   });
   it('scopes styling to Today/Calendar and isolates business from status paint', () => {
     const css = readFileSync('src/operations-schedule-presentation.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/@(?:layer|media)[^{]+\{/g, '');
-    for (const [, selector] of css.matchAll(/([^{}]+)\{[^{}]*\}/g)) expect(selector.trim()).toMatch(/^\.pm-design-d(?::is\(\.pm-today-v1,\.pm-calendar-v1\)|\.pm-(?:today|calendar)-v1)/);
+    for (const [, selector] of css.matchAll(/([^{}]+)\{[^{}]*\}/g)) expect(selector.trim()).toMatch(/^\.pm-design-d(?::is\(\.pm-today-v1,\.pm-calendar-v1\)|\.pm-(?:today|calendar)-v1|\.pm-d-page\.pm-calendar-v1)/);
     expect(css).not.toMatch(/visibility:\s*hidden|pointer-events:\s*none/);
     expect(css).toContain('--pm-d-semantic-mint');
   });

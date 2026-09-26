@@ -972,12 +972,14 @@ function MonthScheduleCard({
     : operationScheduleDisplayTitle(schedule) || schedule.dogs[0]?.name || "제목 없음";
   const isMine = isOperationScheduleAssignedTo(schedule, currentUserId);
   return (
-    <div className="pm-calendar-event pm-month-schedule" data-status={schedule.status} data-mine={isMine} title={operationScheduleDisplayTitle(schedule)}>
+    <div className="pm-calendar-event pm-month-schedule" data-status={schedule.status} data-mine={isMine} title={`${operationScheduleDisplayTitle(schedule)} · ${scheduleBusiness(schedule).label}`}>
+      <i className="pm-month-business-rail" style={{ backgroundColor: scheduleBusiness(schedule).color }} aria-hidden="true" />
       <span className="pm-month-title">{displayTitle}</span>
-      {!schedule.hotelEventKind && <span className="pm-month-type">{schedule.scheduleTypeName}</span>}
+      <span className="pm-month-meta"><time>{operationScheduleTimeLabel(schedule)}</time>{!schedule.hotelEventKind && <span className="pm-month-type">{schedule.scheduleTypeName}</span>}</span>
       {schedule.dogs.some(dog => dog.profileStatus === "removed") && <span className="pm-month-type">프로필 삭제됨</span>}
-      <div className="pm-month-meta"><time>{operationScheduleTimeLabel(schedule)}</time><ScheduleBusinessMarker schedule={schedule} /></div>
-      <ScheduleStatus status={schedule.status} />
+      <span className="pm-month-state" aria-label={schedule.status === "completed" ? "완료" : schedule.status === "cancelled" ? "취소" : "예정"} title={schedule.status === "completed" ? "완료" : schedule.status === "cancelled" ? "취소" : "예정"}>
+        {schedule.status === "completed" ? "✓" : schedule.status === "cancelled" ? "×" : "·"}
+      </span>
     </div>
   );
 }
