@@ -27,7 +27,16 @@ describe('Calendar monthly V2 presentation boundary', () => {
     expect(addition).not.toContain('.pm-schedule-day');
     expect(addition).not.toContain('.pm-month-status-summary');
     expect(addition).toContain('.pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2');
-    expect(addition).toContain('background:#fffefa!important');
+    expect(addition).toContain('background:#fff!important');
+  });
+  it('keeps desktop base surfaces white without decorative date washes', () => {
+    const css = read('operations-schedule-presentation.css');
+    const desktop = css.slice(css.indexOf('/* Monthly desktop only:'));
+    expect(desktop).toContain('.pm-calendar-surface {background:#fff!important;}');
+    expect(desktop).toContain('.pm-calendar-grid {background:#fff!important;');
+    expect(desktop).toContain(':hover:not([aria-pressed=true]) {background:#fff!important;}');
+    expect(desktop).toContain('border-right:1px solid rgb(0 0 0 / 6%)!important');
+    expect(desktop).not.toMatch(/#fffefa|#faf9f5|#eeede9|#efeee9/);
   });
   it('preserves a selected outline when the date is also today', () => {
     const css = read('operations-schedule-presentation.css');
@@ -35,7 +44,7 @@ describe('Calendar monthly V2 presentation boundary', () => {
     const rule = css.slice(css.indexOf(selector), css.indexOf('}', css.indexOf(selector)));
     expect(css.indexOf(selector)).toBeGreaterThan(css.indexOf('@media(min-width:768px)'));
     expect(rule).toContain('box-shadow:inset 0 0 0 1px var(--pm-d-brand-cobalt)!important');
-    expect(rule).toContain('background:#fffefa!important');
+    expect(rule).toContain('background:#fff!important');
   });
 
 });
