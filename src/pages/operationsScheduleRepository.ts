@@ -152,12 +152,20 @@ export function isOperationScheduleAssignedTo(
 }
 
 export function canManageOperationSchedule(
-  schedule: Pick<OperationSchedule, "assignees" | "createdBy">,
+  schedule: Pick<OperationSchedule, "assignees" | "createdBy"> &
+    Partial<Pick<OperationSchedule, "businessUnitCode" | "hotelStayId" | "hotelEventKind" | "archivedAt">>,
   profileId: string | null | undefined,
   operationRole: OperationRole | null | undefined,
 ) {
   if (!profileId) return false;
   return (
+    // Canonical Hotel events mirror the server's Hotel-scoped exception.
+    // A Hotel calendar alone is not proof of a Hotel reservation.
+    ((operationRole === "owner" || operationRole === "manager" || operationRole === "staff") &&
+      schedule.businessUnitCode === "hotel" &&
+      Boolean(schedule.hotelStayId) &&
+      (schedule.hotelEventKind === "check_in" || schedule.hotelEventKind === "check_out") &&
+      !schedule.archivedAt) ||
     operationRole === "owner" ||
     operationRole === "manager" ||
     schedule.createdBy === profileId ||

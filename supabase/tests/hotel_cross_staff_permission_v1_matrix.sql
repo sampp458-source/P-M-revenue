@@ -1,0 +1,97 @@
+-- Local synthetic catalog only. The runner sets creator/actor IDs.
+BEGIN;
+DO $$ BEGIN IF current_database()<>'dog_current_baseline' OR inet_server_addr() IS NOT NULL THEN RAISE EXCEPTION 'LOCAL_ONLY'; END IF; END $$;
+SELECT set_config('qa.creator', :'creator', true),set_config('qa.actor', :'actor', true);
+CREATE FUNCTION pg_temp.physical(r uuid, s uuid) RETURNS boolean LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT EXISTS(SELECT 1 FROM public.hotel_current_physical_rooms_internal() WHERE (r IS NULL OR room_id=r) AND (s IS NULL OR stay_id=s)) $$;
+CREATE FUNCTION pg_temp.group_status(g uuid) RETURNS text LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT status FROM public.family_shared_room_groups WHERE id=g $$;
+CREATE FUNCTION pg_temp.group_version(g uuid) RETURNS integer LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT version FROM public.family_shared_room_groups WHERE id=g $$;
+CREATE FUNCTION pg_temp.group_member(g uuid) RETURNS uuid LANGUAGE sql SECURITY DEFINER SET search_path=public,pg_temp AS $$ SELECT hotel_stay_id FROM public.family_booking_members WHERE shared_room_group_id=g AND archived_at IS NULL ORDER BY id LIMIT 1 $$;
+SET LOCAL ROLE authenticated;
+CREATE FUNCTION pg_temp.f(n integer) RETURNS uuid LANGUAGE sql IMMUTABLE AS $$ SELECT ('00000000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid $$;
+DO $$
+DECLARE h jsonb; sid uuid; v integer; oid uuid; gid uuid; member uuid; remaining integer;
+ t timestamptz:=statement_timestamp()-interval '30 minutes'; d date:=(t AT TIME ZONE 'Asia/Seoul')::date;
+ creator uuid:=current_setting('qa.creator')::uuid; actor uuid:=current_setting('qa.actor')::uuid;
+BEGIN
+ PERFORM set_config('request.jwt.claim.sub',creator::text,true);
+ h:=public.create_flexible_hotel_reservation(pg_temp.f(20),pg_temp.f(30),d-1,'00:00',false,d+2,'18:00',false,pg_temp.f(40),pg_temp.f(1),pg_temp.f(800),ARRAY[creator],'matrix',gen_random_uuid());
+ sid:=(h->>'id')::uuid;
+ PERFORM set_config('request.jwt.claim.sub',actor::text,true);
+ h:=public.update_flexible_hotel_reservation(sid,(h->>'version')::int,pg_temp.f(20),pg_temp.f(30),d-1,'00:00',false,d+2,'18:00',false,pg_temp.f(40),pg_temp.f(1),pg_temp.f(800),ARRAY[creator],'edited by colleague',gen_random_uuid());
+ h:=public.assign_hotel_room(sid,(h->>'version')::int,pg_temp.f(51),'assign',gen_random_uuid());
+ h:=public.reassign_hotel_room_before_check_in(sid,(h->>'version')::int,pg_temp.f(52),'reassign',gen_random_uuid());
+ h:=public.unassign_hotel_room_before_check_in(sid,(h->>'version')::int,'unassign',gen_random_uuid());
+ h:=public.assign_hotel_room(sid,(h->>'version')::int,pg_temp.f(51),'assign again',gen_random_uuid());
+ h:=public.change_room_type_before_check_in(sid,(h->>'version')::int,pg_temp.f(61),'type change',gen_random_uuid());
+ h:=public.complete_hotel_check_in(sid,(h->>'version')::int,t,gen_random_uuid());
+ h:=public.change_room_type_after_check_in(sid,(h->>'version')::int,pg_temp.f(51),t+interval '5 minutes','type change after arrival',gen_random_uuid());
+ h:=public.move_hotel_room_same_type(sid,(h->>'version')::int,pg_temp.f(52),t+interval '10 minutes','move',gen_random_uuid());
+ h:=public.update_checked_in_hotel_planned_checkout(sid,(h->>'version')::int,d+3,'18:00',false,gen_random_uuid());
+ IF NOT pg_temp.physical(pg_temp.f(52),sid) THEN RAISE EXCEPTION 'PHYSICAL_HOLD_LOST'; END IF;
+ h:=public.complete_hotel_check_out(sid,(h->>'version')::int,statement_timestamp(),gen_random_uuid());
+ IF h->>'checkedOutAt' IS NULL THEN RAISE EXCEPTION 'CHECKOUT_NOT_COMPLETE'; END IF;
+ IF pg_temp.physical(NULL,sid) THEN RAISE EXCEPTION 'PHYSICAL_NOT_RELEASED'; END IF;
+ RAISE NOTICE 'SINGLE_EDIT_ASSIGN_REASSIGN_UNASSIGN_TYPE_CHECKIN_MOVE_CHECKOUT_TIME_CHECKOUT_PASS';
+ PERFORM set_config('request.jwt.claim.sub',creator::text,true);
+ h:=public.create_flexible_hotel_reservation(pg_temp.f(20),pg_temp.f(30),d+4,'09:00',false,d+5,'18:00',false,pg_temp.f(40),pg_temp.f(2),pg_temp.f(800),ARRAY[creator],'cancel case',gen_random_uuid());
+ PERFORM set_config('request.jwt.claim.sub',actor::text,true);
+ h:=public.cancel_hotel_reservation((h->>'id')::uuid,(h->>'version')::int,'cross staff cancellation',gen_random_uuid());
+ IF h->>'archivedAt' IS NULL THEN RAISE EXCEPTION 'CANCEL_NOT_ARCHIVED'; END IF;
+ PERFORM set_config('request.jwt.claim.sub',creator::text,true);
+ h:=public.create_flexible_hotel_reservation(pg_temp.f(20),pg_temp.f(30),d,NULL,true,(statement_timestamp() AT TIME ZONE 'Asia/Seoul')::date,NULL,true,NULL,pg_temp.f(3),pg_temp.f(800),ARRAY[creator],'unknown',gen_random_uuid());
+ PERFORM set_config('request.jwt.claim.sub',actor::text,true);
+ h:=public.finalize_and_complete_hotel_check_in((h->>'id')::uuid,(h->>'version')::int,t,pg_temp.f(40),pg_temp.f(53),gen_random_uuid());
+ h:=public.finalize_and_complete_hotel_check_out((h->>'id')::uuid,(h->>'version')::int,statement_timestamp(),gen_random_uuid());
+ RAISE NOTICE 'CANCEL_AND_UNKNOWN_FINALIZE_PASS';
+ PERFORM set_config('request.jwt.claim.sub',creator::text,true);
+ h:=public.create_unassigned_shared_room_family_booking(pg_temp.f(800),'shared matrix',false,(SELECT jsonb_agg(jsonb_build_object('stableMemberKey','member-'||n,'dogId',pg_temp.f(n),'serviceType','hotel','assigneeIds',jsonb_build_array(creator),'sharedRoomGroupKey','matrix-group','calendarId',pg_temp.f(20),'scheduleTypeId',pg_temp.f(30),'checkInDate',d-1,'checkInTime','09:00','checkOutDate',d+2,'checkOutTime','18:00','roomTypeId',pg_temp.f(40))) FROM generate_series(7,8)n),pg_temp.f(40),true,gen_random_uuid());
+ gid:=(h->>'sharedRoomGroupId')::uuid;
+ PERFORM set_config('request.jwt.claim.sub',actor::text,true);
+ BEGIN
+  PERFORM public.create_shared_hotel_room_occupancy(gid,pg_temp.f(61),gen_random_uuid());
+  RAISE EXCEPTION 'STANDARD_SHARED_ALLOWED';
+ EXCEPTION WHEN invalid_parameter_value OR check_violation THEN NULL;
+ END;
+ h:=public.create_shared_hotel_room_occupancy(gid,pg_temp.f(55),gen_random_uuid());oid:=(h->>'id')::uuid;
+ PERFORM public.move_shared_hotel_room_occupancy(oid,pg_temp.f(56),(h->>'version')::int,'shared move',gen_random_uuid());
+ h:=public.get_shared_hotel_room_occupancy(oid);
+ PERFORM public.unassign_shared_hotel_room_before_check_in(oid,(h->>'version')::int,'shared unassign',gen_random_uuid());
+ h:=public.create_shared_hotel_room_occupancy(gid,pg_temp.f(55),gen_random_uuid());oid:=(h->>'id')::uuid;
+
+ FOR member IN SELECT (value->>'hotelStayId')::uuid FROM jsonb_array_elements(h->'members') LOOP
+  SELECT version INTO v FROM hotel_stays WHERE id=member;
+  PERFORM public.complete_shared_hotel_check_in(oid,member,(public.get_shared_hotel_room_occupancy(oid)->>'version')::int,v,t,gen_random_uuid());
+  SELECT version INTO v FROM hotel_stays WHERE id=member;
+  PERFORM public.update_checked_in_hotel_planned_checkout(member,v,d+3,'18:00',false,gen_random_uuid());
+ END LOOP;
+ h:=public.get_shared_hotel_room_occupancy(oid);
+ remaining:=2;
+ FOR member IN SELECT (value->>'hotelStayId')::uuid FROM jsonb_array_elements(h->'members') ORDER BY value->>'hotelStayId' LOOP
+  SELECT version INTO v FROM hotel_stays WHERE id=member;
+  h:=public.complete_shared_hotel_member_check_out(oid,member,(h->>'version')::int,v,statement_timestamp(),gen_random_uuid());
+  h:=h->'occupancy';
+  remaining:=remaining-1;
+  IF (SELECT count(*) FROM jsonb_array_elements(h->'members') WHERE value->>'status'='active')<>remaining THEN RAISE EXCEPTION 'SHARED_MEMBER_COUNT'; END IF;
+  IF remaining=1 AND (h->>'status'<>'active' OR NOT pg_temp.physical(pg_temp.f(55),NULL)) THEN RAISE EXCEPTION 'FIRST_MEMBER_RELEASED_ROOM'; END IF;
+  IF remaining=0 AND (h->>'status'<>'completed' OR pg_temp.physical(pg_temp.f(55),NULL)) THEN RAISE EXCEPTION 'LAST_MEMBER_NOT_RELEASED'; END IF;
+ END LOOP;
+ IF pg_temp.group_status(gid)<>'released' THEN RAISE EXCEPTION 'SHARED_GROUP_NOT_RELEASED'; END IF;
+ RAISE NOTICE 'SHARED_CROSS_STAFF_FIRST_LAST_PHYSICAL_PASS';
+ PERFORM set_config('request.jwt.claim.sub',creator::text,true);
+ h:=public.create_unassigned_shared_room_family_booking(pg_temp.f(800),'shared cancellation',false,(SELECT jsonb_agg(jsonb_build_object('stableMemberKey','cancel-'||n,'dogId',pg_temp.f(n),'serviceType','hotel','assigneeIds',jsonb_build_array(creator),'sharedRoomGroupKey','cancel-group','calendarId',pg_temp.f(20),'scheduleTypeId',pg_temp.f(30),'checkInDate',d+4,'checkInTime','09:00','checkOutDate',d+5,'checkOutTime','18:00','roomTypeId',pg_temp.f(40))) FROM generate_series(7,8)n),pg_temp.f(40),true,gen_random_uuid());
+ gid:=(h->>'sharedRoomGroupId')::uuid;
+ PERFORM set_config('request.jwt.claim.sub',actor::text,true);
+ member:=pg_temp.group_member(gid);
+ SELECT version INTO v FROM hotel_stays WHERE id=member;
+ BEGIN
+  PERFORM public.cancel_hotel_reservation(member,v,'individual cancellation must stay blocked',gen_random_uuid());
+  RAISE EXCEPTION 'INDIVIDUAL_SHARED_CANCELLATION_ALLOWED';
+ EXCEPTION WHEN SQLSTATE 'PT409' THEN NULL;
+ END;
+ IF pg_temp.group_status(gid)<>'requested' THEN RAISE EXCEPTION 'REJECTED_CANCELLATION_CHANGED_GROUP'; END IF;
+ PERFORM public.cancel_shared_hotel_room_family_booking(gid,pg_temp.group_version(gid),'colleague cancels shared booking',gen_random_uuid());
+ IF pg_temp.group_status(gid)<>'cancelled' THEN RAISE EXCEPTION 'SHARED_NOT_CANCELLED'; END IF;
+ RAISE NOTICE 'SHARED_CANCEL_PASS';
+END $$;
+SET CONSTRAINTS ALL IMMEDIATE;
+ROLLBACK;

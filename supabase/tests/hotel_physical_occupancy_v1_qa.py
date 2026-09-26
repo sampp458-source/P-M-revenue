@@ -71,7 +71,9 @@ try:
     sql((ROOT/'supabase/tests/hotel_physical_occupancy_v1_cutover_qa.sql').read_text())
     report['cutoverAndLegacySingle'] = 'PASS'
     shared_case = (ROOT/'supabase/tests/hotel_physical_occupancy_v1_shared_qa.sql').read_text()
-    legacy_case = shared_case.replace("now()-interval '3 hours'", "timestamptz '2026-09-21 13:00+09'").replace("now()-interval '1 hour'", "timestamptz '2026-09-25 20:00+09'")
+    # Keep the legacy arrival pre-cutover, but keep the expired checkout
+    # relative to today so the current-day snapshot assertion stays valid.
+    legacy_case = shared_case.replace("now()-interval '3 hours'", "timestamptz '2026-09-21 13:00+09'")
     legacy_case = legacy_case.replace("SET checked_in_at=timestamptz '2026-09-21 13:00+09'", "SET checked_in_at=timestamptz '2026-09-21 15:44+09'")
     legacy_case = legacy_case.replace("count(distinct room_id)=1 AND count(*)=2", "count(*)=0").replace("count(*)=1 FROM hotel_current_physical_rooms_internal()", "count(*)=0 FROM hotel_current_physical_rooms_internal()")
     legacy_case = legacy_case.replace("'J Shared two dogs one room'", "'A legacy Shared does not inherit a physical hold'").replace("'J real member checkout retains room'", "'legacy first member leaves occupancy active without new physical hold'")
