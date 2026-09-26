@@ -29,4 +29,13 @@ describe('Calendar monthly V2 presentation boundary', () => {
     expect(addition).toContain('.pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2');
     expect(addition).toContain('background:#fffefa!important');
   });
+  it('preserves a selected outline when the date is also today', () => {
+    const css = read('operations-schedule-presentation.css');
+    const selector = '.pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-d-calendar-day[aria-pressed=true]:has(.pm-calendar-day-number.bg-primary)';
+    const rule = css.slice(css.indexOf(selector), css.indexOf('}', css.indexOf(selector)));
+    expect(css.indexOf(selector)).toBeGreaterThan(css.indexOf('@media(min-width:768px)'));
+    expect(rule).toContain('box-shadow:inset 0 0 0 1px var(--pm-d-brand-cobalt)!important');
+    expect(rule).toContain('background:#fffefa!important');
+  });
+
 });

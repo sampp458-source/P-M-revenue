@@ -60,7 +60,8 @@
 .pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-d-calendar-day:has(.pm-calendar-count),
 .pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-d-calendar-day:has(.pm-calendar-day-number.bg-primary) {background:#fffefa!important;border:0!important;border-right:1px solid #efeee9!important;border-bottom:1px solid #efeee9!important;box-shadow:none!important;border-radius:0!important;transform:none!important;padding:10px 10px 12px!important;min-height:166px!important;}
 .pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-d-calendar-day:hover:not([aria-pressed=true]) {background:#faf9f5!important;}
-.pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-d-calendar-day[aria-pressed=true] {background:#fffefa!important;box-shadow:inset 0 0 0 1px var(--pm-d-brand-cobalt)!important;}
+.pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-d-calendar-day[aria-pressed=true],
+.pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-d-calendar-day[aria-pressed=true]:has(.pm-calendar-day-number.bg-primary) {background:#fffefa!important;box-shadow:inset 0 0 0 1px var(--pm-d-brand-cobalt)!important;}
 .pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-calendar-count {color:var(--pm-d-ink-muted)!important;background:transparent!important;border:0!important;box-shadow:none!important;font-size:11px!important;font-weight:500!important;}
 .pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-calendar-weekdays {border:0!important;background:transparent!important;}
 .pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-calendar-events {margin-top:9px!important;}
