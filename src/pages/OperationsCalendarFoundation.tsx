@@ -1,9 +1,9 @@
+import "../operations-schedule-presentation.css";
+import { scheduleBusiness, ScheduleBusinessMarker, SchedulePeople, ScheduleStatus, MobileCalendarStatusLegend, MobileCalendarStatusSummary } from "./operationSchedulePresentation";
 import "../design-system-v2.css";
 import "../calendar-design-v2.css";
-import { HotelDayOperationsTimeline } from "./HotelDayOperationsTimeline";
 import {
   CalendarDays,
-  Check,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -63,11 +63,9 @@ import {
   isOperationScheduleConflictError,
   mergeOperationScheduleCollection,
   nextSeoulDate,
-  operationPersonColor,
   operationScheduleDisplayTitle,
   operationScheduleHotelRoomLabel,
   operationScheduleTimeLabel,
-  schedulePrimaryAssignee,
   seoulDateKey,
   setOperationScheduleStatus,
   toSeoulInstant,
@@ -608,6 +606,7 @@ export function OperationsCalendarFoundationPage() {
           </div>
         ) : (
           <div key={visibleMonth} className="animate-[fadeIn_180ms_ease-out]">
+            <MobileCalendarStatusLegend />
             <div className="pm-calendar-weekdays grid grid-cols-7 border-b border-border bg-surface-secondary/60">
               {WEEKDAYS.map((weekday, index) => (
                 <div
@@ -907,6 +906,7 @@ function CalendarCell({
       onClick={onClick}
       aria-label={`${fullDateLabel(date)}, 일정 ${schedules.length}건`}
       aria-pressed={selected}
+      aria-describedby={schedules.length ? `calendar-status-${date}` : undefined}
       className={cn(
         "pm-calendar-cell pm-d-calendar-day group relative min-h-[78px] border-b border-r border-border p-1.5 text-left transition-[background-color,border-color,border-radius,box-shadow,transform] duration-[160ms] ease-out sm:min-h-[134px] sm:p-2.5 lg:min-h-[154px] lg:p-3",
         "focus:z-10 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary",
@@ -941,20 +941,7 @@ function CalendarCell({
           </span>
         )}
       </div>
-      <div className="pm-calendar-dots mt-2 flex flex-wrap gap-1 sm:hidden" aria-hidden="true">
-        {schedules.slice(0, 4).map((schedule) => (
-          <span
-            key={schedule.id}
-            className="h-2.5 w-2.5 rounded-full shadow-[0_1px_4px_rgb(15_23_42_/_0.2)] ring-1 ring-white"
-            style={{
-              backgroundColor:
-                schedulePrimaryAssignee(schedule)
-                  ? operationPersonColor(schedulePrimaryAssignee(schedule)!)
-                  : schedule.calendarColor,
-            }}
-          />
-        ))}
-      </div>
+      <MobileCalendarStatusSummary schedules={schedules} id={`calendar-status-${date}`} />
       <div className="pm-calendar-events mt-1.5 hidden space-y-1 sm:block">
         {schedules.slice(0, 2).map((schedule) => (
           <MonthScheduleCard
@@ -980,68 +967,17 @@ function MonthScheduleCard({
   schedule: OperationSchedule;
   currentUserId?: string | null;
 }) {
-  const assignee = schedulePrimaryAssignee(schedule);
-  const displayTitle =
-    operationScheduleDisplayTitle(schedule) ||
-    schedule.dogs[0]?.name ||
-    "제목 없음";
+  const displayTitle = schedule.hotelEventKind
+    ? `${compactDogNames(schedule.dogs)} · ${schedule.hotelEventKind === "check_in" ? "입실" : "퇴실"}`
+    : operationScheduleDisplayTitle(schedule) || schedule.dogs[0]?.name || "제목 없음";
   const isMine = isOperationScheduleAssignedTo(schedule, currentUserId);
   return (
-    <div
-      className={cn(
-        "pm-calendar-event relative min-h-[38px] overflow-hidden rounded-lg border border-border/80 bg-surface px-2.5 py-2 shadow-[0_2px_6px_rgb(15_23_42_/_0.06)] transition-[border-color,background-color,box-shadow,opacity,transform] duration-[160ms] ease-out group-hover:border-primary/20 group-hover:shadow-[0_5px_12px_rgb(15_23_42_/_0.09)] lg:min-h-[42px] lg:px-3",
-        isMine && "border-primary/30 bg-primary-soft/65 shadow-[0_3px_8px_rgb(39_76_119_/_0.1)]",
-        schedule.status !== "scheduled" && "opacity-55",
-      )}
-    >
-      <span
-        className="absolute inset-y-0 left-0 w-1.5"
-        style={{ backgroundColor: schedule.calendarColor }}
-      />
-      <div className="min-w-0 pl-0.5">
-        <span
-          className={cn(
-            "block truncate text-[10px] font-bold leading-4 tracking-[-0.01em] text-text-primary lg:text-xs",
-            isMine && "font-extrabold",
-            schedule.status === "cancelled" && "line-through",
-          )}
-        >
-          {displayTitle}
-        </span>
-        {schedule.dogs.some(dog => dog.profileStatus === "removed") && <span className="rounded bg-surface px-1 text-[10px] text-text-secondary">프로필 삭제됨</span>}
-        <div className="mt-px flex min-w-0 items-center gap-1">
-          <span
-            className={cn(
-              "shrink-0 text-[9px] font-semibold leading-3 tabular-nums lg:text-[10px]",
-              schedule.timeUnspecified
-                ? "rounded-full bg-surface-secondary px-1.5 py-0.5 text-text-secondary"
-                : "text-text-secondary",
-            )}
-          >
-            {operationScheduleTimeLabel(schedule)}
-          </span>
-          <span
-            className="h-3 w-3 shrink-0 rounded-full shadow-[0_1px_4px_rgb(15_23_42_/_0.24)] ring-2 ring-white"
-            style={{
-              backgroundColor: assignee
-                ? operationPersonColor(assignee)
-                : "#5B7FA3",
-            }}
-            aria-label={assignee?.name ?? "담당자"}
-          />
-          {schedule.assignees.slice(1, 3).map((person) => (
-            <span
-              key={person.id}
-              className="h-2 w-2 shrink-0 rounded-full shadow-sm ring-1 ring-white"
-            style={{ backgroundColor: operationPersonColor(person) }}
-              aria-label={person.name ?? "담당자"}
-            />
-          ))}
-          {schedule.status === "completed" && (
-            <Check size={10} className="ml-auto shrink-0 text-success" />
-          )}
-        </div>
-      </div>
+    <div className="pm-calendar-event pm-month-schedule" data-status={schedule.status} data-mine={isMine} title={operationScheduleDisplayTitle(schedule)}>
+      <span className="pm-month-title">{displayTitle}</span>
+      {!schedule.hotelEventKind && <span className="pm-month-type">{schedule.scheduleTypeName}</span>}
+      {schedule.dogs.some(dog => dog.profileStatus === "removed") && <span className="pm-month-type">프로필 삭제됨</span>}
+      <div className="pm-month-meta"><time>{operationScheduleTimeLabel(schedule)}</time><ScheduleBusinessMarker schedule={schedule} /></div>
+      <ScheduleStatus status={schedule.status} />
     </div>
   );
 }
@@ -1187,14 +1123,20 @@ function DayDrawer({
               </Button>
             </div>
           ) : (
-            <HotelDayOperationsTimeline items={schedules.map(schedule => ({
-              id: schedule.id, at: schedule.startsAt, allDay: schedule.allDay, timeUnspecified: schedule.timeUnspecified,
-              name: schedule.hotelEventKind ? compactDogNames(schedule.dogs) : operationScheduleDisplayTitle(schedule),
-              detail: schedule.hotelEventKind ? `${schedule.hotelEventKind === "check_in" ? "입실" : "퇴실"} · ${operationScheduleHotelRoomLabel(schedule)}` : schedule.scheduleTypeName,
-              kind: schedule.hotelEventKind ?? "other",
-              status: schedule.status === "completed" ? "완료" : schedule.status === "cancelled" ? "취소" : "예정",
-              onOpen: () => onOpen(schedule),
-            }))} />
+            <div className="pm-schedule-day-list">
+              <p className="pm-schedule-day-detail">예정 일정 기준 · 실제 입퇴실 기록은 상세에서 확인</p>
+              <p className="pm-schedule-day-detail">전체 {schedules.length} · 입실 {schedules.filter(schedule => schedule.hotelEventKind === "check_in").length} · 퇴실 {schedules.filter(schedule => schedule.hotelEventKind === "check_out").length}</p>
+              {[...schedules].sort((a, b) => Number(Boolean(a.timeUnspecified)) - Number(Boolean(b.timeUnspecified)) || Date.parse(a.startsAt) - Date.parse(b.startsAt) || a.id.localeCompare(b.id)).map(schedule => (
+                <button key={schedule.id} type="button" className="pm-schedule-day-row" data-status={schedule.status} onClick={() => onOpen(schedule)}>
+                  <span className="pm-schedule-day-rail" style={{ backgroundColor: scheduleBusiness(schedule).color }} aria-hidden="true" />
+                  <span className="pm-schedule-day-top"><time className="pm-schedule-time">{operationScheduleTimeLabel(schedule)}</time><ScheduleStatus status={schedule.status} /></span>
+                  <strong>{schedule.hotelEventKind ? compactDogNames(schedule.dogs) : operationScheduleDisplayTitle(schedule)}</strong>
+                  <span className="pm-schedule-day-detail">{schedule.hotelEventKind ? `${schedule.hotelEventKind === "check_in" ? "입실" : "퇴실"} · ${operationScheduleHotelRoomLabel(schedule)}` : schedule.scheduleTypeName}</span>
+                  <ScheduleBusinessMarker schedule={schedule} />
+                  <SchedulePeople schedule={schedule} />
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>

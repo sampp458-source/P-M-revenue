@@ -1,3 +1,5 @@
+import "../operations-schedule-presentation.css";
+import { SCHEDULE_BUSINESSES, scheduleBusiness, ScheduleBusinessMarker, SchedulePeople, ScheduleStatus } from "./operationSchedulePresentation";
 import "../design-system-v2.css";
 import "../today-design-v2.css";
 import {
@@ -54,7 +56,6 @@ import {
   calculateOperationTodaySummary,
   compactNames,
   createOperationSchedule,
-  DEFAULT_OPERATION_SCHEDULE_COLOR,
   defaultOperationCalendarId,
   defaultOperationScheduleTitle,
   defaultOperationScheduleWindow,
@@ -74,7 +75,6 @@ import {
   operationScheduleDisplayTitle,
   operationScheduleTimeLabel,
   seoulDateKey,
-  schedulePrimaryAssignee,
   setOperationScheduleStatus,
   sortOperationSchedulesForViewer,
   suggestOperationCustomerIds,
@@ -1291,13 +1291,6 @@ function ScheduleRow({
   currentUserId?: string | null;
   onOpen: () => void;
 }) {
-  const primaryAssignee = schedulePrimaryAssignee(schedule);
-  const secondaryAssignees = schedule.assignees.filter(
-    (assignee) => assignee.id !== primaryAssignee?.id,
-  );
-  const primaryAssigneeColor = primaryAssignee
-    ? operationPersonColor(primaryAssignee)
-    : DEFAULT_OPERATION_SCHEDULE_COLOR;
   const isMine = isOperationScheduleAssignedTo(schedule, currentUserId);
   const completed = schedule.status === "completed";
   const cancelled = schedule.status === "cancelled";
@@ -1306,21 +1299,23 @@ function ScheduleRow({
     <button
       type="button"
       data-operation-card="schedule"
+      data-status={schedule.status}
       aria-label={`${operationScheduleDisplayTitle(schedule)} 일정 상세 보기`}
       onClick={onOpen}
       className={cn(
         "pm-today-event pm-d-schedule-row group relative grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-3 overflow-hidden rounded-2xl border border-border/90 bg-surface px-4 py-3.5 text-left shadow-[0_2px_7px_rgb(23_36_58_/_0.045),0_8px_22px_rgb(23_36_58_/_0.055)] transition-[background-color,border-color,box-shadow,opacity,transform,filter] duration-[160ms] ease-out hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-[var(--pm-shadow-surface-hover)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:px-5",
         isMine && "border-primary/25 bg-primary/[0.07] shadow-[0_3px_10px_rgb(39_76_119_/_0.08),0_12px_28px_rgb(39_76_119_/_0.09)]",
-        completed && "bg-surface-secondary/45 opacity-70 saturate-50",
-        cancelled && "bg-surface-secondary/35 opacity-60 saturate-50",
+        completed && "bg-surface-secondary/45",
+        cancelled && "bg-surface-secondary/35",
       )}
     >
       <span
         aria-hidden="true"
         className="absolute inset-y-0 left-0 w-[3px]"
-        style={{ backgroundColor: primaryAssigneeColor }}
+        style={{ backgroundColor: scheduleBusiness(schedule).color }}
       />
       <div className="min-w-0">
+        <time className="pm-schedule-time">{time}</time>
         <p
           className={cn(
             "pm-today-event-title flex min-w-0 items-center gap-2 truncate text-[15px] font-bold tracking-[-0.015em] transition-colors duration-[160ms] group-hover:text-primary sm:text-base",
@@ -1339,51 +1334,13 @@ function ScheduleRow({
             </Badge>
           )}
         </p>
-        <div className="pm-today-event-meta mt-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-text-secondary sm:text-[13px]">
-          {schedule.timeUnspecified ? (
-            <Badge tone="gray">시간 미정</Badge>
-          ) : (
-            <time className="shrink-0 font-bold tabular-nums text-text-primary">
-              {time}
-            </time>
-          )}
-          <span aria-hidden="true" className="text-border-strong">·</span>
-          <span className="max-w-[13rem] truncate">
-            {schedule.dogs.length
-              ? schedule.dogs.map((dog) => dog.name).join(", ")
-              : "반려견 미연결"}
-          </span>
-          <span aria-hidden="true" className="text-border-strong">·</span>
-          <span className="inline-flex min-w-0 items-center gap-1.5">
-            <span
-              aria-hidden="true"
-              className="h-3 w-3 shrink-0 rounded-full shadow-[0_1px_4px_rgb(15_23_42_/_0.18)] ring-2 ring-white"
-              style={{ backgroundColor: primaryAssigneeColor }}
-            />
-            <span className="max-w-[9rem] truncate">
-              {primaryAssignee
-                ? operationPersonDisplayName(primaryAssignee)
-                : "담당자 미정"}
-            </span>
-            {secondaryAssignees.map((assignee) => (
-              <span
-                key={assignee.id}
-                aria-label={`${operationPersonDisplayName(assignee)} 색상`}
-                title={operationPersonDisplayName(assignee)}
-                className="h-2.5 w-2.5 shrink-0 rounded-full border border-white shadow-sm"
-                style={{
-                  backgroundColor:
-                    operationPersonColor(assignee),
-                }}
-              />
-            ))}
-          </span>
+        <div className="pm-today-event-meta">
+          <ScheduleBusinessMarker schedule={schedule} />
+          <SchedulePeople schedule={schedule} />
         </div>
       </div>
       <span className="pm-today-event-status flex flex-col items-end gap-2">
-        <Badge tone={completed ? "gray" : cancelled ? "red" : "blue"}>
-          {completed ? "완료" : cancelled ? "취소" : "예정"}
-        </Badge>
+        <ScheduleStatus status={schedule.status} />
         <span className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-[color,background-color,transform] duration-[160ms] ease-out group-hover:translate-x-0.5 group-hover:bg-primary-soft group-hover:text-primary">
           <ChevronRight size={17} />
         </span>
@@ -1400,10 +1357,10 @@ function TodaySummary({
   counts: { daycare: number; training: number; hotel: number; common: number };
 }) {
   const rows = [
-    ["유치원", counts.daycare, "#52B8D0"],
-    ["교육센터", counts.training, "#4568B2"],
-    ["호텔", counts.hotel, "#C99845"],
-    ["공통", counts.common, "#5B7FA3"],
+    [SCHEDULE_BUSINESSES.daycare.label, counts.daycare, SCHEDULE_BUSINESSES.daycare.color],
+    [SCHEDULE_BUSINESSES.training.label, counts.training, SCHEDULE_BUSINESSES.training.color],
+    [SCHEDULE_BUSINESSES.hotel.label, counts.hotel, SCHEDULE_BUSINESSES.hotel.color],
+    [SCHEDULE_BUSINESSES.common.label, counts.common, SCHEDULE_BUSINESSES.common.color],
   ] as const;
   return (
     <Card className="pm-today-summary pm-d-passive-summary p-4 sm:p-5">

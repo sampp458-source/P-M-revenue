@@ -73,12 +73,12 @@ describe("Operations foundation UI", () => {
     expect(todaySource).toContain("setDetail(null)");
     expect(todaySource).toContain("<ModalActions>");
     expect(todaySource).not.toContain(">취소</Button>");
-    expect(calendarSource).toContain("schedulePrimaryAssignee");
+    expect(calendarSource).toContain("SchedulePeople");
     expect(calendarSource).toContain("schedules.slice(0, 2)");
     expect(calendarSource).toContain("개 일정");
     expect(calendarSource).toContain("duration-[160ms]");
-    expect(calendarSource).toContain("<HotelDayOperationsTimeline");
-    expect(calendarSource).toContain("onOpen: () => onOpen(schedule)");
+    expect(calendarSource).toContain("pm-schedule-day-list");
+    expect(calendarSource).toContain("onClick={() => onOpen(schedule)}");
     expect(todaySource).toContain("schedule.memo");
     expect(todaySource).toContain("oneHourScheduleEnd");
     expect(todaySource.match(/<ModalActions>/g)?.length).toBeGreaterThanOrEqual(2);
@@ -174,23 +174,13 @@ describe("Operations foundation UI", () => {
     expect(todaySource).toContain("onTitleManuallyEdited(true)");
   });
 
-  it("keeps Today cards ordered by title, time, dog, assignee, and status", () => {
-    const scheduleRow = todaySource.slice(
-      todaySource.indexOf("function ScheduleRow"),
-      todaySource.indexOf("function TodaySummary"),
-    );
-    expect(scheduleRow).toContain("primaryAssigneeColor");
-    expect(scheduleRow).toContain('className="absolute inset-y-0 left-0 w-[3px]"');
-    expect(scheduleRow).toContain('completed ? "완료" : cancelled ? "취소" : "예정"');
-    expect(scheduleRow).toContain("bg-primary/[0.07]");
-    expect(scheduleRow).toContain("saturate-50");
-    expect(scheduleRow).toContain("schedulePrimaryAssignee");
-    expect(scheduleRow).toContain("operationScheduleDisplayTitle(schedule)");
-    expect(scheduleRow).toContain("schedule.assignees");
-    expect(scheduleRow).toContain("schedule.dogs");
-    expect(scheduleRow).toContain('completed ? "완료"');
-    expect(scheduleRow).not.toContain("schedule.calendarName");
-    expect(scheduleRow).not.toContain("schedule.scheduleTypeName");
-    expect(scheduleRow).not.toContain("schedule.customers");
+  it("keeps Today time, title, business, people and status independently readable", () => {
+    const scheduleRow = todaySource.slice(todaySource.indexOf("function ScheduleRow"), todaySource.indexOf("function TodaySummary"));
+    expect(scheduleRow).toContain("scheduleBusiness(schedule).color");
+    expect(scheduleRow).toContain("<SchedulePeople schedule={schedule}");
+    expect(scheduleRow).toContain("<ScheduleStatus status={schedule.status}");
+    expect(scheduleRow).toContain("onClick={onOpen}");
+    expect(scheduleRow.indexOf('<time')).toBeLessThan(scheduleRow.indexOf('<p'));
+    expect(scheduleRow).not.toContain("saturate-50");
   });
 });

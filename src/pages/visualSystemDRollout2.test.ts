@@ -1,11 +1,10 @@
+// Today/Calendar presentation is covered by operationsSchedulePresentation.test.tsx; workflow hashes remain frozen there.
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { normalizeVisualSystemD } from './visualSystemDTestNormalization';
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 const originals = {
-  "src/pages/OperationsCalendarFoundation.tsx": "b391a03b617ba2aae3c433a85845c60edc57f723d43f4e45b4a93c839dac6012",
-  "src/pages/OperationsToday.tsx": "4c56cf2f63eef562863ff7c83e1bb266ac1c7a9d79a74b0d86336571e1244d6f",
   "src/pages/SalesHistoryDB.tsx": "ffc4bf3a20602efbec00898446741fbffc83aa91a94301baff6940af9d9b0520",
   "src/pages/DogManagement.tsx": "398bb62253da18f37595879e5a936242a5f8fb346b709ed85c9068cd57bb8831",
   "src/pages/DogProfileModal.tsx": "1ff560b08025319690bde1c89ad7614800635c58734fad97e1f6c9ce77231d33",

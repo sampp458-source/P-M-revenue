@@ -17,7 +17,7 @@ describe('Calendar V1 visual boundary', () => {
     expect(css).not.toContain('@keyframes');
     expect(css.match(/@media/g)).toHaveLength(1);
     expect(css).toContain('@media (width < 40rem)');
-    expect(source).toContain('mt-2 flex flex-wrap gap-1 sm:hidden');
+    expect(source).toContain('<MobileCalendarStatusSummary schedules={schedules}');
     expect(source).toContain('mt-1.5 hidden space-y-1 sm:block');
     expect(source).toContain('w-full max-w-[560px]');
   });
