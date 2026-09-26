@@ -38,6 +38,22 @@ describe('Calendar monthly V2 presentation boundary', () => {
     expect(desktop).toContain('border-right:1px solid rgb(0 0 0 / 6%)!important');
     expect(desktop).not.toMatch(/#fffefa|#faf9f5|#eeede9|#efeee9/);
   });
+  it('adds only a presentation time hook to the frozen Calendar source', () => {
+    const source = read('pages/OperationsCalendarFoundation.tsx');
+    const hook = '      data-temporal={date < today ? "past" : isToday ? "today" : "future"}\n';
+    expect(source.split(hook)).toHaveLength(2);
+    expect(sha(source.replace(hook, ''))).toBe('ab6dcc0d0d66a6eb7ee4239f1b84b9dbc06781ef7b2a73c98c51b96fcc9c7cc9');
+  });
+  it('limits temporal emphasis to desktop content and preserves combined selection depth', () => {
+    const css = read('operations-schedule-presentation.css');
+    const temporal = css.slice(css.indexOf('/* Time affects content'));
+    expect(css.indexOf('/* Time affects content')).toBeGreaterThan(css.indexOf('@media(min-width:768px)'));
+    expect(temporal).toContain('[data-temporal=past]>.pm-calendar-events {opacity:.8;}');
+    expect(temporal).toContain('[data-temporal=past][aria-pressed=true]>.pm-calendar-events {opacity:.9;}');
+    expect(temporal).toContain('box-shadow:inset 0 0 0 1px var(--pm-d-brand-cobalt),0 2px 2px -1px rgb(0 0 0 / 10%)!important');
+    expect(temporal).not.toContain('background:');
+    expect(temporal).not.toContain('[data-temporal=future]');
+  });
   it('preserves a selected outline when the date is also today', () => {
     const css = read('operations-schedule-presentation.css');
     const selector = '.pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-d-calendar-day[aria-pressed=true]:has(.pm-calendar-day-number.bg-primary)';

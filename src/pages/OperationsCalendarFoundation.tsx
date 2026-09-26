@@ -906,6 +906,7 @@ function CalendarCell({
       onClick={onClick}
       aria-label={`${fullDateLabel(date)}, 일정 ${schedules.length}건`}
       aria-pressed={selected}
+      data-temporal={date < today ? "past" : isToday ? "today" : "future"}
       aria-describedby={schedules.length ? `calendar-status-${date}` : undefined}
       className={cn(
         "pm-calendar-cell pm-d-calendar-day group relative min-h-[78px] border-b border-r border-border p-1.5 text-left transition-[background-color,border-color,border-radius,box-shadow,transform] duration-[160ms] ease-out sm:min-h-[134px] sm:p-2.5 lg:min-h-[154px] lg:p-3",
