@@ -81,7 +81,7 @@ describe("Today / Calendar lifecycle room projection parity", () => {
       const result = await load();
       expect(result).toHaveLength(3);
       expect(result.map(operationScheduleHotelRoomLabel)).toEqual(failure
-        ? ["객실 정보 확인 필요", "객실 정보 확인 필요", "객실 정보 확인 필요"]
+        ? ["객실 이력 미확인", "객실 이력 미확인", "객실 이력 미확인"]
         : ["STANDARD 4", "DELUXE 5", "DELUXE 5"]);
       expect(projectionDb.rpc.mock.calls.filter(([name]) =>
         name === "get_operation_hotel_room_projections_v2")).toEqual([

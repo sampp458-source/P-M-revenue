@@ -286,7 +286,7 @@ export function operationScheduleDisplayTitle(
     | "hotelRoomName"
     | "hotelRoomResolutionStatus"
     | "dogs"
-  >,
+  > & Partial<Pick<OperationSchedule, "status">>,
 ) {
   const eventLabel =
     schedule.hotelEventKind === "check_in"
@@ -314,8 +314,11 @@ export function operationScheduleHotelRoomLabel(
     | "hotelRoomTypeName"
     | "hotelRoomName"
     | "hotelRoomResolutionStatus"
-  >,
+  > & Partial<Pick<OperationSchedule, "status">>,
 ) {
+  if (schedule.status === "completed" && schedule.hotelRoomResolutionStatus !== "resolved") {
+    return "객실 이력 미확인";
+  }
   if (schedule.hotelRoomResolutionStatus === "unavailable") {
     return "객실 정보 확인 필요";
   }

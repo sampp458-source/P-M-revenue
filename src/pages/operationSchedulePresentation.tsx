@@ -24,7 +24,7 @@ export function ScheduleStatus({ status }: { status: OperationSchedule['status']
   return <span className="pm-schedule-status" data-status={status}>{status === 'completed' ? '완료' : status === 'cancelled' ? '취소' : '예정'}</span>;
 }
 export function SchedulePeople({ schedule }: { schedule: OperationSchedule }) {
-  return <div className="pm-schedule-people" data-room-attention={Boolean(schedule.hotelEventKind && (schedule.hotelRoomResolutionStatus === "unavailable" || schedule.hotelRoomResolutionStatus === "unknown"))}>
+  return <div className="pm-schedule-people" data-room-attention={Boolean(schedule.status === "scheduled" && schedule.hotelEventKind && (schedule.hotelRoomResolutionStatus === "unavailable" || schedule.hotelRoomResolutionStatus === "unknown"))}>
     {schedule.dogs.length > 0 && <span className="pm-schedule-dogs">{schedule.dogs.map(dog => dog.name).join(' · ')}</span>}
     <span className="pm-schedule-assignee" data-unassigned={schedule.assignees.length === 0} title={schedule.assignees.map(operationPersonDisplayName).join(' · ')}>{scheduleAssigneeLabel(schedule)}</span>
   </div>;

@@ -30,9 +30,9 @@ describe('schedule actionability presentation boundary', () => {
     expect(actionability).toContain(':has([data-room-attention=true],[data-unassigned=true])');
     expect(actionability).toContain('outline:2px solid var(--pm-d-brand-cobalt)');
   });
-  for (const state of ['unknown', 'unavailable'] as const) it(`preserves existing Hotel ${state} information even on completed rows`, () => {
+  for (const state of ['unknown', 'unavailable'] as const) it(`separates historical Hotel ${state} from operational attention`, () => {
     const html = renderToStaticMarkup(<SchedulePeople schedule={fixture({ status: 'completed', hotelEventKind: 'check_out', hotelRoomResolutionStatus: state })} />);
-    expect(html).toContain('data-room-attention="true"');
+    expect(html).toContain('data-room-attention="false"');
     expect(html).toContain('담당 담당자');
   });
   it('does not invent Hotel attention for ordinary schedules or resolved historical records', () => {
