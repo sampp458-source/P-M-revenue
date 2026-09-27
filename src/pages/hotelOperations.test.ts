@@ -254,7 +254,7 @@ describe("Hotel Operations frontend", () => {
     });
 
     expect(formatHotelScheduleTime(unspecifiedStay, "check_in")).toBe(
-      "시간 미정",
+      "2026. 08. 07. · 시간 미정",
     );
     expect(pageSource).toContain(
       'stay.capacityReservation?.roomTypeName ?? "객실 미정"',

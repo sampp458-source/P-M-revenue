@@ -270,3 +270,10 @@ it("007 past Shared detail preserves reading and blocks commands", async () => {
   expect(change).not.toHaveBeenCalled();
   expect(mocks.unassign).not.toHaveBeenCalled();
 });
+
+it("keeps the known checkout date in Shared detail when time is unspecified", async () => {
+  const unknown = {...dogA,scheduleEvents:dogA.scheduleEvents.map(e=>e.eventKind==='check_out'?{...e,schedule:{...e.schedule,startsAt:'2026-09-29T15:00:00Z',timeUnspecified:true}}:e)};
+  mocks.fetchHotelStay.mockImplementation((id:string)=>Promise.resolve(id===dogA.id?unknown:dogB));
+  render(<SharedHotelRoomModal occupancy={occupancy(["active","active"])} snapshot={snapshot} selectedDate="2026-09-27" operationRole="staff" onClose={vi.fn()} onChanged={vi.fn()} onChangePlannedCheckout={vi.fn().mockResolvedValue(true)} />);
+  await screen.findByText("퇴실 예정 2026. 09. 30. · 시간 미정");
+});

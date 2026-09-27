@@ -225,7 +225,12 @@ export function formatHotelScheduleTime(
 ) {
   const schedule = hotelStayScheduleEvent(stay, eventKind);
   if (!schedule) return "-";
-  if (schedule.timeUnspecified) return "시간 미정";
+  if (schedule.timeUnspecified) {
+    const date = new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date(schedule.startsAt));
+    return `${date} · 시간 미정`;
+  }
   return formatHotelDateTime(schedule.startsAt);
 }
 
