@@ -53,6 +53,23 @@
 .pm-design-d.pm-calendar-v1 .pm-schedule-day-row {padding-block:12px!important;}
 }
 
+/* Actionability applies only to interactive Today/day-drawer rows, never month cells. */
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page :is(.pm-today-event,.pm-schedule-day-row) {--pm-schedule-strength:1;}
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page :is(.pm-today-event,.pm-schedule-day-row)[data-status=completed] {--pm-schedule-strength:.74;}
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page :is(.pm-today-event,.pm-schedule-day-row)[data-status=cancelled] {--pm-schedule-strength:.68;}
+/* Existing unresolved room information and unassigned personnel remain foreground. */
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page :is(.pm-today-event,.pm-schedule-day-row):has([data-room-attention=true],[data-unassigned=true]),
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page :is(.pm-today-event,.pm-schedule-day-row):is(:hover,:focus-visible) {--pm-schedule-strength:1;}
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page .pm-today-event>div,
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page .pm-today-event>span[aria-hidden=true],
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page .pm-schedule-day-row>:is(.pm-schedule-day-rail,strong,.pm-schedule-day-detail,.pm-schedule-business,.pm-schedule-people),
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page .pm-schedule-day-row>.pm-schedule-day-top>.pm-schedule-time {opacity:var(--pm-schedule-strength)!important;}
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page.pm-today-v1 .pm-today-event[data-status] .pm-today-event-title,
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page.pm-calendar-v1 .pm-schedule-day-row[data-status] strong {color:var(--pm-d-ink)!important;text-decoration:none!important;}
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page.pm-d-rollout2 :is(.pm-today-event,.pm-schedule-day-row) {background:transparent!important;box-shadow:none!important;}
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page.pm-d-rollout2 :is(.pm-today-event,.pm-schedule-day-row):hover {background:var(--pm-d-surface-muted)!important;}
+.pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page :is(.pm-today-event,.pm-schedule-day-row):focus-visible {outline:2px solid var(--pm-d-brand-cobalt)!important;outline-offset:-2px!important;}
+
 /* Monthly desktop only: quiet date structure, business rail and recessive completion. */
 @media(min-width:768px) {
 .pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-calendar-surface {background:#fff!important;}
