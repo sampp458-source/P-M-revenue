@@ -156,3 +156,12 @@
 
 /* Phase 3: audited issue closure; presentation only. */
 .pm-finance-v1.pm-finance-v2.pm-reports-v1 .finance-chart .recharts-cartesian-axis-tick-value{font-size:12px;fill:#485f73}
+
+@layer pm-d-adoption {
+/* Dashboard selection belongs to the business card, not the global cobalt toggle. */
+.pm-finance-v1.pm-finance-v2.pm-design-d.pm-d-page.pm-dashboard-v1 .pm-d-business-comparison>button[aria-pressed]{background:transparent!important;color:var(--pm-d-ink)!important;border-color:transparent!important;box-shadow:none!important;}
+.pm-finance-v1.pm-finance-v2.pm-design-d.pm-d-page.pm-dashboard-v1 .pm-d-business-comparison:has(>button[aria-pressed=true]){border-color:var(--pm-theme-accent)!important;box-shadow:inset 3px 0 var(--pm-theme-accent)!important;}
+.pm-finance-v1.pm-finance-v2.pm-design-d.pm-d-page.pm-dashboard-v1 .pm-d-business-comparison>button[aria-pressed]:active{box-shadow:inset 0 0 0 1px var(--pm-theme-accent)!important;}
+.pm-finance-v1.pm-finance-v2.pm-design-d.pm-d-page.pm-dashboard-v1 .pm-d-business-comparison>button[aria-pressed]:focus-visible{outline:2px solid var(--pm-d-brand-cobalt)!important;outline-offset:-5px!important;}
+
+}
