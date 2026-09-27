@@ -371,11 +371,25 @@ function stageBadgeClass(stage: RoomBoardStage, waiting: boolean) {
 }
 
 export function hotelRoomBoardDogStatus(stay: HotelStay, selectedDate: string) {
-  if (selectedDate === seoulInputParts(new Date().toISOString()).date && stay.checkedInAt && !stay.checkedOutAt) {
-    return { label: "이용중", stage: "in_house" as const };
-  }
   const checkInDate = hotelStayScheduleDate(stay, "check_in");
   const checkOutDate = hotelStayScheduleDate(stay, "check_out");
+  const now = new Date();
+  // Current operations show the next required action. Other dates retain the
+  // existing schedule visualization; occupancy itself is filtered separately.
+  if (selectedDate === seoulInputParts(now.toISOString()).date) {
+    if (stay.checkedOutAt) return { label: "완료", stage: "check_out" as const };
+    if (!stay.checkedInAt && checkInDate === selectedDate) {
+      return { label: "입실", stage: "check_in" as const };
+    }
+    if (stay.checkedInAt) {
+      const checkout = hotelStayScheduleEvent(stay, "check_out");
+      if (checkout && !checkout.timeUnspecified && new Date(checkout.startsAt).getTime() < now.getTime()) {
+        return { label: "퇴실 지연", stage: "check_out" as const };
+      }
+      if (checkOutDate === selectedDate) return { label: "퇴실", stage: "check_out" as const };
+      return { label: "이용중", stage: "in_house" as const };
+    }
+  }
   if (checkInDate === selectedDate && checkOutDate === selectedDate) {
     return { label: "입실·퇴실", stage: "check_out" as const };
   }
@@ -399,6 +413,13 @@ export function sharedRoomCardStage(
     .filter((stay): stay is HotelStay => Boolean(stay))
     .map((stay) => hotelRoomBoardDogStatus(stay, selectedDate).stage);
   if (!stages.length) return null;
+  if (selectedDate === seoulInputParts(new Date().toISOString()).date) {
+    // Overdue and due departures share the existing coral room stage;
+    // each member keeps its own label and existing overdue detail treatment.
+    if (stages.includes("check_out")) return "check_out";
+    if (stages.includes("check_in")) return "check_in";
+    return "in_house";
+  }
   if (stages.includes("in_house")) return "in_house";
   if (stages.every((stage) => stage === "check_out")) return "check_out";
   return "check_in";
@@ -572,7 +593,7 @@ function DraggableStayCard({
                 className={cn(
                   "hotel-status inline-flex rounded-full px-1.5 py-px font-extrabold ring-1 ring-inset",
                   mobile ? "text-xs leading-5" : "text-[9px] leading-[0.875rem]",
-                  stageBadgeClass(stage, variant === "waiting"),
+                  stageBadgeClass(stage, variant === "waiting" || dogStatus.label === "퇴실 지연"),
                 )}
               >
                 {variant === "waiting"
@@ -580,7 +601,7 @@ function DraggableStayCard({
                   : dogStatus.label}
               </span>
             </span>
-            {overdue ? <span className="block text-xs font-bold text-amber-800" role="status">퇴실 지연</span> : null}
+            {overdue && (variant === "waiting" || dogStatus.label !== "퇴실 지연") ? <span className="block text-xs font-bold text-amber-800" role="status">퇴실 지연</span> : null}
             {stay.checkedInAt ? <span className="hotel-actual-time"><small>실제 입실</small><time dateTime={stay.checkedInAt}>{seoulInputParts(stay.checkedInAt).date} {seoulInputParts(stay.checkedInAt).time}</time></span> : null}
             {phaseTime ? (
               <span className={cn("mt-0.5 flex min-w-0 items-center gap-1 truncate font-bold tabular-nums text-slate-800", mobile ? "text-xs leading-5" : "text-[11px]")}>
@@ -659,11 +680,11 @@ export function SharedRoomCard({
             <span key={member.id} className="hotel-shared-member pm-d-shared-member grid min-w-0 grid-cols-[1fr_auto] items-center gap-x-1.5">
               <span className={cn("hotel-dog-name pm-d-room-entity truncate font-extrabold", mobile ? "text-sm leading-5" : "text-xs")}>{member.dogName}</span>
               {status ? (
-                <span className={cn("hotel-status shrink-0 rounded-full px-1.5 py-px font-extrabold ring-1 ring-inset", mobile ? "text-xs leading-5" : "text-[9px] leading-[0.875rem]", stageBadgeClass(status.stage, false))}>
+                <span className={cn("hotel-status shrink-0 rounded-full px-1.5 py-px font-extrabold ring-1 ring-inset", mobile ? "text-xs leading-5" : "text-[9px] leading-[0.875rem]", stageBadgeClass(status.stage, status.label === "퇴실 지연"))}>
                   {status.label}
                 </span>
               ) : <span className={cn("font-bold text-slate-500", mobile ? "text-xs" : "text-[9px]")}>일정 확인</span>}
-              {overdue ? <span className="col-span-2 text-xs font-bold text-amber-800">퇴실 지연</span> : null}
+              {overdue && status?.label !== "퇴실 지연" ? <span className="col-span-2 text-xs font-bold text-amber-800">퇴실 지연</span> : null}
               {phaseTime ? <span className={cn("col-span-2 font-semibold tabular-nums text-slate-600", overdue ? "whitespace-normal break-words" : "truncate", mobile ? "text-xs leading-5" : "text-[9px]")}>{phaseTime}</span> : null}
             </span>
           );

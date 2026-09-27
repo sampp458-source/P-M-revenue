@@ -150,7 +150,7 @@ describe("Hotel Room Board", () => {
       expect(markup).toContain('hotel-room-board-stay-stay-1');
       expect(markup).toContain('퇴실 지연');
       expect(markup).not.toContain('hotel-room-board-stay-incoming');
-      expect(markup).toContain('data-room-phase="in_house"');
+      expect(markup).toContain('data-room-phase="check_out"');
     } finally { vi.useRealTimers(); }
   });
 
