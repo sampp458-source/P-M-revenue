@@ -2103,9 +2103,9 @@ export function HotelRoomBoard({
               </section>
             ) : null}
             {unassignedGroups.today.length ? (
-              <section aria-label="오늘 입실 미배정">
+              <section aria-label="선택일 입실 미배정">
                 <div className="mb-2 flex items-center gap-2">
-                  <strong className="text-sm text-blue-900">오늘 입실</strong>
+                  <strong className="text-sm text-blue-900">선택일 입실</strong>
                   <Badge tone="blue">{unassignedGroups.today.length}</Badge>
                 </div>
                 {renderUnassignedCards(unassignedGroups.today)}

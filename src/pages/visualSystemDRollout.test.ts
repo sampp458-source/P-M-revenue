@@ -16,7 +16,7 @@ const originalHashes = {
   "src/pages/HotelHistoricalRoomGrid.tsx": "1319e5ba934d2e36a8116517505c53ca0df5606ab994dff4758e5d6fb59c5a96",
   "src/pages/HotelOperations.tsx": "863dd7a6a487d168a51588cebc410399e303887ba0c0fa0c51e1ba6cd8e7d6a7",
   "src/pages/HotelOperationsWorkspace.tsx": "62876b46fc4021a1d3c34a6fece777ee42a9469e0b75af979b56a37426ee1cbd",
-  "src/pages/HotelRoomBoard.tsx": "5ca6302b66829cf4fc8f903fe86305fc55e74c6a3af4a97ac5e4784576725ebe",
+  "src/pages/HotelRoomBoard.tsx": "47040bccd784d7e1370829f301ef9c0653766c112cf0715d250edfae3778d7c7",
   "src/pages/HotelRoomBoardPresentation.tsx": "e63f5c43f536a98cb730b389d8809d99cf3db4b2ae3d8d7195b2ae27c85a34e1",
   "src/pages/SaleRegistration.tsx": "353491d3f22b8c021fe6369f7e245faa619edf11074b7efa102331234e38b3a4",
   "src/pages/dashboard/DashboardAccountingDrawer.tsx": "4e2c767834f022780034a421688b70825a8650b1a5f24c49ed0bc5250edd4924",
