@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { normalizeVisualSystemD } from './visualSystemDTestNormalization';
+// Hotel attention/future presentation partition is covered by hotelFutureUnassignedPresentation.test.tsx.
 // HotelRoomBoard baseline includes the cutover physical-occupancy and legacy checkout-access changes;
 // lifecycle derivation is covered by hotelRoomBoardLifecycle.test.ts and physical invariants
 // by hotelPhysicalOccupancy.test.ts. Other screens remain frozen.
@@ -12,9 +13,9 @@ const originalHashes = {
   "src/pages/CustomerManagement.tsx": "e9e00cac2485547c556329504c0de5a4ad3b4146f16cdae36aa0038adf7f896a",
   "src/pages/DashboardDB.tsx": "ceb8be51c2d57c8dabe9a6d0ea46f2a176b23219126dcb24055bd67647f392c2",
   "src/pages/HotelHistoricalRoomGrid.tsx": "1319e5ba934d2e36a8116517505c53ca0df5606ab994dff4758e5d6fb59c5a96",
-  "src/pages/HotelOperations.tsx": "c1f791b1eee781bfe78ae87f9e7e3ec0f64479f4cbe011dfe6bffaa7fa9a0fc4",
+  "src/pages/HotelOperations.tsx": "11bb6158b4da0196bfb50974c08fc78c22f56503c2dd8affd4d824591481dbd1",
   "src/pages/HotelOperationsWorkspace.tsx": "62876b46fc4021a1d3c34a6fece777ee42a9469e0b75af979b56a37426ee1cbd",
-  "src/pages/HotelRoomBoard.tsx": "de286e4f24ac29e2f7341efcd0637bf969606e0282c99b6ee9ae47bef19a9c31",
+  "src/pages/HotelRoomBoard.tsx": "6b0120a1f03385be1c63e92f397c657080c331a3966626d6a7665ea860e55648",
   "src/pages/HotelRoomBoardPresentation.tsx": "e63f5c43f536a98cb730b389d8809d99cf3db4b2ae3d8d7195b2ae27c85a34e1",
   "src/pages/SaleRegistration.tsx": "353491d3f22b8c021fe6369f7e245faa619edf11074b7efa102331234e38b3a4",
   "src/pages/dashboard/DashboardAccountingDrawer.tsx": "4e2c767834f022780034a421688b70825a8650b1a5f24c49ed0bc5250edd4924",

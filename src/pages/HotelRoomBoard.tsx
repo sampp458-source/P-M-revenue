@@ -1,3 +1,4 @@
+import { hotelFutureUnassignedPresentation } from "./hotelFutureUnassignedPresentation";
 import { getHotelSingleRoomEligibility, type SingleRoomEligibility } from "./hotelOperationsRepository";
 import {RoomBoardMotion, RoomBoardCellFrame, RoomBoardDesktopGroup, RoomBoardMobileGroup, roomStageClass} from './HotelRoomBoardPresentation';
 import { HistoricalOccupants, HistoricalBoardWarning, historicalRoomPhase } from "./HotelHistoricalRoomGrid";
@@ -597,7 +598,7 @@ function DraggableStayCard({
                 )}
               >
                 {variant === "waiting"
-                  ? "미배정"
+                  ? "호실 미배정"
                   : dogStatus.label}
               </span>
             </span>
@@ -698,6 +699,7 @@ export function SharedRoomCard({
 
 function UnassignedSharedRoomCard({
   group,
+  arrivalLabel,
   disabled,
   dragging,
   mobile,
@@ -707,6 +709,7 @@ function UnassignedSharedRoomCard({
   onCancel,
 }: {
   group: UnassignedSharedRoomGroup;
+  arrivalLabel?: string;
   disabled: boolean;
   dragging: boolean;
   mobile: boolean;
@@ -771,9 +774,9 @@ function UnassignedSharedRoomCard({
             </strong>
             <Badge tone="blue">함께 투숙</Badge>
           </div>
-          <p className="mt-1 text-xs font-bold text-indigo-800">DELUXE · 미배정</p>
+          <p className="mt-1 text-xs font-bold text-indigo-800">DELUXE · 호실 미배정</p>
           <p className="mt-0.5 text-xs font-semibold tabular-nums text-indigo-700">
-            {format(group.reservedFrom)} → {format(group.reservedUntil)}
+            {arrivalLabel ?? `${format(group.reservedFrom)} → ${format(group.reservedUntil)}`}
           </p>
           <p className="mt-0.5 text-[11px] font-bold text-indigo-700">{group.dogCount}마리 · 객실 1실</p>
           <button
@@ -1211,6 +1214,11 @@ export function HotelRoomBoard({
     () => hotelRoomBoardUnassignedGroups(boardStays, selectedDate, boardInstant),
     [boardInstant, boardStays, selectedDate],
   );
+  const futureUnassigned = hotelFutureUnassignedPresentation(boardStays, unassignedSharedGroups, selectedDate);
+  const futureSingles = [...futureUnassigned.stays].sort(compareUnassignedStay);
+  const futureCount = futureSingles.length + futureUnassigned.groups.length;
+  const currentSharedGroups = [...new Map(unassignedSharedGroups.map(group => [group.sharedRoomGroupId, group])).values()]
+    .filter(group => !futureUnassigned.groupIds.has(group.sharedRoomGroupId));
   const allKnownStays = useMemo(() => {
     const byId = new Map<string, HotelStay>();
     [...snapshot.stays, ...snapshot.unassignedFuture, ...sharedMemberStays]
@@ -1648,19 +1656,25 @@ export function HotelRoomBoard({
       })}
     </div>
   );
-  const renderUnassignedSharedGroups = () => (
+  const renderUnassignedSharedGroups = (groups = currentSharedGroups, future = false) => (
     <div className={cn(
       mobileProjection
         ? "grid grid-cols-1 gap-2"
         : "flex gap-3 overflow-x-auto overscroll-x-contain pb-1.5",
     )}>
-      {unassignedSharedGroups.map((group) => (
+      {groups.map((group) => (
         <div
           key={group.sharedRoomGroupId}
           className={cn(!mobileProjection && "min-w-[260px] max-w-[320px] flex-[0_0_290px]")}
         >
           <UnassignedSharedRoomCard
             group={group}
+            arrivalLabel={future ? (() => {
+              const member = group.dogMembers.map(item => staysById.get(item.hotelStayId))
+                .find(stay => stay && hotelStayScheduleEvent(stay, "check_in"));
+              return member ? formatHotelScheduleTime(member, "check_in")
+                : `${seoulInputParts(group.reservedFrom).date} · 시간 확인 필요`;
+            })() : undefined}
             disabled={processing}
             dragging={draggedSharedGroupId === group.sharedRoomGroupId}
             mobile={mobileProjection}
@@ -1853,8 +1867,8 @@ export function HotelRoomBoard({
               <button type="button" data-active={boardSummary.unassigned > 0 || unassignedSharedGroupsUnavailable || undefined} aria-controls={`${supportId}-unassigned`} onClick={() => revealSupport(unassignedRef.current)}>
                 미배정 <b>{unassignedSharedGroupsUnavailable ? "확인 필요" : unassignedSharedGroupsLoading ? "확인 중" : boardSummary.unassigned}</b>
               </button>
-              <button type="button" data-active={unassignedGroups.future.length > 0 || undefined} disabled={!unassignedGroups.future.length} aria-controls={unassignedGroups.future.length ? `${supportId}-future` : undefined} onClick={() => { setShowFutureUnassigned(true); revealSupport(futureRef.current); }}>
-                향후 입실 <b>{unassignedGroups.future.length}</b>
+              <button type="button" data-active={futureCount > 0 || undefined} disabled={!futureCount} aria-controls={futureCount ? `${supportId}-future` : undefined} onClick={() => { setShowFutureUnassigned(true); revealSupport(futureRef.current); }}>
+                향후 입실 · 미배정 <b>{futureCount}</b>
               </button>
             </> : <button type="button" aria-controls={supportId} onClick={() => revealSupport(supportRef.current)}>부분 기록 · 안내</button>}
             <button type="button" data-active={completedCheckouts.length > 0 || undefined} disabled={!completedCheckouts.length} aria-controls={completedCheckouts.length ? `${supportId}-completed` : undefined} onClick={() => { setShowCompletedCheckouts(true); revealSupport(completedRef.current); }}>
@@ -2069,11 +2083,11 @@ export function HotelRoomBoard({
                 </button>
               </div>
             ) : null}
-            {unassignedSharedGroups.length ? (
+            {currentSharedGroups.length ? (
               <section aria-label="함께 투숙 미배정" className="mb-3">
                 <div className="mb-2 flex items-center gap-2">
                   <strong className="text-sm text-indigo-900">함께 투숙</strong>
-                  <Badge tone="blue">{unassignedSharedGroups.length}</Badge>
+                  <Badge tone="blue">{currentSharedGroups.length}</Badge>
                 </div>
                 {renderUnassignedSharedGroups()}
               </section>
@@ -2104,7 +2118,7 @@ export function HotelRoomBoard({
             ) : null}
           </div> : null}
 
-          {!readOnly && unassignedGroups.future.length ? (
+          {!readOnly && futureCount ? (
             <section
               aria-label="향후 입실 미배정"
               id={`${supportId}-future`} ref={futureRef} tabIndex={-1}
@@ -2113,7 +2127,7 @@ export function HotelRoomBoard({
             >
               <div className={cn("flex items-center justify-between gap-3", showFutureUnassigned && "mb-3")}>
                 <div>
-                  <h3 className="text-sm font-extrabold text-text-primary">향후 입실</h3>
+                  <h3 className="text-sm font-extrabold text-text-primary">향후 입실 · 미배정</h3>
                   <p className="mt-0.5 text-xs text-text-muted">선택한 날짜 이후의 미배정 예약입니다.</p>
                 </div>
                 <button
@@ -2122,10 +2136,10 @@ export function HotelRoomBoard({
                   onClick={() => setShowFutureUnassigned((current) => !current)}
                   className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  {showFutureUnassigned ? "접기" : `${unassignedGroups.future.length}건 펼쳐보기`}
+                  {showFutureUnassigned ? "접기" : `${futureCount}건 펼쳐보기`}
                 </button>
               </div>
-              {showFutureUnassigned ? renderUnassignedCards(unassignedGroups.future) : null}
+              {showFutureUnassigned ? <>{renderUnassignedCards(futureSingles)}{renderUnassignedSharedGroups(futureUnassigned.groups, true)}</> : null}
             </section>
           ) : null}
 

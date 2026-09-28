@@ -1,3 +1,4 @@
+import { hotelFutureUnassignedPresentation } from "./hotelFutureUnassignedPresentation";
 import "../design-system-v2.css";
 import "../hotel-design-v2.css";
 import { HistoricalBoardWarning } from "./HotelHistoricalRoomGrid";
@@ -1369,11 +1370,12 @@ export function HotelOperationsPage() {
 
   const workspaceStays = [...new Map([...allSnapshotStays(), ...sharedMemberStays].map(stay => [stay.id, stay])).values()];
   const sharedIds = new Set([...sharedOccupancies.flatMap(group => group.members.map(member => member.hotelStayId)), ...unassignedSharedGroups.flatMap(group => group.dogMembers.map(member => member.hotelStayId))]);
-  const attentionItems = isPast ? [] : hotelRoomBoardUnassigned(workspaceStays.filter(stay => !sharedIds.has(stay.id))).map(stay => ({
+  const futureUnassigned = hotelFutureUnassignedPresentation(workspaceStays.filter(stay => !sharedIds.has(stay.id)), unassignedSharedGroups, selectedDate);
+  const attentionItems = isPast ? [] : hotelRoomBoardUnassigned(workspaceStays.filter(stay => !sharedIds.has(stay.id))).filter(stay => !futureUnassigned.stayIds.has(stay.id)).map(stay => ({
     id: stay.id, name: stay.dogName,
     reason: needsMissedCheckInRecovery(stay) ? "입실 기록 확인 · 실제 도착 여부 확인" : "호실 미배정 · 예약 상세 확인",
     onOpen: () => void openStay(stay.id),
-  })).concat(isPast ? [] : unassignedSharedGroups.filter(group => group.dogMembers.length > 0).map(group => ({
+  })).concat(isPast ? [] : [...new Map(unassignedSharedGroups.map(group => [group.sharedRoomGroupId, group])).values()].filter(group => group.dogMembers.length > 0 && !futureUnassigned.groupIds.has(group.sharedRoomGroupId)).map(group => ({
     id: group.sharedRoomGroupId,
     name: group.dogMembers.map(member => member.dogName).join(" · "),
     reason: "함께 투숙 · 호실 미배정",

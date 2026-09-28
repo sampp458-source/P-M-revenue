@@ -970,17 +970,17 @@ describe('015 supporting navigation', () => {
     const nav=screen.getByRole('navigation',{name:'보조 운영 바로가기'});
     const rooms=screen.getByRole('region',{name:'DELUXE Room Board'});
     expect(nav.compareDocumentPosition(rooms)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(within(nav).getByRole('button',{name:/미배정/})).toHaveAttribute('data-active','true');
+    expect(within(nav).getByRole('button',{name:/^미배정/})).toHaveAttribute('data-active','true');
     const futureSection=screen.getByRole('region',{name:'향후 입실 미배정'});
     futureSection.scrollIntoView=vi.fn();
     expect(screen.queryByText('향후 예약견')).not.toBeInTheDocument();
-    fireEvent.click(within(nav).getByRole('button',{name:'향후 입실 1'}));
+    fireEvent.click(within(nav).getByRole('button',{name:'향후 입실 · 미배정 1'}));
     expect(screen.getByText('향후 예약견')).toBeVisible();
     expect(futureSection.scrollIntoView).toHaveBeenCalledWith({block:'start',behavior:'instant'});
     expect(futureSection).toHaveFocus();
     const unassigned=screen.getByTestId('hotel-room-board-unassigned-drop-zone');
     unassigned.scrollIntoView=vi.fn();
-    fireEvent.click(within(nav).getByRole('button',{name:/미배정/}));
+    fireEvent.click(within(nav).getByRole('button',{name:/^미배정/}));
     expect(unassigned).toHaveFocus();
   });
 
@@ -1003,7 +1003,7 @@ describe('015 supporting navigation', () => {
   it('keeps zero future and completion counts quiet and non-interactive', () => {
     render(<HotelRoomBoard {...boardProps(snapshot(), '2026-08-13')}/>);
     const nav=screen.getByRole('navigation',{name:'보조 운영 바로가기'});
-    for(const name of ['향후 입실 0','퇴실 완료 0']) {
+    for(const name of ['향후 입실 · 미배정 0','퇴실 완료 0']) {
       const button=within(nav).getByRole('button',{name});
       expect(button).toBeDisabled();expect(button).not.toHaveAttribute('data-active');
     }
