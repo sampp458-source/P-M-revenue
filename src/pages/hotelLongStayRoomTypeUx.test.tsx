@@ -220,12 +220,22 @@ describe("room type style boundary", () => {
   it("limits identity colors to trays/summary and destructive styles to Long Stay", () => {
     const css=readFileSync('src/pages/hotel-long-stay-room-type.css','utf8');
     expect(css).not.toMatch(/data-room-phase|hotel-room-cell|pm-d-room-object|:root/);
-    const clean=css.replace(/\/\*[\s\S]*?\*\//g,'').replace(/@layer[^{}]+\{/g,'');
+    const clean=css.replace(/\/\*[\s\S]*?\*\//g,'').replace(/@(?:layer|media)[^{}]+\{/g,'');
     for (const [,selector] of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       for (const part of selector.trim().split(/,\s*\n/)) expect(part.trim()).toMatch(/^\.pm-design-d\.pm-d-page\.pm-hotel-v2/);
     }
     expect(css).toContain('background: var(--pm-d-semantic-coral-soft) !important');
     expect(css).toContain('.hotel-long-stay-panel .pm-v1-button-danger:disabled');
     expect(css).toContain('outline: var(--pm-d-focus-ring) !important');
+  });
+});
+
+
+describe("Long Stay mobile menu clipping boundary", () => {
+  it("opens only the mobile Long Stay overflow menu above its trigger without changing panel or action styles", () => {
+    const css = readFileSync('src/pages/hotel-long-stay-room-type.css', 'utf8');
+    expect(css).toMatch(/@media \(max-width: 639px\)\s*\{\s*\.pm-design-d\.pm-d-page\.pm-hotel-v2 \.hotel-long-stay-panel \[data-testid="responsive-action-group"\] > details > div\s*\{\s*top: auto !important;\s*bottom: calc\(100% \+ 0.5rem\);\s*\}/);
+    expect(css).not.toMatch(/overflow:|position:\s*(fixed|absolute)|z-index:|pointer-events:/);
+    expect(css).toContain('margin-left: auto !important');
   });
 });

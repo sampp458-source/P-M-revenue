@@ -60,4 +60,11 @@
 .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-long-stay-panel [data-testid="responsive-action-group"] > details {
   margin-left: auto !important;
 }
+/* Open mobile actions above their trigger, inside the rounded Long Stay panel. */
+@media (max-width: 639px) {
+  .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-long-stay-panel [data-testid="responsive-action-group"] > details > div {
+    top: auto !important;
+    bottom: calc(100% + 0.5rem);
+  }
+}
 }
