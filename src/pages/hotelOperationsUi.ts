@@ -42,6 +42,11 @@ export function activeHotelAllocation(
 export const HOTEL_PHYSICAL_CUTOVER = "2026-09-25T00:00:00+09:00";
 
 export function hotelStayHasPhysicalHold(stay: HotelStay, instant = new Date().toISOString()) {
+  if (stay.currentPhysicalRoom) {
+    return Boolean(!stay.archivedAt && !stay.checkedOutAt && stay.checkedInAt
+      && stay.currentPhysicalRoom.date === seoulInputParts(instant).date
+      && stay.currentPhysicalRoom.state === "occupied" && stay.currentPhysicalRoom.allocation);
+  }
   return Boolean(!stay.archivedAt && !stay.checkedOutAt && stay.checkedInAt
     && new Date(stay.checkedInAt).getTime() >= new Date(HOTEL_PHYSICAL_CUTOVER).getTime()
     && new Date(stay.checkedInAt).getTime() <= new Date(instant).getTime());
@@ -50,6 +55,8 @@ export function hotelStayHasPhysicalHold(stay: HotelStay, instant = new Date().t
 /** Legacy departure access is separate from room occupancy and never locks a room. */
 export function hotelStayNeedsCheckoutReview(stay: HotelStay, instant: string) {
   const checkout = hotelStayScheduleEvent(stay, "check_out");
+  // Proven current occupants use the normal room-card checkout path.
+  if (hotelStayHasPhysicalHold(stay, instant)) return false;
   if (stay.archivedAt || !stay.checkedInAt || stay.checkedOutAt || !checkout
     || new Date(stay.checkedInAt).getTime() >= new Date(HOTEL_PHYSICAL_CUTOVER).getTime()
     || new Date(checkout.startsAt).getTime() < new Date(HOTEL_PHYSICAL_CUTOVER).getTime()) return false;
@@ -66,6 +73,10 @@ export function currentHotelAllocation(stay: HotelStay, selectedInstant?: string
   if (!selectedInstant) return activeHotelAllocation(stay);
   const instant = new Date(selectedInstant).getTime();
   if (stay.archivedAt || stay.checkedOutAt) return null;
+  if (stay.checkedInAt && stay.currentPhysicalRoom) {
+    return hotelStayHasPhysicalHold(stay, selectedInstant)
+      ? stay.currentPhysicalRoom.allocation : null;
+  }
   if (!hotelStayHasPhysicalHold(stay, selectedInstant)) {
     return activeHotelAllocation(stay, selectedInstant);
   }
@@ -74,6 +85,14 @@ export function currentHotelAllocation(stay: HotelStay, selectedInstant?: string
     .sort((left, right) =>
       new Date(right.allocatedFrom).getTime() - new Date(left.allocatedFrom).getTime()
       || right.id.localeCompare(left.id))[0] ?? null;
+}
+
+/** A checked-in guest without a resolved current room is not an unassigned booking. */
+export function hotelStayNeedsPhysicalRoomReview(stay: HotelStay, instant: string) {
+  return Boolean(!stay.archivedAt && stay.checkedInAt && !stay.checkedOutAt
+    && !(stay.currentPhysicalRoom?.state === "released"
+      && stay.currentPhysicalRoom.date === seoulInputParts(instant).date)
+    && !currentHotelAllocation(stay, instant));
 }
 
 export function hotelStayCheckoutOverdue(stay: HotelStay, instant = new Date().toISOString()) {

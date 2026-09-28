@@ -1,5 +1,6 @@
 import { hotelFutureUnassignedPresentation } from "./hotelFutureUnassignedPresentation";
 import { HotelAttentionQueue } from "./HotelAttentionQueue";
+import { hotelStayNeedsPhysicalRoomReview } from "./hotelOperationsUi";
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import "@testing-library/jest-dom/vitest";
@@ -114,7 +115,9 @@ describe("future unassigned presentation identity and scope",()=>{
   const a={...future("a"),dogId:"same-dog",dogName:"같은견"},b={...a,id:"b"};expect(partition([a,a,b]).stays.map(s=>s.id)).toEqual(["a","b"]);
  });
  it("current unresolved room and missing date are not silenced",()=>{
-  const a={...future("active"),checkedInAt:now},b={...future("missing"),scheduleEvents:[]};expect(partition([a,b]).stays).toHaveLength(0);expect(attention([a,b])).toHaveLength(2);
+  const a={...future("active"),checkedInAt:now},b={...future("missing"),scheduleEvents:[]};expect(partition([a,b]).stays).toHaveLength(0);
+  expect(attention([a,b]).map(item=>item.id)).toEqual([b.id]);
+  expect(hotelStayNeedsPhysicalRoomReview(a,now)).toBe(true);
  });
  it("completed and archived stays remain excluded",()=>{
   expect(partition([{...future("done"),checkedOutAt:now},{...future("archived"),archivedAt:now}]).stays).toHaveLength(0);

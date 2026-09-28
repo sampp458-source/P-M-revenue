@@ -132,6 +132,7 @@ import {
   hotelStayDayTitle,
   hotelStayMemo,
   hotelStayNeedsCheckInFinalization,
+  hotelStayNeedsPhysicalRoomReview,
   hotelStayStatus,
   hotelStayScheduleEvent,
   hotelStayUnspecifiedState,
@@ -1380,7 +1381,13 @@ export function HotelOperationsPage() {
     name: group.dogMembers.map(member => member.dogName).join(" · "),
     reason: "함께 투숙 · 호실 미배정",
     onOpen: () => void openStay(group.dogMembers[0].hotelStayId),
-  })));
+  }))).concat(dateMode === "TODAY" ? snapshot.stays
+    .filter(stay => hotelStayNeedsPhysicalRoomReview(stay, new Date().toISOString()))
+    .map(stay => ({
+      id: stay.id, name: stay.dogName,
+      reason: "객실 점유 확인 필요 · 입실 완료 기록 확인",
+      onOpen: () => void openStay(stay.id),
+    })) : []);
   const dayItems: HotelTimelineItem[] = workspaceStays.flatMap(stay => stay.scheduleEvents.filter(event => seoulInputParts(event.schedule.startsAt).date === selectedDate).map(event => ({
     id: event.schedule.id, at: event.schedule.startsAt, timeUnspecified: event.schedule.timeUnspecified, name: stay.dogName,
     detail: event.eventKind === "check_in" ? "입실 일정" : "퇴실 일정",

@@ -159,6 +159,7 @@ export function hotelRoomBoardUnassigned(stays: HotelStay[], selectedInstant?: s
   return stays.filter(
     (stay) =>
       !stay.archivedAt &&
+      !stay.checkedInAt &&
       !stay.checkedOutAt &&
       !currentHotelAllocation(stay, selectedInstant),
   );
@@ -1190,7 +1191,7 @@ export function HotelRoomBoard({
   }, [selectedDate]);
   const stays = snapshot.stays;
   const staysById = useMemo(
-    () => new Map([...snapshot.stays, ...snapshot.unassignedFuture, ...sharedMemberStays].map((stay) => [stay.id, stay])),
+    () => new Map([...snapshot.unassignedFuture, ...sharedMemberStays, ...snapshot.stays].map((stay) => [stay.id, stay])),
     [sharedMemberStays, snapshot.stays, snapshot.unassignedFuture],
   );
   const sharedMemberStayIds = useMemo(

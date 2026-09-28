@@ -152,6 +152,13 @@ export interface HotelStay {
   capacityReservation: HotelCapacityReservation | null;
   scheduleEvents: HotelScheduleEvent[];
   roomAllocations: HotelRoomAllocation[];
+  /** Current-date server projection; never a planned or historical assignment. */
+  currentPhysicalRoom?: {
+    date: string;
+    observedAt: string;
+    state: "occupied" | "released" | "unresolved";
+    allocation: HotelRoomAllocation | null;
+  };
 }
 
 export interface HotelSelectedDateUnassigned {
