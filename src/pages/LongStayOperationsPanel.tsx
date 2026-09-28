@@ -1,3 +1,4 @@
+import "./hotel-long-stay-room-type.css";
 import { PAST_ROOM_BOARD_NOTICE } from "./hotelRoomBoardDateMode";
 import {
   ArrowLeft,
@@ -173,7 +174,7 @@ const statusPresentation = (contract: LongStayMonthContractProjection) => {
 };
 
 const actionTitle: Record<ActionKind, string> = {
-  confirm: "이번 달 객실 배정",
+  confirm: "월 객실 배정·확정",
   checkin: "장기호텔 입실",
   leave: "외출 기록",
   return: "복귀 처리",
@@ -483,7 +484,7 @@ export function LongStayOperationsPanel({
   };
 
   return (
-    <Card className="mb-4 overflow-hidden">
+    <Card className="hotel-long-stay-panel mb-4 overflow-hidden">
       <div className="border-b border-border bg-[linear-gradient(135deg,#f7fafc,#eef5f2)] px-4 py-4 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -555,7 +556,7 @@ export function LongStayOperationsPanel({
                   <ResponsiveActionGroup
                     className="mt-3"
                     primary={<>
-                      {!beforeContractStart && !contract.monthlyOccupancy && contract.storedStatus !== "completed" ? <Button onClick={() => openAction("confirm", contract)}><DoorOpen size={15} /> 객실 배정</Button> : null}
+                      {!beforeContractStart && !contract.monthlyOccupancy && contract.storedStatus !== "completed" ? <Button onClick={() => openAction("confirm", contract)}><DoorOpen size={15} /> {contract.hotelStayId ? "월 객실 배정·확정" : "객실 배정"}</Button> : null}
                       {contract.monthlyOccupancy && !contract.checkedInAt ? <Button onClick={() => openAction("checkin", contract)}><LogIn size={15} /> 입실</Button> : null}
                       {contract.checkedInAt && !contract.checkedOutAt && !contract.isAway ? <Button onClick={() => openAction("leave", contract)}>외출</Button> : null}
                       {contract.isAway ? <Button onClick={() => openAction("return", contract)}>복귀 처리</Button> : null}
@@ -601,6 +602,7 @@ export function LongStayOperationsPanel({
             <div className="rounded-2xl bg-primary-subtle p-4"><b>{action.contract.dogName || "반려견"}</b><span className="ml-2 text-sm text-text-secondary">{action.contract.currentRoom?.name || "호실 미배정"}</span></div>
             {action.kind === "confirm" ? (
               <>
+                <p className="text-sm text-text-secondary">선택 월의 객실 배정과 점유 계획을 확정합니다. 다른 호실을 선택하면 현재 예약의 배정도 변경되며, 투숙 중이면 실제 객실 이동으로 처리됩니다.</p>
                 {!action.contract.hotelStayId ? (
                   <Field label="객실 사용 시작" required>
                     <div className="grid gap-2 sm:grid-cols-2">

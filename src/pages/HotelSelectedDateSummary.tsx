@@ -1,5 +1,6 @@
 import type { HotelOperationsSnapshot } from './hotelOperationsRepository';
 import './hotel-selected-date-summary.css';
+import './hotel-long-stay-room-type.css';
 
 /** Server-projected values only: no interval, capacity or identity arithmetic. */
 export function HotelSelectedDateSummary({ snapshot, selectedDate, assigned, checkIn, checkOut }: {
@@ -23,7 +24,7 @@ export function HotelSelectedDateSummary({ snapshot, selectedDate, assigned, che
         const remaining = !current ? undefined : unknown || (type.affectedByUnspecifiedCount ?? 0) > 0
           ? type.conservativeRemaining
           : type.conservativeRemaining ?? snapshot.confirmedRemainingByType?.[type.code] ?? type.confirmedRemaining;
-        return <div key={type.id}><dt>{type.code}</dt><dd>{remaining ?? '확인 필요'}{remaining !== undefined && <small>실</small>}</dd></div>;
+        return <div key={type.id} data-room-type={type.code}><dt>{type.code}</dt><dd>{remaining ?? '확인 필요'}{remaining !== undefined && <small>실</small>}</dd></div>;
       })}
     </dl>
     {unknown && <p className="hotel-selected-date-note" role="status">객실 유형 미정 예약을 반영한 보수적 수치입니다. 유형 확정 시 달라질 수 있습니다.</p>}

@@ -17,6 +17,8 @@ describe('selected-date server-projected Header', () => {
   it('shows canonical September fixture 4/3, assigned 3, unassigned 1, arrivals/departures 1', () => {
     render(<HotelSelectedDateSummary {...props()} />);
     for (const [label, value] of [['DELUXE','4실'],['STANDARD','3실'],['배정','3실'],['미배정','1건'],['입실','1'],['퇴실','1']]) expect(metric(label)).toHaveTextContent(value);
+    expect(metric('DELUXE').parentElement).toHaveAttribute('data-room-type', 'DELUXE');
+    expect(metric('STANDARD').parentElement).toHaveAttribute('data-room-type', 'STANDARD');
     expect(screen.queryByText('빈방')).not.toBeInTheDocument();
     expect(screen.queryByText('8실')).not.toBeInTheDocument();
   });

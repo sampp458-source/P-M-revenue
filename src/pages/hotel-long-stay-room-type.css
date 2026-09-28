@@ -1,0 +1,63 @@
+@layer pm-d-adoption {
+/* Room identity belongs to the outer tray and summary, never lifecycle cards. */
+.pm-design-d.pm-d-page.pm-hotel-v2 {
+  --hotel-room-type-deluxe-surface: #f3f6fb;
+  --hotel-room-type-deluxe-border: var(--pm-d-border-control);
+  --hotel-room-type-deluxe-foreground: var(--pm-d-ink-secondary);
+  --hotel-room-type-standard-surface: #faf7f1;
+  --hotel-room-type-standard-border: #ded4c3;
+  --hotel-room-type-standard-foreground: #746047;
+}
+.pm-design-d.pm-d-page.pm-hotel-v2 [data-room-group="DELUXE"],
+.pm-design-d.pm-d-page.pm-hotel-v2 [data-room-type="DELUXE"] {
+  --hotel-room-type-surface: var(--hotel-room-type-deluxe-surface);
+  --hotel-room-type-border: var(--hotel-room-type-deluxe-border);
+  --hotel-room-type-foreground: var(--hotel-room-type-deluxe-foreground);
+}
+.pm-design-d.pm-d-page.pm-hotel-v2 [data-room-group="STANDARD"],
+.pm-design-d.pm-d-page.pm-hotel-v2 [data-room-type="STANDARD"] {
+  --hotel-room-type-surface: var(--hotel-room-type-standard-surface);
+  --hotel-room-type-border: var(--hotel-room-type-standard-border);
+  --hotel-room-type-foreground: var(--hotel-room-type-standard-foreground);
+}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-group[data-room-group] {
+  background: var(--hotel-room-type-surface) !important;
+  border-color: var(--hotel-room-type-border) !important;
+}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-group > div:first-child h3,
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-room-group-mobile > button strong,
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-selected-date-capacity > [data-room-type] > dd {
+  color: var(--hotel-room-type-foreground) !important;
+}
+/* Explicitly reset the legacy V2 gradient; V1's foreground alone is insufficient. */
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-long-stay-panel .pm-v1-button-danger {
+  color: var(--pm-d-semantic-coral) !important;
+  background: var(--pm-d-semantic-coral-soft) !important;
+  border: 1px solid #d9afa4 !important;
+  box-shadow: none !important;
+}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-long-stay-panel .pm-v1-button-danger:not(:disabled):hover {
+  background: #fbe6de !important;
+  color: #963e32 !important;
+}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-long-stay-panel .pm-v1-button-danger:not(:disabled):active {
+  background: #f5ddd4 !important;
+}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-long-stay-panel .pm-v1-button-danger:focus-visible {
+  outline: var(--pm-d-focus-ring) !important;
+  outline-offset: 3px;
+}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-long-stay-panel .pm-v1-button-danger:disabled {
+  opacity: 1 !important;
+  color: #766362 !important;
+  background: #f0ece9 !important;
+  border-color: #d3cbc6 !important;
+  border-style: dashed !important;
+  transform: none !important;
+  cursor: not-allowed;
+}
+/* Keep a wrapped mobile overflow menu anchored inside the card. */
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-long-stay-panel [data-testid="responsive-action-group"] > details {
+  margin-left: auto !important;
+}
+}

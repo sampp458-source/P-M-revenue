@@ -186,7 +186,7 @@ describe("Long Stay explicit first physical start", () => {
     rendered.unmount();
     vi.clearAllMocks();
     renderPanel(contract({ hotelStayId: "stay-1" }));
-    fireEvent.click(await screen.findByRole("button", { name: "객실 배정" }));
+    fireEvent.click(await screen.findByRole("button", { name: "월 객실 배정·확정" }));
     expect(screen.queryByLabelText("객실 사용 시작 날짜")).toBeNull();
     await waitFor(() => expect(repositoryMocks.getLongStayRoomAvailability).toHaveBeenCalledWith(
       expect.objectContaining({ physicalStartDate: null }),
