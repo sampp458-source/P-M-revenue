@@ -171,6 +171,40 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe("Long Stay monthly timestamp date presentation", () => {
+  it.each([
+    ["previous UTC day", "2026-09-27T15:00:00+00:00", "2026. 09. 28.부터"],
+    ["month boundary / Gamja August", "2026-07-31T15:00:00+00:00", "2026. 08. 01.부터"],
+    ["year boundary", "2026-12-31T15:00:00+00:00", "2027. 01. 01.부터"],
+    ["ordinary timestamp", "2026-09-28T05:30:00+00:00", "2026. 09. 28.부터"],
+    ["before KST midnight", "2026-09-27T14:59:59+00:00", "2026. 09. 27.부터"],
+    ["explicit KST offset", "2026-09-28T00:00:00+09:00", "2026. 09. 28.부터"],
+  ])("renders %s as a Seoul date without shifting contract DATE fields", async (_, timestamp, label) => {
+    const contract = projection({
+      dogName: "용이", startedOn: "2026-09-28", plannedCheckOutDate: "2026-10-28",
+      monthlyState: "active",
+      monthlyOccupancy: {
+        id: "month", status: "confirmed", roomTypeId: "standard", roomId: "standard-1",
+        plannedOccupiedFrom: timestamp,
+        plannedOccupiedUntilExclusive: "2026-10-01T00:00:00+09:00", billingSourceId: "month",
+      },
+    });
+    const original = JSON.stringify(contract);
+    renderOperations([contract]);
+    expect(await screen.findByText(label)).not.toBeNull();
+    expect(screen.getByText("2026. 09. 28.")).not.toBeNull();
+    expect(screen.getByText("2026. 10. 28.")).not.toBeNull();
+    expect(JSON.stringify(contract)).toBe(original);
+    expect(repositoryMocks.confirmLongStayMonth).not.toHaveBeenCalled();
+  });
+
+  it("keeps Gamja September without a monthly occupancy unassigned", async () => {
+    renderOperations([projection({dogName: "감자", startedOn: "2026-06-11"})]);
+    expect(await screen.findByText("2026. 06. 11.")).not.toBeNull();
+    expect(screen.getByText("미배정", {selector: "b"}).parentElement?.textContent).toBe("월 점유 미배정");
+  });
+});
+
 describe("Long Stay room identity UX", () => {
   const active = () => projection({dogName: "감자", storedStatus: "active", derivedStatus: "active",
     hotelStayId: "stay-1", checkedInAt: "2026-09-10T06:00:00Z", isOpenEnded: true,

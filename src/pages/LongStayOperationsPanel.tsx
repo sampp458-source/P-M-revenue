@@ -538,7 +538,7 @@ export function LongStayOperationsPanel({
                   <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-surface-secondary p-3 text-xs text-text-secondary">
                     <span>시작일 <b className="text-text-primary">{koDate(contract.startedOn)}</b></span>
                     <span>퇴실 예정 <b className="text-text-primary">{contract.plannedCheckOutDate ? koDate(contract.plannedCheckOutDate) : "미정"}</b></span>
-                    <span>월 점유 <b className="text-text-primary">{contract.monthlyOccupancy ? `${koDate(contract.monthlyOccupancy.plannedOccupiedFrom.slice(0, 10))}부터` : "미배정"}</b></span>
+                    <span>월 점유 <b className="text-text-primary">{contract.monthlyOccupancy ? `${koDate(kstDateKey(contract.monthlyOccupancy.plannedOccupiedFrom))}부터` : "미배정"}</b></span>
                     <span>객실 유지 <b className="text-text-primary">{contract.isOpenEnded ? "실제 퇴실까지" : "종료"}</b></span>
                     {contract.isAway && contract.currentAbsence ? (
                       <>
