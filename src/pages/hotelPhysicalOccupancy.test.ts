@@ -97,7 +97,7 @@ describe('legacy checkout review access', () => {
       expect(openShared).toHaveBeenCalledTimes(2);
       expect(openShared).toHaveBeenLastCalledWith(occupancy.id);
       expect(command).not.toHaveBeenCalled();
-      expect(view.container.querySelector('[data-testid="hotel-room-board"]')?.textContent).toContain('현재 배정·이용 객실0실');
+      expect(view.container.querySelector('[data-testid="hotel-room-board"]')?.textContent).toContain('배정0실');
       view.rerender(createElement(HotelRoomBoard,{...props,snapshot:{...snapshot,stays:[{...single,checkedOutAt:'2026-09-25T12:00:00Z'}]},sharedMemberStays:[{...sharedA,checkedOutAt:'2026-09-25T12:00:00Z'},{...sharedB,checkedOutAt:'2026-09-25T12:00:00Z'}]}));
       expect(view.queryByRole('region',{name:'퇴실 처리 확인'})).toBeNull();
     } finally {cleanup(); vi.useRealTimers();}

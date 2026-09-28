@@ -1,3 +1,4 @@
+// Selected-date header and work-queue scope copy are covered by summary/OperationsUx tests; commands remain unchanged.
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
@@ -13,9 +14,9 @@ const originalHashes = {
   "src/pages/CustomerManagement.tsx": "e9e00cac2485547c556329504c0de5a4ad3b4146f16cdae36aa0038adf7f896a",
   "src/pages/DashboardDB.tsx": "ceb8be51c2d57c8dabe9a6d0ea46f2a176b23219126dcb24055bd67647f392c2",
   "src/pages/HotelHistoricalRoomGrid.tsx": "1319e5ba934d2e36a8116517505c53ca0df5606ab994dff4758e5d6fb59c5a96",
-  "src/pages/HotelOperations.tsx": "11bb6158b4da0196bfb50974c08fc78c22f56503c2dd8affd4d824591481dbd1",
+  "src/pages/HotelOperations.tsx": "863dd7a6a487d168a51588cebc410399e303887ba0c0fa0c51e1ba6cd8e7d6a7",
   "src/pages/HotelOperationsWorkspace.tsx": "62876b46fc4021a1d3c34a6fece777ee42a9469e0b75af979b56a37426ee1cbd",
-  "src/pages/HotelRoomBoard.tsx": "6b0120a1f03385be1c63e92f397c657080c331a3966626d6a7665ea860e55648",
+  "src/pages/HotelRoomBoard.tsx": "5ca6302b66829cf4fc8f903fe86305fc55e74c6a3af4a97ac5e4784576725ebe",
   "src/pages/HotelRoomBoardPresentation.tsx": "e63f5c43f536a98cb730b389d8809d99cf3db4b2ae3d8d7195b2ae27c85a34e1",
   "src/pages/SaleRegistration.tsx": "353491d3f22b8c021fe6369f7e245faa619edf11074b7efa102331234e38b3a4",
   "src/pages/dashboard/DashboardAccountingDrawer.tsx": "4e2c767834f022780034a421688b70825a8650b1a5f24c49ed0bc5250edd4924",

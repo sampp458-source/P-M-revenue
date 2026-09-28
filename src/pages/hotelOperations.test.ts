@@ -326,7 +326,7 @@ describe("Hotel Operations frontend", () => {
     expect(pageSource).toContain('label="안전 예약 가능"');
     expect(pageSource).toContain('label="객실 미정 영향"');
     expect(pageSource).toContain("객실 미정 예약");
-    expect(pageSource).toContain('label="전체 안전 잔여"');
+    expect(pageSource).toContain('label="전체 계획 여유"');
     expect(pageSource).toContain("유형별 잔여는 변동될 수 있습니다");
   });
 

@@ -1628,9 +1628,10 @@ export function HotelOperationsPage() {
               })}
               <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4 sm:col-span-2">
                 <b className="text-sm text-amber-900">객실 미정 예약</b>
+                <p className="mt-1 text-xs text-text-secondary">전체 계획 여유는 유형별 잔여와 별개이며 전체 숙박 기간의 예약 가능량을 보장하지 않습니다.</p>
                 <dl className="mt-3 grid grid-cols-2 gap-2">
                   <Metric label="예약" value={`${snapshot.unassignedRoomTypeCount ?? 0}건`} alert={(snapshot.unassignedRoomTypeCount ?? 0) > 0} />
-                  <Metric label="전체 안전 잔여" value={`${snapshot.overallSafeRemaining ?? 0}실`} alert={(snapshot.overallSafeRemaining ?? 0) === 0} />
+                  <Metric label="전체 계획 여유" value={`${snapshot.overallSafeRemaining ?? 0}실`} alert={(snapshot.overallSafeRemaining ?? 0) === 0} />
                 </dl>
                 {snapshot.individualTypeAvailabilityWarning ? (
                   <p className="mt-3 text-xs font-medium text-amber-800">

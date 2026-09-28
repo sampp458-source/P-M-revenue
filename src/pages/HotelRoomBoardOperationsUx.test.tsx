@@ -816,11 +816,12 @@ it.each([false,true])('012 retains the same room node across TODAY/PAST/FUTURE (
 describe("013 operational presentation", () => {
   it("keeps a compact subordinate strip without a duplicate occupied KPI", () => {
     render(<HotelRoomBoard {...boardProps(snapshot([allocatedStay()]), "2026-08-14")} />);
-    const strip = screen.getByLabelText("객실 운영 요약");
-    expect(strip).toHaveClass("hotel-board-summary");
-    expect(strip.querySelectorAll("dt")).toHaveLength(3);
+    const strip = screen.getByLabelText("선택일 계획 요약").querySelector(".hotel-selected-date-facts")! as HTMLElement;
+    expect(strip).toHaveClass("hotel-selected-date-facts");
+    expect(strip.querySelectorAll("dt")).toHaveLength(4);
     expect(within(strip).queryByText("이용중")).not.toBeInTheDocument();
-    expect(within(strip).getByText("빈방").nextElementSibling).toHaveTextContent("0");
+    expect(within(strip).queryByText("빈방")).not.toBeInTheDocument();
+    expect(within(strip).getByText("미배정").nextElementSibling).toHaveTextContent("확인 필요");
     const room = screen.getByTestId("hotel-room-board-room-room-1");
     expect(within(room).getByText("감자")).toHaveClass("hotel-dog-name");
     expect(within(room).getByText("이용중")).toHaveClass("hotel-status");
@@ -917,7 +918,7 @@ it('014 identifies active content independently of missing schedule phase, insid
   expect(cell).toHaveAttribute('data-room-content','occupied');
   expect(screen.getByTestId('hotel-room-board-room-room-2')).toHaveAttribute('data-room-content','empty');
   const motion=cell.closest('.hotel-board-motion');
-  expect(motion).toContainElement(screen.getByLabelText('객실 운영 요약'));
+  expect(motion).toContainElement(screen.getByLabelText('선택일 계획 요약'));
   expect(document.querySelectorAll('.hotel-board-motion')).toHaveLength(1);
   expect(motion?.closest('.hotel-board-surface')).not.toBeNull();
 });
@@ -936,7 +937,7 @@ describe('015 rooms-first operational frame', () => {
     const value = snapshot([stay()]);
     render(<HotelRoomBoard {...boardProps(value, '2026-08-13')} dateMode={dateMode} selectedDateIsToday={dateMode === 'TODAY'} />);
     const board = screen.getByTestId('hotel-room-board');
-    const summary = board.querySelector('.hotel-board-summary')!;
+    const summary = board.querySelector('.hotel-board-summary, .hotel-selected-date-summary')!;
     const deluxe = screen.getByRole('region', {name: 'DELUXE Room Board'});
     const standard = screen.getByRole('region', {name: 'STANDARD Room Board'});
     const support = screen.getByRole('region', {name: '보조 운영 정보'});
@@ -1061,4 +1062,48 @@ it('omits repeated room-type footer only inside a known-type occupied card, reta
   expect(occupied).toHaveTextContent('실제 입실');
   expect(occupied).toHaveTextContent('예정');
   expect(within(screen.getByTestId('hotel-room-board-stay-waiting-micro')).getByText('DELUXE',{exact:true})).toBeInTheDocument();
+});
+
+
+describe('selected-date count versus broader unassigned work queue', () => {
+  const fixture = (withFuture = true) => {
+    const arrivals = ['2026-09-29', ...(withFuture ? ['2026-10-09', '2026-10-11', '2026-10-11'] : [])];
+    const value = snapshot([], arrivals.map((date, i) => stay({
+      id: `queue-${i}`, dogName: ['메리', '별이', '여름이', '지구'][i],
+      scheduleEvents: [schedule('check_in', `${date}T09:00:00Z`), schedule('check_out', '2026-10-18T09:00:00Z')],
+    })));
+    value.date = '2026-09-29';
+    value.selectedDateUnassigned = {date: value.date, count: 1, singleStayIds: ['queue-0'], sharedGroupIds: [], items: []};
+    return value;
+  };
+  it('distinguishes selected-date 1 from work queue 4 and preserves future three cards', () => {
+    render(<HotelRoomBoard {...boardProps(fixture(), '2026-09-29')} />);
+    const header = screen.getByLabelText('선택일 계획 요약');
+    expect(within(header).getByText('미배정').parentElement).toHaveTextContent('미배정1건');
+    const queueHeader = screen.getByRole('heading', {name: '미배정 업무'}).parentElement!.parentElement!;
+    expect(queueHeader).toHaveTextContent('4건');
+    expect(within(queueHeader).getByText('선택일 1건 · 향후 3건')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', {name: '호실 미배정'})).not.toBeInTheDocument();
+    expect(screen.getByRole('button', {name: /^미배정 업무 보기$/})).toBeInTheDocument();
+    const future = screen.getByRole('region', {name: '향후 입실 미배정'});
+    fireEvent.click(within(future).getByRole('button', {name: '3건 펼쳐보기'}));
+    for (const name of ['별이', '여름이', '지구']) expect(within(future).getAllByText(name, {exact: true})).toHaveLength(1);
+    expect(within(future).queryByText('메리')).not.toBeInTheDocument();
+  });
+  it.each(['missing', 'snapshot mismatch', 'projection mismatch'])('fails closed for %s without inferring from queue total', mode => {
+    const value = fixture();
+    if (mode === 'missing') delete value.selectedDateUnassigned;
+    if (mode === 'snapshot mismatch') value.date = '2026-09-28';
+    if (mode === 'projection mismatch') value.selectedDateUnassigned!.date = '2026-09-28';
+    render(<HotelRoomBoard {...boardProps(value, '2026-09-29')} />);
+    expect(screen.getByText('선택일 확인 필요 · 향후 3건')).toBeInTheDocument();
+    expect(within(screen.getByLabelText('선택일 계획 요약')).getByText('미배정').parentElement).toHaveTextContent('확인 필요');
+    expect(screen.queryByText('선택일 0건')).not.toBeInTheDocument();
+  });
+  it('omits future zero without changing the server selected count', () => {
+    render(<HotelRoomBoard {...boardProps(fixture(false), '2026-09-29')} />);
+    expect(screen.getByText('선택일 1건', {exact: true})).toBeInTheDocument();
+    expect(screen.queryByText(/향후 0건/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', {name: '향후 입실 미배정'})).not.toBeInTheDocument();
+  });
 });

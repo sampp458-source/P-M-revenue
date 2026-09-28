@@ -154,8 +154,26 @@ export interface HotelStay {
   roomAllocations: HotelRoomAllocation[];
 }
 
+export interface HotelSelectedDateUnassigned {
+  date: string;
+  count: number;
+  singleStayIds: string[];
+  sharedGroupIds: string[];
+  items: {
+    kind: "single" | "shared";
+    canonicalId: string;
+    capacitySegments: {
+      capacityId: string;
+      roomTypeId: string | null;
+      capacityStart: string;
+      capacityEnd: string;
+    }[];
+  }[];
+}
+
 export interface HotelOperationsSnapshot {
   date: string;
+  selectedDateUnassigned?: HotelSelectedDateUnassigned;
   roomTypes: HotelRoomTypeSnapshot[];
   rooms: HotelRoomSnapshot[];
   settings: HotelOperationSettingsSnapshot | null;

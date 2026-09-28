@@ -1,3 +1,4 @@
+import { HotelSelectedDateSummary } from "./HotelSelectedDateSummary";
 import { hotelFutureUnassignedPresentation } from "./hotelFutureUnassignedPresentation";
 import { getHotelSingleRoomEligibility, type SingleRoomEligibility } from "./hotelOperationsRepository";
 import {RoomBoardMotion, RoomBoardCellFrame, RoomBoardDesktopGroup, RoomBoardMobileGroup, roomStageClass} from './HotelRoomBoardPresentation';
@@ -1217,6 +1218,9 @@ export function HotelRoomBoard({
   const futureUnassigned = hotelFutureUnassignedPresentation(boardStays, unassignedSharedGroups, selectedDate);
   const futureSingles = [...futureUnassigned.stays].sort(compareUnassignedStay);
   const futureCount = futureSingles.length + futureUnassigned.groups.length;
+  const selectedUnassignedCount = snapshot.date === selectedDate
+    && snapshot.selectedDateUnassigned?.date === selectedDate
+    ? snapshot.selectedDateUnassigned.count : undefined;
   const currentSharedGroups = [...new Map(unassignedSharedGroups.map(group => [group.sharedRoomGroupId, group])).values()]
     .filter(group => !futureUnassigned.groupIds.has(group.sharedRoomGroupId));
   const allKnownStays = useMemo(() => {
@@ -1845,6 +1849,7 @@ export function HotelRoomBoard({
               </p>
             </div>
           </div>
+          {readOnly ? <>
           <div className="hotel-board-room-total pm-d-room-total"><span>{readOnly ? "선택일 사용 기록" : selectedDateIsToday ? "현재 배정·이용 객실" : "선택일 배정 계획"}</span><strong>{presentationOccupied.size}<small>실</small></strong><p>{readOnly ? "확인된 투숙 구간 기준 · 공실 여부를 의미하지 않습니다" : "사전 배정 포함 · 실제 투숙 여부는 각 객실에서 확인"}</p></div>
           <dl className="hotel-board-summary hotel-board-pulse pm-d-count-strip" aria-label={readOnly ? "선택일 투숙 요약" : "객실 운영 요약"}>
             {(readOnly ? [
@@ -1862,10 +1867,11 @@ export function HotelRoomBoard({
               </div>
             ))}
           </dl>
+          </> : <HotelSelectedDateSummary snapshot={snapshot} selectedDate={selectedDate} assigned={presentationOccupied.size} checkIn={boardSummary.checkIn} checkOut={boardSummary.checkOut} />}
           <nav className="hotel-board-support-links" aria-label="보조 운영 바로가기">
             {!readOnly ? <>
               <button type="button" data-active={boardSummary.unassigned > 0 || unassignedSharedGroupsUnavailable || undefined} aria-controls={`${supportId}-unassigned`} onClick={() => revealSupport(unassignedRef.current)}>
-                미배정 <b>{unassignedSharedGroupsUnavailable ? "확인 필요" : unassignedSharedGroupsLoading ? "확인 중" : boardSummary.unassigned}</b>
+                미배정 업무 보기{unassignedSharedGroupsUnavailable ? " · 확인 필요" : unassignedSharedGroupsLoading ? " · 확인 중" : ""}
               </button>
               <button type="button" data-active={futureCount > 0 || undefined} disabled={!futureCount} aria-controls={futureCount ? `${supportId}-future` : undefined} onClick={() => { setShowFutureUnassigned(true); revealSupport(futureRef.current); }}>
                 향후 입실 · 미배정 <b>{futureCount}</b>
@@ -2037,8 +2043,12 @@ export function HotelRoomBoard({
             >
               <div>
                 <h3 className="text-base font-extrabold text-text-primary">
-                  호실 미배정
+                  미배정 업무
                 </h3>
+                <p className="mt-0.5 text-xs text-text-secondary">
+                  선택일 {selectedUnassignedCount === undefined ? "확인 필요" : `${selectedUnassignedCount}건`}
+                  {futureCount > 0 ? ` · 향후 ${futureCount}건` : ""}
+                </p>
                 <p className="mt-0.5 text-xs text-text-secondary">
                   {draggedSharedOccupancy || (draggedStay && canDropHotelStayToUnassigned(draggedStay))
                     ? ((draggedStay && hotelStayRoomUnassignMode(draggedStay) === "reverse_check_in_and_unassign") || (draggedSharedOccupancy && sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) === "reverse_check_in_and_unassign")
