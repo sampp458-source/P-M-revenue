@@ -22,8 +22,25 @@ it('scopes work priority material to arrival/future sections, without changing l
   expect(css).toContain('.hotel-board-future .hotel-room-card-settle[data-room-phase]');
   expect(css).not.toMatch(/data-room-type|data-room-phase=["']?(?:in_house|check_out)/);
 });
-it('gives Single and Shared ARRIVAL cards the same restrained action material without changing future cards',()=>{
+it('uses neutral section material and shared amber semantics for Single/Shared arrival cards',()=>{
   const css=readFileSync('src/pages/hotel-unassigned-classification.css','utf8');
-  expect(css).toMatch(/\.hotel-board-arrivals \.hotel-room-card-settle\[data-room-phase\]:not\(\.opacity-40\),\s*\.pm-design-d\.pm-d-page\.pm-hotel-v2 \.hotel-board-arrivals \[data-testid\^="hotel-room-board-unassigned-shared-"\] \{\s*background: #edf4ff !important;\s*border-color: #7799cf !important;/);
-  expect(css).toContain('box-shadow: 0 2px 4px rgb(36 84 188 / 9%) !important;');
+  const layer=css.split('@layer pm-d-adoption {')[1];
+  const outer=layer.split('.hotel-board-arrivals {')[1].split('}')[0];
+  expect(outer).toContain('background: #fff !important;');
+  expect(outer).toContain('var(--pm-d-border-default, #dce1e6)');
+  expect(outer).not.toMatch(/cobalt|#f7faff|#b7c8e4/);
+  const cards=layer.split('.hotel-board-arrivals .hotel-room-card-settle[data-room-phase]:not(.opacity-40),')[1].split('}')[0];
+  expect(cards).toContain('[data-testid^="hotel-room-board-unassigned-shared-"]');
+  expect(cards).toContain('var(--pm-d-semantic-amber-soft, #fff7e8)');
+  expect(cards).toContain('var(--pm-d-semantic-amber, #946515)');
+  expect(cards).not.toContain('#edf4ff');
+});
+it('keeps cobalt interaction independent of amber assignment status and Future white',()=>{
+  const css=readFileSync('src/pages/hotel-unassigned-classification.css','utf8');
+  const active=css.split('.hotel-board-arrivals[data-drop-active="true"] {')[1].split('}')[0];
+  expect(active).toContain('outline: 2px solid var(--pm-d-brand-cobalt, #2454bc)');
+  const future=css.split('.hotel-board-future,')[1];
+  expect(future).toContain('background: #fff !important;');
+  expect(future).toContain('box-shadow: none !important;');
+  expect(future).not.toContain('amber');
 });

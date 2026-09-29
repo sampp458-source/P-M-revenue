@@ -15,15 +15,15 @@
 @layer pm-d-adoption {
 /* Arrival action priority is distinct from the room type/lifecycle palette. */
 .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals {
-  background: #f7faff !important;
-  border-color: #b7c8e4 !important;
-  border-inline-start: 3px solid var(--pm-d-brand-cobalt, #2454bc);
+  background: #fff !important;
+  border-color: var(--pm-d-border-default, #dce1e6) !important;
+  border-inline-start: 3px solid var(--pm-d-border-default, #dce1e6);
 }
 .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals .hotel-room-card-settle[data-room-phase]:not(.opacity-40),
 .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals [data-testid^="hotel-room-board-unassigned-shared-"] {
-  background: #edf4ff !important;
-  border-color: #7799cf !important;
-  box-shadow: 0 2px 4px rgb(36 84 188 / 9%) !important;
+  background: var(--pm-d-semantic-amber-soft, #fff7e8) !important;
+  border-color: color-mix(in srgb, var(--pm-d-semantic-amber, #946515) 45%, white) !important;
+  box-shadow: 0 2px 4px rgb(148 101 21 / 9%) !important;
   color: var(--pm-d-ink, #172b42) !important;
 }
 .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals .hotel-room-card-settle button[aria-label$="호실 이동 시작"] {
