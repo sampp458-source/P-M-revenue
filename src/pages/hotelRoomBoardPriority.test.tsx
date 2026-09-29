@@ -22,3 +22,8 @@ it('scopes work priority material to arrival/future sections, without changing l
   expect(css).toContain('.hotel-board-future .hotel-room-card-settle[data-room-phase]');
   expect(css).not.toMatch(/data-room-type|data-room-phase=["']?(?:in_house|check_out)/);
 });
+it('gives Single and Shared ARRIVAL cards the same restrained action material without changing future cards',()=>{
+  const css=readFileSync('src/pages/hotel-unassigned-classification.css','utf8');
+  expect(css).toMatch(/\.hotel-board-arrivals \.hotel-room-card-settle\[data-room-phase\]:not\(\.opacity-40\),\s*\.pm-design-d\.pm-d-page\.pm-hotel-v2 \.hotel-board-arrivals \[data-testid\^="hotel-room-board-unassigned-shared-"\] \{\s*background: #edf4ff !important;\s*border-color: #7799cf !important;/);
+  expect(css).toContain('box-shadow: 0 2px 4px rgb(36 84 188 / 9%) !important;');
+});

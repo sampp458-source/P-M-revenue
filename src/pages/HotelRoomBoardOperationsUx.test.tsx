@@ -1226,3 +1226,96 @@ it('retains real ARRIVAL count and cards during an eligible assigned Single drag
   expect(upper).toHaveTextContent('1건');expect(upper).toHaveTextContent('입실예정견');
   expect(upper).toHaveTextContent('여기에 놓으면 객실 배정이 해제됩니다');
 });
+
+describe('ARRIVAL prefetch race regression', () => {
+  it('loads before drag, retains in-flight reads across cancellation, then activates the first ready drag immediately', async () => {
+    let resolve!: (value: unknown) => void;
+    eligibilityMock.mockImplementation(() => new Promise(done => { resolve = done; }));
+    const value=classified(snapshot([stay()]),'2026-08-13',[['stay-1','ARRIVAL']]);
+    const onDropStay=vi.fn();
+    render(<HotelRoomBoard {...boardProps(value,'2026-08-13')} onDropStay={onDropStay}/>);
+    await waitFor(()=>expect(eligibilityMock).toHaveBeenCalledTimes(1));
+    expect(screen.getByText('객실 확인 중…')).toBeInTheDocument();
+    const card=screen.getByTestId('hotel-room-board-stay-stay-1');
+    for(let i=0;i<3;i++) {
+      fireEvent.dragStart(card,{dataTransfer:dragTransfer()});
+      expect(screen.getByText('객실 확인 중… 확인이 끝나면 배정 가능한 객실이 표시됩니다.')).toBeInTheDocument();
+      fireEvent.pointerDown(screen.getByTestId('hotel-room-board-room-room-1'));
+      fireEvent.dragEnd(card);
+    }
+    expect(onDropStay).not.toHaveBeenCalled();
+    expect(eligibilityMock).toHaveBeenCalledTimes(1);
+    await act(async()=>resolve({stayId:'stay-1',rooms:[{roomId:'room-1',eligible:true,recommended:true}]}));
+    fireEvent.click(within(card).getByRole('button',{name:'감자 호실 이동 시작'}));
+    const target=screen.getByTestId('hotel-room-board-room-room-1');
+    expect(target).toHaveClass('border-dashed');
+    fireEvent.pointerEnter(target);
+    expect(within(target).getByText('여기에 배정')).toBeInTheDocument();
+    fireEvent.pointerDown(target);
+    expect(onDropStay).toHaveBeenCalledTimes(1);
+    expect(onDropStay).toHaveBeenCalledWith('stay-1','room-1',false);
+    expect(eligibilityMock).toHaveBeenCalledTimes(1);
+  });
+  it('shows safe failure and explicit retry rather than silent blocked targets',async()=>{
+    eligibilityMock.mockRejectedValueOnce(Error('offline')).mockResolvedValue({stayId:'stay-1',rooms:[]});
+    render(<HotelRoomBoard {...boardProps(classified(snapshot([stay()]),'2026-08-13',[['stay-1','ARRIVAL']]),'2026-08-13')}/>);
+    await screen.findByText(/객실 확인 실패/);
+    fireEvent.click(screen.getByRole('button',{name:'감자 호실 이동 시작'}));
+    expect(screen.getByText(/객실 확인에 실패했습니다. 배정은 실행되지 않습니다./)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button',{name:'객실 다시 확인'}));
+    await waitFor(()=>expect(eligibilityMock).toHaveBeenCalledTimes(2));
+  });
+});
+
+it('read-only ARRIVAL fixture never requests or shows actionable eligibility feedback',async()=>{
+  const value=classified(snapshot([stay({dogName:'메리'})]),'2026-08-13',[['stay-1','ARRIVAL']]);
+  render(<HotelRoomBoard {...boardProps(value,'2026-08-13')} dateMode="PAST"/>);
+  await act(async()=>{});
+  expect(eligibilityMock).not.toHaveBeenCalled();
+  expect(screen.queryByText(/객실 확인 중|객실 확인 실패|객실 확인에 실패/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:/다시 확인/})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'메리 호실 이동 시작'})).not.toBeInTheDocument();
+  // Existing PAST projection does not render the actionable unassigned ARRIVAL
+  // section; do not expand historical occupancy to manufacture an arrival card.
+  expect(screen.queryByTestId('hotel-room-board-arrival-drop-zone')).not.toBeInTheDocument();
+  expect(screen.getByText('선택한 날짜의 투숙 현황 · 조회 전용')).toBeInTheDocument();
+});
+
+it('resolves eligibility within the SAME active native drag and drops exactly once without restarting',async()=>{
+  let resolve!: (value:unknown)=>void;
+  eligibilityMock.mockImplementation(()=>new Promise(done=>{resolve=done;}));
+  const value=classified(snapshot([stay({dogName:'메리'})]),'2026-08-13',[['stay-1','ARRIVAL']]);
+  const props=boardProps(value,'2026-08-13');
+  render(<HotelRoomBoard {...props}/>);
+  expect(eligibilityMock).toHaveBeenCalledTimes(1);
+  const card=screen.getByTestId('hotel-room-board-stay-stay-1');
+  const transfer=dragTransfer();
+  fireEvent.dragStart(card,{dataTransfer:transfer});
+  expect(screen.getByText('객실 확인 중… 확인이 끝나면 배정 가능한 객실이 표시됩니다.')).toBeInTheDocument();
+  const room=screen.getByTestId('hotel-room-board-room-room-1');
+  expect(room).not.toHaveClass('border-dashed');
+  await act(async()=>resolve({stayId:'stay-1',rooms:[{roomId:'room-1',eligible:true,recommended:true}]}));
+  // No dragEnd, second dragStart, or select-for-drop click between resolve/drop.
+  expect(room).toHaveClass('border-dashed');
+  expect(screen.queryByText('객실 확인 중… 확인이 끝나면 배정 가능한 객실이 표시됩니다.')).not.toBeInTheDocument();
+  fireEvent.dragEnter(room,{dataTransfer:transfer});
+  expect(within(room).getByText('여기에 배정')).toBeInTheDocument();
+  fireEvent.drop(room,{dataTransfer:transfer});
+  fireEvent.drop(room,{dataTransfer:transfer});
+  expect(props.onDropStay).toHaveBeenCalledTimes(1);
+  expect(props.onDropStay).toHaveBeenCalledWith('stay-1','room-1',false);
+  expect(eligibilityMock).toHaveBeenCalledTimes(1);
+});
+
+it('suppresses pending board feedback immediately when an active drag becomes read-only',async()=>{
+  eligibilityMock.mockImplementation(()=>new Promise(()=>{}));
+  const value=classified(snapshot([stay()]),'2026-08-13',[['stay-1','ARRIVAL']]);
+  const props=boardProps(value,'2026-08-13');
+  const view=render(<HotelRoomBoard {...props}/>);
+  fireEvent.dragStart(screen.getByTestId('hotel-room-board-stay-stay-1'),{dataTransfer:dragTransfer()});
+  expect(screen.getByText('객실 확인 중… 확인이 끝나면 배정 가능한 객실이 표시됩니다.')).toBeInTheDocument();
+  view.rerender(<HotelRoomBoard {...props} dateMode="PAST"/>);
+  expect(screen.queryByText(/객실 확인 중|객실 확인 실패|객실 확인에 실패/)).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:/다시 확인/})).not.toBeInTheDocument();
+  expect(eligibilityMock).toHaveBeenCalledTimes(1);
+});

@@ -13,14 +13,22 @@
 }
 
 @layer pm-d-adoption {
-/* Work priority belongs to the section, not the room type/lifecycle palette. */
+/* Arrival action priority is distinct from the room type/lifecycle palette. */
 .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals {
   background: #f7faff !important;
   border-color: #b7c8e4 !important;
   border-inline-start: 3px solid var(--pm-d-brand-cobalt, #2454bc);
 }
-.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals .hotel-room-card-settle[data-room-phase]:not(.opacity-40) {
-  border-color: #b7c8e4 !important;
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals .hotel-room-card-settle[data-room-phase]:not(.opacity-40),
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals [data-testid^="hotel-room-board-unassigned-shared-"] {
+  background: #edf4ff !important;
+  border-color: #7799cf !important;
+  box-shadow: 0 2px 4px rgb(36 84 188 / 9%) !important;
+  color: var(--pm-d-ink, #172b42) !important;
+}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals .hotel-room-card-settle button[aria-label$="호실 이동 시작"] {
+  color: #2454bc !important;
+  opacity: 1;
 }
 .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals[data-drop-active="true"] {
   outline: 2px solid var(--pm-d-brand-cobalt, #2454bc);

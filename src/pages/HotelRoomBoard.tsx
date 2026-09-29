@@ -1,8 +1,9 @@
+import { useHotelPreassignEligibility } from "./useHotelPreassignEligibility";
 import "./hotel-unassigned-classification.css";
 import { hotelUnassignedClassificationPresentation, hotelUnassignedLabels, type HotelUnassignedItem } from "./hotelUnassignedClassificationPresentation";
 import { HotelSelectedDateSummary } from "./HotelSelectedDateSummary";
 import { hotelFutureUnassignedPresentation } from "./hotelFutureUnassignedPresentation";
-import { getHotelSingleRoomEligibility, type SingleRoomEligibility } from "./hotelOperationsRepository";
+import { type SingleRoomEligibility } from "./hotelOperationsRepository";
 import {RoomBoardMotion, RoomBoardCellFrame, RoomBoardDesktopGroup, RoomBoardMobileGroup, roomStageClass} from './HotelRoomBoardPresentation';
 import { HistoricalOccupants, HistoricalBoardWarning, historicalRoomPhase } from "./HotelHistoricalRoomGrid";
 import type { HistoricalBoard } from "./hotelHistoricalBoardRepository";
@@ -1242,20 +1243,16 @@ export function HotelRoomBoard({
   );
   const draggedStay =
     boardStays.find((stay) => stay.id === draggedStayId) ?? null;
-  const [preassignResult, setPreassignResult] = useState<{key: string; data: SingleRoomEligibility} | null>(null);
   const preassignKey = draggedStay && !draggedStay.checkedInAt && !activeHotelAllocation(draggedStay)
     ? `${draggedStay.id}:${draggedStay.version}:${selectedDate}` : null;
-  useEffect(() => {
-    if (!preassignKey || !draggedStay || readOnly) return;
-    let current = true;
-    const stayId = draggedStay.id;
-    getHotelSingleRoomEligibility(stayId, "preassign").then(data => {
-      if (current) setPreassignResult({key: preassignKey, data});
-    }).catch(() => { if (current) setPreassignResult(null); });
-    return () => { current = false; };
-  }, [preassignKey, draggedStay, readOnly]);
-  const preassignEligibility = preassignKey && preassignResult?.key === preassignKey
-    ? preassignResult.data : null;
+  const prefetchStays = classifiedUnassigned.groups.ARRIVAL
+    .filter(item => item.kind === "single")
+    .map(item => staysById.get(item.canonicalId))
+    .filter((stay): stay is HotelStay => Boolean(stay && !stay.checkedInAt && !activeHotelAllocation(stay) && !sharedMemberStayIds.has(stay.id)));
+  const eligibilityCache = useHotelPreassignEligibility(snapshot, selectedDate, !readOnly,
+    [...prefetchStays, ...(preassignKey && draggedStay ? [draggedStay] : [])]);
+  const preassignEntry = preassignKey && draggedStay ? eligibilityCache.get(draggedStay.id, draggedStay.version) : undefined;
+  const preassignEligibility = preassignEntry?.data ?? null;
   const draggedSharedGroup =
     unassignedSharedGroups.find((group) => group.sharedRoomGroupId === draggedSharedGroupId) ?? null;
   const draggedSharedOccupancy =
@@ -1378,7 +1375,6 @@ export function HotelRoomBoard({
     draggedStayIdRef.current = stayId;
     draggedSharedGroupIdRef.current = null;
     draggedSharedOccupancyRef.current = null;
-    setPreassignResult(null);
     setDraggedStayId(stayId);
     setDraggedSharedGroupId(null);
     setDraggedSharedOccupancyId(null);
@@ -1398,7 +1394,6 @@ export function HotelRoomBoard({
     draggedStayIdRef.current = stayId;
     draggedSharedGroupIdRef.current = null;
     draggedSharedOccupancyRef.current = null;
-    setPreassignResult(null);
     setDraggedStayId(stayId);
     setDraggedSharedGroupId(null);
     setDraggedSharedOccupancyId(null);
@@ -1678,6 +1673,11 @@ export function HotelRoomBoard({
               onDragStart={beginNativeDrag}
               onPointerStart={beginPointerDrag}
             />
+            {!readOnly && arrival && !stay.checkedInAt && !activeHotelAllocation(stay) && eligibilityCache.get(stay.id, stay.version)?.status !== "ready" ? (
+              <p role="status" className="mt-1 px-1 text-xs text-text-secondary">
+                {eligibilityCache.get(stay.id, stay.version)?.status === "error" ? <>객실 확인 실패 · 배정 전 다시 확인해 주세요. <button type="button" className="underline" onClick={() => eligibilityCache.retry(stay.id, stay.version)}>다시 확인</button></> : "객실 확인 중…"}
+              </p>
+            ) : null}
             {!roomTypeReady ? (
               <p className={cn("mt-1 px-1 font-medium text-amber-700", mobileProjection ? "text-xs" : "text-[11px]")}>
                 객실 유형을 먼저 확정해 주세요.
@@ -1967,6 +1967,9 @@ export function HotelRoomBoard({
               <p className="mt-2 text-xs text-text-muted">{mobileProjection ? "이동 아이콘을 누른 뒤 아래 객실을 선택하세요" : "아래 객실로 끌어 배정"}</p>
             </> : null}
           </section> : null}
+          {!readOnly && preassignKey && preassignEntry?.status !== "ready" ? <div role="status" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-text-secondary">
+            {preassignEntry?.status === "error" ? <>객실 확인에 실패했습니다. 배정은 실행되지 않습니다. <button type="button" className="font-semibold underline" onClick={() => draggedStay && eligibilityCache.retry(draggedStay.id, draggedStay.version)}>객실 다시 확인</button></> : "객실 확인 중… 확인이 끝나면 배정 가능한 객실이 표시됩니다."}
+          </div> : null}
           {mobileProjection ? (
             <div className="min-w-0 space-y-4" data-testid="hotel-room-board-mobile-projection">
               <div className="hotel-board-filter-control" aria-label="객실 표시 제어">
