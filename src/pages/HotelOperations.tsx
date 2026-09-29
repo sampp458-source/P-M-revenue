@@ -1,3 +1,4 @@
+import { hotelUnassignedClassificationPresentation } from "./hotelUnassignedClassificationPresentation";
 import { hotelFutureUnassignedPresentation } from "./hotelFutureUnassignedPresentation";
 import "../design-system-v2.css";
 import "../hotel-design-v2.css";
@@ -1372,7 +1373,11 @@ export function HotelOperationsPage() {
   const workspaceStays = [...new Map([...allSnapshotStays(), ...sharedMemberStays].map(stay => [stay.id, stay])).values()];
   const sharedIds = new Set([...sharedOccupancies.flatMap(group => group.members.map(member => member.hotelStayId)), ...unassignedSharedGroups.flatMap(group => group.dogMembers.map(member => member.hotelStayId))]);
   const futureUnassigned = hotelFutureUnassignedPresentation(workspaceStays.filter(stay => !sharedIds.has(stay.id)), unassignedSharedGroups, selectedDate);
-  const attentionItems = isPast ? [] : hotelRoomBoardUnassigned(workspaceStays.filter(stay => !sharedIds.has(stay.id))).filter(stay => !futureUnassigned.stayIds.has(stay.id)).map(stay => ({
+  const classifiedUnassigned = hotelUnassignedClassificationPresentation(snapshot, selectedDate);
+  const classifiedStayIds = new Set([...classifiedUnassigned.singleIds,
+    ...unassignedSharedGroups.filter(group => classifiedUnassigned.groupIds.has(group.sharedRoomGroupId))
+      .flatMap(group => group.dogMembers.map(member => member.hotelStayId))]);
+  const attentionItems = (isPast ? [] : hotelRoomBoardUnassigned(workspaceStays.filter(stay => !sharedIds.has(stay.id))).filter(stay => !futureUnassigned.stayIds.has(stay.id)).map(stay => ({
     id: stay.id, name: stay.dogName,
     reason: needsMissedCheckInRecovery(stay) ? "입실 기록 확인 · 실제 도착 여부 확인" : "호실 미배정 · 예약 상세 확인",
     onOpen: () => void openStay(stay.id),
@@ -1387,7 +1392,7 @@ export function HotelOperationsPage() {
       id: stay.id, name: stay.dogName,
       reason: "객실 점유 확인 필요 · 입실 완료 기록 확인",
       onOpen: () => void openStay(stay.id),
-    })) : []);
+    })) : [])).filter(item => !classifiedStayIds.has(item.id) && !classifiedUnassigned.groupIds.has(item.id));
   const dayItems: HotelTimelineItem[] = workspaceStays.flatMap(stay => stay.scheduleEvents.filter(event => seoulInputParts(event.schedule.startsAt).date === selectedDate).map(event => ({
     id: event.schedule.id, at: event.schedule.startsAt, timeUnspecified: event.schedule.timeUnspecified, name: stay.dogName,
     detail: event.eventKind === "check_in" ? "입실 일정" : "퇴실 일정",

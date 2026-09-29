@@ -94,7 +94,7 @@ function view(stays: HotelStay[], groups: UnassignedSharedRoomGroup[] = []) {
 describe("future unassigned presentation identity and scope",()=>{
  it("A: future Single appears only in future, even when present in both snapshot arrays",()=>{
   view([future("메리")]);expect(screen.queryByRole("region",{name:"확인할 호텔 업무"})).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button",{name:"1건 펼쳐보기"}));
+  expect(screen.getByRole("button",{name:"접기"})).toHaveAttribute("aria-expanded","true");
   expect(screen.getAllByTestId("hotel-room-board-stay-메리")).toHaveLength(1);
   expect(within(screen.getByRole("region",{name:"향후 입실 미배정"})).getByText("호실 미배정")).toBeVisible();
   fireEvent.click(screen.getByRole("button",{name:"접기"}));expect(screen.queryByTestId("hotel-room-board-stay-메리")).not.toBeInTheDocument();
@@ -102,7 +102,7 @@ describe("future unassigned presentation identity and scope",()=>{
  it("B: future Shared stays group-level, deduplicated by group id",()=>{
   const g=group();view([future("member")],[g,g]);
   expect(attention([future("member")],[g,g])).toHaveLength(0);
-  fireEvent.click(screen.getByRole("button",{name:"1건 펼쳐보기"}));
+  expect(screen.getByRole("button",{name:"접기"})).toHaveAttribute("aria-expanded","true");
   expect(screen.getAllByTestId("hotel-room-board-unassigned-shared-group")).toHaveLength(1);
   expect(screen.queryByTestId("hotel-room-board-stay-member")).not.toBeInTheDocument();
  });
@@ -126,14 +126,14 @@ describe("future unassigned presentation identity and scope",()=>{
   const stays=[future("메리"),future("별이","2026-10-08T15:00:00Z"),future("여름이","2026-10-10T15:00:00Z"),future("지구","2026-10-10T15:00:00Z")];
   stays.slice(1).forEach(s=>s.scheduleEvents[0].schedule.timeUnspecified=true);
   view(stays);expect(screen.queryByRole("region",{name:"확인할 호텔 업무"})).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button",{name:"4건 펼쳐보기"}));
-  const section=screen.getByRole("region",{name:"향후 입실 미배정"});expect(within(section).getByRole("heading",{name:"향후 입실 · 미배정"})).toBeVisible();
+  expect(screen.getByRole("button",{name:"접기"})).toHaveAttribute("aria-expanded","true");
+  const section=screen.getByRole("region",{name:"향후 입실 미배정"});expect(within(section).getByRole("heading",{name:/향후 입실 · 객실 미배정/})).toBeVisible();
   for(const s of stays) expect(within(section).getAllByText(s.dogName)).toHaveLength(1);
   expect(within(section).getByText("2026. 10. 09. · 시간 미정")).toBeVisible();expect(section.textContent).not.toContain("00:00");
  });
  it("Shared unknown member time remains unknown, missing member schedule never invents midnight",()=>{
   const s=future("member","2026-10-08T15:00:00Z");s.scheduleEvents[0].schedule.timeUnspecified=true;
-  view([s],[group("2026-10-08T15:00:00Z")]);fireEvent.click(screen.getByRole("button",{name:"1건 펼쳐보기"}));expect(screen.getByText("2026. 10. 09. · 시간 미정")).toBeVisible();
-  cleanup();view([],[group("2026-10-08T15:00:00Z")]);fireEvent.click(screen.getByRole("button",{name:"1건 펼쳐보기"}));expect(screen.getByText("2026-10-09 · 시간 확인 필요")).toBeVisible();
+  view([s],[group("2026-10-08T15:00:00Z")]);expect(screen.getByRole("button",{name:"접기"})).toHaveAttribute("aria-expanded","true");expect(screen.getByText("2026. 10. 09. · 시간 미정")).toBeVisible();
+  cleanup();view([],[group("2026-10-08T15:00:00Z")]);expect(screen.getByRole("button",{name:"접기"})).toHaveAttribute("aria-expanded","true");expect(screen.getByText("2026-10-09 · 시간 확인 필요")).toBeVisible();
  });
 });

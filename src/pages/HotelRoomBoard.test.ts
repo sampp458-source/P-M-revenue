@@ -617,10 +617,11 @@ describe("Hotel Room Board", () => {
     expect(board).toContain("hotelRoomBoardDateCopy[dateMode].title");
     expect(board).toContain('["빈방", boardSummary.empty');
     expect(board).not.toContain('["이용중", boardSummary.inHouse');
-    expect(board).toContain('unassignedSharedGroupsUnavailable');
-    expect(board).toContain('? "확인 필요"');
+    expect(board).toContain('needsClassificationReview');
+    expect(board).toContain('선택일 분류 확인 필요');
     expect(board).toContain('<HotelSelectedDateSummary');
-    expect(board).toContain('미배정 업무 보기');
+    expect(board).toContain('미배정 확인 필요');
+    expect(board).toContain('revealSupport(arrivalRef.current)');
     expect(board).toContain('selectedDateIsToday ? "오늘 입실" : "입실"');
     expect(board).toContain('selectedDateIsToday ? "오늘 퇴실" : "퇴실"');
     expect(page).toContain("useState(false)");

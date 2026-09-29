@@ -1,4 +1,4 @@
-// Selected-date header and work-queue scope copy are covered by summary/OperationsUx tests; commands remain unchanged.
+// Server-classified assignment presentation is covered by hotelUnassignedClassification/OperationsUx tests; commands remain unchanged.
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
@@ -15,9 +15,9 @@ const originalHashes = {
   "src/pages/DashboardDB.tsx": "ceb8be51c2d57c8dabe9a6d0ea46f2a176b23219126dcb24055bd67647f392c2",
   "src/pages/HotelHistoricalRoomGrid.tsx": "1319e5ba934d2e36a8116517505c53ca0df5606ab994dff4758e5d6fb59c5a96",
   // Legacy physical carryover: canonical current room / unresolved safety attention. No CSS change.
-  "src/pages/HotelOperations.tsx": "4b61753a1d2708b18141f8401da8136ac7c31edf5daa1ed3f0fe5e564fb12214",
+  "src/pages/HotelOperations.tsx": "6819151e31b37dc79a35bcc906caea78bb8cf995b9937cf7284ca563ae399fa2",
   "src/pages/HotelOperationsWorkspace.tsx": "62876b46fc4021a1d3c34a6fece777ee42a9469e0b75af979b56a37426ee1cbd",
-  "src/pages/HotelRoomBoard.tsx": "46baca39f40e5161ae8732ee3db1e672904bec8d9f77f4670c9b9c49195c78da",
+  "src/pages/HotelRoomBoard.tsx": "bed988f6a52ef6d06cbffbffcb4e50b5b80099faa4e6c690a3f03b6bf3f8f469",
   "src/pages/HotelRoomBoardPresentation.tsx": "e63f5c43f536a98cb730b389d8809d99cf3db4b2ae3d8d7195b2ae27c85a34e1",
   "src/pages/SaleRegistration.tsx": "353491d3f22b8c021fe6369f7e245faa619edf11074b7efa102331234e38b3a4",
   "src/pages/dashboard/DashboardAccountingDrawer.tsx": "4e2c767834f022780034a421688b70825a8650b1a5f24c49ed0bc5250edd4924",

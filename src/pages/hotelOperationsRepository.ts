@@ -161,6 +161,9 @@ export interface HotelStay {
   };
 }
 
+export type HotelUnassignedClassification =
+  | "ARRIVAL" | "LATE_ARRIVAL" | "PLANNED_STAY_UNASSIGNED" | "LONG_STAY_RETURN" | "CHECKED_IN_UNRESOLVED" | "OTHER";
+
 export interface HotelSelectedDateUnassigned {
   date: string;
   count: number;
@@ -169,6 +172,12 @@ export interface HotelSelectedDateUnassigned {
   items: {
     kind: "single" | "shared";
     canonicalId: string;
+    classification?: HotelUnassignedClassification;
+    classificationReasonCode?: string;
+    canonicalArrivalAt?: string | null;
+    canonicalArrivalUntil?: string | null;
+    arrivalTimeUnspecified?: boolean | null;
+    actualCheckInState?: "pending" | "checked_in" | "inconsistent" | "unknown";
     capacitySegments: {
       capacityId: string;
       roomTypeId: string | null;

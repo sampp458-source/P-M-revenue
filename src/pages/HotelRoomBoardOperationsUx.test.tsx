@@ -85,6 +85,11 @@ const stay = (overrides: Partial<HotelStay> = {}): HotelStay => ({
   ...overrides,
 });
 
+const classified = (value: HotelOperationsSnapshot, date: string, entries: [string, "ARRIVAL" | "LATE_ARRIVAL" | "LONG_STAY_RETURN" | "CHECKED_IN_UNRESOLVED" | "OTHER"][]) => ({
+  ...value, date, selectedDateUnassigned: {date, count: entries.length, singleStayIds: entries.map(([id]) => id), sharedGroupIds: [],
+    items: entries.map(([canonicalId, classification]) => ({kind: "single" as const, canonicalId, classification, capacitySegments: []}))},
+});
+
 const allocatedStay = (overrides: Partial<HotelStay> = {}) => stay({
   checkedInAt: "2026-08-13T06:05:00Z",
   roomAllocations: [{
@@ -265,7 +270,7 @@ describe("Hotel Room Board operations UX", () => {
       "함께 투숙 미배정 예약을 불러오지 못했습니다.",
     );
     expect(screen.getByText("다른 관련 기록은 계속 확인할 수 있습니다. 함께 투숙 예약만 다시 확인해 주세요.")).toBeVisible();
-    expect(screen.queryByText("현재 미배정 예약이 없습니다.")).toBeNull();
+    expect(screen.getByRole("alert")).toHaveTextContent("다시 시도");
     expect(screen.getAllByText("확인 필요").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "다시 시도" }));
@@ -293,7 +298,7 @@ describe("Hotel Room Board operations UX", () => {
       />,
     );
 
-    expect(screen.getByText("현재 미배정 예약이 없습니다.")).toBeVisible();
+    expect(screen.getByText("객실 배정을 해제하려면 객실 카드를 이곳으로 옮기세요.")).toBeVisible();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -331,7 +336,7 @@ describe("Hotel Room Board operations UX", () => {
       />,
     );
     fireEvent.click(screen.getByLabelText("감자 · 먼지 객실 배정 시작"));
-    expect(screen.getByRole("status")).toHaveTextContent("디럭스 객실에만");
+    expect(screen.getByText("같은 객실 투숙은 디럭스 객실에만 배정할 수 있습니다.")).toHaveAttribute("role", "status");
     fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-standard-1"));
     expect(onDropSharedGroup).not.toHaveBeenCalled();
     fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-room-1"));
@@ -561,34 +566,36 @@ describe("Hotel Room Board operations UX", () => {
     expect(hotelRoomBoardUnassignedGroups([future], "2026-08-14").today[0]?.id).toBe("future");
   });
 
-  it("renders overdue and today separately while keeping future reservations collapsed", () => {
+  it("renders canonical late and arrival separately while future starts expanded", () => {
     const overdue = stay({ id: "overdue", dogName: "미처리견", scheduleEvents: [schedule("check_in", "2026-08-12T06:00:00Z"), schedule("check_out", "2026-08-16T02:00:00Z")] });
     const today = stay({ id: "today", dogName: "오늘견" });
     const future = stay({ id: "future", dogName: "미래견", scheduleEvents: [schedule("check_in", "2026-08-14T06:00:00Z"), schedule("check_out", "2026-08-16T02:00:00Z")] });
-    render(<HotelRoomBoard {...boardProps(snapshot([], [future, overdue, today]), "2026-08-13")} />);
+    render(<HotelRoomBoard {...boardProps(classified(snapshot([], [future, overdue, today]), "2026-08-13", [["overdue", "LATE_ARRIVAL"], ["today", "ARRIVAL"]]), "2026-08-13")} />);
 
-    expect(within(screen.getByRole("region", { name: "선택일 입실 미배정" })).getByText("오늘견")).toBeInTheDocument();
-    expect(within(screen.getByRole("region", { name: "미처리 미배정" })).getByText("미처리견")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "선택일 입실 · 객실 배정 필요" })).getByText("오늘견")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "입실 확인 필요" })).getByText("미처리견")).toBeInTheDocument();
+    expect(screen.getByText("미래견")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "접기" }));
     expect(screen.queryByText("미래견")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "1건 펼쳐보기" }));
     expect(screen.getByText("미래견")).toBeInTheDocument();
   });
 
-  it.each([true, false])("keeps selected-date arrival wording when selectedDateIsToday=%s", (selectedDateIsToday) => {
+  it.each([true, false])("uses server arrival wording when selectedDateIsToday=%s", (selectedDateIsToday) => {
     const first = stay({ id: "first", dogName: "첫예약" });
     const next = ["next-a", "next-b"].map(id => stay({ id, dogName: id, scheduleEvents: [schedule("check_in", "2026-08-14T06:00:00Z"), schedule("check_out", "2026-08-16T02:00:00Z")] }));
-    const value = snapshot([], [first, ...next]);
+    const value = classified(snapshot([], [first, ...next]), "2026-08-13", [["first", "ARRIVAL"]]);
     const { rerender } = render(<HotelRoomBoard {...boardProps(value, "2026-08-13")} selectedDateIsToday={selectedDateIsToday} dateMode={selectedDateIsToday ? "TODAY" : "FUTURE"} />);
-    const region = screen.getByRole("region", { name: "선택일 입실 미배정" });
-    expect(within(region).getByText("선택일 입실")).toBeInTheDocument();
-    expect(within(region).getByText("1")).toBeInTheDocument();
+    const region = screen.getByRole("region", { name: `${selectedDateIsToday ? "오늘" : "선택일"} 입실 · 객실 배정 필요` });
+    expect(within(region).getByRole("heading")).toHaveTextContent("입실 · 객실 배정 필요");
+    expect(within(region).getByText("1건")).toBeInTheDocument();
     expect(within(region).getByText("첫예약")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "오늘 입실 미배정" })).not.toBeInTheDocument();
 
-    rerender(<HotelRoomBoard {...boardProps(value, "2026-08-14")} selectedDateIsToday={false} dateMode="FUTURE" />);
-    const changed = screen.getByRole("region", { name: "선택일 입실 미배정" });
-    expect(within(changed).getByText("선택일 입실")).toBeInTheDocument();
-    expect(within(changed).getByText("2")).toBeInTheDocument();
+    rerender(<HotelRoomBoard {...boardProps(classified(value, "2026-08-14", [["next-a", "ARRIVAL"], ["next-b", "ARRIVAL"]]), "2026-08-14")} selectedDateIsToday={false} dateMode="FUTURE" />);
+    const changed = screen.getByRole("region", { name: "선택일 입실 · 객실 배정 필요" });
+    expect(within(changed).getByRole("heading")).toHaveTextContent("선택일 입실 · 객실 배정 필요");
+    expect(within(changed).getByText("2건")).toBeInTheDocument();
     for (const item of next) expect(within(changed).getByText(item.dogName)).toBeInTheDocument();
   });
 
@@ -637,8 +644,8 @@ describe("Hotel Room Board operations UX", () => {
     const { rerender } = render(<HotelRoomBoard {...boardProps(value, "2026-08-13")} />);
     expect(screen.getByRole("region", { name: "향후 입실 미배정" })).toBeInTheDocument();
 
-    rerender(<HotelRoomBoard {...boardProps(value, "2026-08-14")} />);
-    expect(within(screen.getByRole("region", { name: "선택일 입실 미배정" })).getByText("날짜이동견")).toBeInTheDocument();
+    rerender(<HotelRoomBoard {...boardProps(classified(value, "2026-08-14", [["future", "ARRIVAL"]]), "2026-08-14")} />);
+    expect(within(screen.getByRole("region", { name: "선택일 입실 · 객실 배정 필요" })).getByText("날짜이동견")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "향후 입실 미배정" })).not.toBeInTheDocument();
   });
 
@@ -865,7 +872,7 @@ describe("013 operational presentation", () => {
     expect(room.querySelector(".hotel-dog-name")).toBeNull();
     const unassigned = screen.getByTestId("hotel-room-board-unassigned-drop-zone");
     expect(unassigned).toHaveClass("hotel-board-unassigned");
-    expect(unassigned).toHaveTextContent("현재 미배정 예약이 없습니다.");
+    expect(unassigned).toHaveTextContent("객실 배정을 해제하려면 객실 카드를 이곳으로 옮기세요.");
   });
 });
 
@@ -992,8 +999,8 @@ describe('015 supporting navigation', () => {
     expect(within(nav).getByRole('button',{name:/^미배정/})).toHaveAttribute('data-active','true');
     const futureSection=screen.getByRole('region',{name:'향후 입실 미배정'});
     futureSection.scrollIntoView=vi.fn();
-    expect(screen.queryByText('향후 예약견')).not.toBeInTheDocument();
-    fireEvent.click(within(nav).getByRole('button',{name:'향후 입실 · 미배정 1'}));
+    expect(screen.getByText('향후 예약견')).toBeVisible();
+    fireEvent.click(within(nav).getByRole('button',{name:'향후 입실 · 객실 미배정 1'}));
     expect(screen.getByText('향후 예약견')).toBeVisible();
     expect(futureSection.scrollIntoView).toHaveBeenCalledWith({block:'start',behavior:'instant'});
     expect(futureSection).toHaveFocus();
@@ -1022,7 +1029,7 @@ describe('015 supporting navigation', () => {
   it('keeps zero future and completion counts quiet and non-interactive', () => {
     render(<HotelRoomBoard {...boardProps(snapshot(), '2026-08-13')}/>);
     const nav=screen.getByRole('navigation',{name:'보조 운영 바로가기'});
-    for(const name of ['향후 입실 · 미배정 0','퇴실 완료 0']) {
+    for(const name of ['향후 입실 · 객실 미배정 0','퇴실 완료 0']) {
       const button=within(nav).getByRole('button',{name});
       expect(button).toBeDisabled();expect(button).not.toHaveAttribute('data-active');
     }
@@ -1091,20 +1098,18 @@ describe('selected-date count versus broader unassigned work queue', () => {
       scheduleEvents: [schedule('check_in', `${date}T09:00:00Z`), schedule('check_out', '2026-10-18T09:00:00Z')],
     })));
     value.date = '2026-09-29';
-    value.selectedDateUnassigned = {date: value.date, count: 1, singleStayIds: ['queue-0'], sharedGroupIds: [], items: []};
+    value.selectedDateUnassigned = {date: value.date, count: 1, singleStayIds: ['queue-0'], sharedGroupIds: [], items: [{kind: 'single', canonicalId: 'queue-0', classification: 'ARRIVAL', capacitySegments: []}]};
     return value;
   };
   it('distinguishes selected-date 1 from work queue 4 and preserves future three cards', () => {
     render(<HotelRoomBoard {...boardProps(fixture(), '2026-09-29')} />);
     const header = screen.getByLabelText('선택일 계획 요약');
     expect(within(header).getByText('미배정').parentElement).toHaveTextContent('미배정1건');
-    const queueHeader = screen.getByRole('heading', {name: '미배정 업무'}).parentElement!.parentElement!;
-    expect(queueHeader).toHaveTextContent('4건');
-    expect(within(queueHeader).getByText('선택일 1건 · 향후 3건')).toBeInTheDocument();
-    expect(screen.queryByRole('heading', {name: '호실 미배정'})).not.toBeInTheDocument();
-    expect(screen.getByRole('button', {name: /^미배정 업무 보기$/})).toBeInTheDocument();
+    expect(screen.getByRole('region', {name: '선택일 입실 · 객실 배정 필요'})).toHaveTextContent('1건');
+    expect(screen.queryByRole('heading', {name: '미배정 업무'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: /^미배정 업무 보기$/})).not.toBeInTheDocument();
     const future = screen.getByRole('region', {name: '향후 입실 미배정'});
-    fireEvent.click(within(future).getByRole('button', {name: '3건 펼쳐보기'}));
+    expect(within(future).getByRole('button', {name: '접기'})).toHaveAttribute('aria-expanded', 'true');
     for (const name of ['별이', '여름이', '지구']) expect(within(future).getAllByText(name, {exact: true})).toHaveLength(1);
     expect(within(future).queryByText('메리')).not.toBeInTheDocument();
   });
@@ -1114,13 +1119,13 @@ describe('selected-date count versus broader unassigned work queue', () => {
     if (mode === 'snapshot mismatch') value.date = '2026-09-28';
     if (mode === 'projection mismatch') value.selectedDateUnassigned!.date = '2026-09-28';
     render(<HotelRoomBoard {...boardProps(value, '2026-09-29')} />);
-    expect(screen.getByText('선택일 확인 필요 · 향후 3건')).toBeInTheDocument();
+    expect(screen.getByText('선택일 분류 확인 필요')).toBeInTheDocument();
     expect(within(screen.getByLabelText('선택일 계획 요약')).getByText('미배정').parentElement).toHaveTextContent('확인 필요');
     expect(screen.queryByText('선택일 0건')).not.toBeInTheDocument();
   });
   it('omits future zero without changing the server selected count', () => {
     render(<HotelRoomBoard {...boardProps(fixture(false), '2026-09-29')} />);
-    expect(screen.getByText('선택일 1건', {exact: true})).toBeInTheDocument();
+    expect(screen.getByRole('region', {name: '선택일 입실 · 객실 배정 필요'})).toHaveTextContent('1건');
     expect(screen.queryByText(/향후 0건/)).not.toBeInTheDocument();
     expect(screen.queryByRole('region', {name: '향후 입실 미배정'})).not.toBeInTheDocument();
   });

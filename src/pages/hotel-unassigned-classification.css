@@ -1,0 +1,13 @@
+/* Arrival is a normal assignment action, not a lifecycle warning. */
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals .hotel-room-card-settle[data-room-phase]:not(.opacity-40),
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals [data-testid^="hotel-room-board-unassigned-shared-"] {
+  background: #fff !important;
+  border-color: var(--pm-d-border-default, #dce1e6) !important;
+  color: var(--pm-d-ink, #172b42) !important;
+  box-shadow: none !important;
+}
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-classified-unassigned:not(.ring-2) {
+  background: #fff !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: none !important;
+}
