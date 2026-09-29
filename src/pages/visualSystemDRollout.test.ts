@@ -17,7 +17,7 @@ const originalHashes = {
   // Legacy physical carryover: canonical current room / unresolved safety attention. No CSS change.
   "src/pages/HotelOperations.tsx": "6819151e31b37dc79a35bcc906caea78bb8cf995b9937cf7284ca563ae399fa2",
   "src/pages/HotelOperationsWorkspace.tsx": "62876b46fc4021a1d3c34a6fece777ee42a9469e0b75af979b56a37426ee1cbd",
-  "src/pages/HotelRoomBoard.tsx": "bed988f6a52ef6d06cbffbffcb4e50b5b80099faa4e6c690a3f03b6bf3f8f469",
+  "src/pages/HotelRoomBoard.tsx": "e1e5bea309e50644f20cb34926fe49c4b6fdba0983c1435104dfd070b1e55a73",
   "src/pages/HotelRoomBoardPresentation.tsx": "e63f5c43f536a98cb730b389d8809d99cf3db4b2ae3d8d7195b2ae27c85a34e1",
   "src/pages/SaleRegistration.tsx": "353491d3f22b8c021fe6369f7e245faa619edf11074b7efa102331234e38b3a4",
   "src/pages/dashboard/DashboardAccountingDrawer.tsx": "4e2c767834f022780034a421688b70825a8650b1a5f24c49ed0bc5250edd4924",

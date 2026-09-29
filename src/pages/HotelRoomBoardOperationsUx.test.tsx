@@ -26,6 +26,8 @@ vi.mock("./hotelOperationsRepository", async importOriginal => ({
 }));
 
 afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
   eligibilityMock.mockReset();
   cleanup();
   document.querySelectorAll('[style*="left: -1000px"]').forEach((node) => node.remove());
@@ -298,7 +300,7 @@ describe("Hotel Room Board operations UX", () => {
       />,
     );
 
-    expect(screen.getByText("객실 배정을 해제하려면 객실 카드를 이곳으로 옮기세요.")).toBeVisible();
+    expect(screen.queryByText("객실 배정을 해제하려면 객실 카드를 이곳으로 옮기세요.")).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -358,7 +360,7 @@ describe("Hotel Room Board operations UX", () => {
     fireEvent.dragStart(card, {
       dataTransfer: transfer,
     });
-    const zone = screen.getByTestId("hotel-room-board-unassigned-drop-zone");
+    const zone = screen.getByTestId("hotel-room-board-arrival-drop-zone");
     fireEvent.dragOver(zone, { dataTransfer: transfer });
     expect(zone).toHaveTextContent("여기에 놓으면 객실 배정이 해제됩니다");
     fireEvent.drop(zone, { dataTransfer: transfer });
@@ -865,14 +867,14 @@ describe("013 operational presentation", () => {
     expect(card).toHaveTextContent("함께 투숙 · 3마리 · 객실 1실");
   });
 
-  it("retains the neutral empty shell and compact zero-unassigned message", () => {
+  it("retains the neutral empty room without a permanent unassign instruction", () => {
     render(<HotelRoomBoard {...boardProps(snapshot([]), "2026-08-14")} />);
     const room = screen.getByTestId("hotel-room-board-room-room-1");
     expect(room).toHaveAttribute("data-room-phase", "empty");
     expect(room.querySelector(".hotel-dog-name")).toBeNull();
     const unassigned = screen.getByTestId("hotel-room-board-unassigned-drop-zone");
     expect(unassigned).toHaveClass("hotel-board-unassigned");
-    expect(unassigned).toHaveTextContent("객실 배정을 해제하려면 객실 카드를 이곳으로 옮기세요.");
+    expect(unassigned).not.toHaveTextContent("객실 배정을 해제하려면 객실 카드를 이곳으로 옮기세요.");
   });
 });
 
@@ -1129,4 +1131,98 @@ describe('selected-date count versus broader unassigned work queue', () => {
     expect(screen.queryByText(/향후 0건/)).not.toBeInTheDocument();
     expect(screen.queryByRole('region', {name: '향후 입실 미배정'})).not.toBeInTheDocument();
   });
+});
+
+
+describe("arrival priority and safe upper unassign", () => {
+  it.each([[false,false],[false,true],[true,false],[true,true]])("returns only a pre-check-in selected-date Single to ARRIVAL (mobile %s, today %s)", (mobile, today) => {
+    vi.useFakeTimers({toFake:["Date"]});
+    vi.setSystemTime(new Date("2026-08-13T07:00:00Z"));
+    vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({matches: mobile, addEventListener: vi.fn(), removeEventListener: vi.fn()}));
+    const assigned = allocatedStay({checkedInAt: null});
+    const value = classified(snapshot([assigned]), "2026-08-13", []);
+    const props = {...boardProps(value, value.date), selectedDateIsToday: today};
+    const view = render(<HotelRoomBoard {...props} />);
+    const card = screen.getByTestId("hotel-room-board-stay-stay-1");
+    const transfer = dragTransfer();
+    fireEvent.dragStart(card, {dataTransfer: transfer});
+    const upper = screen.getByTestId("hotel-room-board-arrival-drop-zone");
+    expect(upper).toHaveAttribute("data-arrival-mode", "DROP_ONLY");
+    expect(upper).toHaveAccessibleName(`${today ? "오늘" : "선택일"} 입실로 되돌리기`);
+    expect(upper).not.toHaveTextContent("0건");
+    expect(upper).not.toHaveTextContent("아직 객실이 정해지지 않았습니다");
+    expect(upper.querySelector('[data-testid^="hotel-room-board-stay-"]')).toBeNull();
+    fireEvent.dragOver(upper, {dataTransfer: transfer});
+    expect(upper).toHaveAttribute("data-drop-active", "true");
+    expect(screen.getByTestId("hotel-room-board-unassigned-drop-zone")).not.toBeVisible();
+    fireEvent.drop(upper, {dataTransfer: transfer});
+    expect(props.onUnassignStay).toHaveBeenCalledTimes(1); expect(props.onUnassignStay).toHaveBeenCalledWith(assigned.id);
+    fireEvent.dragEnd(card, {dataTransfer: transfer});
+    const returned = {...assigned, roomAllocations: []};
+    view.rerender(<HotelRoomBoard {...props} snapshot={classified(snapshot([returned]), "2026-08-13", [[returned.id,"ARRIVAL"]])} />);
+    expect(screen.getByRole("region", {name:`${today ? "오늘" : "선택일"} 입실 · 객실 배정 필요`})).toHaveTextContent("감자");
+    expect(screen.getByTestId("hotel-room-board-arrival-drop-zone")).toHaveTextContent("1건");
+    vi.unstubAllGlobals();
+  });
+
+  it("rejects an occupied Single at upper arrival while preserving explicit reversal destination", () => {
+    const assigned=allocatedStay(); const pending=stay({id:"arrival-2",dogName:"입실예정"});
+    const props=boardProps(classified(snapshot([assigned,pending]), "2026-08-13", [[pending.id,"ARRIVAL"]]),"2026-08-13");
+    render(<HotelRoomBoard {...props} allowCheckInReversal />);
+    const transfer=dragTransfer();fireEvent.dragStart(screen.getByTestId("hotel-room-board-stay-stay-1"),{dataTransfer:transfer});
+    fireEvent.drop(screen.getByTestId("hotel-room-board-arrival-drop-zone"),{dataTransfer:transfer});
+    expect(props.onUnassignStay).not.toHaveBeenCalled();
+    const lower=screen.getByTestId("hotel-room-board-unassigned-drop-zone");
+    expect(lower).toBeVisible();expect(lower).toHaveTextContent("입실 완료가 취소되고");
+    fireEvent.drop(lower,{dataTransfer:transfer});expect(props.onUnassignStay).toHaveBeenCalledTimes(1); expect(props.onUnassignStay).toHaveBeenCalledWith(assigned.id);
+  });
+
+  it("keeps the empty lower destination out of the normal page flow", () => {
+    render(<HotelRoomBoard {...boardProps(classified(snapshot(), "2026-08-13", []), "2026-08-13")} />);
+    expect(screen.getByTestId("hotel-room-board-unassigned-drop-zone")).not.toBeVisible();
+  });
+});
+
+
+it('does not route Shared occupancy into the Single arrival destination', () => {
+  const first=stay(),second=stay({id:'stay-2'}),pending=stay({id:'pending-3'});
+  const props=boardProps(classified(snapshot([pending]),'2026-08-13',[[pending.id,'ARRIVAL']]),'2026-08-13');
+  render(<HotelRoomBoard {...props} sharedOccupancies={[sharedOccupancy()]} sharedMemberStays={[first,second]} />);
+  const transfer=dragTransfer();fireEvent.dragStart(screen.getByTestId('shared-room-card-occupancy-1'),{dataTransfer:transfer});
+  fireEvent.drop(screen.getByTestId('hotel-room-board-arrival-drop-zone'),{dataTransfer:transfer});
+  expect(props.onUnassignSharedOccupancy).not.toHaveBeenCalled();expect(props.onUnassignStay).not.toHaveBeenCalled();
+  fireEvent.drop(screen.getByTestId('hotel-room-board-unassigned-drop-zone'),{dataTransfer:transfer});
+  expect(props.onUnassignSharedOccupancy).toHaveBeenCalledWith('occupancy-1',4);
+});
+it('does not expose upper unassign for an occupied Long Stay without arrival schedule', () => {
+  const long=allocatedStay({scheduleEvents:[]}); const pending=stay({id:'pending-3'});
+  const props=boardProps(classified(snapshot([long,pending]),'2026-08-13',[[pending.id,'ARRIVAL']]),'2026-08-13');
+  render(<HotelRoomBoard {...props} />);
+  const transfer=dragTransfer();fireEvent.dragStart(screen.getByTestId('hotel-room-board-stay-stay-1'),{dataTransfer:transfer});
+  fireEvent.drop(screen.getByTestId('hotel-room-board-arrival-drop-zone'),{dataTransfer:transfer});
+  expect(props.onUnassignStay).not.toHaveBeenCalled();
+});
+it('rejects mismatched Shared payload on the upper Single target and duplicate drops', () => {
+  const assigned=allocatedStay({checkedInAt:null}); const props=boardProps(classified(snapshot([assigned]),'2026-08-13',[]),'2026-08-13');
+  render(<HotelRoomBoard {...props} />);
+  const transfer=dragTransfer();fireEvent.dragStart(screen.getByTestId('hotel-room-board-stay-stay-1'),{dataTransfer:transfer});
+  transfer.setData('application/x-hotel-room-board-drag',JSON.stringify({kind:'shared_occupancy',occupancyId:'occupancy-1',expectedVersion:4}));
+  const upper=screen.getByTestId('hotel-room-board-arrival-drop-zone');fireEvent.drop(upper,{dataTransfer:transfer});
+  expect(props.onUnassignStay).not.toHaveBeenCalled();expect(props.onUnassignSharedOccupancy).not.toHaveBeenCalled();
+  transfer.setData('application/x-hotel-room-board-drag',JSON.stringify({kind:'stay',stayId:assigned.id}));
+  fireEvent.drop(upper,{dataTransfer:transfer});fireEvent.drop(upper,{dataTransfer:transfer});
+  expect(props.onUnassignStay).toHaveBeenCalledTimes(1);
+});
+
+it('retains real ARRIVAL count and cards during an eligible assigned Single drag', () => {
+  vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-08-13T07:00:00Z'));
+  const assigned=allocatedStay({checkedInAt:null}), pending=stay({id:'pending',dogName:'입실예정견'});
+  const props=boardProps(classified(snapshot([assigned,pending]),'2026-08-13',[[pending.id,'ARRIVAL']]),'2026-08-13');
+  render(<HotelRoomBoard {...props} selectedDateIsToday />);
+  const transfer=dragTransfer();fireEvent.dragStart(screen.getByTestId('hotel-room-board-stay-stay-1'),{dataTransfer:transfer});
+  const upper=screen.getByTestId('hotel-room-board-arrival-drop-zone');fireEvent.dragOver(upper,{dataTransfer:transfer});
+  expect(upper).toHaveAttribute('data-arrival-mode','ARRIVAL');
+  expect(upper).toHaveAccessibleName('오늘 입실 · 객실 배정 필요');
+  expect(upper).toHaveTextContent('1건');expect(upper).toHaveTextContent('입실예정견');
+  expect(upper).toHaveTextContent('여기에 놓으면 객실 배정이 해제됩니다');
 });

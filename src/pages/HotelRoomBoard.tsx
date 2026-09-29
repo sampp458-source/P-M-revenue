@@ -1145,6 +1145,7 @@ export function HotelRoomBoard({
   const [settlingRoomId, setSettlingRoomId] = useState<string | null>(null);
   const [settlingStayId, setSettlingStayId] = useState<string | null>(null);
   const [returningStayId, setReturningStayId] = useState<string | null>(null);
+  const [arrivalDropOver, setArrivalDropOver] = useState(false);
   const [showFutureUnassigned, setShowFutureUnassigned] = useState(true);
   const [showCompletedCheckouts, setShowCompletedCheckouts] = useState(false);
   const supportId = useId();
@@ -1259,6 +1260,18 @@ export function HotelRoomBoard({
     unassignedSharedGroups.find((group) => group.sharedRoomGroupId === draggedSharedGroupId) ?? null;
   const draggedSharedOccupancy =
     sharedOccupancies.find((occupancy) => occupancy.id === draggedSharedOccupancyId) ?? null;
+  // Upper destination is only for a selected-date Single arrival, never a reversal.
+  const upperArrivalEligible = Boolean(!readOnly && !processing && draggedStay
+    && processingStayId !== draggedStay.id && !draggedStay.archivedAt
+    && !sharedMemberStayIds.has(draggedStay.id)
+    && hotelStayRoomUnassignMode(draggedStay) === "pre_check_in"
+    && hotelStayScheduleDate(draggedStay, "check_in") === selectedDate);
+  const lowerUnassignActive = Boolean(!readOnly && !processing && !upperArrivalEligible && (
+    (draggedStay && canDropHotelStayToUnassigned(draggedStay)
+      && (hotelStayRoomUnassignMode(draggedStay) === "pre_check_in" || allowCheckInReversal))
+    || (draggedSharedOccupancy && sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById)
+      && (sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) === "pre_check_in" || allowCheckInReversal))
+  ));
   const roomStays = useMemo(() => {
     const entries = new Map<string, HotelStay[]>();
     stays.forEach((stay) => {
@@ -1603,7 +1616,16 @@ export function HotelRoomBoard({
     dropCommittedRef.current = true;
     onUnassignStay(stayId);
   };
+  const commitArrivalUnassign = (event?: DragEvent<HTMLElement>) => {
+    if (!upperArrivalEligible) return;
+    if (event) {
+      const payload = parseHotelRoomBoardDragPayload(event.dataTransfer.getData("application/x-hotel-room-board-drag"));
+      if (!payload || payload.kind !== "stay" || payload.stayId !== draggedStayIdRef.current) return;
+    }
+    commitUnassignDrop();
+  };
   const endDrag = () => {
+    setArrivalDropOver(false);
     if (dragModeRef.current === "selected" && !dropCommittedRef.current) return;
     const returningId = !dropCommittedRef.current
       ? draggedStayIdRef.current
@@ -1716,6 +1738,7 @@ export function HotelRoomBoard({
     </div>
   );
   const arrivalCount = classifiedUnassigned.groups.ARRIVAL.length;
+  const arrivalDropOnly = arrivalCount === 0 && upperArrivalEligible;
   const nonArrivalCount = classifiedUnassigned.items.length - arrivalCount;
   const classificationTrusted = classifiedUnassigned.available && classifiedUnassigned.items.every(item =>
     item.classification && Object.hasOwn(classifiedUnassigned.groups, item.classification));
@@ -1724,6 +1747,7 @@ export function HotelRoomBoard({
     unassignedGroups.today.length + unassignedGroups.overdue.length + currentSharedGroups.length > 0
   );
   const arrivalTitle = `${selectedDateIsToday ? "오늘" : "선택일"} 입실 · 객실 배정 필요`;
+  const arrivalDropTitle = `${selectedDateIsToday ? "오늘" : "선택일"} 입실로 되돌리기`;
   const renderRoomCell = (room: {id:string}, mobile = false) => {
     if (readOnly) {
       const historicalRoom = historicalBoard?.rooms.find(item=>item.roomId===room.id);
@@ -1927,11 +1951,21 @@ export function HotelRoomBoard({
         </div>
 
         <div className="flex flex-col gap-5 p-4 sm:p-5 lg:p-6">
-          {!readOnly && classifiedUnassigned.groups.ARRIVAL.length > 0 ? <section id={`${supportId}-arrival`} ref={arrivalRef} tabIndex={-1} aria-label={arrivalTitle} className="hotel-board-arrivals min-w-0 rounded-2xl border border-slate-200 bg-white p-4">
-            <h3 className="text-base font-extrabold text-text-primary">{arrivalTitle} <span className="ml-2 text-sm font-semibold text-primary">{classifiedUnassigned.groups.ARRIVAL.length}건</span></h3>
-            <p className="mb-3 mt-1 text-xs text-text-secondary">입실 예정이며 아직 객실이 정해지지 않았습니다.</p>
-            {renderClassifiedItems(classifiedUnassigned.groups.ARRIVAL, true)}
-            <p className="mt-2 text-xs text-text-muted">{mobileProjection ? "이동 아이콘을 누른 뒤 아래 객실을 선택하세요" : "아래 객실로 끌어 배정"}</p>
+          {!readOnly && (arrivalCount > 0 || upperArrivalEligible) ? <section data-testid="hotel-room-board-arrival-drop-zone"
+            data-arrival-mode={arrivalDropOnly ? "DROP_ONLY" : "ARRIVAL"}
+            data-drop-active={arrivalDropOver && upperArrivalEligible || undefined}
+            onDragOver={(event) => { if (upperArrivalEligible) { event.preventDefault(); event.dataTransfer.dropEffect = "move"; setArrivalDropOver(true); } }}
+            onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setArrivalDropOver(false); }}
+            onDrop={(event) => { event.preventDefault(); setArrivalDropOver(false); commitArrivalUnassign(event); }}
+            onPointerUp={() => { commitArrivalUnassign(); }}
+            id={`${supportId}-arrival`} ref={arrivalRef} tabIndex={-1} aria-label={arrivalDropOnly ? arrivalDropTitle : arrivalTitle} className={cn("hotel-board-arrivals min-w-0 rounded-2xl border border-slate-200 bg-white", arrivalDropOnly ? "p-3" : "p-4")}>
+            <h3 className="text-base font-extrabold text-text-primary">{arrivalDropOnly ? arrivalDropTitle : arrivalTitle}{!arrivalDropOnly ? <span className="ml-2 text-sm font-semibold text-primary">{arrivalCount}건</span> : null}</h3>
+            {!arrivalDropOnly ? <p className="mb-3 mt-1 text-xs text-text-secondary">입실 예정이며 아직 객실이 정해지지 않았습니다.</p> : null}
+            {upperArrivalEligible && (arrivalDropOnly || arrivalDropOver || dragModeRef.current === "selected") ? <button type="button" className="hotel-arrival-unassign-action" onClick={() => { commitArrivalUnassign(); endDrag(); }}>여기에 놓으면 객실 배정이 해제됩니다{arrivalDropOnly ? "." : ""}</button> : null}
+            {!arrivalDropOnly ? <>
+              {renderClassifiedItems(classifiedUnassigned.groups.ARRIVAL, true)}
+              <p className="mt-2 text-xs text-text-muted">{mobileProjection ? "이동 아이콘을 누른 뒤 아래 객실을 선택하세요" : "아래 객실로 끌어 배정"}</p>
+            </> : null}
           </section> : null}
           {mobileProjection ? (
             <div className="min-w-0 space-y-4" data-testid="hotel-room-board-mobile-projection">
@@ -2039,49 +2073,41 @@ export function HotelRoomBoard({
 
               </section> : null}</div> : null}
           {!readOnly ? <div
+            hidden={!lowerUnassignActive && !nonArrivalCount && !needsClassificationReview && !unassignedSharedGroupsError && !unassignedSharedGroupsLoading}
             data-testid="hotel-room-board-unassigned-drop-zone"
             id={`${supportId}-unassigned`} ref={unassignedRef} tabIndex={-1}
             data-board-content="unassigned" data-board-phase="auxiliary"
             onDragEnter={(event) => {
-              if (
-                (draggedStay && canDropHotelStayToUnassigned(draggedStay) && (hotelStayRoomUnassignMode(draggedStay) === "pre_check_in" || allowCheckInReversal)) ||
-                (draggedSharedOccupancy && sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) && (sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) === "pre_check_in" || allowCheckInReversal))
-              ) {
+              if (lowerUnassignActive) {
                 event.preventDefault();
               }
             }}
             onDragOver={(event) => {
-              if (
-                (draggedStay && canDropHotelStayToUnassigned(draggedStay) && (hotelStayRoomUnassignMode(draggedStay) === "pre_check_in" || allowCheckInReversal)) ||
-                (draggedSharedOccupancy && sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) && (sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) === "pre_check_in" || allowCheckInReversal))
-              ) {
+              if (lowerUnassignActive) {
                 event.preventDefault();
                 event.dataTransfer.dropEffect = "move";
               }
             }}
             onDrop={(event) => {
               event.preventDefault();
-              commitUnassignDrop(event);
+              if (lowerUnassignActive) commitUnassignDrop(event);
             }}
-            onPointerUp={() => commitUnassignDrop()}
+            onPointerUp={() => { if (lowerUnassignActive) commitUnassignDrop(); }}
             className={cn(
               "hotel-board-unassigned hotel-board-classified-unassigned min-w-0 rounded-xl border border-slate-200 bg-white px-4",
               unassigned.length || unassignedSharedGroups.length || unassignedSharedGroupsError || unassignedSharedGroupsLoading
                 ? "py-3.5"
                 : "py-2.5",
-              Boolean(
-                (draggedStay && canDropHotelStayToUnassigned(draggedStay) && (hotelStayRoomUnassignMode(draggedStay) === "pre_check_in" || allowCheckInReversal)) ||
-                (draggedSharedOccupancy && sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) && (sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) === "pre_check_in" || allowCheckInReversal)),
-              ) &&
+              lowerUnassignActive &&
                 "border-dashed border-amber-500 bg-amber-50 ring-2 ring-amber-200",
             )}
           >
-            <p className="text-xs text-text-secondary">
+            {lowerUnassignActive ? <p role="status" className="text-xs text-text-secondary">
               {draggedSharedOccupancy || (draggedStay && canDropHotelStayToUnassigned(draggedStay))
                 ? ((draggedStay && hotelStayRoomUnassignMode(draggedStay) === "reverse_check_in_and_unassign") || (draggedSharedOccupancy && sharedHotelOccupancyRoomUnassignMode(draggedSharedOccupancy, staysById) === "reverse_check_in_and_unassign")
                   ? "여기에 놓으면 입실 완료가 취소되고 객실 배정이 해제됩니다" : "여기에 놓으면 객실 배정이 해제됩니다")
-                : "객실 배정을 해제하려면 객실 카드를 이곳으로 옮기세요."}
-            </p>
+                : "배정 해제는 예약 상세에서 확인하세요."}
+            </p> : null}
             {!classifiedUnassigned.available ? <p role="status" className="mt-1 text-xs text-amber-800">선택일 분류 확인 필요</p> : null}
             {unassignedSharedGroupsError ? (
               <div

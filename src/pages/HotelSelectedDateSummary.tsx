@@ -19,7 +19,10 @@ export function HotelSelectedDateSummary({ snapshot, selectedDate, assigned, che
   return <section className="hotel-selected-date-summary" aria-label="선택일 계획 요약">
     <p className="hotel-selected-date-summary-label">선택일 계획 여유</p>
     <dl className="hotel-selected-date-capacity">
-      {snapshot.roomTypes.map(type => {
+      {[...snapshot.roomTypes].sort((a, b) => {
+        const rank = (code: string) => code === "DELUXE" ? 0 : code === "STANDARD" ? 1 : 2;
+        return rank(a.code) - rank(b.code);
+      }).map(type => {
         // Missing conservative evidence must never fall back to an optimistic value.
         const remaining = !current ? undefined : unknown || (type.affectedByUnspecifiedCount ?? 0) > 0
           ? type.conservativeRemaining

@@ -52,7 +52,7 @@ describe('server classified assignment presentation', () => {
     expect(arrival.getAttribute('aria-controls')).not.toBe(other.getAttribute('aria-controls'));
     fireEvent.click(other);expect(document.getElementById(other.getAttribute('aria-controls')!)).toHaveFocus();
     expect(within(screen.getByLabelText('선택일 계획 요약')).getByText('미배정').parentElement).toHaveTextContent('3건');
-    expect(screen.getByText('객실 배정을 해제하려면 객실 카드를 이곳으로 옮기세요.')).toBeVisible();
+    expect(screen.queryByText('객실 배정을 해제하려면 객실 카드를 이곳으로 옮기세요.')).not.toBeInTheDocument();
   });
   it('zero selected-date count has no unassigned links but preserves future 4',()=>{
     render(<HotelRoomBoard {...props(fixture([],4),true)}/>);
