@@ -1,6 +1,7 @@
 // Only the explicit visual role hooks added by Rollout 1 are removed.
 // Historical behavioral hashes below remain unchanged.
 export function normalizeVisualSystemD(source: string) {
+  source = normalizeNotificationShell(source);
   source = normalizeStaffDirectoryPresentation(source);
   source = source.replace('import "../visual-system-d-rollout3.css";\n', '');
   source = source.replace(/import "\.\.?\/visual-system-d-rollout4\.css";\n/g, '');
@@ -19,6 +20,7 @@ export function normalizeStaffDirectoryPresentation(source: string) {
 
 // Hotfix 1 adds only persistent shell paint hooks, never route/auth behavior.
 export function normalizePersistentDShell(source: string) {
+  source = normalizeNotificationShell(source);
   source = source.replaceAll('app-sidebar pm-d-sidebar pm-design-d fixed', 'app-sidebar pm-d-sidebar fixed');
   const start = source.indexOf('function JournalAppLayout()');
   const end = source.indexOf('function AppLayout()', start);
@@ -29,4 +31,13 @@ export function normalizePersistentDShell(source: string) {
     .replace('app-sidebar-link pm-d-nav group', 'app-sidebar-link group')
     .replace('app-sidebar-profile pm-d-account mb', 'app-sidebar-profile mb');
   return source.slice(0, start) + journal + source.slice(end);
+}
+
+// Sprint 1 adds only these exact bell insertion points. Keep historical hashes intact.
+export function normalizeNotificationShell(source: string) {
+  return source
+    .replace('import { NotificationBell } from "./notifications/NotificationUi";\n', '')
+    .replace('        <div className="pn-gate-bell"><NotificationBell /></div>\n', '')
+    .replaceAll('<div className="pn-header-tools"><NotificationBell />\n          ', '')
+    .replaceAll('          </div>\n          </div>\n        </header>', '          </div>\n        </header>');
 }

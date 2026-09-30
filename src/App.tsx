@@ -1,3 +1,4 @@
+import { NotificationBell } from "./notifications/NotificationUi";
 import "./visual-system-d-rollout4.css";
 import "./access-design-v2.css";
 import "./access-design-v1.css";
@@ -627,6 +628,7 @@ function ModuleGatePage() {
       <div className="module-gate-orb module-gate-orb-one" aria-hidden="true" />
       <div className="module-gate-orb module-gate-orb-two" aria-hidden="true" />
       <section className="relative z-10 w-full max-w-[1080px]">
+        <div className="pn-gate-bell"><NotificationBell /></div>
         <div className="mb-8 text-center sm:mb-11">
           <BrandLogo
             className="mx-auto mb-3 h-[76px] w-[164px]"
@@ -776,9 +778,11 @@ function JournalAppLayout() {
               <b className="text-text-primary">{current}</b>
             </div>
           </div>
+          <div className="pn-header-tools"><NotificationBell />
           <div className="hidden items-center gap-2.5 sm:flex">
             <b className="text-sm leading-none text-text-primary">{profile?.name || "이름 미등록"}</b>
             <span className="rounded-full bg-surface-secondary px-2 py-1 text-[10px] font-medium leading-none text-text-muted">{profile?.role === "admin" ? "관리자" : "직원"}</span>
+          </div>
           </div>
         </header>
         <main className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
@@ -866,10 +870,12 @@ function AppLayout() {
             </div>
           </div>
           <CustomerDogHeaderSearch module="finance" />
+          <div className="pn-header-tools"><NotificationBell />
           <div className="hidden text-right sm:block">
             <b className="block text-sm text-text-primary">{profile?.name || "이름 미등록"}</b>
             <span className="text-xs text-text-muted">{profile?.role === "admin" ? "관리자" : "직원"}</span>
             <span className="sr-only">조회된 사업부 {businessUnits.length}개</span>
+          </div>
           </div>
         </header>
         <main className={`mx-auto max-w-[1600px] ${location.pathname === "/dashboard" ? "p-4 sm:p-5 lg:p-5" : "p-4 sm:p-6 lg:p-8"}`}>
@@ -1002,6 +1008,7 @@ function OperationsAppLayout() {
             </div>
           </div>
           <CustomerDogHeaderSearch module="operations" />
+          <div className="pn-header-tools"><NotificationBell />
           <div className="hidden items-center gap-2.5 sm:flex">
             <b className="text-sm leading-none text-text-primary">
               {profile?.name || "이름 미등록"}
@@ -1009,6 +1016,7 @@ function OperationsAppLayout() {
             <span className="rounded-full bg-surface-secondary px-2 py-1 text-[10px] font-medium leading-none text-text-muted">
               {profile?.role === "admin" ? "관리자" : "직원"}
             </span>
+          </div>
           </div>
         </header>
         <main className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
