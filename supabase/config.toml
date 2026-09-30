@@ -1,0 +1,3 @@
+# Custom constant-time secret authentication in handler; no browser invocation authority.
+[functions.notification-push-dispatch]
+verify_jwt = false

@@ -1,3 +1,5 @@
+import { consumePushTarget } from "./pushNavigation";
+import { webPushClient, webPushEnabled, syncAppBadge } from "./webPushClient";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { emptyInbox, notificationRepository, type Notice, type NotificationRepository } from "./notificationRepository";
@@ -55,6 +57,24 @@ export function NotificationSession({ userId, children, repository = notificatio
     firstPresentation.current = true;
     if (inbox.popup.length) setView("summary");
   }, [loading, error, inbox.popup]);
+  useEffect(() => {
+    if (!webPushEnabled) return;
+    void webPushClient.reconcile(userId).catch(() => {});
+    const pending = consumePushTarget();
+    const openCenter = (id: string) => {
+      if (!/^[0-9a-f-]{36}$/i.test(id)) return;
+      consumePushTarget(); firstPresentation.current = true;
+      setView("center"); void refresh();
+    };
+    if (pending) openCenter(pending);
+    const message = (event: MessageEvent) => {
+      if (event.data?.type === "PNM_PUSH_OPEN") openCenter(event.data.notificationId);
+      if (event.data?.type === "PNM_PUSH_RECONCILE") void webPushClient.reconcile(userId).catch(() => {});
+    };
+    navigator.serviceWorker?.addEventListener("message", message);
+    return () => navigator.serviceWorker?.removeEventListener("message", message);
+  }, [userId, refresh]);
+  useEffect(() => { if (webPushEnabled) void syncAppBadge(inbox.unread_count); }, [inbox.unread_count]);
   return <NotificationContext.Provider value={{ userId, repository, inbox, error, loading, view, setView, detail, setDetail, refresh }}>
     {children}<NotificationDialogs />
   </NotificationContext.Provider>;

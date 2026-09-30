@@ -1,3 +1,4 @@
+import { installPushNavigation } from "./notifications/pushNavigation";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
@@ -10,6 +11,8 @@ import "./styles.css";
 import { NotificationProvider } from "./notifications/NotificationProvider";
 
 if (import.meta.env.PROD) startDeploymentFreshnessMonitor();
+
+installPushNavigation();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

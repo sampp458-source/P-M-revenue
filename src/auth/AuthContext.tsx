@@ -1,3 +1,4 @@
+import { cleanupPushBeforeLogout, notePushIdentity } from "../notifications/webPushClient";
 import {
   createContext,
   useContext,
@@ -116,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       initialSessionResolved = true;
       if (error) console.error("세션 확인 실패", error.message);
       sessionUserIdRef.current = data.session?.user.id ?? null;
+      notePushIdentity(sessionUserIdRef.current);
       setSession(data.session);
       if (!data.session) setLoading(false);
     });
@@ -124,6 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (shouldIgnoreInitialEmptySession(initialSessionResolved, nextUserId)) return;
       const identityChanged = hasAuthIdentityChanged(sessionUserIdRef.current, nextUserId);
       sessionUserIdRef.current = nextUserId;
+      notePushIdentity(nextUserId);
       setSession(nextSession);
       if (!nextSession) setLoading(false);
       else if (identityChanged) setLoading(true);
@@ -303,6 +306,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       signOut: async () => {
         const userId = session?.user.id;
+        await cleanupPushBeforeLogout();
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
         if (userId) clearModuleSessionState(userId);

@@ -1,0 +1,6 @@
+{
+  "nodeModulesDir": "auto",
+  "imports": {"web-push": "npm:web-push@3.6.7", "web-push-types": "npm:@types/web-push@3.6.4"},
+  "compilerOptions": {"strict": true},
+  "tasks": {"check": "deno check index.ts worker_test.ts", "test": "deno test --allow-net=127.0.0.1 --allow-env --allow-read worker_test.ts"}
+}

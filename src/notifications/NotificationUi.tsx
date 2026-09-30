@@ -1,3 +1,5 @@
+import { PushSettings } from "./PushSettings";
+import { webPushEnabled } from "./webPushClient";
 import { useEffect, useRef, useState } from "react";
 import { Bell, Check, ChevronLeft, ChevronRight, Megaphone, Plus } from "lucide-react";
 import { Modal, Toast } from "../components/ui";
@@ -124,6 +126,7 @@ export function NotificationDialogs() {
           </div>}
         </>}
         {state.view === "center" && <>
+          {webPushEnabled && <PushSettings userId={state.userId} />}
           <div className="pn-toolbar"><div className="pn-tabs" aria-label="알림 필터">{[false, true].map(v => <button key={String(v)} aria-pressed={unread === v} onClick={() => { setUnread(v); setOffset(0); }}>{v ? `읽지 않음 ${state.inbox.unread_count}` : "전체"}</button>)}</div></div>
           {state.inbox.unacknowledged_count > 0 && <p className="pn-ack-summary">확인 필요한 공지 <b>{state.inbox.unacknowledged_count}건</b> · 읽음과 확인은 별도입니다.</p>}
           {(state.loading || pageLoading) ? <p role="status">알림을 불러오는 중입니다.</p> : <div className="pn-notice-list">{(page || []).map(n => <NoticeRow key={n.id} item={n} onOpen={open} />)}{page?.length === 0 && <p className="pn-empty"><Bell size={25} />{unread ? "읽지 않은 알림이 없습니다." : "새로운 공지가 여기에 표시됩니다."}</p>}</div>}
