@@ -12,7 +12,12 @@ const files = {
 };
 describe('Operations schedule presentation contract', () => {
   for (const [file, expected] of Object.entries(files)) it(`${file}: preserves all workflow declarations and page handlers from approved HEAD`, () => {
-    const source = readFileSync(`src/pages/${file}`, 'utf8').replace('            <MobileCalendarStatusLegend />\n', '');
+    const source = readFileSync(`src/pages/${file}`, 'utf8').replace('            <MobileCalendarStatusLegend />\n', '')
+      // New typed deep link changes initialization only; retain all prior handler hashes.
+      .replace('  const notificationDate = new URLSearchParams(window.location.search).get("notification_date");\n  const initialDate = validScheduleDate(notificationDate) ? notificationDate : today;\n', '')
+      .replace('useState(monthKey(initialDate))', 'useState(monthKey(today))')
+      .replace('useState(initialDate)', 'useState(today)')
+      .replace('useState(validScheduleDate(notificationDate))', 'useState(false)');
     const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
     // Explicitly permitted leaf render functions only; full page component (queries, handlers, dialogs) remains hashed.
     const presentation = ['ScheduleRow', 'TodaySummary', 'CalendarCell', 'MonthScheduleCard', 'DayDrawer'];

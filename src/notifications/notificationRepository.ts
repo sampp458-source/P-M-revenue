@@ -1,6 +1,8 @@
 import { supabase } from "../lib/supabase";
 export interface Notice {
-  id: string; announcement_id: string; title: string; message: string;
+  id: string; announcement_id: string | null; title: string; message: string;
+  category?: "ANNOUNCEMENT" | "SCHEDULE"; deep_link_type?: "ANNOUNCEMENT" | "SCHEDULE" | "SCHEDULE_DAY";
+  deep_link_id?: string; schedule_local_date?: string | null;
   priority: "NORMAL" | "IMPORTANT"; ack_required: boolean; created_at: string;
   read_at: string | null; acknowledged_at: string | null; popup_presented_at: string | null;
   revoked_at: string | null; expires_at: string | null;

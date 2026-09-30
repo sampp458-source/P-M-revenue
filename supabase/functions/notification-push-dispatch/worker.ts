@@ -1,6 +1,6 @@
 // @deno-types="npm:@types/web-push@3.6.4"
 import webpush from "web-push";
-export type Delivery = { notification_id: string; deep_link_type: string; deep_link_id: string; category: string; endpoint: string; p256dh: string; auth: string };
+export type Delivery = { notification_id: string; deep_link_type: string; deep_link_id: string; category: string; event_type?: string; summary_count?: number; endpoint: string; p256dh: string; auth: string };
 export type Claim = { delivery_id: string; token: string };
 export type Rpc = <T>(name: string, args: Record<string, unknown>) => Promise<T>;
 export type Vapid = { subject: string; publicKey: string; privateKey: string };
@@ -11,9 +11,16 @@ export function safeEndpoint(value: string): boolean {
       (["web.push.apple.com", "fcm.googleapis.com", "updates.push.services.mozilla.com"].includes(u.hostname) || /^[a-z0-9-]+\.notify\.windows\.com$/.test(u.hostname));
   } catch { return false; }
 }
+export function pushTemplate(d: Pick<Delivery, "category" | "event_type" | "summary_count">) {
+  if (d.category === "ANNOUNCEMENT") return { event_type: "ANNOUNCEMENT" };
+  if (d.category !== "SCHEDULE") throw new Error("INVALID_PUSH_CATEGORY");
+  if (["SCHEDULE_ASSIGNED", "SCHEDULE_UPDATED", "SCHEDULE_COMPLETED", "SCHEDULE_CANCELLED"].includes(d.event_type || "")) return { event_type: d.event_type };
+  if (d.event_type === "DAILY_SCHEDULE_SUMMARY" && Number.isSafeInteger(d.summary_count) && d.summary_count! > 0) return { event_type: d.event_type, summary_count: d.summary_count };
+  throw new Error("INVALID_PUSH_TEMPLATE");
+}
 export function encryptedRequest(d: Delivery, vapid: Vapid) {
   if (!safeEndpoint(d.endpoint)) throw new Error("INVALID_ENDPOINT");
-  const payload = JSON.stringify({ v: 1, notification_id: d.notification_id,
+  const payload = JSON.stringify({ ...pushTemplate(d), v: 1, notification_id: d.notification_id,
     deep_link_type: d.deep_link_type === "ANNOUNCEMENT" ? "ANNOUNCEMENT" : "CENTER", deep_link_id: d.deep_link_id });
   return webpush.generateRequestDetails({ endpoint: d.endpoint, keys: { p256dh: d.p256dh, auth: d.auth } }, payload,
     { vapidDetails: vapid, TTL: 300, urgency: "normal", topic: d.notification_id.replaceAll("-", ""), contentEncoding: "aes128gcm" });

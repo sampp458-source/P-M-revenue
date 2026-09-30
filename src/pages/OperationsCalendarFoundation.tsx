@@ -1,3 +1,4 @@
+import { validScheduleDate } from "../notifications/scheduleNotificationNavigation";
 import "../operations-schedule-presentation.css";
 import { scheduleBusiness, ScheduleBusinessMarker, SchedulePeople, ScheduleStatus, MobileCalendarStatusLegend, MobileCalendarStatusSummary } from "./operationSchedulePresentation";
 import "../design-system-v2.css";
@@ -167,9 +168,11 @@ export function OperationsCalendarFoundationPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const today = seoulDateKey();
-  const [visibleMonth, setVisibleMonth] = useState(monthKey(today));
-  const [selectedDate, setSelectedDate] = useState(today);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const notificationDate = new URLSearchParams(window.location.search).get("notification_date");
+  const initialDate = validScheduleDate(notificationDate) ? notificationDate : today;
+  const [visibleMonth, setVisibleMonth] = useState(monthKey(initialDate));
+  const [selectedDate, setSelectedDate] = useState(initialDate);
+  const [drawerOpen, setDrawerOpen] = useState(validScheduleDate(notificationDate));
   const [schedules, setSchedules] = useState<OperationSchedule[]>([]);
   const [options, setOptions] = useState<OperationScheduleOptions | null>(null);
   const [hotelSnapshot, setHotelSnapshot] =

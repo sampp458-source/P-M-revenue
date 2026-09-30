@@ -2,7 +2,7 @@ import { createECDH, randomBytes, hkdfSync, createDecipheriv } from "node:crypto
 // @deno-types="npm:@types/web-push@3.6.4"
 import webpush from "web-push";
 import { Buffer } from "node:buffer";
-import { dispatch, encryptedRequest, handler, resultForStatus, safeEndpoint, type Delivery, type Rpc } from "./worker.ts";
+import { dispatch, encryptedRequest, handler, pushTemplate, resultForStatus, safeEndpoint, type Delivery, type Rpc } from "./worker.ts";
 function assert(value: unknown) { if (!value) throw new Error("Assertion failed"); }
 const ecdh = createECDH("prime256v1"); ecdh.generateKeys();
 const vapid = { ...webpush.generateVAPIDKeys(), subject: "mailto:qa@example.com" };
@@ -21,7 +21,7 @@ Deno.test("actual Deno VAPID / aes128gcm encryption / fake endpoint receives cip
   const plain=Buffer.concat([decipher.update(cipher.subarray(0,-16)),decipher.final()]);
   assert(plain.at(-1)===2);
   const decoded=JSON.parse(plain.subarray(0,-1).toString());
-  assert(decoded.notification_id===delivery.notification_id && Object.keys(decoded).length===4);
+  assert(decoded.notification_id===delivery.notification_id && Object.keys(decoded).length===5 && decoded.event_type==="ANNOUNCEMENT");
   const jwt=String(req.headers.Authorization).match(/t=([^, ]+)/)![1];const [head,payload,signature]=jwt.split(".");
   const pub=Buffer.from(vapid.publicKey,"base64url");
   const publicObject=await crypto.subtle.importKey("raw",new Uint8Array(pub),{name:"ECDSA",namedCurve:"P-256"},false,["verify"]);
@@ -67,4 +67,16 @@ Deno.test("network retry and invocation secret authorization", async()=>{
   };
   await dispatch(rpc,vapid,async()=>{throw Error("private endpoint error must not escape");});assert(result==="RETRY");
   const response=await handler(rpc,vapid,"x".repeat(40))(new Request("https://worker.invalid",{method:"POST"}));assert(response.status===401);
+});
+
+Deno.test("schedule template whitelist rejects arbitrary bodies/categories/counts", () => {
+  for (const kind of ["SCHEDULE_ASSIGNED","SCHEDULE_UPDATED","SCHEDULE_COMPLETED","SCHEDULE_CANCELLED"]) {
+    const d = { ...delivery, category:"SCHEDULE", event_type:kind, title:"PRIVATE DOG", message:"PRIVATE PHONE" };
+    assert(JSON.stringify(pushTemplate(d))===JSON.stringify({event_type:kind}));
+    const req=encryptedRequest(d,vapid); assert(req.headers["Content-Encoding"]==="aes128gcm");
+  }
+  assert(pushTemplate({...delivery,category:"SCHEDULE",event_type:"DAILY_SCHEDULE_SUMMARY",summary_count:4}).summary_count===4);
+  for (const d of [ {...delivery,category:"SALE"}, {...delivery,category:"SCHEDULE",event_type:"arbitrary"}, ...[0,-1,1.5,NaN].map(n=>({...delivery,category:"SCHEDULE",event_type:"DAILY_SCHEDULE_SUMMARY",summary_count:n})) ]) {
+    let rejected=false;try {pushTemplate(d);}catch{rejected=true;}assert(rejected);
+  }
 });

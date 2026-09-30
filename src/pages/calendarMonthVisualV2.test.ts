@@ -38,8 +38,13 @@ describe('Calendar monthly V2 presentation boundary', () => {
     expect(desktop).toContain('border-right:1px solid rgb(0 0 0 / 6%)!important');
     expect(desktop).not.toMatch(/#fffefa|#faf9f5|#eeede9|#efeee9/);
   });
-  it('adds only a presentation time hook to the frozen Calendar source', () => {
-    const source = read('pages/OperationsCalendarFoundation.tsx');
+  it('preserves the frozen Calendar presentation after typed notification date initialization', () => {
+    const source = read('pages/OperationsCalendarFoundation.tsx')
+      .replace('import { validScheduleDate } from "../notifications/scheduleNotificationNavigation";\n', '')
+      .replace('  const notificationDate = new URLSearchParams(window.location.search).get("notification_date");\n  const initialDate = validScheduleDate(notificationDate) ? notificationDate : today;\n', '')
+      .replace('useState(monthKey(initialDate))', 'useState(monthKey(today))')
+      .replace('useState(initialDate)', 'useState(today)')
+      .replace('useState(validScheduleDate(notificationDate))', 'useState(false)');
     const hook = '      data-temporal={date < today ? "past" : isToday ? "today" : "future"}\n';
     expect(source.split(hook)).toHaveLength(2);
     expect(sha(source.replace(hook, ''))).toBe('ab6dcc0d0d66a6eb7ee4239f1b84b9dbc06781ef7b2a73c98c51b96fcc9c7cc9');

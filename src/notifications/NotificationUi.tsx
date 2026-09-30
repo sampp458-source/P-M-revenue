@@ -1,3 +1,4 @@
+import { scheduleNotificationPath } from "./scheduleNotificationNavigation";
 import { PushSettings } from "./PushSettings";
 import { webPushEnabled } from "./webPushClient";
 import { useEffect, useRef, useState } from "react";
@@ -24,14 +25,14 @@ export function NotificationBell() {
 function NoticeRow({ item, onOpen }: { item: Notice; onOpen: (item: Notice) => void }) {
   return <button type="button" className={`pn-notice-row ${item.read_at ? "pn-read" : "pn-unread"}`} onClick={() => onOpen(item)}>
     <span className={`pn-read-dot ${item.read_at ? "is-read" : ""}`} aria-label={item.read_at ? "읽음" : "읽지 않음"} />
-    <span className="pn-notice-copy"><span className="pn-notice-meta">공지 · {relativeTime(item.created_at)}{item.priority === "IMPORTANT" && <span className="pn-important">중요</span>}</span>
+    <span className="pn-notice-copy"><span className="pn-notice-meta">{item.category === "SCHEDULE" ? "일정" : "공지"} · {relativeTime(item.created_at)}{item.priority === "IMPORTANT" && <span className="pn-important">중요</span>}</span>
       <strong>{item.title}</strong><span className="pn-preview">{item.message}</span>
-      {item.ack_required && <span className={`pn-ack-state ${item.acknowledged_at ? "pn-acked" : "pn-needs-ack"}`}>{item.acknowledged_at ? "확인 완료" : "확인 필요"}</span>}
+      {item.category !== "SCHEDULE" && item.ack_required && <span className={`pn-ack-state ${item.acknowledged_at ? "pn-acked" : "pn-needs-ack"}`}>{item.acknowledged_at ? "확인 완료" : "확인 필요"}</span>}
     </span><ChevronRight size={16} aria-hidden="true" />
   </button>;
 }
 type ComposeSeed = Omit<PublishInput, "requestId">;
-export function NotificationDialogs() {
+export function NotificationDialogs({ navigate = (path: string) => window.location.assign(path) }: { navigate?: (path: string) => void } = {}) {
   const state = useNotifications();
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
@@ -93,6 +94,8 @@ export function NotificationDialogs() {
   }
   const open = (item: Notice) => { void act(async () => {
     await state.repository.read(item.id);
+    const path = scheduleNotificationPath(item);
+    if (path) { state.setView("closed"); navigate(path); return; }
     state.setDetail({ ...item, read_at: item.read_at || new Date().toISOString() });
     state.setView("detail"); await state.refresh();
   }); };
@@ -137,7 +140,7 @@ export function NotificationDialogs() {
           <p className="pn-notice-meta">{notificationTime(detail.created_at)}{detail.priority === "IMPORTANT" && <span className="pn-important">중요</span>}</p>
           <h3 className="pn-detail-title">{detail.title}</h3><p className="pn-body">{detail.message}</p>
           {detail.expires_at && <p className="pn-secondary">게시 종료 · {notificationTime(detail.expires_at)}</p>}
-          {detail.ack_required ? <button className="pn-primary" disabled={busy || !!detail.acknowledged_at} onClick={() => void act(async () => { await state.repository.acknowledge(detail.id); state.setDetail({ ...detail, acknowledged_at: new Date().toISOString() }); await state.refresh(); setToast("공지 확인을 기록했습니다."); })}><Check size={16} />{detail.acknowledged_at ? "확인 완료" : "확인했습니다"}</button> : <button className="pn-primary" onClick={() => state.setView("center")}>확인</button>}
+          {detail.category !== "SCHEDULE" && detail.ack_required ? <button className="pn-primary" disabled={busy || !!detail.acknowledged_at} onClick={() => void act(async () => { await state.repository.acknowledge(detail.id); state.setDetail({ ...detail, acknowledged_at: new Date().toISOString() }); await state.refresh(); setToast("공지 확인을 기록했습니다."); })}><Check size={16} />{detail.acknowledged_at ? "확인 완료" : "확인했습니다"}</button> : <button className="pn-primary" onClick={() => state.setView("center")}>확인</button>}
         </>}
         {state.view === "compose" && state.inbox.can_publish && <Composer seed={seed} busy={busy} run={act} attempt={publishAttempt} setAttempt={setPublishAttempt} onPublished={() => { setPublishAttempt(null); setSeed(null); if (source?.state === "PUBLISHED") setRetractOffer(source); setSource(null); setToast("공지를 발행했습니다."); state.setView("manage"); void state.refresh(); }} />}
         {state.view === "manage" && (state.inbox.can_publish || state.inbox.can_view_receipts) && <Manage key={sentVersion} busy={busy} run={act} pending={!!publishAttempt} onDeleted={() => setToast("공지를 삭제했습니다.")} onRepublish={async a => {
