@@ -58,3 +58,28 @@
 .pn-pagination { display:flex; align-items:center; gap:8px; font-size:12px; color:#6b7484; }
 .pn-pagination button { display:flex; align-items:center; justify-content:center; min-width:36px; min-height:36px; border:1px solid #e2e6ec; border-radius:7px; }
 @media(max-width:639px) { .pn-header-tools { gap:6px; } .pn-notification-bell { width:36px; height:36px; flex-basis:36px; } .pn-form-grid { grid-template-columns:1fr; } .pn-toolbar { gap:8px; } .pn-targets { grid-template-columns:1fr; } .pn-detail-title { font-size:20px; } }
+
+/* Module Gate only: share the brand row on mobile without changing module headers. */
+@media (max-width: 639px) {
+  .pm-access-v1.pm-access-v2.pm-module-gate {
+    padding-top: max(32px, calc(env(safe-area-inset-top, 0px) + 12px));
+  }
+  .pm-module-gate > section {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 164px 36px minmax(0, 1fr);
+    column-gap: 14px;
+  }
+  .pm-module-gate > section > .pn-gate-bell + div { display: contents; }
+  .pm-module-gate > section > .pn-gate-bell {
+    grid-column: 3;
+    grid-row: 1;
+    align-self: start;
+    margin: 16px 0 0;
+  }
+  .pm-module-gate > section > .pn-gate-bell + div > span { grid-column: 2; grid-row: 1; }
+  .pm-module-gate > section > .pn-gate-bell + div > :is(p, h1) { grid-column: 1 / -1; text-align: center; }
+  .pm-module-gate > section > .grid { grid-column: 1 / -1; margin-top: 32px; }
+  .pm-module-gate > section:has(> .pn-gate-bell:empty) {
+    grid-template-columns: minmax(0, 1fr) 164px minmax(0, 1fr);
+  }
+}
