@@ -27,6 +27,7 @@ beforeEach(() => {
     sentForReceiptViewer: vi.fn(async () => []),
     audience: vi.fn(async () => ({ targetKind: "USER" as const, userIds: ["u2"] })),
     receipts: vi.fn(async () => [{ recipient_id: "u2", name: "직원 가", active: true, read_at: "now", acknowledged_at: "now", revoked_at: null }, { recipient_id: "u3", name: "직원 나", active: true, read_at: null, acknowledged_at: null, revoked_at: null }]),
+    deleteAnnouncement: vi.fn(async () => {}),
     retract: vi.fn(async () => {}), publish: vi.fn(async () => "a2"),
   };
 });
@@ -214,4 +215,70 @@ describe("center and sent UX refinement", () => {
     expect(screen.queryByRole("button", { name: /공지 n1/ })).toBeNull();
   });
 
+});
+
+describe("announcement hard delete", () => {
+  async function openSent(retracted = false) {
+    value.can_publish = true; value.can_view_receipts = true;
+    if (retracted) vi.mocked(repo.sent).mockResolvedValue((await repo.sent()).map(a => ({ ...a, state: "RETRACTED" })));
+    mount(); await center(); fireEvent.click(screen.getByRole("button", { name: "보낸 공지" }));
+    fireEvent.click(await screen.findByRole("button", { name: /보낸 공지 제목/ }));
+    await screen.findByRole("button", { name: "공지 삭제" });
+  }
+  it.each([false, true])("author detail offers explicit confirmed delete, retracted=%s", async retracted => {
+    await openSent(retracted); fireEvent.click(screen.getByRole("button", { name: "공지 삭제" }));
+    expect(screen.getByRole("heading", { name: "공지를 완전히 삭제할까요?" })).toBeTruthy();
+    expect(screen.getByText(/삭제 후에는 복구할 수 없습니다/)).toBeTruthy();
+    expect(repo.deleteAnnouncement).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "취소" }));
+    expect(screen.queryByRole("button", { name: "삭제" })).toBeNull();
+    expect(repo.deleteAnnouncement).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "보낸 공지 제목" })).toBeTruthy();
+  });
+  it("deletes exactly once only after confirmation and refreshes canonical sent list", async () => {
+    await openSent();
+    let finish!: () => void;
+    vi.mocked(repo.deleteAnnouncement).mockImplementation(() => new Promise<void>(resolve => { finish = resolve; }));
+    fireEvent.click(screen.getByRole("button", { name: "공지 삭제" }));
+    fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+    expect(screen.getByRole("heading", { name: "보낸 공지 제목" })).toBeTruthy();
+    expect(repo.deleteAnnouncement).toHaveBeenCalledTimes(1); expect(repo.deleteAnnouncement).toHaveBeenCalledWith("a1");
+    vi.mocked(repo.sent).mockResolvedValue([]);
+    await act(async () => finish());
+    expect(await screen.findByText("공지를 삭제했습니다.")).toBeTruthy();
+    expect(await screen.findByText("아직 발행한 공지가 없습니다.")).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "보낸 공지 제목" })).toBeNull();
+    expect(repo.sent).toHaveBeenCalledTimes(2);
+  });
+  it("RPC failure preserves detail and sent row without optimistic removal", async () => {
+    await openSent(); vi.mocked(repo.deleteAnnouncement).mockRejectedValue(new Error("삭제 실패"));
+    fireEvent.click(screen.getByRole("button", { name: "공지 삭제" })); fireEvent.click(screen.getByRole("button", { name: "삭제" }));
+    expect(await screen.findByText("삭제 실패")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "보낸 공지 제목" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "← 보낸 공지 목록" }));
+    expect(await screen.findByRole("button", { name: /보낸 공지 제목/ })).toBeTruthy();
+    expect(screen.queryByText("공지를 삭제했습니다.")).toBeNull();
+  });
+  it("staff has no delete action", async () => { mount(); await center(); expect(screen.queryByRole("button", { name: /삭제/ })).toBeNull(); });
+  it("recipient deletion invalidation refetches rows and canonical unread count", async () => {
+    mount(); await center(); const calls=vi.mocked(repo.inbox).mock.calls.length;
+    value={...value,items:[],popup:[],unread_count:0,unacknowledged_count:0}; act(() => signal());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /공지 n1/ })).toBeNull());
+    expect(screen.getByRole("button", { name: "알림센터, 읽지 않은 알림 0개" })).toBeTruthy();
+    expect(vi.mocked(repo.inbox).mock.calls.length).toBeGreaterThan(calls);
+  });
+  it("recipient popup loses deleted notice after server refetch", async () => {
+    value.popup=[notice()]; mount(); await screen.findByRole("button", { name: /공지 n1/ });
+    value={...value,items:[],popup:[],unread_count:0}; act(() => signal());
+    await waitFor(() => expect(screen.queryByRole("button", { name: /공지 n1/ })).toBeNull());
+    expect(repo.read).not.toHaveBeenCalled(); expect(repo.acknowledge).not.toHaveBeenCalled();
+  });
+  it("terminal deleted publish request releases retry lock and next publish uses new request", async () => {
+    vi.mocked(repo.publish).mockRejectedValueOnce(new NotificationFailure("이 발행 요청의 공지는 삭제되었습니다.", true));
+    await composer(); fillComposer(); fireEvent.click(screen.getByRole("button", { name: "지금 발행" }));
+    await screen.findByText("이 발행 요청의 공지는 삭제되었습니다.");
+    fireEvent.click(screen.getByRole("button", { name: "지금 발행" }));
+    await waitFor(() => expect(repo.publish).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(repo.publish).mock.calls[0][0].requestId).not.toBe(vi.mocked(repo.publish).mock.calls[1][0].requestId);
+  });
 });

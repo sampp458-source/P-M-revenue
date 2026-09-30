@@ -81,6 +81,16 @@
   .pn-compose-action { padding-inline:10px; }
 }
 
+.pn-delete-actions { margin-top:12px; }
+.pn-delete-actions > button { min-height:44px; }
+.pn-delete-confirm { padding-top:16px; border-top:1px solid #e2e6eb; }
+.pn-delete-confirm h4 { margin:0 0 8px; font-weight:700; }
+.pn-delete-confirm p { color:#657184; line-height:1.6; overflow-wrap:anywhere; }
+.pn-delete-buttons { display:flex; flex-wrap:wrap; gap:12px; margin-top:16px; }
+.pn-delete-buttons button { min-width:80px; min-height:44px; }
+.pn-destructive { color:#a44338; }
+.pn-destructive:focus-visible { outline:2px solid #244cb9; outline-offset:3px; }
+
 /* Module Gate only: center the brand independently of the mobile Bell action. */
 @media (max-width: 639px) {
   .pm-access-v1.pm-access-v2.pm-module-gate {

@@ -137,7 +137,7 @@ export function NotificationDialogs() {
           {detail.ack_required ? <button className="pn-primary" disabled={busy || !!detail.acknowledged_at} onClick={() => void act(async () => { await state.repository.acknowledge(detail.id); state.setDetail({ ...detail, acknowledged_at: new Date().toISOString() }); await state.refresh(); setToast("공지 확인을 기록했습니다."); })}><Check size={16} />{detail.acknowledged_at ? "확인 완료" : "확인했습니다"}</button> : <button className="pn-primary" onClick={() => state.setView("center")}>확인</button>}
         </>}
         {state.view === "compose" && state.inbox.can_publish && <Composer seed={seed} busy={busy} run={act} attempt={publishAttempt} setAttempt={setPublishAttempt} onPublished={() => { setPublishAttempt(null); setSeed(null); if (source?.state === "PUBLISHED") setRetractOffer(source); setSource(null); setToast("공지를 발행했습니다."); state.setView("manage"); void state.refresh(); }} />}
-        {state.view === "manage" && (state.inbox.can_publish || state.inbox.can_view_receipts) && <Manage key={sentVersion} busy={busy} run={act} pending={!!publishAttempt} onRepublish={async a => {
+        {state.view === "manage" && (state.inbox.can_publish || state.inbox.can_view_receipts) && <Manage key={sentVersion} busy={busy} run={act} pending={!!publishAttempt} onDeleted={() => setToast("공지를 삭제했습니다.")} onRepublish={async a => {
           const audience = await state.repository.audience(a.id);
           setSeed({ title: a.title, body: a.body, priority: a.priority === "IMPORTANT" ? "IMPORTANT" : "NORMAL", ackRequired: a.ack_required, ...audience, expiresAt: a.expires_at && new Date(a.expires_at).getTime() > Date.now() ? a.expires_at : null });
           setSource(a); state.setView("compose");
@@ -185,10 +185,14 @@ function Composer({ seed, busy, run, onPublished, attempt, setAttempt }: { busy:
     <button type="submit" className="pn-primary" disabled={busy || !targets || (!attempt && unavailable.length > 0) || !title.trim() || !body.trim() || (kind === "USER" && !users.length)}><Megaphone size={16} />{busy ? "발행 중…" : attempt ? "같은 요청 다시 확인" : "지금 발행"}</button>
   </form>;
 }
-function Manage({ busy, run, onRepublish, pending }: { onRepublish: (a: Publication) => Promise<void>; pending: boolean; busy: boolean; run: (task: () => Promise<void>) => Promise<void> }) {
+function Manage({ busy, run, onRepublish, pending, onDeleted }: { onDeleted: () => void; onRepublish: (a: Publication) => Promise<void>; pending: boolean; busy: boolean; run: (task: () => Promise<void>) => Promise<void> }) {
   const state = useNotifications()!;
   const [items, setItems] = useState<Publication[]>([]); const [selected, setSelected] = useState<Publication | null>(null);
   const [receipts, setReceipts] = useState<Receipt[] | null>(null); const [confirm, setConfirm] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const deleteCancelRef = useRef<HTMLButtonElement>(null);
+  const deleteActionRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { if (deleteConfirm) deleteCancelRef.current?.focus(); else deleteActionRef.current?.focus(); }, [deleteConfirm]);
   const [error, setError] = useState(""); const [offset, setOffset] = useState(0);
   const backRef = useRef<HTMLButtonElement>(null);
   useEffect(() => { backRef.current?.focus(); }, [selected?.id]);
@@ -201,7 +205,7 @@ function Manage({ busy, run, onRepublish, pending }: { onRepublish: (a: Publicat
     return () => { live = false; clearInterval(interval); window.removeEventListener("focus", load); };
   }, [state.repository, selected, state.inbox.can_view_receipts]);
   return <>
-    <button ref={backRef} className="pn-text-button" onClick={() => selected ? (setSelected(null), setConfirm(false)) : state.setView("center")}>← {selected ? "보낸 공지 목록" : "알림센터"}</button>
+    <button ref={backRef} className="pn-text-button" onClick={() => selected ? (setSelected(null), setConfirm(false), setDeleteConfirm(false)) : state.setView("center")}>← {selected ? "보낸 공지 목록" : "알림센터"}</button>
     {error && <p role="alert" className="pn-error">{error}</p>}
     {!selected ? <><div className="pn-notice-list">{items.map(a => <button className="pn-notice-row" key={a.id} onClick={() => setSelected(a)}><span className="pn-notice-copy"><span className="pn-notice-meta">{notificationTime(a.published_at)} · {a.state === "RETRACTED" ? "회수됨" : "게시중"}</span><strong>{a.title}</strong><span className="pn-secondary">{a.stats ? `대상 ${a.stats.total} · 읽음 ${a.stats.read} · 확인 ${a.ack_required ? a.stats.ack : "—"} · 미확인 ${a.ack_required ? a.stats.unack : "—"}` : "확인 현황 조회 권한 없음"}</span></span><ChevronRight size={16} /></button>)}{!items.length && <p className="pn-empty">아직 발행한 공지가 없습니다.</p>}</div><div className="pn-pagination"><button disabled={!offset} onClick={() => setOffset(Math.max(0, offset - 50))}>이전</button><span>{offset / 50 + 1} 페이지</span><button disabled={items.length < 50} onClick={() => setOffset(offset + 50)}>다음</button></div></> : <>
       <h3 className="pn-detail-title">{selected.title}</h3><p className="pn-secondary">{notificationTime(selected.published_at)} · {selected.state === "RETRACTED" ? "회수됨" : "게시중"}</p><p className="pn-body">{selected.body}</p>
@@ -210,7 +214,25 @@ function Manage({ busy, run, onRepublish, pending }: { onRepublish: (a: Publicat
       {!state.inbox.can_view_receipts && <p className="pn-secondary">확인 현황 조회 권한이 없습니다.</p>}
       {state.inbox.can_publish && <button className="pn-secondary-button pn-republish-action" disabled={busy || pending} onClick={() => void run(() => onRepublish(selected))}>수정해서 다시 보내기</button>}
       {pending && <p className="pn-secondary">발행 결과가 확인되지 않은 요청이 있습니다. 공지 작성에서 먼저 확인해 주세요.</p>}
-      {state.inbox.can_publish && selected.state === "PUBLISHED" && (confirm ? <div className="pn-retract"><p>공지를 회수할까요? 직원 알림함에서 제외되며 기존 읽음·확인 기록은 보존됩니다.</p><button className="pn-secondary-button" disabled={busy} onClick={() => setConfirm(false)}>유지</button><button className="pn-secondary-button" disabled={busy} onClick={() => void run(async () => { await state.repository.retract(selected.id); setSelected({ ...selected, state: "RETRACTED" }); setItems(await (state.inbox.can_publish ? state.repository.sent(offset) : state.repository.sentForReceiptViewer(state.userId, offset))); setConfirm(false); await state.refresh(); })}>공지 회수</button></div> : <button className="pn-text-button" onClick={() => setConfirm(true)}>공지 회수…</button>)}
+      {state.inbox.can_publish && selected.state === "PUBLISHED" && (confirm ? <div className="pn-retract"><p>공지를 회수할까요? 직원 알림함에서 제외되며 기존 읽음·확인 기록은 보존됩니다.</p><button className="pn-secondary-button" disabled={busy} onClick={() => setConfirm(false)}>유지</button><button className="pn-secondary-button" disabled={busy} onClick={() => void run(async () => { await state.repository.retract(selected.id); setSelected({ ...selected, state: "RETRACTED" }); setItems(await (state.inbox.can_publish ? state.repository.sent(offset) : state.repository.sentForReceiptViewer(state.userId, offset))); setConfirm(false); await state.refresh(); })}>공지 회수</button></div> : <button className="pn-text-button" disabled={busy} onClick={() => { setDeleteConfirm(false); setConfirm(true); }}>공지 회수…</button>)}
+      {state.inbox.can_publish && <div className="pn-delete-actions">
+        {deleteConfirm ? <section className="pn-delete-confirm" aria-labelledby="pn-delete-title">
+          <h4 id="pn-delete-title">공지를 완전히 삭제할까요?</h4>
+          <p>직원 알림센터에서도 사라지며 이 공지의 읽음·확인 기록도 함께 삭제됩니다. 삭제 후에는 복구할 수 없습니다.</p>
+          <div className="pn-delete-buttons">
+            <button ref={deleteCancelRef} className="pn-secondary-button" disabled={busy} onClick={() => setDeleteConfirm(false)}>취소</button>
+            <button className="pn-secondary-button pn-destructive" disabled={busy} onClick={() => void run(async () => {
+              await state.repository.deleteAnnouncement(selected.id);
+              setSelected(null); setDeleteConfirm(false); setConfirm(false); onDeleted();
+              // Do not leave a stale deleted row if canonical refresh fails after the successful command.
+              setItems([]);
+              try { setItems(await state.repository.sent(offset)); setError(""); }
+              catch { setError("삭제는 완료됐지만 목록을 불러오지 못했습니다. 보낸 공지를 다시 열어 주세요."); }
+              await state.refresh();
+            })}>{busy ? "삭제 중…" : "삭제"}</button>
+          </div>
+        </section> : <button ref={deleteActionRef} className="pn-text-button pn-destructive" disabled={busy} onClick={() => { setConfirm(false); setDeleteConfirm(true); }}>공지 삭제</button>}
+      </div>}
     </>}
   </>;
 }

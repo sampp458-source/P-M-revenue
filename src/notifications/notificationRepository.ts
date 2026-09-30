@@ -25,6 +25,8 @@ export class NotificationFailure extends Error {
 }
 async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await supabase.rpc(name, args);
+  if (error?.message === "ANNOUNCEMENT_REQUEST_DELETED") throw new NotificationFailure("이 발행 요청의 공지는 삭제되었습니다. 다시 보내려면 새 공지로 발행해 주세요.", true);
+  if (error?.message === "ANNOUNCEMENT_NOT_FOUND") throw new NotificationFailure("이미 삭제되었거나 찾을 수 없는 공지입니다.", true);
   if (error) throw new NotificationFailure(error.code === "42501" ? "접근 권한이 없거나 더 이상 사용할 수 없는 공지입니다." : error.code === "22023" ? "대상 또는 게시 종료 시간을 확인해 주세요." : "요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.", ["42501", "22023", "23514"].includes(error.code));
   return data as T;
 }
@@ -55,6 +57,7 @@ export const notificationRepository = {
     throw new Error("기존 공지 대상 구성을 확인해야 합니다.");
   },
   receipts: (id: string) => rpc<Receipt[]>("get_announcement_receipts_v1", { p_announcement_id: id }),
+  deleteAnnouncement: (id: string) => rpc<void>("delete_announcement_v1", { p_announcement_id: id }),
   retract: (id: string) => rpc<void>("retract_announcement_v1", { p_announcement_id: id }),
   publish: (p: PublishInput) => rpc<string>("publish_announcement_v1", {
     p_request_id: p.requestId, p_title: p.title, p_body: p.body, p_priority: p.priority,
@@ -62,7 +65,10 @@ export const notificationRepository = {
   }),
   subscribe: (userId: string, refresh: () => void) => {
     const channel = supabase.channel(`notification-inbox:${userId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `recipient_id=eq.${userId}` }, refresh)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${userId}` }, refresh)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `recipient_id=eq.${userId}` }, refresh)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_inbox_revisions", filter: `recipient_id=eq.${userId}` }, refresh)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notification_inbox_revisions", filter: `recipient_id=eq.${userId}` }, refresh)
       .subscribe(status => { if (status === "SUBSCRIBED") refresh(); });
     return () => { void supabase.removeChannel(channel); };
   },
