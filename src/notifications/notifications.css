@@ -59,6 +59,28 @@
 .pn-pagination button { display:flex; align-items:center; justify-content:center; min-width:36px; min-height:36px; border:1px solid #e2e6ec; border-radius:7px; }
 @media(max-width:639px) { .pn-header-tools { gap:6px; } .pn-notification-bell { width:36px; height:36px; flex-basis:36px; } .pn-form-grid { grid-template-columns:1fr; } .pn-toolbar { gap:8px; } .pn-targets { grid-template-columns:1fr; } .pn-detail-title { font-size:20px; } }
 
+/* Center hierarchy; Bell and shell composition remain independent. */
+.pn-center-header { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; padding-bottom:12px; border-bottom:1px solid #e2e6ec; }
+.pn-primary-modes { display:flex; gap:4px; }
+.pn-primary-modes button { min-height:44px; padding:8px 12px; border-radius:8px; font-weight:600; color:#657184; }
+.pn-primary-modes button[aria-pressed="true"] { color:#244cb9; background:#eef2fa; }
+.pn-compose-action { min-height:44px; }
+.pn-republish-action { min-height:44px; margin-right:12px; }
+.pn-notice-row.pn-unread { background:#f5f7fb; padding-inline:10px; }
+.pn-notice-row.pn-read { background:#fff; padding-inline:10px; }
+.pn-read .pn-notice-copy strong { font-weight:500; }
+.pn-unread .pn-notice-copy strong { font-weight:700; }
+.pn-read .pn-notice-meta { color:#778191; }
+.pn-ack-state { width:fit-content; padding:2px 6px; border-radius:5px; }
+.pn-needs-ack { background:#fbf2e3; color:#805014; }
+.pn-acked { background:#edf6f0; color:#326348; }
+.pn-notice-row:hover { background:#f0f3f7; }
+@media(max-width:639px) {
+  .pn-center-header { gap:8px; }
+  .pn-primary-modes button { padding-inline:10px; }
+  .pn-compose-action { padding-inline:10px; }
+}
+
 /* Module Gate only: center the brand independently of the mobile Bell action. */
 @media (max-width: 639px) {
   .pm-access-v1.pm-access-v2.pm-module-gate {

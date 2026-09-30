@@ -36,6 +36,24 @@ export const notificationRepository = {
   presented: (ids: string[]) => rpc<void>("mark_notification_popup_presented_v1", { p_notification_ids: ids }),
   targets: () => rpc<Target[]>("get_announcement_targets_v1"),
   sent: (offset = 0) => rpc<Publication[]>("get_sent_announcements_v1", { p_offset: offset }),
+  // Existing SELECT grants/RLS support receipt-only users; keep the author's own sent scope.
+  sentForReceiptViewer: async (authorId: string, offset = 0): Promise<Publication[]> => {
+    const { data, error } = await supabase.from("announcements").select("id,title,body,priority,ack_required,state,published_at,expires_at")
+      .eq("author_id", authorId).order("created_at", { ascending: false }).order("id", { ascending: false }).range(offset, offset + 49);
+    if (error) throw new Error("보낸 공지를 불러오지 못했습니다.");
+    return Promise.all((data || []).map(async a => {
+      const receipts = await rpc<Receipt[]>("get_announcement_receipts_v1", { p_announcement_id: a.id });
+      return { ...a, stats: { total: receipts.length, read: receipts.filter(r => r.read_at).length, ack: receipts.filter(r => r.acknowledged_at).length, unack: receipts.filter(r => !r.acknowledged_at).length } } as Publication;
+    }));
+  },
+  audience: async (id: string): Promise<Pick<PublishInput, "targetKind" | "userIds">> => {
+    const { data, error } = await supabase.from("announcement_targets").select("target_kind,target_user_id").eq("announcement_id", id);
+    if (error || !data?.length) throw new Error("기존 공지 대상을 확인하지 못했습니다. 다시 시도해 주세요.");
+    if (data.length === 1 && data[0].target_kind === "ALL" && data[0].target_user_id === null) return { targetKind: "ALL", userIds: [] };
+    if (data.every(t => t.target_kind === "USER" && typeof t.target_user_id === "string") && new Set(data.map(t => t.target_user_id)).size === data.length)
+      return { targetKind: "USER", userIds: data.map(t => t.target_user_id as string) };
+    throw new Error("기존 공지 대상 구성을 확인해야 합니다.");
+  },
   receipts: (id: string) => rpc<Receipt[]>("get_announcement_receipts_v1", { p_announcement_id: id }),
   retract: (id: string) => rpc<void>("retract_announcement_v1", { p_announcement_id: id }),
   publish: (p: PublishInput) => rpc<string>("publish_announcement_v1", {

@@ -24,6 +24,8 @@ beforeEach(() => {
     presented: vi.fn(async () => {}), subscribe: vi.fn((_id, callback) => { signal = callback; return unsubscribe; }),
     targets: vi.fn(async () => [{ id: "u1", name: "작성자" }, { id: "u2", name: "직원 가" }, { id: "u3", name: "직원 나" }]),
     sent: vi.fn(async () => [{ id: "a1", title: "보낸 공지 제목", body: "본문", state: "PUBLISHED" as const, priority: "IMPORTANT", ack_required: true, published_at: "2026-09-29T10:00:00Z", expires_at: null, stats: { total: 2, read: 1, ack: 1, unack: 1 } }]),
+    sentForReceiptViewer: vi.fn(async () => []),
+    audience: vi.fn(async () => ({ targetKind: "USER" as const, userIds: ["u2"] })),
     receipts: vi.fn(async () => [{ recipient_id: "u2", name: "직원 가", active: true, read_at: "now", acknowledged_at: "now", revoked_at: null }, { recipient_id: "u3", name: "직원 나", active: true, read_at: null, acknowledged_at: null, revoked_at: null }]),
     retract: vi.fn(async () => {}), publish: vi.fn(async () => "a2"),
   };
@@ -58,7 +60,7 @@ describe("announcement inbox lifecycle", () => {
   it("unsubscribes on session unmount", async () => { const root = mount(); await waitFor(() => expect(repo.subscribe).toHaveBeenCalledWith("u1", expect.any(Function))); root.unmount(); expect(unsubscribe).toHaveBeenCalledTimes(1); });
   it("late response cannot restore a signed-out inbox", async () => { let resolve!: (i: Inbox) => void; vi.mocked(repo.inbox).mockReturnValue(new Promise(r => { resolve = r; })); const root = mount(); root.unmount(); await act(async () => resolve(value)); expect(screen.queryByRole("dialog")).toBeNull(); });
   it("failed inbox does not crash the shell", async () => { vi.mocked(repo.inbox).mockRejectedValue(new Error("네트워크 오류")); mount(); fireEvent.click(screen.getByRole("button", { name: /알림센터,/ })); expect((await screen.findByRole("alert")).textContent).toMatch(/오류|불러오지/); expect(screen.getByText("다른 업무")).toBeTruthy(); });
-  it("normal user has no composer or manage access", async () => { mount(); await center(); expect(screen.queryByText("공지 작성")).toBeNull(); expect(screen.queryByText("보낸 공지 관리")).toBeNull(); });
+  it("normal user has no composer or manage access", async () => { mount(); await center(); expect(screen.queryByText("공지 작성")).toBeNull(); expect(screen.queryByText("보낸 공지")).toBeNull(); });
   it("read failure never opens stale detail", async () => { vi.mocked(repo.read).mockRejectedValue(new Error("회수된 공지")); mount(); await center(); fireEvent.click(screen.getByRole("button", { name: /공지 n1/ })); expect(await screen.findByText("회수된 공지")).toBeTruthy(); expect(screen.queryByRole("heading", { name: "공지" })).toBeNull(); });
   it("retracted open detail is removed on refresh", async () => { mount(); await center(); fireEvent.click(screen.getByRole("button", { name: /공지 n1/ })); await screen.findByRole("heading", { name: "공지 n1" }); value = { ...value, items: [], unread_count: 0 }; act(() => signal()); await waitFor(() => expect(screen.queryByRole("heading", { name: "공지 n1" })).toBeNull()); });
   it("renders plain text without HTML execution", async () => { value.items[0].message = '<img src=x onerror="bad()">'; mount(); await center(); fireEvent.click(screen.getByRole("button", { name: /공지 n1/ })); expect(await screen.findByText('<img src=x onerror="bad()">')).toBeTruthy(); expect(document.querySelector(".pn-body img")).toBeNull(); });
@@ -78,8 +80,138 @@ describe("publisher workflow", () => {
   });
   it("definite input rejection allows correction", async () => { vi.mocked(repo.publish).mockRejectedValueOnce(new NotificationFailure("대상 변경", true)); await composer(); fillComposer(); fireEvent.click(screen.getByRole("button", { name: "지금 발행" })); await screen.findByText("대상 변경"); expect(screen.getByRole("button", { name: "지금 발행" })).toBeTruthy(); expect((screen.getByLabelText(/제목/) as HTMLInputElement).disabled).toBe(false); });
   it("expiry is interpreted as KST, never browser local zone", async () => { await composer(); fillComposer(); fireEvent.change(screen.getByLabelText(/게시 종료/), { target: { value: "2030-09-30T09:00" } }); fireEvent.click(screen.getByRole("button", { name: "지금 발행" })); await waitFor(() => expect(repo.publish).toHaveBeenCalled()); expect(vi.mocked(repo.publish).mock.calls[0][0].expiresAt).toBe("2030-09-30T00:00:00.000Z"); });
-  it("receipt view shows fixed audience and read / ACK distinction", async () => { value.can_publish = true; value.can_view_receipts = true; mount(); await center(); fireEvent.click(screen.getByText("보낸 공지 관리")); fireEvent.click(await screen.findByRole("button", { name: /보낸 공지 제목/ })); await screen.findByText("직원 가"); expect(screen.getByText("직원 나")).toBeTruthy(); expect(screen.getByText("안 읽음 · 미확인")).toBeTruthy(); });
-  it("retract requires an explicit confirmation and uses only its RPC", async () => { value.can_publish = true; value.can_view_receipts = true; mount(); await center(); fireEvent.click(screen.getByText("보낸 공지 관리")); fireEvent.click(await screen.findByRole("button", { name: /보낸 공지 제목/ })); fireEvent.click(await screen.findByRole("button", { name: "공지 회수…" })); expect(repo.retract).not.toHaveBeenCalled(); fireEvent.click(screen.getByRole("button", { name: "공지 회수" })); await waitFor(() => expect(repo.retract).toHaveBeenCalledWith("a1")); });
-  it("publisher without receipt grant never requests another employee receipts", async () => { value.can_publish = true; mount(); await center(); fireEvent.click(screen.getByText("보낸 공지 관리")); fireEvent.click(await screen.findByRole("button", { name: /보낸 공지 제목/ })); expect(await screen.findByText("확인 현황 조회 권한이 없습니다.")).toBeTruthy(); expect(repo.receipts).not.toHaveBeenCalled(); });
+  it("receipt view shows fixed audience and read / ACK distinction", async () => { value.can_publish = true; value.can_view_receipts = true; mount(); await center(); fireEvent.click(screen.getByText("보낸 공지")); fireEvent.click(await screen.findByRole("button", { name: /보낸 공지 제목/ })); await screen.findByText("직원 가"); expect(screen.getByText("직원 나")).toBeTruthy(); expect(screen.getByText("안 읽음 · 미확인")).toBeTruthy(); });
+  it("retract requires an explicit confirmation and uses only its RPC", async () => { value.can_publish = true; value.can_view_receipts = true; mount(); await center(); fireEvent.click(screen.getByText("보낸 공지")); fireEvent.click(await screen.findByRole("button", { name: /보낸 공지 제목/ })); fireEvent.click(await screen.findByRole("button", { name: "공지 회수…" })); expect(repo.retract).not.toHaveBeenCalled(); fireEvent.click(screen.getByRole("button", { name: "공지 회수" })); await waitFor(() => expect(repo.retract).toHaveBeenCalledWith("a1")); });
+  it("publisher without receipt grant never requests another employee receipts", async () => { value.can_publish = true; mount(); await center(); fireEvent.click(screen.getByText("보낸 공지")); fireEvent.click(await screen.findByRole("button", { name: /보낸 공지 제목/ })); expect(await screen.findByText("확인 현황 조회 권한이 없습니다.")).toBeTruthy(); expect(repo.receipts).not.toHaveBeenCalled(); });
   it("Escape closes the shared modal; center has no speculative category tabs", async () => { mount(); await center(); const dialog=screen.getByRole("dialog"); expect(within(dialog).queryByText("매출")).toBeNull(); fireEvent.keyDown(document, { key: "Escape" }); expect(screen.queryByRole("dialog")).toBeNull(); });
+});
+
+describe("center and sent UX refinement", () => {
+  async function sentDetail() {
+    value.can_publish = true; value.can_view_receipts = true;
+    mount(); await center();
+    fireEvent.click(screen.getByRole("button", { name: "보낸 공지" }));
+    fireEvent.click(await screen.findByRole("button", { name: /보낸 공지 제목/ }));
+    await screen.findByRole("button", { name: "수정해서 다시 보내기" });
+  }
+  it("publisher modes are primary and filters belong only to received", async () => {
+    await sentDetail();
+    expect(screen.getByRole("navigation", { name: "알림센터 메뉴" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "전체" })).toBeNull();
+    expect(screen.getByRole("button", { name: "공지 작성" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "받은 알림" }));
+    fireEvent.click(await screen.findByRole("button", { name: /읽지 않음 1/ }));
+    await waitFor(() => expect(repo.inbox).toHaveBeenCalledWith(0, true));
+    expect(screen.queryByRole("button", { name: /삭제/ })).toBeNull();
+  });
+  it("receipt-only capability can open own sent history without publisher RPC or commands", async () => {
+    value.can_view_receipts = true;
+    vi.mocked(repo.sentForReceiptViewer).mockResolvedValue(await repo.sent());
+    vi.mocked(repo.sent).mockClear();
+    mount(); await center(); fireEvent.click(screen.getByRole("button", { name: "보낸 공지" }));
+    fireEvent.click(await screen.findByRole("button", { name: /보낸 공지 제목/ }));
+    await screen.findByText("직원 가");
+    expect(repo.sentForReceiptViewer).toHaveBeenCalledWith("u1", 0);
+    expect(repo.sent).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /공지 작성|수정해서|공지 회수/ })).toBeNull();
+  });
+  it("read styling does not imply ACK; staff has no sent tab", async () => {
+    value.items = [notice(), notice("n2", { read_at: "now", ack_required: true }), notice("n3", { read_at: "now", ack_required: true, acknowledged_at: "now" })];
+    mount(); await center();
+    expect(screen.getByRole("button", { name: /공지 n1/ }).className).toContain("pn-unread");
+    const read = screen.getByRole("button", { name: /공지 n2/ });
+    expect(read.className).toContain("pn-read");
+    expect(within(read).getByText("확인 필요").className).toContain("pn-needs-ack");
+    expect(within(screen.getByRole("button", { name: /공지 n3/ })).getByText("확인 완료").className).toContain("pn-acked");
+    expect(screen.queryByRole("button", { name: "보낸 공지" })).toBeNull();
+  });
+  it("republish prefills exact audience and creates a new request before optional retract", async () => {
+    await sentDetail();
+    fireEvent.click(screen.getByRole("button", { name: "수정해서 다시 보내기" }));
+    await screen.findByText(/예상 대상 1명/);
+    expect((screen.getByLabelText(/제목/) as HTMLInputElement).value).toBe("보낸 공지 제목");
+    expect((screen.getByLabelText("대상") as HTMLSelectElement).value).toBe("USER");
+    expect((screen.getByLabelText("직원 가") as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByLabelText("중요도") as HTMLSelectElement).value).toBe("IMPORTANT");
+    expect((screen.getByLabelText(/기록 필요/) as HTMLInputElement).checked).toBe(true);
+    fireEvent.change(screen.getByLabelText(/제목/), { target: { value: "새 공지" } });
+    expect(repo.retract).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "지금 발행" }));
+    await screen.findByRole("button", { name: "기존 공지 유지" });
+    expect(repo.publish).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(repo.publish).mock.calls[0][0]).toMatchObject({ title: "새 공지", targetKind: "USER", userIds: ["u2"] });
+    expect(vi.mocked(repo.publish).mock.calls[0][0].requestId).not.toBe("a1");
+    expect(repo.retract).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "기존 공지 회수" }));
+    await waitFor(() => expect(repo.retract).toHaveBeenCalledWith("a1"));
+  });
+  it("failed republish never retracts; close/reopen retry keeps identity and original association", async () => {
+    vi.mocked(repo.publish).mockRejectedValueOnce(new Error("연결 끊김"));
+    await sentDetail(); fireEvent.click(screen.getByRole("button", { name: "수정해서 다시 보내기" }));
+    await screen.findByText(/예상 대상 1명/);
+    fireEvent.click(screen.getByRole("button", { name: "지금 발행" }));
+    await screen.findByText("연결 끊김"); expect(repo.retract).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "기존 공지 회수" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "닫기" })); await center();
+    fireEvent.click(screen.getByRole("button", { name: "공지 작성" }));
+    await screen.findByText(/예상 대상 1명/);
+    fireEvent.click(screen.getByRole("button", { name: "같은 요청 다시 확인" }));
+    await screen.findByRole("button", { name: "기존 공지 유지" });
+    expect(vi.mocked(repo.publish).mock.calls[0][0]).toEqual(vi.mocked(repo.publish).mock.calls[1][0]);
+    fireEvent.click(screen.getByRole("button", { name: "기존 공지 유지" }));
+    expect(repo.retract).not.toHaveBeenCalled();
+  });
+  it("missing audience fails closed without defaulting to ALL", async () => {
+    vi.mocked(repo.audience).mockRejectedValue(new Error("기존 대상 확인 불가"));
+    await sentDetail(); fireEvent.click(screen.getByRole("button", { name: "수정해서 다시 보내기" }));
+    await screen.findByText("기존 대상 확인 불가");
+    expect(screen.queryByRole("button", { name: "지금 발행" })).toBeNull();
+    expect(repo.publish).not.toHaveBeenCalled();
+  });
+  it("unavailable historical recipients require explicit removal", async () => {
+    vi.mocked(repo.audience).mockResolvedValue({ targetKind: "USER", userIds: ["u2", "inactive"] });
+    await sentDetail(); fireEvent.click(screen.getByRole("button", { name: "수정해서 다시 보내기" }));
+    await screen.findByText(/현재 선택할 수 없는 기존 대상 1명/);
+    expect((screen.getByRole("button", { name: "지금 발행" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "해당 대상 제외" }));
+    fireEvent.click(screen.getByRole("button", { name: "지금 발행" }));
+    await waitFor(() => expect(repo.publish).toHaveBeenCalled());
+    expect(vi.mocked(repo.publish).mock.calls[0][0].userIds).toEqual(["u2"]);
+  });
+  it("retracted notice can republish ALL with expired date cleared and no retract offer", async () => {
+    const original = (await repo.sent())[0];
+    vi.mocked(repo.sent).mockResolvedValue([{ ...original, state: "RETRACTED", expires_at: "2020-01-01T00:00:00Z" }]);
+    vi.mocked(repo.audience).mockResolvedValue({ targetKind: "ALL", userIds: [] });
+    await sentDetail();
+    expect(screen.queryByRole("button", { name: /공지 회수/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "수정해서 다시 보내기" }));
+    await screen.findByText(/예상 대상 2명/);
+    expect((screen.getByLabelText(/게시 종료/) as HTMLInputElement).value).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "지금 발행" }));
+    await screen.findByText("공지를 발행했습니다.");
+    expect(screen.queryByRole("button", { name: "기존 공지 회수" })).toBeNull();
+  });
+  it("republish retains future expiry in KST and a fresh publish identity", async () => {
+    const original = (await repo.sent())[0];
+    vi.mocked(repo.sent).mockResolvedValue([{ ...original, expires_at: "2030-09-30T00:00:00Z" }]);
+    await sentDetail(); fireEvent.click(screen.getByRole("button", { name: "수정해서 다시 보내기" }));
+    await screen.findByText(/예상 대상 1명/);
+    expect((screen.getByLabelText(/게시 종료/) as HTMLInputElement).value).toBe("2030-09-30T09:00");
+    fireEvent.click(screen.getByRole("button", { name: "지금 발행" }));
+    await waitFor(() => expect(repo.publish).toHaveBeenCalled());
+    expect(vi.mocked(repo.publish).mock.calls[0][0].expiresAt).toBe("2030-09-30T00:00:00.000Z");
+  });
+  it("one recipient read and ACK counts survive retract, while inbox refresh removes the notice", async () => {
+    vi.mocked(repo.receipts).mockResolvedValue([{ recipient_id: "u2", name: "직원 가", active: true, read_at: "now", acknowledged_at: "now", revoked_at: null }]);
+    vi.mocked(repo.retract).mockImplementation(async () => { value = { ...value, items: [], unread_count: 0 }; });
+    await sentDetail(); await screen.findByText("직원 가");
+    expect([...document.querySelectorAll(".pn-stat-grid b")].map(n => n.textContent)).toEqual(["1", "1", "1", "0"]);
+    fireEvent.click(screen.getByRole("button", { name: "공지 회수…" }));
+    fireEvent.click(screen.getByRole("button", { name: "공지 회수" }));
+    await waitFor(() => expect(repo.retract).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "받은 알림" }));
+    await screen.findByText("새로운 공지가 여기에 표시됩니다.");
+    expect(screen.queryByRole("button", { name: /공지 n1/ })).toBeNull();
+  });
+
 });
