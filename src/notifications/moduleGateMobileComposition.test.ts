@@ -10,6 +10,9 @@ describe("Module Gate mobile composition boundary", () => {
     expect(mobile).toContain("@media (max-width: 639px)");
     expect(mobile).toContain("env(safe-area-inset-top, 0px) + 12px");
     expect(mobile).toContain("column-gap: 14px");
+    expect(mobile).toContain("grid-template-columns: 44px minmax(0, 1fr) 44px");
+    expect(mobile).toContain("width: 44px");
+    expect(mobile).toContain("height: 44px");
     expect(mobile).not.toMatch(/position:\s*absolute|margin[^;]*-\d/);
   });
   it("scopes every new rule to the Module Gate, leaving cards and internal headers intact", () => {
@@ -23,6 +26,6 @@ describe("Module Gate mobile composition boundary", () => {
     expect(gate.match(/<NotificationBell\s*\/>/g)).toHaveLength(1);
     expect(gate).toContain('className="mb-8 text-center sm:mb-11"');
     expect(gate).toContain("chooseModule(module.id, moduleHome[module.id])");
-    expect(mobile).toContain(":has(> .pn-gate-bell:empty)");
+    expect(mobile).not.toContain(":has(> .pn-gate-bell:empty)");
   });
 });
