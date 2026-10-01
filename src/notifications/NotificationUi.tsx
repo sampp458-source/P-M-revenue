@@ -1,3 +1,4 @@
+import { announcementExpiryError, announcementExpiryLocal, announcementExpiryMin, announcementExpiryUtc } from "./announcementExpiry";
 import { scheduleNotificationPath } from "./scheduleNotificationNavigation";
 import { PushSettings } from "./PushSettings";
 import { webPushEnabled } from "./webPushClient";
@@ -100,7 +101,7 @@ export function NotificationDialogs({ navigate = (path: string) => window.locati
     state.setView("detail"); await state.refresh();
   }); };
   const close = () => { state.setView("closed"); state.setDetail(null); };
-  const title = { closed: "알림", summary: "새로운 공지가 있어요", center: "알림센터", detail: "공지", compose: "공지 작성", manage: "알림센터" }[state.view];
+  const title = { closed: "알림", summary: "새로운 공지가 있어요", center: "알림센터", detail: "공지", compose: publishAttempt ? "발행 결과 확인" : "공지 작성", manage: "알림센터" }[state.view];
   const current = state.detail && [...state.inbox.items, ...state.inbox.popup].find(n => n.id === state.detail?.id);
   // Details beyond the first page are allowed; revoked/expired details are revalidated by every command.
   const detail = state.detail ? current || state.detail : null;
@@ -119,7 +120,7 @@ export function NotificationDialogs({ navigate = (path: string) => window.locati
               <button aria-pressed={state.view === "center"} onClick={() => state.setView("center")}>받은 알림</button>
               {(state.inbox.can_publish || state.inbox.can_view_receipts) && <button aria-pressed={state.view === "manage"} onClick={() => state.setView("manage")}>보낸 공지</button>}
             </nav>
-            {state.inbox.can_publish && <button className="pn-secondary-button pn-compose-action" onClick={() => { if (!publishAttempt) { setSeed(null); setSource(null); } state.setView("compose"); }}><Plus size={16} aria-hidden="true" />공지 작성</button>}
+            {state.inbox.can_publish && <button className="pn-secondary-button pn-compose-action" onClick={() => { if (!publishAttempt) { setSeed(null); setSource(null); } state.setView("compose"); }}><Plus size={16} aria-hidden="true" />{publishAttempt ? "발행 결과 확인" : "공지 작성"}</button>}
           </div>
           {retractOffer && state.inbox.can_publish && <div className="pn-retract" role="group" aria-label="새 공지 발행 후 기존 공지 회수">
             <p>새 공지를 발행했습니다. 기존 공지를 회수할까요?</p>
@@ -161,15 +162,20 @@ function Composer({ seed, busy, run, onPublished, attempt, setAttempt }: { busy:
   const [title, setTitle] = useState(initial?.title || ""); const [body, setBody] = useState(initial?.body || "");
   const [kind, setKind] = useState<"ALL" | "USER">(initial?.targetKind || "ALL"); const [users, setUsers] = useState<string[]>(initial?.userIds || []);
   const [priority, setPriority] = useState<"NORMAL" | "IMPORTANT">(initial?.priority || "NORMAL"); const [ack, setAck] = useState(initial?.ackRequired || false);
-  const [expiry, setExpiry] = useState(initial?.expiresAt ? new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(initial.expiresAt)).replace(" ", "T") : "");
+  const [expiry, setExpiry] = useState(initial?.expiresAt ? announcementExpiryLocal(initial.expiresAt) : "");
+  const [expiryMin, setExpiryMin] = useState(() => announcementExpiryMin());
+  useEffect(() => {
+    const timer = window.setInterval(() => setExpiryMin(announcementExpiryMin()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => { let live = true; void state.repository.targets().then(r => { if (live) setTargets(r); }).catch(() => { if (live) setTargetError(true); }); return () => { live = false; }; }, [state.repository]);
   const unavailable = kind === "USER" && targets ? users.filter(id => !targets.some(t => t.id === id)) : [];
   const estimate = targets ? kind === "ALL" ? targets.filter(t => t.id !== state.userId).length : users.length : null;
   return <form onSubmit={e => { e.preventDefault(); void run(async () => {
     // Freeze payload and request id after an ambiguous network failure; retry cannot create a second publication.
-    const payload: PublishInput = attempt || { requestId: crypto.randomUUID(), title: title.trim(), body: body.trim(), priority, ackRequired: ack, targetKind: kind, userIds: kind === "USER" ? users : [], expiresAt: expiry ? new Date(`${expiry}:00+09:00`).toISOString() : null };
-    if (payload.expiresAt && new Date(payload.expiresAt).getTime() <= Date.now()) throw new Error("게시 종료는 현재보다 뒤여야 합니다.");
+    const payload: PublishInput = attempt || { requestId: crypto.randomUUID(), title: title.trim(), body: body.trim(), priority, ackRequired: ack, targetKind: kind, userIds: kind === "USER" ? users : [], expiresAt: announcementExpiryUtc(expiry) };
+    if (payload.expiresAt && new Date(payload.expiresAt).getTime() <= Date.now()) throw new Error(announcementExpiryError);
     if (!attempt && unavailable.length) throw new Error("비활성 또는 확인할 수 없는 기존 대상을 제외해 주세요.");
     setAttempt(payload);
     try { await state.repository.publish(payload); onPublished(); }
@@ -184,7 +190,9 @@ function Composer({ seed, busy, run, onPublished, attempt, setAttempt }: { busy:
       {kind === "USER" && <div className="pn-targets">{targets?.map(t => <label key={t.id} className="pn-check"><input type="checkbox" checked={users.includes(t.id)} onChange={e => setUsers(e.target.checked ? [...users, t.id] : users.filter(id => id !== t.id))} />{t.name}{t.id === state.userId ? " (나)" : ""}</label>)}</div>}
       {unavailable.length > 0 && <p role="alert">현재 선택할 수 없는 기존 대상 {unavailable.length}명<button type="button" className="pn-text-button" onClick={() => setUsers(users.filter(id => !unavailable.includes(id)))}>해당 대상 제외</button></p>}
       <p className="pn-secondary">예상 대상 {estimate ?? "확인 중"}명{kind === "ALL" && " · 작성자 본인 제외"}<br />발행 시 활성 직원 기준으로 확정됩니다.</p>
-      <div className="pn-form-grid"><label>중요도<select value={priority} onChange={e => setPriority(e.target.value as "NORMAL" | "IMPORTANT")}><option value="NORMAL">일반</option><option value="IMPORTANT">중요</option></select></label><label>게시 종료 (선택 · 한국 시간)<input type="datetime-local" value={expiry} onChange={e => setExpiry(e.target.value)} /></label></div>
+      <div className="pn-form-grid"><label>중요도<select value={priority} onChange={e => setPriority(e.target.value as "NORMAL" | "IMPORTANT")}><option value="NORMAL">일반</option><option value="IMPORTANT">중요</option></select></label><label>게시 종료 (선택 · 한국 시간)<input type="datetime-local" autoComplete="off" min={expiryMin} value={expiry} onChange={e => setExpiry(e.target.value)} onInvalid={e => {
+        e.preventDefault(); void run(async () => { throw new Error(announcementExpiryError); });
+      }} /></label></div>
       <label className="pn-check"><input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} />직원의 ‘확인했습니다’ 기록 필요</label>
     </fieldset>
     {attempt && !busy && <p className="pn-secondary">발행 결과를 확인하지 못했다면 같은 내용으로 재시도하세요. 중복 발행되지 않습니다.</p>}
@@ -219,7 +227,7 @@ function Manage({ busy, run, onRepublish, pending, onDeleted }: { onDeleted: () 
         <ul className="pn-receipts">{receipts.map(r => <li key={r.recipient_id}><strong>{r.name}{!r.active && <small> · 비활성</small>}</strong><span>{r.read_at ? "읽음" : "안 읽음"} · {selected.ack_required ? r.acknowledged_at ? "확인 완료" : "미확인" : "확인 대상 아님"}</span></li>)}</ul></>}
       {!state.inbox.can_view_receipts && <p className="pn-secondary">확인 현황 조회 권한이 없습니다.</p>}
       {state.inbox.can_publish && <button className="pn-secondary-button pn-republish-action" disabled={busy || pending} onClick={() => void run(() => onRepublish(selected))}>수정해서 다시 보내기</button>}
-      {pending && <p className="pn-secondary">발행 결과가 확인되지 않은 요청이 있습니다. 공지 작성에서 먼저 확인해 주세요.</p>}
+      {pending && <p className="pn-secondary">발행 결과가 확인되지 않은 요청이 있습니다. 발행 결과 확인에서 먼저 확인해 주세요.</p>}
       {state.inbox.can_publish && selected.state === "PUBLISHED" && (confirm ? <div className="pn-retract"><p>공지를 회수할까요? 직원 알림함에서 제외되며 기존 읽음·확인 기록은 보존됩니다.</p><button className="pn-secondary-button" disabled={busy} onClick={() => setConfirm(false)}>유지</button><button className="pn-secondary-button" disabled={busy} onClick={() => void run(async () => { await state.repository.retract(selected.id); setSelected({ ...selected, state: "RETRACTED" }); setItems(await (state.inbox.can_publish ? state.repository.sent(offset) : state.repository.sentForReceiptViewer(state.userId, offset))); setConfirm(false); await state.refresh(); })}>공지 회수</button></div> : <button className="pn-text-button" disabled={busy} onClick={() => { setDeleteConfirm(false); setConfirm(true); }}>공지 회수…</button>)}
       {state.inbox.can_publish && <div className="pn-delete-actions">
         {deleteConfirm ? <section className="pn-delete-confirm" aria-labelledby="pn-delete-title">

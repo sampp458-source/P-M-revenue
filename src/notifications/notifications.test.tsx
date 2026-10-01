@@ -74,7 +74,7 @@ describe("publisher workflow", () => {
     vi.mocked(repo.publish).mockRejectedValueOnce(new Error("연결 끊김")); await composer(); fillComposer();
     fireEvent.click(screen.getByRole("button", { name: "지금 발행" })); await screen.findByText("연결 끊김");
     fireEvent.click(screen.getByRole("button", { name: "닫기" })); await center();
-    fireEvent.click(screen.getByRole("button", { name: "공지 작성" }));
+    fireEvent.click(screen.getByRole("button", { name: "발행 결과 확인" }));
     fireEvent.click(await screen.findByRole("button", { name: "같은 요청 다시 확인" }));
     await waitFor(() => expect(repo.publish).toHaveBeenCalledTimes(2));
     expect(vi.mocked(repo.publish).mock.calls[0][0]).toEqual(vi.mocked(repo.publish).mock.calls[1][0]);
@@ -154,7 +154,7 @@ describe("center and sent UX refinement", () => {
     await screen.findByText("연결 끊김"); expect(repo.retract).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "기존 공지 회수" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "닫기" })); await center();
-    fireEvent.click(screen.getByRole("button", { name: "공지 작성" }));
+    fireEvent.click(screen.getByRole("button", { name: "발행 결과 확인" }));
     await screen.findByText(/예상 대상 1명/);
     fireEvent.click(screen.getByRole("button", { name: "같은 요청 다시 확인" }));
     await screen.findByRole("button", { name: "기존 공지 유지" });
@@ -280,5 +280,58 @@ describe("announcement hard delete", () => {
     fireEvent.click(screen.getByRole("button", { name: "지금 발행" }));
     await waitFor(() => expect(repo.publish).toHaveBeenCalledTimes(2));
     expect(vi.mocked(repo.publish).mock.calls[0][0].requestId).not.toBe(vi.mocked(repo.publish).mock.calls[1][0].requestId);
+  });
+});
+
+describe("announcement expiry composer contract", () => {
+  const expiryInput = () => screen.getByLabelText(/게시 종료/) as HTMLInputElement;
+  const now = Date.parse("2026-10-01T09:36:00Z");
+  beforeEach(() => vi.spyOn(Date, "now").mockReturnValue(now));
+  it("new composer is empty and cancelled drafts do not survive reopen", async () => {
+    await composer();
+    expect(expiryInput().value).toBe("");
+    expect(expiryInput().min).toBe("2026-10-01T18:37");
+    fireEvent.change(expiryInput(), { target: { value: "2026-10-02T12:30" } });
+    fireEvent.click(screen.getByRole("button", { name: "닫기" })); await center();
+    fireEvent.click(screen.getByRole("button", { name: "공지 작성" }));
+    expect(expiryInput().value).toBe("");
+    expect(repo.publish).not.toHaveBeenCalled();
+  });
+  it.each(["2026-10-01T12:30", "2026-10-01T18:36"])("rejects past/current expiry %s before RPC even without native constraints", async expiry => {
+    await composer(); fillComposer();
+    fireEvent.change(expiryInput(), { target: { value: expiry } });
+    fireEvent.submit(expiryInput().closest("form")!);
+    expect(await screen.findByText("게시 종료 시간은 현재보다 이후로 설정해주세요.")).toBeTruthy();
+    expect(repo.publish).not.toHaveBeenCalled();
+  });
+  it("native invalid input uses the same specific visible message", async () => {
+    await composer(); fillComposer();
+    fireEvent.change(expiryInput(), { target: { value: "2026-10-01T12:30" } });
+    fireEvent.click(screen.getByRole("button", { name: "지금 발행" }));
+    expect(await screen.findByText("게시 종료 시간은 현재보다 이후로 설정해주세요.")).toBeTruthy();
+    expect(repo.publish).not.toHaveBeenCalled();
+  });
+  it.each(["", "2026-10-02T00:15"])("publishes optional expiry %s and resets after success", async expiry => {
+    await composer(); fillComposer();
+    fireEvent.change(expiryInput(), { target: { value: expiry } });
+    fireEvent.click(screen.getByRole("button", { name: "지금 발행" }));
+    await waitFor(() => expect(repo.publish).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(repo.publish).mock.calls[0][0].expiresAt).toBe(expiry ? "2026-10-01T15:15:00.000Z" : null);
+    await screen.findByRole("button", { name: /보낸 공지 제목/ });
+    fireEvent.click(screen.getByRole("button", { name: "닫기" })); await center();
+    fireEvent.click(screen.getByRole("button", { name: "공지 작성" }));
+    expect(expiryInput().value).toBe("");
+  });
+  it("server expiry rejection permits correction without freezing the invalid request", async () => {
+    vi.mocked(repo.publish).mockRejectedValueOnce(new NotificationFailure("게시 종료 시간은 현재보다 이후로 설정해주세요.", true));
+    await composer(); fillComposer();
+    fireEvent.change(expiryInput(), { target: { value: "2026-10-02T12:30" } });
+    fireEvent.click(screen.getByRole("button", { name: "지금 발행" }));
+    await screen.findByText("게시 종료 시간은 현재보다 이후로 설정해주세요.");
+    expect(expiryInput().closest("fieldset")!.disabled).toBe(false);
+    fireEvent.change(expiryInput(), { target: { value: "" } });
+    fireEvent.click(screen.getByRole("button", { name: "지금 발행" }));
+    await waitFor(() => expect(repo.publish).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(repo.publish).mock.calls[1][0].expiresAt).toBeNull();
   });
 });
