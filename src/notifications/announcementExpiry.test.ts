@@ -19,7 +19,7 @@ describe("Seoul expiry boundaries", () => {
     expect(() => announcementExpiryUtc(value, 0)).toThrow(announcementExpiryError);
   });
 });
-describe("expiry server mapping", () => {
+describe("publish server mapping", () => {
   const payload = { requestId: "test", title: "test", body: "test", priority: "NORMAL" as const, ackRequired: false, targetKind: "ALL" as const, userIds: [], expiresAt: null };
   it("maps only the exact publish INVALID_EXPIRY contract to a definite Korean error", async () => {
     db.rpc.mockResolvedValue({ data: null, error: { code: "22023", message: "INVALID_EXPIRY" } });
@@ -33,4 +33,15 @@ describe("expiry server mapping", () => {
     db.rpc.mockResolvedValue({ data: null, error });
     await expect(notificationRepository.publish(payload)).rejects.not.toMatchObject({ message: announcementExpiryError });
   });
+  it("classifies exact 21000 as definite rejection without expiry wording", async () => {
+    db.rpc.mockResolvedValue({ data: null, error: { code: "21000", message: "UPDATE requires a WHERE clause" } });
+    await expect(notificationRepository.publish(payload)).rejects.toMatchObject({
+      definite: true, message: "요청을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+    });
+  });
+  it.each(["", "500", "400", "AbortError"])("preserves uncertain transport failure %s", async code => {
+    db.rpc.mockResolvedValue({ data: null, error: { code, message: "Failed to fetch" }, status: 0 });
+    await expect(notificationRepository.publish(payload)).rejects.toMatchObject({ definite: false });
+  });
+
 });
