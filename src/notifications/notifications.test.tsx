@@ -39,6 +39,21 @@ async function composer() { value = { ...value, can_publish: true, can_view_rece
 function fillComposer() { fireEvent.change(screen.getByLabelText(/제목/), { target: { value: "팀 안내" } }); fireEvent.change(screen.getByLabelText(/본문/), { target: { value: "내일 운영 안내입니다." } }); }
 describe("announcement inbox lifecycle", () => {
   it("disabled feature leaves existing authenticated shell alone", () => { render(<NotificationProvider enabled={false}><NotificationBell /><span>기존 업무</span></NotificationProvider>); expect(screen.queryByRole("button")).toBeNull(); expect(screen.getByText("기존 업무")).toBeTruthy(); });
+  it("auth/bootstrap failure preserves RPC, focus, visibility and visible polling", async () => {
+    vi.useFakeTimers();
+    vi.mocked(repo.subscribe).mockImplementation(() => { throw new Error("auth unavailable"); });
+    mount(); await act(async()=>{});
+    expect(repo.inbox).toHaveBeenCalledTimes(1);
+    fireEvent.focus(window); await act(async()=>{await vi.advanceTimersByTimeAsync(180);});
+    expect(repo.inbox).toHaveBeenCalledTimes(2);
+    fireEvent(document,new Event("visibilitychange")); await act(async()=>{await vi.advanceTimersByTimeAsync(180);});
+    expect(repo.inbox).toHaveBeenCalledTimes(3);
+    await act(async()=>{await vi.advanceTimersByTimeAsync(30000);});
+    expect(repo.inbox).toHaveBeenCalledTimes(4);
+    vi.spyOn(document,"visibilityState","get").mockReturnValue("hidden");
+    await act(async()=>{await vi.advanceTimersByTimeAsync(30000);});
+    expect(repo.inbox).toHaveBeenCalledTimes(4);
+  });
   it("inactive auth never mounts the notification session", () => {
     auth.profile.isActive = false;
     render(<NotificationProvider enabled><NotificationBell /><span>기존 업무</span></NotificationProvider>);

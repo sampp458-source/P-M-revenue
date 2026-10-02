@@ -1,3 +1,4 @@
+import { createNotificationRealtime } from "./notificationRealtime";
 import { announcementExpiryError } from "./announcementExpiry";
 import { supabase } from "../lib/supabase";
 export interface Notice {
@@ -67,15 +68,8 @@ export const notificationRepository = {
     p_request_id: p.requestId, p_title: p.title, p_body: p.body, p_priority: p.priority,
     p_ack_required: p.ackRequired, p_target_kind: p.targetKind, p_user_ids: p.userIds, p_expires_at: p.expiresAt,
   }),
-  subscribe: (userId: string, refresh: () => void) => {
-    const channel = supabase.channel(`notification-inbox:${userId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `recipient_id=eq.${userId}` }, refresh)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `recipient_id=eq.${userId}` }, refresh)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_inbox_revisions", filter: `recipient_id=eq.${userId}` }, refresh)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notification_inbox_revisions", filter: `recipient_id=eq.${userId}` }, refresh)
-      .subscribe(status => { if (status === "SUBSCRIBED") refresh(); });
-    return () => { void supabase.removeChannel(channel); };
-  },
+  subscribe: createNotificationRealtime(supabase),
+
 };
 export type NotificationRepository = typeof notificationRepository;
 export const emptyInbox: Inbox = { items: [], popup: [], unread_count: 0, unacknowledged_count: 0, can_publish: false, can_view_receipts: false };
