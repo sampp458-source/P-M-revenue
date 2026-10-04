@@ -40,6 +40,10 @@ describe('Calendar monthly V2 presentation boundary', () => {
   });
   it('preserves the frozen Calendar presentation after typed notification date initialization', () => {
     const source = read('pages/OperationsCalendarFoundation.tsx')
+      .replace('import { useLocation, useNavigate }', 'import { useNavigate }')
+      .replace('  const location = useLocation();\n', '')
+      .replace('new URLSearchParams(location.search)', 'new URLSearchParams(window.location.search)')
+      .replace(/ {2}useEffect\(\(\) => \{\n {4}if \(!validScheduleDate\(notificationDate\)\) return;[\s\S]*?\}, \[notificationDate, location.key\]\);\n/, '')
       .replace('import { validScheduleDate } from "../notifications/scheduleNotificationNavigation";\n', '')
       .replace('  const notificationDate = new URLSearchParams(window.location.search).get("notification_date");\n  const initialDate = validScheduleDate(notificationDate) ? notificationDate : today;\n', '')
       .replace('useState(monthKey(initialDate))', 'useState(monthKey(today))')

@@ -1,3 +1,5 @@
+import { useNavigate } from "react-router-dom";
+import { useModule } from "../app/ModuleContext";
 import { consumePushTarget } from "./pushNavigation";
 import { webPushClient, webPushEnabled, syncAppBadge } from "./webPushClient";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
@@ -9,10 +11,16 @@ import "./notifications.css";
 export function NotificationProvider({ children, enabled = import.meta.env.VITE_ANNOUNCEMENTS_ENABLED === "true" }: { children: ReactNode; enabled?: boolean }) {
   const { profile, loading } = useAuth();
   const id = enabled && !loading && profile?.isActive && profile.accountStatus === "active" ? profile.id : null;
-  return id ? <NotificationSession key={id} userId={id}>{children}</NotificationSession> : <>{children}</>;
+  return id ? <RoutedNotificationSession key={id} userId={id}>{children}</RoutedNotificationSession> : <>{children}</>;
+}
+function RoutedNotificationSession({ userId, children }: { userId: string; children: ReactNode }) {
+  const { chooseModule } = useModule();
+  const navigateTo = useCallback((path: string) => chooseModule("operations", path), [chooseModule]);
+  return <NotificationSession userId={userId} navigateTo={navigateTo}>{children}</NotificationSession>;
 }
 // A keyed session discards in-flight responses and popup state on account changes.
-export function NotificationSession({ userId, children, repository = notificationRepository }: { userId: string; children: ReactNode; repository?: NotificationRepository }) {
+export function NotificationSession({ userId, children, repository = notificationRepository, navigateTo }: { userId: string; children: ReactNode; repository?: NotificationRepository; navigateTo?: (path: string) => void }) {
+  const routerNavigate = useNavigate();
   const [inbox, setInbox] = useState(emptyInbox);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -76,6 +84,6 @@ export function NotificationSession({ userId, children, repository = notificatio
   }, [userId, refresh]);
   useEffect(() => { if (webPushEnabled) void syncAppBadge(inbox.unread_count); }, [inbox.unread_count]);
   return <NotificationContext.Provider value={{ userId, repository, inbox, error, loading, view, setView, detail, setDetail, refresh }}>
-    {children}<NotificationDialogs />
+    {children}<NotificationDialogs navigate={navigateTo ?? routerNavigate} />
   </NotificationContext.Provider>;
 }

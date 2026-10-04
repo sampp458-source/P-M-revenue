@@ -13,7 +13,10 @@ const files = {
 describe('Operations schedule presentation contract', () => {
   for (const [file, expected] of Object.entries(files)) it(`${file}: preserves all workflow declarations and page handlers from approved HEAD`, () => {
     const source = readFileSync(`src/pages/${file}`, 'utf8').replace('            <MobileCalendarStatusLegend />\n', '')
-      // New typed deep link changes initialization only; retain all prior handler hashes.
+      // Permit only notification route synchronization; retain all prior handler hashes.
+      .replace('  const location = useLocation();\n', '')
+      .replace('new URLSearchParams(location.search)', 'new URLSearchParams(window.location.search)')
+      .replace(/ {2}useEffect\(\(\) => \{\n {4}if \(!validScheduleDate\(notificationDate\)\) return;[\s\S]*?\}, \[notificationDate, location.key\]\);\n/, '')
       .replace('  const notificationDate = new URLSearchParams(window.location.search).get("notification_date");\n  const initialDate = validScheduleDate(notificationDate) ? notificationDate : today;\n', '')
       .replace('useState(monthKey(initialDate))', 'useState(monthKey(today))')
       .replace('useState(initialDate)', 'useState(today)')

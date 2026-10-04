@@ -18,7 +18,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import {
   Button,
@@ -168,11 +168,18 @@ export function OperationsCalendarFoundationPage() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const today = seoulDateKey();
-  const notificationDate = new URLSearchParams(window.location.search).get("notification_date");
+  const location = useLocation();
+  const notificationDate = new URLSearchParams(location.search).get("notification_date");
   const initialDate = validScheduleDate(notificationDate) ? notificationDate : today;
   const [visibleMonth, setVisibleMonth] = useState(monthKey(initialDate));
   const [selectedDate, setSelectedDate] = useState(initialDate);
   const [drawerOpen, setDrawerOpen] = useState(validScheduleDate(notificationDate));
+  useEffect(() => {
+    if (!validScheduleDate(notificationDate)) return;
+    setVisibleMonth(monthKey(notificationDate));
+    setSelectedDate(notificationDate);
+    setDrawerOpen(true);
+  }, [notificationDate, location.key]);
   const [schedules, setSchedules] = useState<OperationSchedule[]>([]);
   const [options, setOptions] = useState<OperationScheduleOptions | null>(null);
   const [hotelSnapshot, setHotelSnapshot] =

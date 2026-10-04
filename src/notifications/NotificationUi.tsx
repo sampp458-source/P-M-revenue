@@ -33,7 +33,7 @@ function NoticeRow({ item, onOpen }: { item: Notice; onOpen: (item: Notice) => v
   </button>;
 }
 type ComposeSeed = Omit<PublishInput, "requestId">;
-export function NotificationDialogs({ navigate = (path: string) => window.location.assign(path) }: { navigate?: (path: string) => void } = {}) {
+export function NotificationDialogs({ navigate }: { navigate: (path: string) => void }) {
   const state = useNotifications();
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
@@ -49,6 +49,8 @@ export function NotificationDialogs({ navigate = (path: string) => window.locati
   const [page, setPage] = useState<Notice[] | null>(null);
   const [pageLoading, setPageLoading] = useState(false);
   const presented = useRef(new Set<string>());
+  const navigating = useRef(false);
+  useEffect(() => { if (state?.view === "center") navigating.current = false; }, [state?.view]);
   const repo = state?.repository;
   const view = state?.view;
   const contentRef = useRef<HTMLDivElement>(null);
@@ -93,13 +95,26 @@ export function NotificationDialogs({ navigate = (path: string) => window.locati
     try { await task(); } catch (e) { setError(e instanceof Error ? e.message : "요청을 완료하지 못했습니다."); }
     finally { lock.current = false; setBusy(false); }
   }
-  const open = (item: Notice) => { void act(async () => {
-    await state.repository.read(item.id);
+  const open = (item: Notice) => {
     const path = scheduleNotificationPath(item);
-    if (path) { state.setView("closed"); navigate(path); return; }
-    state.setDetail({ ...item, read_at: item.read_at || new Date().toISOString() });
-    state.setView("detail"); await state.refresh();
-  }); };
+    if (path) {
+      if (navigating.current) return;
+      navigating.current = true;
+      // Read failure must not discard the user's date navigation intent.
+      void state.repository.read(item.id).then(() => state.refresh()).catch(() => {
+        setToast("읽음 상태를 저장하지 못했습니다. 알림센터에서 다시 확인해 주세요.");
+      });
+      state.setDetail(null);
+      state.setView("closed");
+      navigate(path);
+      return;
+    }
+    void act(async () => {
+      await state.repository.read(item.id);
+      state.setDetail({ ...item, read_at: item.read_at || new Date().toISOString() });
+      state.setView("detail"); await state.refresh();
+    });
+  };
   const close = () => { state.setView("closed"); state.setDetail(null); };
   const title = { closed: "알림", summary: "새로운 공지가 있어요", center: "알림센터", detail: "공지", compose: publishAttempt ? "발행 결과 확인" : "공지 작성", manage: "알림센터" }[state.view];
   const current = state.detail && [...state.inbox.items, ...state.inbox.popup].find(n => n.id === state.detail?.id);

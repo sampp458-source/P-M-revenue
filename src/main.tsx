@@ -18,13 +18,13 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <NotificationProvider>
         <ModuleProvider>
-          <DataProvider>
-            <App />
-          </DataProvider>
+          <NotificationProvider>
+            <DataProvider>
+              <App />
+            </DataProvider>
+          </NotificationProvider>
         </ModuleProvider>
-        </NotificationProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,

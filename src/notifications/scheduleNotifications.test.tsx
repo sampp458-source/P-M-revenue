@@ -23,8 +23,8 @@ it('schedule/daily/read/unread coexist with announcement and device settings; ne
 it('read precedes typed calendar navigation and never completes/ACKs schedule',async()=>{
  const x=mount([sample()]);fireEvent.click(await screen.findByRole('button',{name:/새 일정이 등록/}));await waitFor(()=>expect(x.navigate).toHaveBeenCalledWith('/operations/calendar?notification_date=2026-10-01'));expect(x.read).toHaveBeenCalledWith('n1');expect(x.read.mock.invocationCallOrder[0]).toBeLessThan(x.navigate.mock.invocationCallOrder[0]);expect(x.acknowledge).not.toHaveBeenCalled();
 });
-it('failed read never navigates',async()=>{
- const x=mount([sample()]);x.read.mockRejectedValueOnce(Error('거부'));fireEvent.click(await screen.findByRole('button',{name:/새 일정이 등록/}));await screen.findByText('거부');expect(x.navigate).not.toHaveBeenCalled();
+it('failed schedule read retains navigation',async()=>{
+ const x=mount([sample()]);x.read.mockRejectedValueOnce(Error('거부'));fireEvent.click(await screen.findByRole('button',{name:/새 일정이 등록/}));await screen.findByText('읽음 상태를 저장하지 못했습니다. 알림센터에서 다시 확인해 주세요.');expect(x.navigate).toHaveBeenCalledTimes(1);
 });
 it.each(['2026-02-30','https://evil.test','2026-1-01','2026-09-30&x=1',null])('rejects invalid typed local date %s',date=>{expect(validScheduleDate(date)).toBe(false);expect(scheduleNotificationPath(sample({schedule_local_date:date}))).toBeNull();});
 it('calendar path only accepts typed schedule links; preserves server KST day',()=>{
