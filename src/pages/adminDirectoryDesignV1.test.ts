@@ -1,3 +1,4 @@
+import { expectStaffManagementBoundary } from './staffManagementBoundary';
 import { normalizeVisualSystemD } from './visualSystemDTestNormalization';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -23,10 +24,7 @@ describe('Admin directory visual contract', () => {
     expect(hash(source)).toBe('31b3fee8d937a3ffcc1e9b88e7ecb35a240ddf1dec98255148c7f3f9cc5f6937');
   });
   it('preserves every staff permission branch, handler, query, payload and modal', () => {
-    const source = stripHooks(normalizeVisualSystemD(readFileSync('src/pages/StaffManagement.tsx', 'utf8')).replace(/import ["'].*(?:admin|settings|access)-design-v2\.css["'];\n/g, '').replace(/ pm-(?:admin|settings|access)-v2/g, ''))
-      .replace('<section className="pm-design-v1 pm-admin-directory-v1 pm-staff-v1">', '<>')
-      .replace('  </section>;', '  </>;');
-    expect(hash(source)).toBe('6adace84b29e91cbb351454a022b46a7bc440f8284839b550ba8170c3a425b0f');
+    expectStaffManagementBoundary();
   });
   it('scopes every style to opted-in directory screens', () => {
     const css = readFileSync('src/admin-directory-design-v1.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/@media[^{}]*\{/g, '');

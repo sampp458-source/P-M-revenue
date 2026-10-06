@@ -23,9 +23,9 @@ describe("Staff Operations role management UI", () => {
     expect(source).not.toContain("({role})");
   });
 
-  it("uses a compact fixed-layout directory without exposing implementation role names", () => {
-    expect(source).toContain('className="min-w-[1040px] table-fixed xl:min-w-0"');
-    expect(source).toContain("<colgroup>");
+  it("uses a compact master/detail directory with preserved date history", () => {
+    expect(source).toContain("<StaffDirectory");
+    expect(source).toContain("staff-facts");
     expect(source).toContain("DateTimeCell");
     expect(source).toContain('aria-label="운영 권한"');
   });

@@ -1,3 +1,4 @@
+import { StaffDirectory } from "./StaffDirectory";
 import { useCapabilityAdminAccess } from "../taskRequests/useCapabilityAdminAccess";
 import { CapabilityManagement } from "../taskRequests/CapabilityManagement";
 import "../visual-system-d-rollout4.css";
@@ -6,7 +7,7 @@ import "../admin-directory-design-v1.css";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { ChevronDown } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
-import { Badge, Button, Card, ConfirmModal, EmptyState, ErrorState, Field, FilterToolbar, LoadingState, Modal, PageHeader, SearchBox, Select, Table, Textarea, Toast } from "../components/ui";
+import { Badge, Button, ConfirmModal, ErrorState, Field, FilterToolbar, LoadingState, Modal, PageHeader, SearchBox, Select, Textarea, Toast } from "../components/ui";
 import { supabase } from "../lib/supabase";
 import { formatPhone } from "../lib/phone";
 import { operationPersonColor } from "./operationsScheduleRepository";
@@ -175,63 +176,19 @@ export function StaffManagementPage() {
   };
 
   return <section className="pm-design-v1 pm-admin-directory-v1 pm-staff-v1 pm-admin-v2 pm-design-d pm-d-page pm-d-rollout4">
-    {capabilityAccess.owner && <CapabilityManagement />}
-    <PageHeader title="직원 관리" description="직원 계정 신청을 승인하고 재직 상태를 관리합니다." />
+    <PageHeader title="직원 관리" description={`직원 ${rows.length}명 · 재직 ${rows.filter(r => r.status === "active").length}명`} />
     <FilterToolbar className="sm:grid-cols-2"><SearchBox aria-label="직원 검색" placeholder="이름, 이메일 또는 휴대폰 검색" value={query} onClear={() => setQuery("")} onChange={(event) => setQuery(event.target.value)} /><Select aria-label="직원 상태 필터" value={status} onChange={(event) => setStatus(event.target.value)}><option value="">전체 상태</option>{Object.entries(statusLabel).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select></FilterToolbar>
-    {operationLoadError && <p role="alert" className="mb-3 text-sm text-amber-700">{operationLoadError}</p>}
-    <Card className="overflow-hidden">
-      {loading ? <LoadingState /> : loadError ? <ErrorState title="직원 목록을 불러오지 못했습니다." retry={() => void load()} /> : filtered.length ? (
-        <Table className="min-w-[1040px] table-fixed xl:min-w-0">
-          <colgroup>
-            <col className="w-[8%]" />
-            <col className="w-[14%]" />
-            <col className="w-[10%]" />
-            <col className="w-[7%]" />
-            <col className="w-[10%]" />
-            <col className="w-[7%]" />
-            <col className="w-[8%]" />
-            <col className="w-[8%]" />
-            <col className="w-[8%]" />
-            <col className="w-[20%]" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th colSpan={3} scope="colgroup">직원</th>
-              <th colSpan={2} scope="colgroup">접근 권한</th>
-              <th colSpan={4} scope="colgroup">상태 · 이력</th>
-              <th scope="col" className="text-right">관리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((row) => (
-              <tr key={row.id}>
-                <td className="staff-name overflow-hidden text-ellipsis font-semibold">{row.name}</td>
-                <td className="staff-email overflow-hidden text-ellipsis" title={row.email || undefined}>{row.email || "-"}</td>
-                <td data-label="휴대폰" className="staff-phone">{row.phone ? formatPhone(row.phone) : "-"}</td>
-                <td data-label="Finance 역할" className="staff-finance">{row.role === "admin" ? "관리자" : "직원"}</td>
-                <td data-label="운영 권한" className="staff-operation">
-                  {operationLoadError ? <span className="text-sm text-error">권한 조회 실패</span> : row.operationRole ? (
-                    <div className="flex items-center gap-1.5">
-                      {scheduleColorAvailable && (
-                        <span
-                          aria-label={`${row.name} 캘린더 색상`}
-                          className="h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white"
-                          style={{ backgroundColor: operationPersonColor(row) }}
-                        />
-                      )}
-                      <Badge tone={row.operationRole === "owner" ? "blue" : row.operationRole === "manager" ? "amber" : "gray"}>{operationRoleLabel[row.operationRole]}</Badge>
-                      {!row.operationActive && <span className="text-xs text-text-muted">접근 중지</span>}
-                    </div>
-                  ) : <span className="text-sm text-amber-700">Membership 없음</span>}
-                </td>
-                <td className="staff-status"><Badge tone={row.status === "active" ? "green" : row.status === "pending" ? "amber" : row.status === "rejected" ? "red" : "gray"}>{statusLabel[row.status]}</Badge></td>
-                <td data-label="가입일" className="staff-date"><DateTimeCell value={row.createdAt} /></td>
-                <td data-label="승인일" className="staff-date"><DateTimeCell value={row.approvedAt} /></td>
-                <td data-label="퇴사일" className="staff-date"><DateTimeCell value={row.deactivatedAt} /></td>
-                <td className="staff-actions">
-                  <div className="flex items-center justify-end gap-1.5">
+    {operationLoadError && <p role="alert">{operationLoadError}</p>}
+    {loading && !rows.length ? <LoadingState /> : loadError ? <ErrorState title="직원 목록을 불러오지 못했습니다." retry={() => void load()} /> : <StaffDirectory employees={filtered.map(row => ({id:row.id,name:row.name,summary:`${row.operationRole ? operationRoleLabel[row.operationRole] : "운영 멤버십 없음"} · ${statusLabel[row.status]}`,color:scheduleColorAvailable ? operationPersonColor(row) : undefined}))}>{id => {
+      const row = rows.find(r => r.id === id)!;
+      return <>
+        <section className="staff-section"><h3>Operations</h3><dl className="staff-facts"><dt>운영 권한</dt><dd>{operationLoadError ? "권한 조회 실패" : row.operationRole ? operationRoleLabel[row.operationRole] : "Membership 없음"}</dd><dt>접근 상태</dt><dd>{row.operationActive ? "활성" : "접근 중지"}</dd><dt>계정 상태</dt><dd><Badge tone={row.status === "active" ? "green" : row.status === "pending" ? "amber" : "gray"}>{statusLabel[row.status]}</Badge></dd></dl><div className="staff-actions-line">
                     {!operationLoadError && canManageOperationRoles && row.status !== "pending" && <Button data-staff-action="role" className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedOperationRole(row.operationRole ?? "staff"); setRoleEditing(row); }}>운영 권한</Button>}
                     {!operationLoadError && scheduleColorAvailable && canManageOperationScheduleColors && row.operationActive && <Button data-staff-action="color" className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ? operationPersonColor(row) : ""); setColorEditing(row); }}>캘린더 색상</Button>}
+        </div></section>
+        {capabilityAccess.owner && <CapabilityManagement selectedId={row.id} />}
+        {profile?.role === "admin" && <><section className="staff-section"><h3>계정 관리</h3><dl className="staff-facts"><dt>Finance 역할</dt><dd>{row.role === "admin" ? "관리자" : "직원"}</dd><dt>이메일</dt><dd>{row.email || "-"}</dd><dt>휴대폰</dt><dd>{row.phone ? formatPhone(row.phone) : "-"}</dd><dt>가입일</dt><dd><DateTimeCell value={row.createdAt}/></dd><dt>승인일</dt><dd><DateTimeCell value={row.approvedAt}/></dd><dt>퇴사일</dt><dd><DateTimeCell value={row.deactivatedAt}/></dd></dl></section>
+        <section className="staff-section staff-danger"><h3>계정 상태 변경</h3><p>계정 접근에 영향을 주는 작업입니다. 확인 후 처리해 주세요.</p><div className="staff-actions-line">
                     {row.role === "staff" && row.status === "pending" && <>
                       <Button data-staff-action="approve" className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setConfirming({ row, action: "approve" }); }}>승인</Button>
                       <Button data-staff-action="reject" className="min-h-9 px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setReason(""); setReasoning({ row, action: "reject" }); }}>거절</Button>
@@ -239,14 +196,9 @@ export function StaffManagementPage() {
                     {row.role === "staff" && row.status === "active" && <Button data-staff-action="deactivate" className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setReason(""); setReasoning({ row, action: "deactivate" }); }}>퇴사 처리</Button>}
                     {row.role === "staff" && row.status === "inactive" && <Button data-staff-action="restore" className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setConfirming({ row, action: "restore" }); }}>계정 복구</Button>}
                     {row.role === "admin" && <span className="text-xs text-slate-400">Finance 관리자 보호</span>}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      ) : <EmptyState title="조회된 직원이 없습니다." />}
-    </Card>
+        </div></section></>}
+      </>;
+    }}</StaffDirectory>}
     <ConfirmModal open={!!confirming} onClose={() => setConfirming(null)} onConfirm={() => void applyConfirm()} processing={processing} tone="primary" title={confirming?.action === "approve" ? "직원 계정 승인" : "직원 계정 복구"} confirmLabel={confirming?.action === "approve" ? "승인" : "복구"} description={<>{confirming?.row.name} 계정을 {confirming?.action === "approve" ? "승인" : "복구"}하시겠습니까?{actionError && <span role="alert" className="mt-2 block text-red-600">{actionError}</span>}</>} />
     <Modal open={!!reasoning} onClose={() => !processing && setReasoning(null)} title={reasoning?.action === "reject" ? "가입 승인 거절" : "퇴사 처리"}><form onSubmit={applyReason} className="space-y-4"><p className="text-sm leading-6 text-slate-600">{reasoning?.action === "deactivate" ? "이 직원을 퇴사 처리하시겠습니까? 로그인과 프로그램 접근이 즉시 차단되지만 기존 매출 및 변경 이력은 유지됩니다." : `${reasoning?.row.name} 계정 신청을 거절합니다. Auth 사용자는 삭제되지 않습니다.`}</p><Field label={reasoning?.action === "deactivate" ? "퇴사 사유" : "거절 사유"} required={reasoning?.action === "deactivate"}><Textarea value={reason} disabled={processing} onChange={(event) => setReason(event.target.value)} /></Field>{actionError && <p role="alert" className="text-sm text-red-600">{actionError}</p>}<div className="flex justify-end gap-2"><Button type="button" variant="secondary" disabled={processing} onClick={() => setReasoning(null)}>취소</Button><Button variant="danger" disabled={processing}>{processing ? "처리 중..." : reasoning?.action === "reject" ? "가입 거절" : "퇴사 처리"}</Button></div></form></Modal>
     <Modal open={!!roleEditing} onClose={() => !processing && setRoleEditing(null)} title="운영 권한 설정">

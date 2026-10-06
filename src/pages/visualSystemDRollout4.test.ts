@@ -1,3 +1,4 @@
+import { expectStaffManagementBoundary } from './staffManagementBoundary';
 import { normalizePersistentDShell, normalizeStaffDirectoryPresentation } from "./visualSystemDTestNormalization";
 import {readFileSync} from 'node:fs';
 import {createHash} from 'node:crypto';
@@ -7,6 +8,7 @@ const originals={"src/App.tsx": "f6637257e25d30cf6c688d9a655256ca9dfe0e43d6cf51c
 const frozen={"src/visual-system-d.css": "976c988622debfa6303ef967df89f7d29ad09308888416e7d2d29db5864e6455", "src/styles.css": "1e3bad387b032c06c70113fc36cd393417bba0116b1dd1772f006c4702cd6fd1", "src/visual-system-d-adoption.css": "5de1f8db0b5254cb2d71d65256723b0669630c8a7204c3c5e0d3aa628c968cb6", "src/visual-system-d-rollout2.css": "1863d03c9d3f1fc931b88e2d699bebd22d68d4a16309c5d584b77885bd0a46cd", "src/visual-system-d-rollout3.css": "40ddde7584cec032e7e2d59b7b45ff1a784c4f58d8f5efc0c475408c6f2e3b1e", "src/pages/JournalReportTemplate.tsx": "e2114a8f27bb509cfcd04d35b6337bcca2c059edd32da12876040f69297de925"};
 describe('Visual System D Rollout 4 scope and auth preservation',()=>{
 for(const [file,sha] of Object.entries(originals))it(file+' preserves every handler, permission, route and auth statement',()=>{
+ if(file === 'src/pages/StaffManagement.tsx') { expectStaffManagementBoundary(); return; }
 const s=normalizeStaffDirectoryPresentation(normalizePersistentDShell(readFileSync(file,'utf8'))).replace(/import "\.\.?\/visual-system-d-rollout4\.css";\n/g,'').replaceAll(' pm-design-d pm-d-page pm-d-rollout4','');
 expect(hash(s)).toBe(sha);
 });
@@ -17,11 +19,11 @@ for(const [,selector] of css.matchAll(/([^{}]+)\{[^{}]*\}/g))expect(selector.tri
 const controlsCss=css.replace(/\.pm-design-d\.pm-d-rollout4\.pm-staff-v1 \.data-table colgroup\s*\{display:none!important;\}/g,'');
 expect(controlsCss).not.toMatch(/display\s*:\s*none|visibility\s*:\s*hidden|pointer-events\s*:\s*none/);
 });
-it('keeps four grouped headers and the six direct action identities',()=>{
+it('keeps master/detail sections and the six direct action identities',()=>{
 const source=readFileSync('src/pages/StaffManagement.tsx','utf8');
-expect(source).toContain('<th colSpan={3} scope="colgroup">직원</th>');
-expect(source).toContain('<th colSpan={2} scope="colgroup">접근 권한</th>');
-expect(source).toContain('<th colSpan={4} scope="colgroup">상태 · 이력</th>');
+expect(source).toContain('<StaffDirectory');
+expect(source).toContain('<h3>Operations</h3>');
+expect(source).toContain('<h3>계정 관리</h3>');
 for(const [action,label] of Object.entries({role:'운영 권한',color:'캘린더 색상',approve:'승인',reject:'거절',deactivate:'퇴사 처리',restore:'계정 복구'})) {
 const line=source.split('\n').find(line=>line.includes(`data-staff-action="${action}"`));
 expect(line).toContain(`>${label}</Button>`);
