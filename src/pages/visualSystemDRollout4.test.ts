@@ -22,7 +22,7 @@ expect(controlsCss).not.toMatch(/display\s*:\s*none|visibility\s*:\s*hidden|poin
 it('keeps master/detail sections and the six direct action identities',()=>{
 const source=readFileSync('src/pages/StaffManagement.tsx','utf8');
 expect(source).toContain('<StaffDirectory');
-expect(source).toContain('<h3>Operations</h3>');
+expect(source).toContain('<h3>운영 설정</h3>');
 expect(source).toContain('<h3>계정 관리</h3>');
 for(const [action,label] of Object.entries({role:'운영 권한',color:'캘린더 색상',approve:'승인',reject:'거절',deactivate:'퇴사 처리',restore:'계정 복구'})) {
 const line=source.split('\n').find(line=>line.includes(`data-staff-action="${action}"`));

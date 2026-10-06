@@ -9,3 +9,20 @@
  .pm-staff-v1:has(>.staff-detail-open)>.pm-v1-page-header,.pm-staff-v1:has(>.staff-detail-open)>.pm-v1-filter{display:none}
  .staff-limited:has(>.staff-detail-open)>h1,.staff-limited:has(>.staff-detail-open)>p,.staff-limited:has(>.staff-detail-open)>input[type=search]{display:none}
 }
+
+/* Keep management controls close to their labels without widening the detail. */
+.staff-cap-section{max-width:640px}
+.staff-section-header{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.staff-section-header h3{margin:0}
+.staff-cap-reload{display:grid;place-items:center;width:44px;height:44px;flex-shrink:0;background:transparent;border:0;border-radius:8px;color:#687286;cursor:pointer}
+.staff-cap-reload:hover{background:#f5f7fb}
+.staff-cap-reload:disabled{opacity:.5;cursor:not-allowed}
+.staff-capability{max-width:520px;display:grid;grid-template-columns:minmax(0,1fr) 44px;gap:24px}
+.staff-calendar-color{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;vertical-align:middle}
+@media(min-width:640px){.pm-staff-v1 .staff-filter{grid-template-columns:minmax(0,1fr) 200px}}
+@media(max-width:639px){.staff-capability{gap:12px}}
+@layer pm-d-adoption {
+ @media(max-width:639px){
+  .pm-design-d.pm-d-page .staff-workspace:not(.staff-detail-open) button.staff-person[data-selected=true],.pm-design-d.staff-limited .staff-workspace:not(.staff-detail-open) button.staff-person[data-selected=true]{background:transparent!important;border-color:transparent!important}
+ }
+}
