@@ -1,0 +1,31 @@
+// @vitest-environment jsdom
+import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+import {MemoryRouter,useLocation,useNavigate} from 'react-router-dom';
+import {readFileSync} from 'node:fs';
+import App from '../App';
+import {ModuleProvider} from '../app/ModuleContext';
+import {markModuleGateComplete} from '../app/moduleState';
+import {NotificationProvider} from '../notifications/NotificationProvider';
+import {emptyInbox,notificationRepository,type Notice} from '../notifications/notificationRepository';
+import {TaskWorkspace} from './TaskRequestsPage';
+import {taskRequestRepository,type TaskRequest} from './taskRequestRepository';
+const state=vi.hoisted(()=>({loading:false,access:{enabled:true,loading:false,can_create:false,owner:false},detail:vi.fn(),list:vi.fn()}));
+const identity=vi.hoisted(()=>({user:{id:'self'},profile:{id:'self',role:'staff',name:'직원',isActive:true,accountStatus:'active'}}));
+vi.mock('../auth/AuthContext',()=>({useAuth:()=>({...identity,loading:state.loading})}));
+vi.mock('../lib/supabase',()=>({supabase:{}}));
+vi.mock('./useTaskAccess',()=>({useTaskAccess:()=>state.access}));
+vi.mock('../notifications/webPushClient',()=>({webPushEnabled:false}));
+const task:TaskRequest={id:'task-one',requester_id:'self',requester_name:'요청자',title:'점검 요청',body:'업무 내용',due_at:'2099-10-07T00:00:00Z',created_at:'2026-10-05T00:00:00Z',cancelled_at:null,cancel_reason:null,version:1,can_cancel:false,targets:[{recipient_id:'self',name:'직원',acknowledged_at:null,completed_at:null,completion_note:null,version:1}]};
+function Observe(){const l=useLocation(),n=useNavigate();return <><output aria-label="경로">{l.pathname+l.search}</output><button onClick={()=>n(-1)}>history back</button></>;}
+const root=(path='/select-module')=><MemoryRouter initialEntries={[path]}><ModuleProvider><NotificationProvider enabled><Observe/><App/></NotificationProvider></ModuleProvider></MemoryRouter>;
+beforeEach(()=>{localStorage.clear();sessionStorage.clear();state.loading=false;state.access={enabled:true,loading:false,can_create:false,owner:false};vi.spyOn(taskRequestRepository,'list').mockResolvedValue([task]);vi.spyOn(taskRequestRepository,'detail').mockResolvedValue(task);vi.spyOn(taskRequestRepository,'recipients').mockResolvedValue([]);vi.spyOn(notificationRepository,'inbox').mockResolvedValue({...emptyInbox,items:[{id:'n',category:'TASK_REQUEST',deep_link_type:'TASK_REQUEST',deep_link_id:task.id,title:'새 업무요청이 도착했습니다.',message:'',created_at:task.created_at,priority:'NORMAL',ack_required:false} as Notice]});vi.spyOn(notificationRepository,'subscribe').mockReturnValue(()=>{});vi.spyOn(notificationRepository,'read').mockResolvedValue();});
+afterEach(()=>{cleanup();vi.restoreAllMocks();});
+it('Module Gate task notification uses SPA target and has no nested dialog',async()=>{render(root());fireEvent.click(await screen.findByRole('button',{name:/알림센터, 읽지 않은/}));fireEvent.click(await screen.findByRole('button',{name:/새 업무요청이 도착/}));await screen.findByText('점검 요청');expect(screen.getByLabelText('경로').textContent).toBe('/operations/tasks?scope=inbox&filter=active&task=task-one');expect(screen.queryByRole('dialog')).toBeNull();expect(screen.queryByRole('button',{name:'+ 업무요청 작성'})).toBeNull();});
+it('restored session on cold detail URL retains exact intent and foreground keeps it',async()=>{markModuleGateComplete('self');state.loading=true;const view=render(root('/operations/tasks?scope=sent&filter=all&task=task-one'));state.loading=false;view.rerender(root('/operations/tasks?scope=sent&filter=all&task=task-one'));await screen.findByText('점검 요청');fireEvent.focus(window);fireEvent(document,new Event('visibilitychange'));expect(screen.getByLabelText('경로').textContent).toContain('scope=sent&filter=all&task=task-one');});
+it('cold unfinished gate preserves task intent through explicit Operations selection',async()=>{render(root('/operations/tasks?task=task-one'));await screen.findByText('스케줄 관리');fireEvent.click(screen.getByRole('button',{name:/스케줄 관리/}));await screen.findByText('점검 요청');expect(screen.getByLabelText('경로').textContent).toBe('/operations/tasks?task=task-one');});
+it('sidebar task menu precedes staff without reordering other menus',()=>{const app=readFileSync('src/App.tsx','utf8');expect(app.indexOf('to: "/operations/tasks"')).toBeLessThan(app.indexOf('to: "/operations/staff"'));expect(app).toContain('<Route path="tasks" element={<TaskRequestsPage />} />');});
+it.each([false,true])('owner=%s alone determines all tab, create controls compose independently',async owner=>{state.access.owner=owner;state.access.can_create=!owner;markModuleGateComplete('self');render(root('/operations/tasks'));await screen.findByText('점검 요청');expect(!!screen.queryByRole('button',{name:'전체 현황'})).toBe(owner);expect(!!screen.queryByRole('button',{name:'+ 업무요청 작성'})).toBe(!owner);});
+it('forged all scope by non-owner never requests all data',async()=>{render(<MemoryRouter initialEntries={['/operations/tasks?scope=all']}><TaskWorkspace userId="self" access={state.access} revision={0}/></MemoryRouter>);await waitFor(()=>expect(taskRequestRepository.list).toHaveBeenCalledWith('inbox',0,'active'));expect(taskRequestRepository.list).not.toHaveBeenCalledWith('all',0,'active');});
+it('sent/filter/pagination context survives detail back and browser history',async()=>{render(<MemoryRouter initialEntries={['/operations/tasks?scope=sent&filter=all&offset=50']}><Observe/><TaskWorkspace userId="self" access={state.access} revision={0}/></MemoryRouter>);fireEvent.click(await screen.findByRole('button',{name:/점검 요청/}));await screen.findByRole('heading',{name:'점검 요청'});fireEvent.click(screen.getByRole('button',{name:'목록으로'}));await screen.findByRole('button',{name:/점검 요청/});expect(screen.getByLabelText('경로').textContent).toBe('/operations/tasks?scope=sent&filter=all&offset=50');fireEvent.click(screen.getByRole('button',{name:'history back'}));await screen.findByRole('heading',{name:'점검 요청'});});
+it('navigation sources do not perform document navigation or keep TaskHub',()=>{for(const f of ['src/notifications/NotificationUi.tsx','src/taskRequests/TaskHomeEntry.tsx','src/taskRequests/TaskRequestsPage.tsx']){const s=readFileSync(f,'utf8');expect(s).not.toMatch(/window.location|location.assign|TaskHub/);}});

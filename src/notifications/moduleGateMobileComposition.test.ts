@@ -25,7 +25,7 @@ describe("Module Gate mobile composition boundary", () => {
     const gate = app.slice(app.indexOf("function ModuleGatePage()"), app.indexOf("function JournalAppLayout()"));
     expect(gate.match(/<NotificationBell\s*\/>/g)).toHaveLength(1);
     expect(gate).toContain('className="mb-8 text-center sm:mb-11"');
-    expect(gate).toContain("chooseModule(module.id, moduleHome[module.id])");
+    expect(gate).toContain('pendingReturnTo?.split(/[?#]/, 1)[0] === "/operations/tasks" ? pendingReturnTo : moduleHome[module.id]');
     expect(mobile).not.toContain(":has(> .pn-gate-bell:empty)");
   });
 });

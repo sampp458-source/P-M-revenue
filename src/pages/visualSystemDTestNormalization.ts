@@ -45,6 +45,15 @@ export function normalizeNotificationShell(source: string) {
 
 // Exact Task V1 integration additions only; legacy Finance controls and Today remain frozen.
 export function normalizeTaskRequestIntegration(source: string) {
+ // Exact IA route/menu additions; keep historical hashes and unrelated auth bytes intact.
+ source = source
+  .replace('import { TaskRequestsPage } from "./taskRequests/TaskRequestsPage";\n', '')
+  .replace('  { to: "/operations/tasks", label: "업무요청", icon: ListChecks },\n', '')
+  .replace('        <Route path="tasks" element={<TaskRequestsPage />} />\n', '')
+  .replace('const { chooseModule, pendingReturnTo } = useModule();', 'const { chooseModule } = useModule();')
+  .replace('module.id === "operations" && pendingReturnTo?.split(/[?#]/, 1)[0] === "/operations/tasks" ? pendingReturnTo : moduleHome[module.id]', 'moduleHome[module.id]')
+  .replace('  const taskAccess = useTaskAccess(user?.id);\n', '')
+  .replace('(item.to !== "/operations/tasks" || taskAccess.enabled) && (item.to !== "/operations/staff" || profile?.role === "admin" || capabilityAccess.owner)', 'item.to !== "/operations/staff" || profile?.role === "admin" || capabilityAccess.owner');
  return source
   .replaceAll('useCapabilityAdminAccess', 'useTaskAccess')
   .replaceAll('const capabilityAccess = useTaskAccess();', 'const taskAccess = useTaskAccess(profile?.id);')

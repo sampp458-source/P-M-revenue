@@ -1,6 +1,5 @@
-import { useCallback,useEffect,useRef,useState } from 'react';
-import { Modal } from '../components/ui';
-import { taskRequestRepository, type TaskRepository,type TaskRequest,type TaskAccess,type TaskCreate } from './taskRequestRepository';
+import { useEffect,useRef,useState } from 'react';
+import { taskRequestRepository, type TaskRepository,type TaskRequest,type TaskCreate } from './taskRequestRepository';
 import { taskDue,taskTime,taskStatus,taskSummary } from './taskRequestPresentation';
 import './taskRequests.css';
 import { pendingTaskCreates } from './taskAttempts';
@@ -37,22 +36,4 @@ export function TaskDetail({task,userId,repository=taskRequestRepository,onRefre
  {task.cancelled_at?<p>취소 · {task.cancel_reason}</p>:mine&&!mine.completed_at&&<>{mine.acknowledged_at?<><label>완료 메모 · 선택<textarea value={note} maxLength={1000} disabled={busy||!!pending.current} onChange={e=>setNote(e.target.value)}/></label><button className="pn-primary" disabled={busy} onClick={()=>act('complete')}>완료했습니다</button></>:<button className="pn-primary" disabled={busy} onClick={()=>act('ack')}>확인했습니다</button>}</>}
  {task.can_cancel&&!task.cancelled_at&&summary.complete<summary.total&&<details><summary>업무요청 취소</summary><label>취소 사유<textarea value={reason} maxLength={1000} disabled={busy||!!pending.current} onChange={e=>setReason(e.target.value)}/></label><button disabled={busy} onClick={()=>act('cancel')}>취소하기</button></details>}
  {error&&<p role="alert">{error}</p>}</article>;
-}
-export function TaskHub({userId,access,initialId,onClose,revision,repository=taskRequestRepository}:{userId:string;access:TaskAccess;initialId?:string;onClose:()=>void;revision:unknown;repository?:TaskRepository}) {
- const [scope,setScope]=useState<'inbox'|'sent'|'all'>('inbox'),[filter,setFilter]=useState('active'),[offset,setOffset]=useState(0),[items,setItems]=useState<TaskRequest[]>([]),[id,setId]=useState(initialId),[detail,setDetail]=useState<TaskRequest|null>(null),[compose,setCompose]=useState(false),[error,setError]=useState('');
- const generation=useRef(0);
- const invalidate=useCallback(()=>{generation.current++;},[]);
- const load=useCallback(async()=>{const token=++generation.current;try{if(id){const next=await repository.detail(id);if(token===generation.current)setDetail(next);}else{const next=await repository.list(scope,offset,filter);if(token===generation.current)setItems(next);}if(token===generation.current)setError('');}catch(e){if(token===generation.current){setError((e as Error).message);setDetail(null);}}},[id,repository,scope,offset,filter]);
- useEffect(()=>{let live=true;const refresh=()=>{if(live&&document.visibilityState!=='hidden')void load();};refresh();const timer=setInterval(refresh,30000);window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);return()=>{live=false;invalidate();clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};},[load,revision,invalidate]);
- const shown=items.filter(t=>{const ts=scope==='inbox'?t.targets.filter(v=>v.recipient_id===userId):t.targets;const complete=ts.every(v=>v.completed_at);return filter==='all'||(filter==='done'?complete:!complete&&!t.cancelled_at);});
- return <Modal open title={compose?'업무요청 작성':id?'업무요청 상세':'내 업무요청'} onClose={onClose} size="medium"><div className="pt-task">
- {error&&<p role="alert">{error}</p>}
- {compose?<><button onClick={()=>setCompose(false)}>목록으로</button><TaskComposer userId={userId} repository={repository} onCreated={value=>{setCompose(false);setId(value);}}/></>:id?<><button onClick={()=>{setId(undefined);setDetail(null);}}>목록으로</button>{detail&&<TaskDetail key={detail.id} task={detail} userId={userId} repository={repository} onRefresh={load}/>}</>:<>
- <nav aria-label="업무요청 목록"><button aria-pressed={scope==='inbox'} onClick={()=>{setScope('inbox');setOffset(0);}}>받은 업무</button><button aria-pressed={scope==='sent'} onClick={()=>{setScope('sent');setOffset(0);}}>내가 요청한 업무</button>{access.owner&&<button onClick={()=>{setScope('all');setOffset(0);}}>전체 현황</button>}</nav>
- {access.can_create&&<button className="pn-primary" onClick={()=>setCompose(true)}>업무요청 작성</button>}
- <label>상태<select value={filter} onChange={e=>{setFilter(e.target.value);setOffset(0);}}><option value="active">진행중</option><option value="done">완료</option><option value="all">전체</option></select></label>
- {shown.map(t=>{const sum=taskSummary(t);return <button className="pt-task-row" key={t.id} onClick={()=>setId(t.id)}><strong>{t.title}</strong><span>{t.requester_name} · {taskTime(t.due_at)}</span><span>담당 {sum.total} · 확인 {sum.ack} · 완료 {sum.complete} · 지연 {sum.overdue}</span></button>;})}
- {!shown.length&&<p>표시할 업무요청이 없습니다.</p>}<div><button disabled={!offset} onClick={()=>setOffset(Math.max(0,offset-50))}>이전</button><button disabled={items.length<50} onClick={()=>setOffset(offset+50)}>다음</button></div>
- </>}
- </div></Modal>;
 }

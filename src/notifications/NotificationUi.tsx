@@ -1,5 +1,5 @@
 import { useTaskAccess } from "../taskRequests/useTaskAccess";
-import { TaskHub, TaskComposer } from "../taskRequests/TaskRequestUi";
+import { taskRequestPath } from "../taskRequests/taskNavigation";
 import { announcementExpiryError, announcementExpiryLocal, announcementExpiryMin, announcementExpiryUtc } from "./announcementExpiry";
 import { scheduleNotificationPath } from "./scheduleNotificationNavigation";
 import { PushSettings } from "./PushSettings";
@@ -38,9 +38,6 @@ type ComposeSeed = Omit<PublishInput, "requestId">;
 export function NotificationDialogs({ navigate }: { navigate: (path: string) => void }) {
   const state = useNotifications();
   const taskAccess = useTaskAccess(state?.userId, state?.inbox);
-  const [taskOpen,setTaskOpen] = useState(false);
-  const [taskId,setTaskId] = useState<string>();
-  const [composeType,setComposeType] = useState<'announcement'|'task'>('announcement');
   const [busy, setBusy] = useState(false);
   const lock = useRef(false);
   const [error, setError] = useState("");
@@ -102,9 +99,11 @@ export function NotificationDialogs({ navigate }: { navigate: (path: string) => 
     finally { lock.current = false; setBusy(false); }
   }
   const open = (item: Notice) => {
-    if(item.category === 'TASK_REQUEST' && taskAccess.enabled) {
+    if(item.category === 'TASK_REQUEST' && item.deep_link_id && taskAccess.enabled) {
+      if (navigating.current) return;
+      navigating.current = true;
       void state.repository.read(item.id).then(()=>state.refresh()).catch(()=>setToast('읽음 상태를 저장하지 못했습니다.'));
-      state.setView('closed'); setTaskId(item.deep_link_id); setTaskOpen(true); return;
+      state.setDetail(null); state.setView('closed'); navigate(taskRequestPath(item.deep_link_id)); return;
     }
     const path = scheduleNotificationPath(item);
     if (path) {
@@ -131,7 +130,6 @@ export function NotificationDialogs({ navigate }: { navigate: (path: string) => 
   // Details beyond the first page are allowed; revoked/expired details are revalidated by every command.
   const detail = state.detail ? current || state.detail : null;
   return <div className="pn-notifications">
-    {taskOpen && taskAccess.enabled && <TaskHub userId={state.userId} access={taskAccess} initialId={taskId} revision={state.inbox} onClose={()=>setTaskOpen(false)} />}
     <Modal open={state.view !== "closed"} title={title} onClose={close} size="medium" resetKey={state.view}>
       <div ref={contentRef} className="pn-notification-content" aria-busy={busy}>
         {(error || state.error) && <p role="alert" className="pn-error">{error || state.error}<button type="button" onClick={() => void state.refresh()}>다시 불러오기</button></p>}
@@ -146,7 +144,7 @@ export function NotificationDialogs({ navigate }: { navigate: (path: string) => 
               <button aria-pressed={state.view === "center"} onClick={() => state.setView("center")}>받은 알림</button>
               {(state.inbox.can_publish || state.inbox.can_view_receipts) && <button aria-pressed={state.view === "manage"} onClick={() => state.setView("manage")}>보낸 공지</button>}
             </nav>
-            {(state.inbox.can_publish || (taskAccess.enabled && taskAccess.can_create)) && <button className="pn-secondary-button pn-compose-action" onClick={() => { if (!publishAttempt) { setSeed(null); setSource(null); } setComposeType(state.inbox.can_publish?"announcement":"task"); state.setView("compose"); }}><Plus size={16} aria-hidden="true" />{publishAttempt ? "발행 결과 확인" : state.inbox.can_publish ? "공지 작성" : "업무요청 작성"}</button>}
+            {state.inbox.can_publish && <button className="pn-secondary-button pn-compose-action" onClick={() => { if (!publishAttempt) { setSeed(null); setSource(null); } state.setView("compose"); }}><Plus size={16} aria-hidden="true" />{publishAttempt ? "발행 결과 확인" : "공지 작성"}</button>}
           </div>
           {retractOffer && state.inbox.can_publish && <div className="pn-retract" role="group" aria-label="새 공지 발행 후 기존 공지 회수">
             <p>새 공지를 발행했습니다. 기존 공지를 회수할까요?</p>
@@ -156,7 +154,6 @@ export function NotificationDialogs({ navigate }: { navigate: (path: string) => 
           </div>}
         </>}
         {state.view === "center" && <>
-          {taskAccess.enabled && <button className="pn-secondary-button" onClick={()=>{state.setView('closed');setTaskId(undefined);setTaskOpen(true);}}>내 업무요청 · 내가 요청한 업무</button>}
           {webPushEnabled && <PushSettings userId={state.userId} />}
           <div className="pn-toolbar"><div className="pn-tabs" aria-label="알림 필터">{[false, true].map(v => <button key={String(v)} aria-pressed={unread === v} onClick={() => { setUnread(v); setOffset(0); }}>{v ? `읽지 않음 ${state.inbox.unread_count}` : "전체"}</button>)}</div></div>
           {state.inbox.unacknowledged_count > 0 && <p className="pn-ack-summary">확인 필요한 공지 <b>{state.inbox.unacknowledged_count}건</b> · 읽음과 확인은 별도입니다.</p>}
@@ -170,13 +167,11 @@ export function NotificationDialogs({ navigate }: { navigate: (path: string) => 
           {detail.expires_at && <p className="pn-secondary">게시 종료 · {notificationTime(detail.expires_at)}</p>}
           {detail.category !== "SCHEDULE" && detail.ack_required ? <button className="pn-primary" disabled={busy || !!detail.acknowledged_at} onClick={() => void act(async () => { await state.repository.acknowledge(detail.id); state.setDetail({ ...detail, acknowledged_at: new Date().toISOString() }); await state.refresh(); setToast("공지 확인을 기록했습니다."); })}><Check size={16} />{detail.acknowledged_at ? "확인 완료" : "확인했습니다"}</button> : <button className="pn-primary" onClick={() => state.setView("center")}>확인</button>}
         </>}
-        {state.view === "compose" && taskAccess.enabled && <nav aria-label="작성 유형"><button disabled={!state.inbox.can_publish||!!publishAttempt} aria-pressed={composeType==='announcement'} onClick={()=>setComposeType('announcement')}>공지</button><button disabled={!taskAccess.can_create||!!publishAttempt} aria-pressed={composeType==='task'} onClick={()=>setComposeType('task')}>업무요청</button></nav>}
-        {state.view === "compose" && composeType==='task' && taskAccess.enabled && taskAccess.can_create && <TaskComposer userId={state.userId} onCreated={id=>{state.setView('closed');setTaskId(id);setTaskOpen(true);void state.refresh();}}/>}
-        {state.view === "compose" && composeType==='announcement' && state.inbox.can_publish && <Composer seed={seed} busy={busy} run={act} attempt={publishAttempt} setAttempt={setPublishAttempt} onPublished={() => { setPublishAttempt(null); setSeed(null); if (source?.state === "PUBLISHED") setRetractOffer(source); setSource(null); setToast("공지를 발행했습니다."); state.setView("manage"); void state.refresh(); }} />}
+        {state.view === "compose" && state.inbox.can_publish && <Composer seed={seed} busy={busy} run={act} attempt={publishAttempt} setAttempt={setPublishAttempt} onPublished={() => { setPublishAttempt(null); setSeed(null); if (source?.state === "PUBLISHED") setRetractOffer(source); setSource(null); setToast("공지를 발행했습니다."); state.setView("manage"); void state.refresh(); }} />}
         {state.view === "manage" && (state.inbox.can_publish || state.inbox.can_view_receipts) && <Manage key={sentVersion} busy={busy} run={act} pending={!!publishAttempt} onDeleted={() => setToast("공지를 삭제했습니다.")} onRepublish={async a => {
           const audience = await state.repository.audience(a.id);
           setSeed({ title: a.title, body: a.body, priority: a.priority === "IMPORTANT" ? "IMPORTANT" : "NORMAL", ackRequired: a.ack_required, ...audience, expiresAt: a.expires_at && new Date(a.expires_at).getTime() > Date.now() ? a.expires_at : null });
-          setSource(a); setComposeType("announcement"); state.setView("compose");
+          setSource(a); state.setView("compose");
         }} />}
       </div>
     </Modal>
