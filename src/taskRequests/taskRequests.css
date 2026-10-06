@@ -1,0 +1,18 @@
+.pt-task, .pt-task-form, .pt-task-detail { display: grid; gap: 16px; min-width: 0; color: #182332; }
+.pt-task button, .pt-task-form button, .pt-task-detail button, .pt-permissions button { min-height: 44px; padding: 10px 14px; border: 1px solid #dbe0e6; border-radius: 9px; }
+.pt-task nav { display: flex; flex-wrap: wrap; gap: 8px; }
+.pt-task label, .pt-task-form label, .pt-task-detail label { display: grid; gap: 6px; }
+.pt-task input, .pt-task textarea, .pt-task select, .pt-task-form input, .pt-task-form textarea { max-width: 100%; min-width: 0; padding: 10px; border: 1px solid #dbe0e6; border-radius: 8px; background: white; }
+.pt-task textarea, .pt-task-form textarea { min-height: 96px; }
+.pt-task-row { display: grid; gap: 6px; text-align: left; background: white; overflow-wrap: anywhere; }
+.pt-task-row span, .pt-secondary { color: #536171; font-size: 13px; }
+.pt-task-form .pt-check { display: flex; gap: 8px; align-items: center; min-height: 44px; }
+.pt-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.pt-target { display: grid; gap: 5px; padding: 12px 0; border-bottom: 1px solid #e5e7eb; }
+.pt-task [role="alert"], .pt-task-form [role="alert"] { color: #a43d22; }
+.pt-task button:focus-visible, .pt-task-form button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.pt-permissions { display: grid; gap: 16px; padding: 20px; background: white; border-radius: 12px; }
+.pt-permissions fieldset { display: grid; gap: 8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 14px; }
+.pt-permissions label { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.pt-task-detail h3, .pt-permissions h2 { margin: 0; font-size: 20px; line-height: 1.4; font-weight: 700; overflow-wrap: anywhere; }
+.pt-task-detail .pn-primary, .pt-task .pn-primary, .pt-task-form .pn-primary { background: #2854cc; color: white; border-color: #2854cc; }

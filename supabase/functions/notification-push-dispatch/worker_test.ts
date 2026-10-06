@@ -80,3 +80,14 @@ Deno.test("schedule template whitelist rejects arbitrary bodies/categories/count
     let rejected=false;try {pushTemplate(d);}catch{rejected=true;}assert(rejected);
   }
 });
+Deno.test("Task generic templates contain no content or identity and preserve legacy templates", () => {
+  for (const event_type of ["TASK_REQUEST_ASSIGNED","TASK_REQUEST_OVERDUE","TASK_REQUEST_COMPLETED","TASK_REQUEST_CANCELLED"]) {
+    for (const task_audience of ["target","requester"]) {
+      const template = pushTemplate({category:"TASK_REQUEST",event_type,task_audience});
+      assert(JSON.stringify(template)===JSON.stringify({event_type,task_audience}));
+    }
+  }
+  assert(JSON.stringify(pushTemplate({category:"ANNOUNCEMENT"}))==='{"event_type":"ANNOUNCEMENT"}');
+  assert(JSON.stringify(pushTemplate({category:"SCHEDULE",event_type:"DAILY_SCHEDULE_SUMMARY",summary_count:2}))==='{"event_type":"DAILY_SCHEDULE_SUMMARY","summary_count":2}');
+  let rejected=false;try{pushTemplate({category:"TASK_REQUEST",event_type:"TASK_REQUEST_OVERDUE",task_audience:"other"});}catch{rejected=true;}assert(rejected);
+});

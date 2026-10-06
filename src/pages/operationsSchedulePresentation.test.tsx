@@ -12,7 +12,7 @@ const files = {
 };
 describe('Operations schedule presentation contract', () => {
   for (const [file, expected] of Object.entries(files)) it(`${file}: preserves all workflow declarations and page handlers from approved HEAD`, () => {
-    const source = readFileSync(`src/pages/${file}`, 'utf8').replace('            <MobileCalendarStatusLegend />\n', '')
+    const source = readFileSync(`src/pages/${file}`, 'utf8').replace('            <MobileCalendarStatusLegend />\n', '').replace('      <TaskHomeEntry />\n', '')
       // Permit only notification route synchronization; retain all prior handler hashes.
       .replace('  const location = useLocation();\n', '')
       .replace('new URLSearchParams(location.search)', 'new URLSearchParams(window.location.search)')

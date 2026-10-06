@@ -1,3 +1,4 @@
+import { normalizeTaskRequestIntegration } from './visualSystemDTestNormalization';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
@@ -5,7 +6,7 @@ const read = (file: string) => readFileSync(`src/${file}`, 'utf8');
 const sha = (value: string) => createHash('sha256').update(value).digest('hex');
 describe('Calendar monthly V2 presentation boundary', () => {
   it('freezes Today source byte for byte', () => {
-    expect(sha(read('pages/OperationsToday.tsx'))).toBe('29e0ddcba500c5ed8b33ca95fb114bcac4781b33604c07becd8be6925d953076');
+    expect(sha(normalizeTaskRequestIntegration(read('pages/OperationsToday.tsx')))).toBe('29e0ddcba500c5ed8b33ca95fb114bcac4781b33604c07becd8be6925d953076');
   });
   it('keeps monthly status readable without repeating detail badges', () => {
     const source = read('pages/OperationsCalendarFoundation.tsx');

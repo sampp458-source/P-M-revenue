@@ -1,0 +1,23 @@
+// @vitest-environment jsdom
+import {cleanup,fireEvent,render,screen,waitFor,act} from '@testing-library/react';
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+import {MemoryRouter} from 'react-router-dom';
+import {NotificationSession} from '../notifications/NotificationProvider';
+import {NotificationBell} from '../notifications/NotificationUi';
+import {emptyInbox,type NotificationRepository,type Notice} from '../notifications/notificationRepository';
+import {TaskHomeEntry} from './TaskHomeEntry';
+const mocks=vi.hoisted(()=>({access:{enabled:true,can_create:true,owner:false},detail:vi.fn(),ack:vi.fn(),list:vi.fn(),summary:vi.fn(),recipients:vi.fn(),create:vi.fn()}));
+vi.mock('../lib/supabase',()=>({supabase:{}}));
+vi.mock('./useTaskAccess',()=>({useTaskAccess:()=>mocks.access}));
+vi.mock('./taskRequestRepository',async original=>({...await original<typeof import('./taskRequestRepository')>(),taskRequestRepository:mocks}));
+const task={id:'t1',requester_id:'author',requester_name:'요청자',title:'수건 확인',body:'업무 내용',due_at:'2099-10-05T08:00:00Z',created_at:'2026-10-05T00:00:00Z',cancelled_at:null,cancel_reason:null,version:1,can_cancel:false,targets:[{recipient_id:'staff',name:'직원',acknowledged_at:null,completed_at:null,completion_note:null,version:1}]};
+const notice:Notice={id:'n1',announcement_id:null,title:'새 업무요청이 도착했습니다.',message:'상세 확인',priority:'NORMAL',ack_required:false,created_at:task.created_at,read_at:null,acknowledged_at:null,popup_presented_at:null,revoked_at:null,expires_at:null,category:'TASK_REQUEST',deep_link_type:'TASK_REQUEST',deep_link_id:'t1'};
+let repository:NotificationRepository;
+beforeEach(()=>{mocks.access.enabled=true;mocks.access.can_create=true;mocks.detail.mockResolvedValue(task);mocks.list.mockResolvedValue([task]);mocks.summary.mockResolvedValue({incomplete:2});mocks.recipients.mockResolvedValue([{id:'staff',name:'직원'}]);repository={inbox:vi.fn(async()=>({...emptyInbox,can_publish:true,items:[notice]})),subscribe:vi.fn(()=>()=>{}),read:vi.fn(async()=>{}),detail:vi.fn(async()=>notice),targets:vi.fn(async()=>[{id:'staff',name:'직원'}]),sent:vi.fn(async()=>[])} as unknown as NotificationRepository;});
+afterEach(()=>{cleanup();vi.clearAllMocks();});
+const mount=()=>render(<MemoryRouter initialEntries={['/operations/today']}><NotificationSession userId="staff" repository={repository}><NotificationBell/><TaskHomeEntry/></NotificationSession></MemoryRouter>);
+it('task click reads only and opens canonical detail without route bounce',async()=>{mount();fireEvent.click(await screen.findByRole('button',{name:/알림센터, 읽지 않은/}));fireEvent.click(await screen.findByRole('button',{name:/새 업무요청이 도착했습니다/}));await screen.findByText('수건 확인');expect(repository.read).toHaveBeenCalledWith('n1');expect(mocks.ack).not.toHaveBeenCalled();expect(mocks.detail).toHaveBeenCalledWith('t1');expect(screen.queryByText('ACK 필요')).toBeNull();});
+it('composer type switch isolates task fields from announcement expiry',async()=>{mount();fireEvent.click(await screen.findByRole('button',{name:/알림센터, 읽지 않은/}));fireEvent.click(await screen.findByRole('button',{name:'공지 작성'}));await screen.findByLabelText(/게시 종료/);fireEvent.click(screen.getByRole('button',{name:'업무요청'}));await screen.findByLabelText('완료기한');expect(screen.queryByLabelText(/게시 종료/)).toBeNull();fireEvent.click(screen.getByRole('button',{name:'공지'}));await screen.findByLabelText(/게시 종료/);expect(screen.queryByLabelText('완료기한')).toBeNull();});
+it('home incomplete count is independent of unread count',async()=>{mount();await screen.findByRole('button',{name:'업무요청 · 미완료 2'});expect(screen.getByRole('button',{name:/알림센터, 읽지 않은 알림 0개/})).toBeTruthy();});
+it('feature OFF owner with pre-granted create keeps Announcement available and hides all Task runtime entries',async()=>{mocks.access.enabled=false;mocks.access.owner=true;mount();await act(async()=>{});expect(mocks.summary).not.toHaveBeenCalled();fireEvent.click(await screen.findByRole('button',{name:/알림센터, 읽지 않은/}));expect(screen.queryByRole('button',{name:/내 업무요청/})).toBeNull();fireEvent.click(screen.getByRole('button',{name:'공지 작성'}));await screen.findByLabelText(/게시 종료/);expect(screen.queryByRole('button',{name:'업무요청'})).toBeNull();expect(screen.queryByLabelText('완료기한')).toBeNull();expect(mocks.list).not.toHaveBeenCalled();});
+it('visible focus refetches canonical task state',async()=>{mount();fireEvent.click(await screen.findByRole('button',{name:'업무요청 · 미완료 2'}));await screen.findByText('수건 확인');const before=mocks.list.mock.calls.length;fireEvent.focus(window);await waitFor(()=>expect(mocks.list.mock.calls.length).toBeGreaterThan(before));});

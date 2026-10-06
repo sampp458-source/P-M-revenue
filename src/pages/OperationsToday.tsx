@@ -1,3 +1,4 @@
+import { TaskHomeEntry } from "../taskRequests/TaskHomeEntry";
 import "../operations-schedule-presentation.css";
 import { SCHEDULE_BUSINESSES, scheduleBusiness, ScheduleBusinessMarker, SchedulePeople, ScheduleStatus } from "./operationSchedulePresentation";
 import "../design-system-v2.css";
@@ -1062,6 +1063,7 @@ export function OperationsTodayPage() {
 
   return (
     <section className="pm-design-v1 pm-today-v1 pm-design-v2 pm-today-v2 pm-design-d pm-d-page pm-d-rollout2 mx-auto max-w-7xl">
+      <TaskHomeEntry />
       <header className="pm-today-heading mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-semibold text-primary">{fullDate}</p>

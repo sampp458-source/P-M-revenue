@@ -1,3 +1,5 @@
+import { useCapabilityAdminAccess } from "./taskRequests/useCapabilityAdminAccess";
+import { CapabilityManagement } from "./taskRequests/CapabilityManagement";
 import { NotificationBell } from "./notifications/NotificationUi";
 import "./visual-system-d-rollout4.css";
 import "./access-design-v2.css";
@@ -888,10 +890,11 @@ function AppLayout() {
 
 function OperationsAppLayout() {
   const { signOut, user, profile } = useAuth();
+  const capabilityAccess = useCapabilityAdminAccess();
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const visibleOperationsMenus = operationsMenus.filter(
-    (item) => item.to !== "/operations/staff" || profile?.role === "admin",
+    (item) => item.to !== "/operations/staff" || profile?.role === "admin" || capabilityAccess.owner,
   );
   const current =
     visibleOperationsMenus.find((item) =>
@@ -1066,9 +1069,9 @@ function AdminOnly({ children }: { children: ReactNode }) {
 
 function OperationsAdminOnly({ children }: { children: ReactNode }) {
   const { profile } = useAuth();
-  return profile?.role === "admin"
-    ? children
-    : <Navigate to="/operations/today" replace />;
+  const access = useCapabilityAdminAccess();
+  if (access.loading && profile?.role !== "admin") return <p role="status">권한 확인 중…</p>;
+  return profile?.role === "admin" ? children : access.owner ? <CapabilityManagement /> : <Navigate to="/operations/today" replace />;
 }
 function NotFound({ loggedIn }: { loggedIn: boolean }) {
   const nav = useNavigate();
