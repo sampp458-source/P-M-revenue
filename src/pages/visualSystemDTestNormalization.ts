@@ -35,7 +35,7 @@ export function normalizePersistentDShell(source: string) {
 
 // Sprint 1 adds only these exact bell insertion points. Keep historical hashes intact.
 export function normalizeNotificationShell(source: string) {
-  return source
+  return source.replace("<RequestQuickAction />", "")
   .replace('  if (access.loading && profile?.role !== "admin") return <p role="status">권한 확인 중…</p>;\n','')
     .replace('import { NotificationBell } from "./notifications/NotificationUi";\n', '')
     .replace('        <div className="pn-gate-bell"><NotificationBell /></div>\n', '')
@@ -45,6 +45,13 @@ export function normalizeNotificationShell(source: string) {
 
 // Exact Task V1 integration additions only; legacy Finance controls and Today remain frozen.
 export function normalizeTaskRequestIntegration(source: string) {
+ source = source
+  .replace('import { RequestQuickAction, LegacyTaskRoute } from "./taskRequests/RequestLauncher";\n', '')
+  .replace('<RequestQuickAction />', '')
+  .replace('{ to: "/operations/requests", label: "요청", icon: ListChecks }', '{ to: "/operations/tasks", label: "업무요청", icon: ListChecks }')
+  .replace('<Route path="requests" element={<TaskRequestsPage />} />\n        <Route path="tasks" element={<LegacyTaskRoute />} />', '<Route path="tasks" element={<TaskRequestsPage />} />')
+  .replace('["/operations/tasks", "/operations/requests"].includes(pendingReturnTo?.split(/[?#]/, 1)[0] || "")', 'pendingReturnTo?.split(/[?#]/, 1)[0] === "/operations/tasks"')
+  .replace('(item.to !== "/operations/requests" || taskAccess.enabled)', '(item.to !== "/operations/tasks" || taskAccess.enabled)');
  // Exact IA route/menu additions; keep historical hashes and unrelated auth bytes intact.
  source = source
   .replace('import { TaskRequestsPage } from "./taskRequests/TaskRequestsPage";\n', '')

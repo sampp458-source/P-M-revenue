@@ -18,7 +18,7 @@
 .pt-task-detail .pn-primary, .pt-task .pn-primary, .pt-task-form .pn-primary { background: #2854cc; color: white; border-color: #2854cc; }
 
 /* Independent Operations workspace; only composing uses a modal. */
-.pt-task-page{max-width:1120px;margin:0 auto;gap:24px}
+.pt-task-page{max-width:1000px;margin:0 auto;gap:24px}
 .pt-page-header{display:flex;align-items:center;justify-content:space-between;gap:20px}
 .pt-page-header h1{font-size:26px;font-weight:700;margin:0 0 8px}
 .pt-page-header button{flex-shrink:0}
@@ -33,3 +33,6 @@
 .pt-task-page .pt-task-detail{max-width:760px;padding:24px 0;border-top:1px solid #dbe0e6}
 .pt-empty{padding:28px 0;color:#536171;font-size:14px}
 @media(max-width:639px){.pt-page-header{align-items:flex-start;flex-direction:column;gap:12px}.pt-page-header h1{font-size:24px}.pt-task-page{gap:20px}.pt-page-tabs{gap:6px!important}.pt-page-tabs button{padding:10px 12px}.pt-task-page .pt-task-detail{padding:16px 0}}
+
+.pt-request-quick{display:none}
+@media(min-width:1024px){.pt-request-quick{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 12px;border-radius:9px;color:#274c77;font-size:13px;font-weight:600;white-space:nowrap}.pt-request-quick:hover{background:#f4f6fa}.pt-request-quick:focus-visible{outline:2px solid #2854cc;outline-offset:2px}}

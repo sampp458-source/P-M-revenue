@@ -8,13 +8,14 @@ import { TaskComposer, TaskDetail } from './TaskRequestUi';
 import { taskRequestRepository, type TaskRepository, type TaskRequest, type TaskAccess } from './taskRequestRepository';
 import { taskTime, taskSummary, taskStatus } from './taskRequestPresentation';
 import './taskRequests.css';
+import {canLaunchRequest} from './RequestLauncher';
 
 export function TaskRequestsPage() {
  const { user } = useAuth();
  const notifications = useNotifications();
  const access = useTaskAccess(user?.id, notifications?.inbox);
  if (access.loading) return <p role="status">업무요청을 불러오는 중입니다.</p>;
- if (!user || !access.enabled) return <section className="pt-task-page"><h1>업무요청</h1><p>업무요청에 접근할 수 없습니다.</p></section>;
+ if (!user || !access.enabled) return <section className="pt-task-page"><h1>요청</h1><p>업무요청에 접근할 수 없습니다.</p></section>;
  return <TaskWorkspace key={user.id} userId={user.id} access={access} revision={notifications?.inbox} />;
 }
 
@@ -57,14 +58,14 @@ export function TaskWorkspace({ userId, access, revision, repository = taskReque
   return filter === 'all' || (filter === 'done' ? complete : !complete && !t.cancelled_at);
  });
  return <section className="pt-task pt-task-page">
-  <header className="pt-page-header"><div><h1>업무요청</h1><p className="pt-secondary">요청받은 업무와 진행 상태를 관리합니다.</p></div>{access.can_create && <button className="pn-primary" onClick={() => setCompose(true)}>+ 업무요청 작성</button>}</header>
+  <header className="pt-page-header"><div><h1>요청</h1><p className="pt-secondary">받은 요청과 처리 현황을 관리합니다.</p></div>{canLaunchRequest(access) && <button className="pn-primary" onClick={() => setCompose(true)}>+ 요청</button>}</header>
   {error && <p role="alert">{error}<button onClick={() => void load()}>다시 불러오기</button></p>}
   {id ? <><button className="pt-back" onClick={() => update({ task: undefined })}>목록으로</button>{loading ? <p role="status">업무를 불러오는 중입니다.</p> : detail && <TaskDetail key={detail.id} task={detail} userId={userId} repository={repository} onRefresh={load} />}</> : <>
-   <nav className="pt-page-tabs" aria-label="업무요청 목록">{([['inbox', '받은 업무'], ['sent', '보낸 업무'], ...(access.owner ? [['all', '전체 현황']] : [])]).map(([value, label]) => <button key={value} aria-pressed={scope === value} onClick={() => update({ scope: value, offset: undefined })}>{label}</button>)}</nav>
+   <nav className="pt-page-tabs" aria-label="요청 목록">{([['inbox', '받은 요청'], ['sent', '보낸 요청'], ...(access.owner ? [['all', '전체 현황']] : [])]).map(([value, label]) => <button key={value} aria-pressed={scope === value} onClick={() => update({ scope: value, offset: undefined })}>{label}</button>)}</nav>
    <label className="pt-filter">상태<select value={filter} onChange={e => update({ filter: e.target.value, offset: undefined })}><option value="active">진행중</option><option value="done">완료</option><option value="all">전체</option></select></label>
-   {loading ? <p role="status">업무를 불러오는 중입니다.</p> : <div className="pt-task-list">{shown.map(t => { const sum = taskSummary(t); return <button className="pt-task-row" key={t.id} onClick={() => update({ task: t.id })}><strong>{t.title}</strong>{scope === 'inbox' && t.targets.find(v => v.recipient_id === userId) && <span>{taskStatus(t, t.targets.find(v => v.recipient_id === userId)!)}</span>}<span>{t.requester_name} · 완료기한 {taskTime(t.due_at)}</span><span>담당 {sum.total} · 확인 {sum.ack} · 완료 {sum.complete} · 지연 {sum.overdue}</span></button>; })}{!shown.length && !error && <p className="pt-empty">{scope === 'inbox' ? '받은 업무요청이 없습니다.' : scope === 'sent' ? '보낸 업무요청이 없습니다.' : '업무요청이 없습니다.'}</p>}</div>}
+   {loading ? <p role="status">업무를 불러오는 중입니다.</p> : <div className="pt-task-list">{shown.map(t => { const sum = taskSummary(t); return <button className="pt-task-row" key={t.id} onClick={() => update({ task: t.id })}><strong>{t.title}</strong>{scope === 'inbox' && t.targets.find(v => v.recipient_id === userId) && <span>{taskStatus(t, t.targets.find(v => v.recipient_id === userId)!)}</span>}<span>{t.requester_name} · 완료기한 {taskTime(t.due_at)}</span><span>담당 {sum.total} · 확인 {sum.ack} · 완료 {sum.complete} · 지연 {sum.overdue}</span></button>; })}{!shown.length && !error && <p className="pt-empty">{scope === 'inbox' ? '받은 요청이 없습니다.' : scope === 'sent' ? '보낸 요청이 없습니다.' : '등록된 요청이 없습니다.'}</p>}</div>}
    <div className="pt-pagination"><button disabled={!offset || loading} onClick={() => update({ offset: String(Math.max(0, offset - 50)) })}>이전</button><button disabled={items.length < 50 || loading} onClick={() => update({ offset: String(offset + 50) })}>다음</button></div>
   </>}
-  <Modal open={compose && access.can_create} title="업무요청 작성" onClose={() => setCompose(false)} size="medium"><TaskComposer userId={userId} repository={repository} onCreated={value => { setCompose(false); update({ task: value }); }} /></Modal>
+  <Modal open={compose && canLaunchRequest(access)} title="업무요청 작성" onClose={() => setCompose(false)} size="medium"><TaskComposer userId={userId} repository={repository} onCreated={value => { setCompose(false); update({ task: value }); }} /></Modal>
  </section>;
 }

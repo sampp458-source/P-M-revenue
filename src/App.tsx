@@ -1,3 +1,4 @@
+import { RequestQuickAction, LegacyTaskRoute } from "./taskRequests/RequestLauncher";
 import { TaskRequestsPage } from "./taskRequests/TaskRequestsPage";
 import { useTaskAccess } from "./taskRequests/useTaskAccess";
 import { useCapabilityAdminAccess } from "./taskRequests/useCapabilityAdminAccess";
@@ -98,7 +99,7 @@ const operationsMenus: OperationsMenuItem[] = [
     : []),
   { to: "/operations/customers", label: "반려견 관리", icon: Dog },
   { to: "/operations/customer-management", label: "보호자 관리", icon: UsersRound },
-  { to: "/operations/tasks", label: "업무요청", icon: ListChecks },
+  { to: "/operations/requests", label: "요청", icon: ListChecks },
   { to: "/operations/staff", label: "직원 관리", icon: UserCog },
   { to: "/operations/settings", label: "일정 설정", icon: Settings },
 ];
@@ -196,7 +197,8 @@ export default function App() {
           element={<OperationsCalendarFoundationPage />}
         />
         <Route path="hotel" element={<HotelOperationsPage />} />
-        <Route path="tasks" element={<TaskRequestsPage />} />
+        <Route path="requests" element={<TaskRequestsPage />} />
+        <Route path="tasks" element={<LegacyTaskRoute />} />
         <Route path="journal" element={<Navigate to="/journal/today" replace />} />
         <Route
           path="schedules"
@@ -657,7 +659,7 @@ function ModuleGatePage() {
               <button
                 key={module.id}
                 type="button"
-                onClick={() => chooseModule(module.id, module.id === "operations" && pendingReturnTo?.split(/[?#]/, 1)[0] === "/operations/tasks" ? pendingReturnTo : moduleHome[module.id])}
+                onClick={() => chooseModule(module.id, module.id === "operations" && ["/operations/tasks", "/operations/requests"].includes(pendingReturnTo?.split(/[?#]/, 1)[0] || "") ? pendingReturnTo : moduleHome[module.id])}
                 className={`module-gate-card group relative min-h-[190px] overflow-hidden rounded-[26px] border border-border bg-gradient-to-br ${module.accent} p-6 text-left shadow-[0_12px_36px_rgba(23,36,58,0.055)] transition duration-200 hover:-translate-y-1 hover:border-primary/35 hover:shadow-[0_20px_48px_rgba(23,36,58,0.11)] focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-4 sm:min-h-[230px] sm:p-9`}
               >
                 <div
@@ -899,7 +901,7 @@ function OperationsAppLayout() {
   const location = useLocation();
   const taskAccess = useTaskAccess(user?.id);
   const visibleOperationsMenus = operationsMenus.filter(
-    (item) => (item.to !== "/operations/tasks" || taskAccess.enabled) && (item.to !== "/operations/staff" || profile?.role === "admin" || capabilityAccess.owner),
+    (item) => (item.to !== "/operations/requests" || taskAccess.enabled) && (item.to !== "/operations/staff" || profile?.role === "admin" || capabilityAccess.owner),
   );
   const current =
     visibleOperationsMenus.find((item) =>
@@ -1016,7 +1018,7 @@ function OperationsAppLayout() {
             </div>
           </div>
           <CustomerDogHeaderSearch module="operations" />
-          <div className="pn-header-tools"><NotificationBell />
+          <div className="pn-header-tools"><RequestQuickAction /><NotificationBell />
           <div className="hidden items-center gap-2.5 sm:flex">
             <b className="text-sm leading-none text-text-primary">
               {profile?.name || "이름 미등록"}
