@@ -36,3 +36,17 @@
 
 .pt-request-quick{display:none}
 @media(min-width:1024px){.pt-request-quick{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 12px;border-radius:9px;color:#274c77;font-size:13px;font-weight:600;white-space:nowrap}.pt-request-quick:hover{background:#f4f6fa}.pt-request-quick:focus-visible{outline:2px solid #2854cc;outline-offset:2px}}
+
+/* Composer-only recipient search; bounded results stay inside the modal flow. */
+.pt-task-form .pt-recipient-picker{display:grid;gap:8px;min-width:0;margin:0;padding:0;border:0}
+.pt-recipient-picker legend{margin-bottom:6px}
+.pt-recipient-picker>input{width:100%;box-sizing:border-box}
+.pt-recipient-selected{display:grid;gap:6px;min-width:0}
+.pt-recipient-chips{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.pt-task-form .pt-recipient-chips button{background:#f4f6fa;color:#274c77;max-width:100%;overflow-wrap:anywhere}
+.pt-recipient-results{max-height:192px;overflow-y:auto;min-width:0;border:1px solid #dbe0e6;border-radius:8px;padding:4px;background:white}
+.pt-task-form .pt-recipient-results .pt-check{padding:8px;min-height:44px;box-sizing:border-box;cursor:pointer;border-radius:5px;overflow-wrap:anywhere}
+.pt-recipient-results .pt-check:has(input:checked){background:#eef3ff;color:#274c77}
+.pt-recipient-results .pt-check:hover{background:#f4f6fa}
+.pt-recipient-results .pt-check:focus-within{outline:2px solid #2563eb;outline-offset:-2px}
+.pt-task-form .pt-recipient-picker input:focus-visible{outline:2px solid #2563eb;outline-offset:2px}

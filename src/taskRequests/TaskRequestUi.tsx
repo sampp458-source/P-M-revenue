@@ -4,6 +4,7 @@ import { taskDue,taskTime,taskStatus,taskSummary } from './taskRequestPresentati
 import './taskRequests.css';
 import { pendingTaskCreates } from './taskAttempts';
 import { TaskFailure } from './taskRequestRepository';
+import {TaskRecipientPicker} from './TaskRecipientPicker';
 
 export function TaskComposer({repository=taskRequestRepository,onCreated,userId='fixture'}:{repository?:TaskRepository;userId?:string;onCreated:(id:string)=>void}) {
  const [people,setPeople]=useState<{id:string;name:string}[]>([]),[selected,setSelected]=useState<string[]>(pendingTaskCreates.get(userId)?.recipientIds||[]);
@@ -15,10 +16,12 @@ export function TaskComposer({repository=taskRequestRepository,onCreated,userId=
  try{payload=attempt.current||{requestId:crypto.randomUUID(),title,body,dueAt:taskDue(due),recipientIds:selected};if(!payload.recipientIds.length)throw new Error('담당자를 선택해주세요.');}catch(e){setError((e as Error).message);return;}
  attempt.current=payload;pendingTaskCreates.set(userId,payload);lock.current=true;setBusy(true);void repository.create(payload).then(id=>{pendingTaskCreates.delete(userId);onCreated(id);}).catch(e=>{if(e instanceof TaskFailure&&e.definite){pendingTaskCreates.delete(userId);attempt.current=null;}setError(e.message);}).finally(()=>{lock.current=false;setBusy(false);});}}>
  <p className="pt-secondary">확인과 완료를 각각 기록합니다. 발행 후 내용 변경은 취소 후 새 요청으로 진행합니다.</p>
- <fieldset disabled={busy||!!attempt.current}><legend>담당자</legend>{people.map(p=><label className="pt-check" key={p.id}><input type="checkbox" checked={selected.includes(p.id)} onChange={e=>setSelected(e.target.checked?[...selected,p.id]:selected.filter(id=>id!==p.id))}/>{p.name}</label>)}</fieldset>
+ <TaskRecipientPicker people={people} selected={selected} onChange={setSelected} disabled={busy||!!attempt.current}/>
  <label>제목<input required maxLength={100} value={title} disabled={!!attempt.current} onChange={e=>setTitle(e.target.value)}/></label>
  <label>내용<textarea required maxLength={4000} value={body} disabled={!!attempt.current} onChange={e=>setBody(e.target.value)}/></label>
- <label>완료기한 · 한국 시간<input aria-label="완료기한" required type="datetime-local" value={due} disabled={!!attempt.current} onChange={e=>setDue(e.target.value)}/></label>
+ <label>완료기한 · 한국 시간<input aria-label="완료기한" aria-describedby="task-due-help" required type="datetime-local" value={due} disabled={!!attempt.current} onChange={e=>setDue(e.target.value)}/></label>
+ <p id="task-due-help" className="pt-secondary">{due?'한국 시간 기준 · 현재보다 이후의 날짜와 시간을 선택해주세요.':'미선택 · 완료기한의 날짜와 시간을 직접 선택해주세요. (한국 시간)'}</p>
+ {attempt.current&&<p className="pt-secondary">이전 요청의 처리 결과를 확인 중입니다. 같은 요청으로 재확인합니다.</p>}
  {error&&<p role="alert">{error}</p>}<button className="pn-primary" disabled={busy}>{busy?'처리 중…':attempt.current?'같은 요청으로 결과 확인':'업무요청 보내기'}</button>
  </form>;
 }
