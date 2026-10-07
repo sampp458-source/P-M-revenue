@@ -1,6 +1,7 @@
 import { RequestQuickAction, LegacyTaskRoute } from "./taskRequests/RequestLauncher";
 import { TaskRequestsPage } from "./taskRequests/TaskRequestsPage";
 import { useTaskAccess } from "./taskRequests/useTaskAccess";
+import { usePaymentAccess } from "./paymentRequests/usePaymentAccess";
 import { useCapabilityAdminAccess } from "./taskRequests/useCapabilityAdminAccess";
 import { CapabilityManagement } from "./taskRequests/CapabilityManagement";
 import { NotificationBell } from "./notifications/NotificationUi";
@@ -900,8 +901,9 @@ function OperationsAppLayout() {
   const [open, setOpen] = useState(false);
   const location = useLocation();
   const taskAccess = useTaskAccess(user?.id);
+  const paymentAccess = usePaymentAccess(user?.id);
   const visibleOperationsMenus = operationsMenus.filter(
-    (item) => (item.to !== "/operations/requests" || taskAccess.enabled) && (item.to !== "/operations/staff" || profile?.role === "admin" || capabilityAccess.owner),
+    (item) => (item.to !== "/operations/requests" || taskAccess.enabled || paymentAccess.confirmation_enabled || paymentAccess.payment_enabled) && (item.to !== "/operations/staff" || profile?.role === "admin" || capabilityAccess.owner),
   );
   const current =
     visibleOperationsMenus.find((item) =>

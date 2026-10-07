@@ -4,6 +4,8 @@ import {afterEach,beforeEach,expect,it,vi} from 'vitest';
 import {MemoryRouter,useLocation,useNavigate} from 'react-router-dom';
 import {readFileSync} from 'node:fs';
 import App from '../App';
+import {paymentRequestRepository} from '../paymentRequests/paymentRequestRepository';
+import {emptyPaymentAccess} from '../paymentRequests/paymentRequestTypes';
 import {RequestQuickAction,canLaunchRequest} from './RequestLauncher';
 import {ModuleProvider} from '../app/ModuleContext';
 import {markModuleGateComplete} from '../app/moduleState';
@@ -20,7 +22,7 @@ vi.mock('../notifications/webPushClient',()=>({webPushEnabled:false}));
 const task:TaskRequest={id:'task-one',requester_id:'self',requester_name:'요청자',title:'점검 요청',body:'업무 내용',due_at:'2099-10-07T00:00:00Z',created_at:'2026-10-05T00:00:00Z',cancelled_at:null,cancel_reason:null,version:1,can_cancel:false,targets:[{recipient_id:'self',name:'직원',acknowledged_at:null,completed_at:null,completion_note:null,version:1}]};
 function Observe(){const l=useLocation(),n=useNavigate();return <><output aria-label="경로">{l.pathname+l.search}</output><button onClick={()=>n(-1)}>history back</button></>;}
 const root=(path='/select-module')=><MemoryRouter initialEntries={[path]}><ModuleProvider><NotificationProvider enabled><Observe/><App/></NotificationProvider></ModuleProvider></MemoryRouter>;
-beforeEach(()=>{localStorage.clear();sessionStorage.clear();state.loading=false;state.access={enabled:true,loading:false,can_create:false,owner:false};vi.spyOn(taskRequestRepository,'list').mockResolvedValue([task]);vi.spyOn(taskRequestRepository,'detail').mockResolvedValue(task);vi.spyOn(taskRequestRepository,'recipients').mockResolvedValue([]);vi.spyOn(notificationRepository,'inbox').mockResolvedValue({...emptyInbox,items:[{id:'n',category:'TASK_REQUEST',deep_link_type:'TASK_REQUEST',deep_link_id:task.id,title:'새 업무요청이 도착했습니다.',message:'',created_at:task.created_at,priority:'NORMAL',ack_required:false} as Notice]});vi.spyOn(notificationRepository,'subscribe').mockReturnValue(()=>{});vi.spyOn(notificationRepository,'read').mockResolvedValue();});
+beforeEach(()=>{vi.spyOn(paymentRequestRepository,'access').mockResolvedValue(emptyPaymentAccess);localStorage.clear();sessionStorage.clear();state.loading=false;state.access={enabled:true,loading:false,can_create:false,owner:false};vi.spyOn(taskRequestRepository,'list').mockResolvedValue([task]);vi.spyOn(taskRequestRepository,'detail').mockResolvedValue(task);vi.spyOn(taskRequestRepository,'recipients').mockResolvedValue([]);vi.spyOn(notificationRepository,'inbox').mockResolvedValue({...emptyInbox,items:[{id:'n',category:'TASK_REQUEST',deep_link_type:'TASK_REQUEST',deep_link_id:task.id,title:'새 업무요청이 도착했습니다.',message:'',created_at:task.created_at,priority:'NORMAL',ack_required:false} as Notice]});vi.spyOn(notificationRepository,'subscribe').mockReturnValue(()=>{});vi.spyOn(notificationRepository,'read').mockResolvedValue();});
 afterEach(()=>{cleanup();vi.restoreAllMocks();});
 it('Module Gate task notification uses SPA target and has no nested dialog',async()=>{render(root());fireEvent.click(await screen.findByRole('button',{name:/알림센터, 읽지 않은/}));fireEvent.click(await screen.findByRole('button',{name:/새 업무요청이 도착/}));await screen.findByText('점검 요청');expect(screen.getByLabelText('경로').textContent).toBe('/operations/requests?scope=inbox&filter=active&task=task-one');expect(screen.queryByRole('dialog')).toBeNull();expect(screen.queryByRole('button',{name:'+ 요청'})).toBeNull();});
 it('restored session on cold detail URL retains exact intent and foreground keeps it',async()=>{markModuleGateComplete('self');state.loading=true;const view=render(root('/operations/requests?scope=sent&filter=all&task=task-one'));state.loading=false;view.rerender(root('/operations/requests?scope=sent&filter=all&task=task-one'));await screen.findByText('점검 요청');fireEvent.focus(window);fireEvent(document,new Event('visibilitychange'));expect(screen.getByLabelText('경로').textContent).toContain('scope=sent&filter=all&task=task-one');});
@@ -37,7 +39,7 @@ it('legacy route replaces without adding a history entry and preserves query/has
 });
 it('quick action opens once and closing preserves originating route',async()=>{
  state.access.can_create=true;render(<MemoryRouter initialEntries={['/operations/today?date=2026-10-06']}><Observe/><RequestQuickAction/></MemoryRouter>);
- const button=screen.getByRole('button',{name:'+ 요청'});fireEvent.click(button);fireEvent.click(button);expect(screen.getAllByRole('dialog')).toHaveLength(1);await screen.findByLabelText('제목');fireEvent.click(screen.getByRole('button',{name:'닫기'}));expect(screen.queryByRole('dialog')).toBeNull();expect(screen.getByLabelText('경로').textContent).toBe('/operations/today?date=2026-10-06');
+ const button=await screen.findByRole('button',{name:'+ 요청'});fireEvent.click(button);fireEvent.click(button);expect(screen.getAllByRole('dialog')).toHaveLength(1);await screen.findByLabelText('제목');fireEvent.click(screen.getByRole('button',{name:'닫기'}));expect(screen.queryByRole('dialog')).toBeNull();expect(screen.getByLabelText('경로').textContent).toBe('/operations/today?date=2026-10-06');
 });
 it.each([false,true])('owner %s without create has no launcher',owner=>{state.access.owner=owner;render(<MemoryRouter><RequestQuickAction/></MemoryRouter>);expect(screen.queryByRole('button',{name:'+ 요청'})).toBeNull();expect(canLaunchRequest({...state.access,enabled:false,can_create:true})).toBe(false);});
 it('Request page uses same single composer and empty received/sent states',async()=>{
@@ -46,6 +48,26 @@ it('Request page uses same single composer and empty received/sent states',async
 });
 it('mobile quick action stays outside crowded header and payment placeholders do not exist',()=>{const css=readFileSync('src/taskRequests/taskRequests.css','utf8');expect(css).toContain('.pt-request-quick{display:none}');expect(css).toContain('@media(min-width:1024px)');const launcher=readFileSync('src/taskRequests/RequestLauncher.tsx','utf8');expect(launcher).not.toMatch(/PAYMENT_|결제/);});
 
-it.each(['/operations/today','/operations/calendar','/operations/hotel','/operations/customers','/operations/customer-management','/operations/staff'])('other Operations route %s keeps exactly one global CTA',path=>{state.access.can_create=true;render(<MemoryRouter initialEntries={[path]}><RequestQuickAction/></MemoryRouter>);expect(screen.getAllByRole('button',{name:'+ 요청'})).toHaveLength(1);});
+it.each(['/operations/today','/operations/calendar','/operations/hotel','/operations/customers','/operations/customer-management','/operations/staff'])('other Operations route %s keeps exactly one global CTA',async path=>{state.access.can_create=true;render(<MemoryRouter initialEntries={[path]}><RequestQuickAction/></MemoryRouter>);expect(await screen.findAllByRole('button',{name:'+ 요청'})).toHaveLength(1);});
 it.each(['/operations/requests','/operations/requests/','/operations/tasks','/operations/tasks/'])('hub or legacy %s suppresses global CTA before redirect',path=>{state.access.can_create=true;render(<MemoryRouter initialEntries={[path+'?scope=sent#context']}><RequestQuickAction/></MemoryRouter>);expect(screen.queryByRole('button',{name:'+ 요청'})).toBeNull();});
 it.each(['/operations/requests','/operations/tasks'])('rendered hub from %s has one page CTA and one composer after rapid clicks',async path=>{state.access.can_create=true;markModuleGateComplete('self');render(root(path));await screen.findByText('점검 요청');expect(screen.getByLabelText('경로').textContent).toBe('/operations/requests');expect(document.querySelector('.pt-request-quick')).toBeNull();const ctas=screen.getAllByRole('button',{name:'+ 요청'});expect(ctas).toHaveLength(1);fireEvent.click(ctas[0]);fireEvent.click(ctas[0]);expect(screen.getAllByRole('dialog')).toHaveLength(1);await screen.findByLabelText('제목');});
+
+it('Payment-only source preserves Request Hub navigation without Task runtime',async()=>{
+ state.access.enabled=false;markModuleGateComplete('self');
+ vi.mocked(paymentRequestRepository.access).mockResolvedValue({...emptyPaymentAccess,payment_enabled:true});
+ vi.spyOn(paymentRequestRepository,'list').mockResolvedValue({count:0,items:[]});
+ render(root('/operations/requests'));
+ await screen.findByLabelText('유형');
+ expect(screen.getAllByRole('link',{name:'요청'}).length).toBeGreaterThan(0);
+ expect(screen.queryByRole('option',{name:'업무'})).toBeNull();
+});
+it('Module Gate payment notification uses SPA detail; read is never confirmation',async()=>{
+ vi.mocked(paymentRequestRepository.access).mockResolvedValue({...emptyPaymentAccess,confirmation_enabled:true});
+ vi.spyOn(paymentRequestRepository,'list').mockResolvedValue({count:0,items:[]});
+ vi.spyOn(paymentRequestRepository,'detail').mockResolvedValue({id:'payment-one',request_type:'PAYMENT_CONFIRMATION_REQUEST',requester_name:'요청자',handler_name:'담당자',payer_name:'새 입금자',reported_amount:100000,status:'REQUESTED',version:1,can_process:true,can_cancel:false});
+ const command=vi.spyOn(paymentRequestRepository,'command');
+ vi.mocked(notificationRepository.inbox).mockResolvedValue({...emptyInbox,items:[{id:'payment-notice',category:'PAYMENT_CONFIRMATION_REQUEST',deep_link_type:'PAYMENT_CONFIRMATION_REQUEST',deep_link_id:'payment-one',title:'새 결제 확인 요청이 있습니다.',message:'요청 상세에서 확인해 주세요.',created_at:task.created_at,priority:'NORMAL',ack_required:false} as Notice]});
+ render(root());fireEvent.click(await screen.findByRole('button',{name:/알림센터, 읽지 않은/}));fireEvent.click(await screen.findByRole('button',{name:/새 결제 확인 요청이 있습니다/}));await screen.findByText('새 입금자');
+ expect(screen.getByLabelText('경로').textContent).toBe('/operations/requests?type=PAYMENT_CONFIRMATION_REQUEST&request=payment-one');
+ expect(notificationRepository.read).toHaveBeenCalledWith('payment-notice');expect(command).not.toHaveBeenCalled();expect(screen.queryByRole('dialog')).toBeNull();
+});

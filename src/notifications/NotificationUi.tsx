@@ -1,3 +1,4 @@
+import {paymentRequestPath} from '../paymentRequests/paymentRequestPresentation';
 import { useTaskAccess } from "../taskRequests/useTaskAccess";
 import { taskRequestPath } from "../taskRequests/taskNavigation";
 import { announcementExpiryError, announcementExpiryLocal, announcementExpiryMin, announcementExpiryUtc } from "./announcementExpiry";
@@ -28,9 +29,9 @@ export function NotificationBell() {
 function NoticeRow({ item, onOpen }: { item: Notice; onOpen: (item: Notice) => void }) {
   return <button type="button" className={`pn-notice-row ${item.read_at ? "pn-read" : "pn-unread"}`} onClick={() => onOpen(item)}>
     <span className={`pn-read-dot ${item.read_at ? "is-read" : ""}`} aria-label={item.read_at ? "읽음" : "읽지 않음"} />
-    <span className="pn-notice-copy"><span className="pn-notice-meta">{item.category === "TASK_REQUEST" ? "업무요청" : item.category === "SCHEDULE" ? "일정" : "공지"} · {relativeTime(item.created_at)}{item.priority === "IMPORTANT" && <span className="pn-important">중요</span>}</span>
+    <span className="pn-notice-copy"><span className="pn-notice-meta">{item.category === "PAYMENT_CONFIRMATION_REQUEST" ? "결제 확인" : item.category === "PAYMENT_REQUEST" ? "지급 요청" : item.category === "TASK_REQUEST" ? "업무요청" : item.category === "SCHEDULE" ? "일정" : "공지"} · {relativeTime(item.created_at)}{item.priority === "IMPORTANT" && <span className="pn-important">중요</span>}</span>
       <strong>{item.title}</strong><span className="pn-preview">{item.message}</span>
-      {item.category !== "SCHEDULE" && item.category !== "TASK_REQUEST" && item.ack_required && <span className={`pn-ack-state ${item.acknowledged_at ? "pn-acked" : "pn-needs-ack"}`}>{item.acknowledged_at ? "확인 완료" : "확인 필요"}</span>}
+      {(!item.category || item.category === "ANNOUNCEMENT") && item.ack_required && <span className={`pn-ack-state ${item.acknowledged_at ? "pn-acked" : "pn-needs-ack"}`}>{item.acknowledged_at ? "확인 완료" : "확인 필요"}</span>}
     </span><ChevronRight size={16} aria-hidden="true" />
   </button>;
 }
@@ -107,6 +108,11 @@ export function NotificationDialogs({ navigate }: { navigate: (path: string) => 
       navigating.current = true;
       void state.repository.read(item.id).then(()=>state.refresh()).catch(()=>setToast('읽음 상태를 저장하지 못했습니다.'));
       state.setDetail(null); state.setView('closed'); navigate(taskRequestPath(item.deep_link_id)); return;
+    }
+    if((item.category==='PAYMENT_CONFIRMATION_REQUEST'||item.category==='PAYMENT_REQUEST')&&item.deep_link_id){
+      if(navigating.current)return; navigating.current=true;
+      void state.repository.read(item.id).then(()=>state.refresh()).catch(()=>setToast('읽음 상태를 저장하지 못했습니다.'));
+      state.setDetail(null);state.setView('closed');navigate(paymentRequestPath(item.category,item.deep_link_id));return;
     }
     const path = scheduleNotificationPath(item);
     if (path) {

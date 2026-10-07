@@ -1,3 +1,5 @@
+import {usePaymentAccess} from '../paymentRequests/usePaymentAccess';
+import {RequestHubWorkspace} from '../paymentRequests/RequestHubWorkspace';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
@@ -14,8 +16,10 @@ export function TaskRequestsPage() {
  const { user } = useAuth();
  const notifications = useNotifications();
  const access = useTaskAccess(user?.id, notifications?.inbox);
- if (!user || (!access.loading && !access.enabled)) return <section className="pt-task-page"><h1>요청</h1><p>업무요청에 접근할 수 없습니다.</p></section>;
- return <TaskWorkspace key={user.id} userId={user.id} access={access} accessLoading={access.loading} revision={notifications?.inbox} />;
+ const payment=usePaymentAccess(user?.id,notifications?.inbox);
+ if(user && (payment.confirmation_enabled||payment.payment_enabled))return <RequestHubWorkspace key={user.id} userId={user.id} taskAccess={access} paymentAccess={payment} revision={notifications?.inbox}/>;
+ if (!user || (!access.loading && !payment.loading && !access.enabled)) return <section className="pt-task-page"><h1>요청</h1><p>업무요청에 접근할 수 없습니다.</p></section>;
+ return <TaskWorkspace key={user.id} userId={user.id} access={access} accessLoading={access.loading||payment.loading} revision={notifications?.inbox} />;
 }
 
 export function TaskWorkspace({ userId, access, accessLoading = false, revision, repository = taskRequestRepository }: { userId: string; access: TaskAccess; accessLoading?: boolean; revision: unknown; repository?: TaskRepository }) {

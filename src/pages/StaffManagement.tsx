@@ -1,3 +1,4 @@
+import {PaymentCapabilityManagement} from '../paymentRequests/PaymentCapabilityManagement';
 import { StaffDirectory } from "./StaffDirectory";
 import { useCapabilityAdminAccess } from "../taskRequests/useCapabilityAdminAccess";
 import { CapabilityManagement } from "../taskRequests/CapabilityManagement";
@@ -187,6 +188,7 @@ export function StaffManagementPage() {
                     {!operationLoadError && scheduleColorAvailable && canManageOperationScheduleColors && row.operationActive && <Button data-staff-action="color" className="min-h-9 whitespace-nowrap px-3 py-1.5 text-xs" variant="secondary" onClick={() => { setActionError(""); setSelectedScheduleColor(row.scheduleColor ? operationPersonColor(row) : ""); setColorEditing(row); }}>캘린더 색상</Button>}
         </div></section>
         {capabilityAccess.owner && <CapabilityManagement selectedId={row.id} />}
+        {(capabilityAccess.owner||profile?.role==='admin')&&<PaymentCapabilityManagement key={row.id} selectedId={row.id}/>}
         {profile?.role === "admin" && <><section className="staff-section"><h3>계정 관리</h3><dl className="staff-facts"><dt>Finance 역할</dt><dd>{row.role === "admin" ? "관리자" : "직원"}</dd><dt>이메일</dt><dd>{row.email || "-"}</dd><dt>휴대폰</dt><dd>{row.phone ? formatPhone(row.phone) : "-"}</dd><dt>가입일</dt><dd><DateTimeCell value={row.createdAt}/></dd><dt>승인일</dt><dd><DateTimeCell value={row.approvedAt}/></dd><dt>퇴사일</dt><dd><DateTimeCell value={row.deactivatedAt}/></dd></dl></section>
         <section className="staff-section staff-danger"><h3>계정 상태 변경</h3><p>계정 접근에 영향을 주는 작업입니다. 확인 후 처리해 주세요.</p><div className="staff-actions-line">
                     {row.role === "staff" && row.status === "pending" && <>

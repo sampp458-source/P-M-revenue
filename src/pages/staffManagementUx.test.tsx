@@ -1,3 +1,5 @@
+// Payment capability panel has separate integration coverage; isolate existing staff commands here.
+vi.mock('../paymentRequests/PaymentCapabilityManagement',()=>({PaymentCapabilityManagement:()=>null}));
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';

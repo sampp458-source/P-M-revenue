@@ -45,6 +45,11 @@ export function normalizeNotificationShell(source: string) {
 
 // Exact Task V1 integration additions only; legacy Finance controls and Today remain frozen.
 export function normalizeTaskRequestIntegration(source: string) {
+ // Exact Payment V1 sidebar integration; runtime behavior has dedicated navigation tests.
+ source = source
+  .replace('import { usePaymentAccess } from "./paymentRequests/usePaymentAccess";\n', '')
+  .replace('  const paymentAccess = usePaymentAccess(user?.id);\n', '')
+  .replace(' || paymentAccess.confirmation_enabled || paymentAccess.payment_enabled', '');
  source = source
   .replace('import { RequestQuickAction, LegacyTaskRoute } from "./taskRequests/RequestLauncher";\n', '')
   .replace('<RequestQuickAction />', '')

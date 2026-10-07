@@ -1,0 +1,32 @@
+import {useCallback,useEffect,useRef,useState} from 'react';
+import {useSearchParams} from 'react-router-dom';
+import {Modal} from '../components/ui';
+import {TaskDetail} from '../taskRequests/TaskRequestUi';
+import {taskRequestRepository,type TaskRequest,type TaskAccess} from '../taskRequests/taskRequestRepository';
+import {paymentRequestRepository} from './paymentRequestRepository';
+import {PaymentDetail} from './PaymentDetail';
+import {RequestTypeComposer} from './RequestTypeComposer';
+import {availableRequestTypes,paymentStatus} from './paymentRequestPresentation';
+import {paymentLabels,type HubRow,type PaymentAccess,type PaymentDetail as Detail,type PaymentType,type RequestType} from './paymentRequestTypes';
+export function RequestHubWorkspace({userId,taskAccess,paymentAccess,revision}:{userId:string;taskAccess:TaskAccess;paymentAccess:PaymentAccess;revision:unknown}){
+ const [params,setParams]=useSearchParams();const scope=params.get('scope')==='sent'?'sent':params.get('scope')==='all'&&(taskAccess.owner||paymentAccess.view_all)?'all':'inbox';
+ const enabled:RequestType[]=[...(taskAccess.enabled?['TASK_REQUEST' as const]:[]),...(paymentAccess.confirmation_enabled?['PAYMENT_CONFIRMATION_REQUEST' as const]:[]),...(paymentAccess.payment_enabled?['PAYMENT_REQUEST' as const]:[])];
+ const requested=params.get('type') as RequestType;const type=enabled.includes(requested)?requested:'ALL',filter=['done','all'].includes(params.get('filter')||'')?params.get('filter')!:'active';
+ const id=params.get('task')||params.get('request'),detailType=params.get('task')?'TASK_REQUEST':type;
+ const raw=Number(params.get('offset')||0),offset=Number.isSafeInteger(raw)&&raw>=0?raw:0;
+ const query=JSON.stringify([userId,scope,type,filter,offset,id,detailType]),generation=useRef(0);
+ const [data,setData]=useState<{key:string;items:HubRow[];count:number;detail?:Detail;task?:TaskRequest}>(),[error,setError]=useState(''),[loading,setLoading]=useState(true),[compose,setCompose]=useState(false);
+ const types=availableRequestTypes(taskAccess,paymentAccess);
+ const update=(values:Record<string,string|undefined>)=>{const next=new URLSearchParams(params);for(const[k,v]of Object.entries(values)){if(v===undefined)next.delete(k);else next.set(k,v);}setParams(next);};
+ const load=useCallback(async()=>{const token=++generation.current;setLoading(true);try{let next:{items:HubRow[];count:number;detail?:Detail;task?:TaskRequest};if(id){if(detailType==='TASK_REQUEST')next={items:[],count:0,task:await taskRequestRepository.detail(id)};else if(detailType==='PAYMENT_CONFIRMATION_REQUEST'||detailType==='PAYMENT_REQUEST')next={items:[],count:0,detail:await paymentRequestRepository.detail(detailType,id)};else throw new Error('요청 유형을 확인해주세요.');}else next=await paymentRequestRepository.list(scope,type,filter,offset);if(token===generation.current){setData({key:query,...next});setError('');}}catch(e){if(token===generation.current){setError((e as Error).message);setData(undefined);}}finally{if(token===generation.current)setLoading(false);}},[scope,type,filter,offset,id,detailType,query]);
+ useEffect(()=>{const requests=generation;const refresh=()=>{if(document.visibilityState!=='hidden')void load();};refresh();window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);const timer=setInterval(refresh,30000);return()=>{requests.current++;clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};},[load,revision]);
+ const ready=data?.key===query;
+ return <section className="pt-task pt-task-page" aria-busy={loading}><header className="pt-page-header"><div><h1>요청</h1><p className="pt-secondary">받은 요청과 처리 현황을 관리합니다.</p></div>{types.length>0&&<button className="pn-primary" onClick={()=>setCompose(true)}>+ 요청</button>}</header>
+ {error&&<p role="alert">{error}<button onClick={()=>void load()}>다시 불러오기</button></p>}
+ <div className="pt-workspace-region">{loading&&ready&&<span role="status">업데이트 중</span>}{id?<><button onClick={()=>update({task:undefined,request:undefined,type:params.get('listType')||type,listType:undefined})}>목록으로</button>{ready&&data.detail&&<PaymentDetail key={data.detail.id} item={data.detail} onRefresh={load}/>} {ready&&data.task&&<TaskDetail task={data.task} userId={userId} onRefresh={load}/>}</>:<>
+ <nav className="pt-page-tabs" aria-label="요청 목록">{[['inbox','받은 요청'],['sent','보낸 요청'],...((taskAccess.owner||paymentAccess.view_all)?[['all','전체 현황']]:[])].map(([v,l])=><button key={v} aria-pressed={scope===v} onClick={()=>update({scope:v,offset:undefined})}>{l}</button>)}</nav>
+ <div className="payment-filters"><label>유형<select value={type} onChange={e=>update({type:e.target.value,offset:undefined})}><option value="ALL">전체</option>{enabled.map(t=><option key={t} value={t}>{paymentLabels[t]}</option>)}</select></label><label>상태<select value={filter} onChange={e=>update({filter:e.target.value,offset:undefined})}><option value="active">미처리</option><option value="done">처리됨</option><option value="all">전체</option></select></label></div>
+ <div className="pt-list-region">{ready&&<><p>{data.count}건</p><div className="pt-task-list">{data.items.map(r=><button key={`${r.request_type}:${r.id}`} className="pt-task-row" onClick={()=>update({listType:type,type:r.request_type,request:r.request_type==='TASK_REQUEST'?undefined:r.id,task:r.request_type==='TASK_REQUEST'?r.id:undefined})}><small className="payment-type">{paymentLabels[r.request_type]}</small><strong>{r.display_title}</strong><span>{r.counterparty} · {r.request_type==='TASK_REQUEST'?(r.lifecycle==='OPEN'?'진행중':'처리됨'):r.administrative_cancelled?'관리 종료':paymentStatus(r.request_type as PaymentType,r.status)}</span>{r.handler_unavailable&&<span>처리 담당자 사용 불가 · 관리 확인 필요</span>}</button>)}</div>{!data.items.length&&<p>요청이 없습니다.</p>}</>}</div>
+ <div className="pt-pagination"><button disabled={!offset||loading} onClick={()=>update({offset:String(Math.max(0,offset-50))})}>이전</button><button disabled={!ready||offset+50>=data.count||loading} onClick={()=>update({offset:String(offset+50)})}>다음</button></div></>}{!ready&&loading&&<p role="status">요청을 불러오는 중입니다.</p>}</div>
+ <Modal open={compose&&types.length>0} title="요청 작성" onClose={()=>setCompose(false)} size="medium"><RequestTypeComposer types={types} userId={userId} onCreated={(t,rid)=>{setCompose(false);update({type:t,task:t==='TASK_REQUEST'?rid:undefined,request:t==='TASK_REQUEST'?undefined:rid});}}/></Modal></section>;
+}

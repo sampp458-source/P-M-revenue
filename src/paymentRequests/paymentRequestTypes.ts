@@ -1,0 +1,8 @@
+export type PaymentType = 'PAYMENT_CONFIRMATION_REQUEST' | 'PAYMENT_REQUEST';
+export type RequestType = PaymentType | 'TASK_REQUEST';
+export interface PaymentAccess { confirmation_enabled:boolean; payment_enabled:boolean; confirmation_create:boolean; payment_create:boolean; view_all:boolean; manage_create:boolean; manage_finance:boolean }
+export interface PaymentDetail { id:string; request_type:PaymentType; requester_name:string; handler_name:string; payer_name?:string; dog_name?:string|null; reported_amount?:number; note?:string|null; title?:string; payee_name?:string; requested_amount?:number; reason?:string; due_at?:string|null; status:string; version:number; can_process:boolean; can_cancel:boolean; handler_unavailable?:boolean; can_admin_close?:boolean; administrative_cancelled?:boolean; resolution_note?:string|null; completion_note?:string|null; rejection_reason?:string|null; cancel_reason?:string|null }
+export interface HubRow { request_type:RequestType; id:string; display_title:string; status:string; lifecycle:'OPEN'|'CLOSED'; created_at:string; due_at:string|null; counterparty:string; handler_unavailable?:boolean; administrative_cancelled?:boolean }
+export interface PaymentAttempt { type:PaymentType; action:string; id?:string; version:number; key:string; payload:Record<string,unknown> }
+export const paymentLabels:Record<RequestType,string>={TASK_REQUEST:'업무 요청',PAYMENT_CONFIRMATION_REQUEST:'결제 확인 요청',PAYMENT_REQUEST:'지급 요청'};
+export const emptyPaymentAccess:PaymentAccess={confirmation_enabled:false,payment_enabled:false,confirmation_create:false,payment_create:false,view_all:false,manage_create:false,manage_finance:false};

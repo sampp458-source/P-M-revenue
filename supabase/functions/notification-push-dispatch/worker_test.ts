@@ -91,3 +91,23 @@ Deno.test("Task generic templates contain no content or identity and preserve le
   assert(JSON.stringify(pushTemplate({category:"SCHEDULE",event_type:"DAILY_SCHEDULE_SUMMARY",summary_count:2}))==='{"event_type":"DAILY_SCHEDULE_SUMMARY","summary_count":2}');
   let rejected=false;try{pushTemplate({category:"TASK_REQUEST",event_type:"TASK_REQUEST_OVERDUE",task_audience:"other"});}catch{rejected=true;}assert(rejected);
 });
+
+Deno.test("payment templates exclude financial content and reject wrong category", () => {
+ const events = {PAYMENT_CONFIRMATION_REQUEST: ["PAYMENT_CONFIRMATION_REQUESTED","PAYMENT_CONFIRMATION_CONFIRMED","PAYMENT_CONFIRMATION_NOT_FOUND","PAYMENT_CONFIRMATION_CANCELLED","PAYMENT_CONFIRMATION_ADMIN_CANCELLED"], PAYMENT_REQUEST:["PAYMENT_REQUEST_REQUESTED","PAYMENT_REQUEST_COMPLETED","PAYMENT_REQUEST_REJECTED","PAYMENT_REQUEST_CANCELLED","PAYMENT_REQUEST_ADMIN_CANCELLED"]};
+ for(const [category, names] of Object.entries(events))for(const event_type of names){
+  const template=pushTemplate({category,event_type});assert(JSON.stringify(template)===JSON.stringify({event_type}));
+  const req=encryptedRequest({...delivery,category,event_type,deep_link_type:category},vapid);assert(!!req.body);
+ }
+ let blocked=false;try{pushTemplate({category:'PAYMENT_REQUEST',event_type:'PAYMENT_CONFIRMATION_CONFIRMED'});}catch{blocked=true;}assert(blocked);
+});
+
+Deno.test("administrative close uses event-only payload and never crosses payment domains", () => {
+ for (const [category,event_type] of [["PAYMENT_REQUEST","PAYMENT_REQUEST_ADMIN_CANCELLED"],["PAYMENT_CONFIRMATION_REQUEST","PAYMENT_CONFIRMATION_ADMIN_CANCELLED"]]) {
+  const dirty={...delivery,category,event_type,title:"PRIVATE TITLE",message:"PRIVATE REASON",amount:123456,payer_name:"PRIVATE PAYER",payee_name:"PRIVATE PAYEE",dog_name:"PRIVATE DOG",staff_name:"PRIVATE STAFF",account:"PRIVATE ACCOUNT"};
+  assert(JSON.stringify(pushTemplate(dirty))===JSON.stringify({event_type}));
+  for(const other of ["ANNOUNCEMENT","SCHEDULE","TASK_REQUEST",category==="PAYMENT_REQUEST"?"PAYMENT_CONFIRMATION_REQUEST":"PAYMENT_REQUEST"]){
+   if(other==="ANNOUNCEMENT")continue; // Existing announcement template ignores event data.
+   let rejected=false;try{pushTemplate({...dirty,category:other});}catch{rejected=true;}assert(rejected);
+  }
+ }
+});
