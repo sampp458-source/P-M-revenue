@@ -91,6 +91,16 @@
 .pn-destructive { color:#a44338; }
 .pn-destructive:focus-visible { outline:2px solid #244cb9; outline-offset:3px; }
 
+/* Keep the inbox viewport stable from first open through background refresh. */
+.pn-notifications :is(.pm-modal-overlay, .pm-modal-panel):has(.pn-center-stable) { animation:none; }
+.pn-notifications .pm-modal-panel:has(.pn-center-stable) { height:min(740px, 90dvh); }
+.pn-notifications .pm-modal-panel:has(.pn-center-stable) > div:last-child { flex:1; }
+.pn-inbox-region { min-height:240px; }
+.pn-inbox-loading { padding:24px 0; color:#6b7484; }
+@media (max-width:639px) {
+  .pn-notifications .pm-modal-panel:has(.pn-center-stable) { height:calc(100dvh - max(8px, env(safe-area-inset-top))); }
+}
+
 /* Module Gate only: center the brand independently of the mobile Bell action. */
 @media (max-width: 639px) {
   .pm-access-v1.pm-access-v2.pm-module-gate {
