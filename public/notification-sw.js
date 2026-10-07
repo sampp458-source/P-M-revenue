@@ -5,7 +5,7 @@ function valid(data) {
     && ["ANNOUNCEMENT", "CENTER"].includes(data.deep_link_type) && !("url" in data);
 }
 function pushBody(data) {
-  const payments = { PAYMENT_CONFIRMATION_REQUESTED: '새 결제 확인 요청이 있습니다.', PAYMENT_CONFIRMATION_CONFIRMED: '결제 확인 요청이 처리되었습니다.', PAYMENT_CONFIRMATION_NOT_FOUND: '결제 확인 요청이 처리되었습니다.', PAYMENT_CONFIRMATION_CANCELLED: '요청이 취소되었습니다.', PAYMENT_REQUEST_REQUESTED: '새 지급 요청이 있습니다.', PAYMENT_REQUEST_COMPLETED: '요청한 지급이 완료되었습니다.', PAYMENT_REQUEST_REJECTED: '지급 요청이 반려되었습니다.', PAYMENT_REQUEST_CANCELLED: '요청이 취소되었습니다.', PAYMENT_CONFIRMATION_ADMIN_CANCELLED: '결제 확인 요청이 관리 종료되었습니다. 입금 여부를 확인해 주세요.', PAYMENT_REQUEST_ADMIN_CANCELLED: '지급 요청이 관리 종료되었습니다. 외부 지급 여부를 확인해 주세요.' };
+  const payments = { PAYMENT_CONFIRMATION_REQUESTED: '새 결제 확인 요청이 있습니다.', PAYMENT_CONFIRMATION_CONFIRMED: '입금이 확인되었습니다.', PAYMENT_CONFIRMATION_NOT_FOUND: '입금이 아직 확인되지 않았습니다.', PAYMENT_CONFIRMATION_UPDATED: '결제 확인 요청이 수정되었습니다.', PAYMENT_CONFIRMATION_CANCELLED: '요청이 취소되었습니다.', PAYMENT_REQUEST_REQUESTED: '새 지급 요청이 있습니다.', PAYMENT_REQUEST_COMPLETED: '요청한 지급이 완료되었습니다.', PAYMENT_REQUEST_REJECTED: '지급 요청이 반려되었습니다.', PAYMENT_REQUEST_CANCELLED: '요청이 취소되었습니다.', PAYMENT_CONFIRMATION_ADMIN_CANCELLED: '결제 확인 요청이 관리 종료되었습니다. 입금 여부를 확인해 주세요.', PAYMENT_REQUEST_ADMIN_CANCELLED: '지급 요청이 관리 종료되었습니다. 외부 지급 여부를 확인해 주세요.' };
   if (Object.prototype.hasOwnProperty.call(payments, data.event_type)) return payments[data.event_type];
   const tasks = { TASK_REQUEST_ASSIGNED: "새 업무요청이 도착했습니다.", TASK_REQUEST_COMPLETED: "요청한 업무가 완료되었습니다.", TASK_REQUEST_CANCELLED: "업무요청이 취소되었습니다." };
   if (data.event_type === "TASK_REQUEST_OVERDUE") return data.task_audience === "requester" ? "요청한 업무가 아직 완료되지 않았습니다." : "완료되지 않은 업무요청이 있습니다.";

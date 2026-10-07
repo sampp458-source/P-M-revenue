@@ -102,8 +102,8 @@ for kind,actions in [('c',['CONFIRMED','NOT_FOUND']),('c',['CONFIRMED','CANCELLE
  check('ten races '+str(actions)+' one winner no deadlock')
 # Clear prior synthetic open work through normal commands so each revoke race has one assignment.
 for kind,table in [('c','payment_confirmation_requests'),('p','payment_requests')]:
- for item in json.loads(sql(f"SELECT coalesce(jsonb_agg(to_jsonb(r)),'[]')FROM {table} r WHERE status IN('REQUESTED','ACKNOWLEDGED');")):
-  command(kind,'CANCELLED' if item['status']=='REQUESTED' else 'REJECTED',item['id'],item['version'],2 if item['status']=='REQUESTED' else 3)
+ for item in json.loads(sql(f"SELECT coalesce(jsonb_agg(to_jsonb(r)),'[]')FROM {table} r WHERE status IN('REQUESTED','ACKNOWLEDGED','NOT_FOUND');")):
+  command(kind,'CONFIRMED' if item['status']=='NOT_FOUND' else 'CANCELLED' if item['status']=='REQUESTED' else 'REJECTED',item['id'],item['version'],2 if item['status']=='REQUESTED' else 3)
 for kind,action in [('c','CONFIRMED'),('c','NOT_FOUND'),('p','ACKNOWLEDGED'),('p','COMPLETED'),('p','REJECTED')]:
  cap='PAYMENT_CONFIRMATION_REVIEW' if kind=='c' else 'PAYMENT_REQUEST_PROCESS'
  for _ in range(10):
@@ -116,6 +116,7 @@ for kind,action in [('c','CONFIRMED'),('c','NOT_FOUND'),('p','ACKNOWLEDGED'),('p
   with concurrent.futures.ThreadPoolExecutor(max_workers=2)as pool:
    f=pool.submit(command,kind,action,r['id'],v,3);g=pool.submit(revoke);f.result();outcome=g.result()
   assert sql(f"SELECT NOT EXISTS(SELECT 1 FROM payment_rows_v1() r WHERE handler_id='{uid(3)}' AND status IN('REQUESTED','ACKNOWLEDGED') AND NOT payment_has_capability_v1(handler_id,CASE request_type WHEN 'PAYMENT_CONFIRMATION_REQUEST' THEN 'PAYMENT_CONFIRMATION_REVIEW' ELSE 'PAYMENT_REQUEST_PROCESS' END));")=='t'
+  if action=='NOT_FOUND':assert outcome=='blocked';command('c','CONFIRMED',r['id'],2,3)
   if action=='ACKNOWLEDGED':assert outcome=='blocked';command('p','COMPLETED',r['id'],2,3)
   if outcome=='revoked':command(kind,action,r['id'],v,3,fail='PAYMENT_FORBIDDEN');grant(3,cap,version=version+1)
  check('ten revoke x '+action+' no unresolved orphan and no deadlock')
@@ -248,7 +249,7 @@ r=command();did=sql(f"SELECT d.id FROM notification_push_deliveries d JOIN notif
 check('one assigned subscription one delivery valid',sql(f"SELECT push_delivery_valid_v1('{did}');")=='t')
 command(action='CONFIRMED',rid=r['id'],version=1,user=3)
 check('stale requested provider send suppressed',sql(f"SELECT NOT push_delivery_valid_v1('{did}');")=='t')
-check('result to requester only, fixed privacy notification body',sql(f"SELECT count(*)=1 FROM notifications WHERE deep_link_id='{r['id']}' AND recipient_id='{uid(2)}' AND title='결제 확인 요청이 처리되었습니다.' AND message='요청 상세에서 확인해 주세요.';")=='t')
+check('result to requester only, fixed privacy notification body',sql(f"SELECT count(*)=1 FROM notifications WHERE deep_link_id='{r['id']}' AND recipient_id='{uid(2)}' AND title='입금이 확인되었습니다.' AND message='요청 상세에서 확인해 주세요.';")=='t')
 check('ACK has no event',sql("SELECT count(*) FROM notification_events WHERE event_type='PAYMENT_REQUEST_ACKNOWLEDGED';")=='0')
 check('view-all cannot process someone else assigned request',bool(command(action='CONFIRMED',rid=command()['id'],version=1,user=1,fail='PAYMENT_FORBIDDEN') is None))
 check('no financial publication',sql("SELECT count(*) FROM pg_publication_tables WHERE tablename IN('payment_requests','payment_confirmation_requests');")=='0')

@@ -17,7 +17,7 @@ export function pushTemplate(d: Pick<Delivery, "category" | "event_type" | "summ
     if (d.task_audience !== "target" && d.task_audience !== "requester") throw new Error("INVALID_TASK_AUDIENCE");
     return { event_type: d.event_type, task_audience: d.task_audience };
   }
-  if ((d.category === 'PAYMENT_CONFIRMATION_REQUEST' && ['PAYMENT_CONFIRMATION_REQUESTED','PAYMENT_CONFIRMATION_CONFIRMED','PAYMENT_CONFIRMATION_NOT_FOUND','PAYMENT_CONFIRMATION_CANCELLED','PAYMENT_CONFIRMATION_ADMIN_CANCELLED'].includes(d.event_type || '')) || (d.category === 'PAYMENT_REQUEST' && ['PAYMENT_REQUEST_REQUESTED','PAYMENT_REQUEST_COMPLETED','PAYMENT_REQUEST_REJECTED','PAYMENT_REQUEST_CANCELLED','PAYMENT_REQUEST_ADMIN_CANCELLED'].includes(d.event_type || ''))) return { event_type: d.event_type };
+  if ((d.category === 'PAYMENT_CONFIRMATION_REQUEST' && ['PAYMENT_CONFIRMATION_UPDATED','PAYMENT_CONFIRMATION_REQUESTED','PAYMENT_CONFIRMATION_CONFIRMED','PAYMENT_CONFIRMATION_NOT_FOUND','PAYMENT_CONFIRMATION_CANCELLED','PAYMENT_CONFIRMATION_ADMIN_CANCELLED'].includes(d.event_type || '')) || (d.category === 'PAYMENT_REQUEST' && ['PAYMENT_REQUEST_REQUESTED','PAYMENT_REQUEST_COMPLETED','PAYMENT_REQUEST_REJECTED','PAYMENT_REQUEST_CANCELLED','PAYMENT_REQUEST_ADMIN_CANCELLED'].includes(d.event_type || ''))) return { event_type: d.event_type };
   if (d.category !== "SCHEDULE") throw new Error("INVALID_PUSH_CATEGORY");
   if (["SCHEDULE_ASSIGNED", "SCHEDULE_UPDATED", "SCHEDULE_COMPLETED", "SCHEDULE_CANCELLED"].includes(d.event_type || "")) return { event_type: d.event_type };
   if (d.event_type === "DAILY_SCHEDULE_SUMMARY" && Number.isSafeInteger(d.summary_count) && d.summary_count! > 0) return { event_type: d.event_type, summary_count: d.summary_count };
