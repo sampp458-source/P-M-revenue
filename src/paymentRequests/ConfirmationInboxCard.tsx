@@ -19,10 +19,11 @@ export function ConfirmationInboxCard({row,onOpen,onProcessing,onLockChange,user
   if(!retry&&(!detail||!allowed))return;
   run(()=>{if(!detail)throw new Error('상세 정보를 먼저 확인해주세요.');return {type:'PAYMENT_CONFIRMATION_REQUEST',id:detail.id,version:detail.version,key:crypto.randomUUID(),action,payload:{note:null}};},onProcessing);
  };
- return <article className="pt-task-row payment-inline-card" aria-label={row.display_title} onClick={onOpen}>
+ return <article className="pt-task-row payment-inline-card" data-status={status} data-administrative-cancelled={row.administrative_cancelled?'true':undefined} aria-label={row.display_title} onClick={onOpen}>
   <button className="payment-inline-open" onClick={event=>{event.stopPropagation();onOpen();}} aria-label={`${row.display_title} · ${row.counterparty} · ${paymentStatus('PAYMENT_CONFIRMATION_REQUEST',status)}`}>
-   <small className="payment-type">결제 확인 요청</small><strong>{row.display_title}</strong>
-   <dl><dt>입금 확인 대상</dt><dd>{detail?.payer_name||'확인 중'}</dd><dt>반려견</dt><dd>{detail?detail.dog_name||'미입력':'확인 중'}</dd><dt>금액</dt><dd>{detail?.reported_amount===undefined?'확인 중':`${detail.reported_amount.toLocaleString('ko-KR')}원`}</dd><dt>요청자</dt><dd>{row.counterparty}</dd></dl>
+   <div className="payment-inline-caption"><small className="payment-type">결제 확인 요청</small><strong className="payment-inline-title">{row.display_title}</strong></div>
+   <dl className="payment-inline-summary"><div><dt>입금 확인 대상</dt><dd>{detail?.payer_name||'확인 중'}</dd></div><div className="payment-inline-amount"><dt>확인 금액</dt><dd>{detail?.reported_amount===undefined?'확인 중':`${detail.reported_amount.toLocaleString('ko-KR')}원`}</dd></div></dl>
+   <dl className="payment-inline-meta"><div><dt>반려견</dt><dd>{detail?detail.dog_name||'미입력':'확인 중'}</dd></div><div><dt>요청자</dt><dd>{row.counterparty}</dd></div></dl>
   </button>
   <div className="payment-inline-controls" onClick={event=>event.stopPropagation()}><span className="payment-inline-status" role="status">{row.administrative_cancelled?'관리 종료':status==='CONFIRMED'?'입금 확인 완료':paymentStatus('PAYMENT_CONFIRMATION_REQUEST',status)}</span>
    <div className="payment-inline-actions">{retry?<button disabled={busy} onClick={()=>act(retry.action as 'CONFIRMED'|'NOT_FOUND')}>같은 요청으로 결과 확인</button>:allowed?<>{confirm?<><span>입금을 확인하셨습니까?</span><button disabled={busy} onClick={()=>setConfirm(false)}>돌아가기</button><button className="pn-primary" disabled={busy} onClick={()=>act('CONFIRMED')}>확인 처리</button></>:<>{status==='REQUESTED'&&<button disabled={busy} onClick={()=>act('NOT_FOUND')}>입금 미확인</button>}<button className="pn-primary" disabled={busy} onClick={()=>setConfirm(true)}>입금 확인</button></>}</>:null}</div>

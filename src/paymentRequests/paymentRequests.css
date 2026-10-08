@@ -15,20 +15,56 @@
 /* A permanent status slot keeps both detail and list positions stable during refresh. */
 .payment-refresh-status { display: block; height: 20px; line-height: 20px; font-size: 12px; color: #64748b; }
 .payment-actions .payment-delete, .payment-delete { color: #b4483a; border: 1px solid #e6b9b2; background: transparent; min-height: 44px; }
-/* The snapshot is refreshed explicitly during a run of inline processing. */
-.payment-batch-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; color: #536171; font-size: 13px; }
-.payment-batch-status button { flex: none; min-height: 44px; }
-.payment-inline-card { display: grid; grid-template-columns: minmax(0,1fr) minmax(240px,320px); gap: 16px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 10px; }
-.pt-task .payment-inline-open { display: grid; gap: 6px; text-align: left; background: transparent; border: 0; padding: 0; min-width: 0; }
-.payment-inline-open dl { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 4px 12px; margin: 8px 0 0; min-height: 96px; font-size: 13px; }
-.payment-inline-open dt { color: #536171; }
-.payment-inline-open dd { margin: 0; overflow-wrap: anywhere; }
-.payment-inline-controls { display: grid; grid-template-rows: 28px minmax(96px,auto) minmax(44px,auto); gap: 8px; align-content: start; }
-.payment-inline-card .payment-inline-status { color: #334155; font-weight: 600; justify-self: start; border: 1px solid #dbe0e6; border-radius: 6px; padding: 2px 8px; }
-.payment-inline-actions { display: flex; align-items: start; align-content: start; flex-wrap: wrap; gap: 8px; }
-.pt-task .payment-inline-actions button { min-height: 44px; margin: 0; }
-.payment-inline-actions > span { flex-basis: 100%; }
-.payment-inline-feedback { font-size: 13px; }
+/* Confirmation inbox only: compact information and an independent action area. */
+.payment-batch-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; margin-block: 0; color: #657184; font-size: 12px; }
+.payment-batch-status button { flex: none; min-height: 44px; margin-left: auto; }
+.payment-list-heading:has(.payment-batch-status) { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; min-height: 44px; }
+.payment-list-heading:has(.payment-batch-status) > p { flex: none; margin: 0; color: #657184; font-size: 13px; }
+.payment-list-heading .payment-batch-status { flex: 1; min-width: 0; }
+.payment-batch-status > span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pt-workspace-region:has(.payment-batch-status) .payment-filters { margin-block: 12px; }
+.payment-inline-card { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 24px; min-height: 140px; padding: 16px 20px; border: 1px solid #e1e5ec; border-radius: 12px; background: #fff; }
+.payment-inline-card:hover { background: #fff; border-color: #c4cede; }
+.payment-inline-card:focus-within { border-color: #8ba3db; }
+.pt-task .payment-inline-open { display: grid; gap: 8px; text-align: left; color: #182332; background: transparent; border: 0; border-radius: 6px; padding: 0; min-width: 0; }
+.payment-inline-caption { display: flex; align-items: center; gap: 10px; min-width: 0; line-height: 16px; }
+.payment-inline-caption .payment-type { flex: none; font-size: 11px; font-weight: 600; color: #657184; }
+.payment-inline-caption .payment-inline-title { min-width: 0; font-size: 12px; font-weight: 400; color: #657184; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.payment-inline-open dl { margin: 0; min-width: 0; }
+.payment-inline-summary { display: grid; grid-template-columns: minmax(0,1fr) minmax(140px,1fr); gap: 20px; }
+.payment-inline-summary > div { min-width: 0; }
+.payment-inline-summary dt { margin-bottom: 3px; color: #657184; font-size: 11px; line-height: 15px; }
+.payment-inline-summary dd { margin: 0; font-size: 20px; line-height: 26px; font-weight: 700; letter-spacing: -.025em; overflow-wrap: anywhere; }
+.payment-inline-amount dd { font-variant-numeric: tabular-nums; letter-spacing: -.035em; }
+.payment-inline-meta { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; line-height: 18px; }
+.payment-inline-meta > div { display: flex; gap: 6px; min-width: 0; }
+.payment-inline-meta dt { color: #657184; }
+.payment-inline-meta dd { margin: 0; color: #536171; overflow-wrap: anywhere; }
+.payment-inline-controls { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; gap: 10px; min-height: 106px; min-width: 208px; max-width: 272px; }
+.payment-inline-card .payment-inline-status { display: inline-flex; align-items: center; min-height: 26px; padding: 3px 9px; border: 1px solid #dce5f7; border-radius: 6px; color: #345a9b; background: #f1f5fc; font-size: 12px; line-height: 18px; font-weight: 650; }
+.payment-inline-card[data-status="NOT_FOUND"] .payment-inline-status { color: #91632c; border-color: #efdfc5; background: #fcf7ed; }
+.payment-inline-card[data-status="CONFIRMED"] .payment-inline-status { color: #287450; border-color: #d4e8dc; background: #eff8f2; }
+.payment-inline-card[data-status="CANCELLED"] .payment-inline-status, .payment-inline-card[data-administrative-cancelled="true"] .payment-inline-status { color: #657184; border-color: #e2e6ec; background: #f5f6f8; }
+.payment-inline-actions { display: flex; align-items: center; justify-content: flex-end; align-content: center; flex-wrap: wrap; gap: 8px; min-height: 70px; width: 100%; }
+.pt-task .payment-inline-actions button { min-height: 44px; margin: 0; padding: 9px 14px; border-radius: 8px; background: #fff; border-color: #dce1e9; color: #536171; font-size: 13px; font-weight: 600; box-shadow: none; }
+.pt-task .payment-inline-actions .pn-primary { background: #2854cc; border-color: #2854cc; color: #fff; }
+.pt-task .payment-inline-actions button:hover:not(:disabled) { background: #f5f7fa; border-color: #bdc7d7; }
+.pt-task .payment-inline-actions .pn-primary:hover:not(:disabled) { background: #234bb8; border-color: #234bb8; }
+.pt-task .payment-inline-actions button:active:not(:disabled) { background: #edf0f5; }
+.pt-task .payment-inline-actions .pn-primary:active:not(:disabled) { background: #1f429f; border-color: #1f429f; }
+.pt-task .payment-inline-actions button:disabled { opacity: .6; cursor: wait; }
+.payment-inline-actions > span { flex-basis: 100%; text-align: right; font-size: 12px; line-height: 18px; }
+.payment-inline-feedback { width: 100%; font-size: 12px; line-height: 18px; }
 .payment-inline-feedback p { margin: 0; }
-.payment-inline-open:focus-visible { outline: 2px solid #4057c7; outline-offset: 4px; }
-@media (max-width: 639px) { .payment-inline-card { grid-template-columns: minmax(0,1fr); } .payment-inline-controls { grid-template-rows: 28px minmax(96px,auto) minmax(44px,auto); } }
+.payment-inline-actions:empty, .payment-inline-feedback:empty { display: none; }
+.pt-task .payment-inline-open:focus-visible { outline: 2px solid #2854cc; outline-offset: 4px; }
+@media (max-width: 639px) {
+ .payment-inline-card { grid-template-columns: minmax(0,1fr); gap: 14px; min-height: 0; padding: 16px; }
+ .payment-inline-summary { grid-template-columns: minmax(0,1fr) auto; gap: 14px; }
+ .payment-inline-summary dd { font-size: 19px; line-height: 26px; }
+ .payment-inline-controls { flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; min-height: 83px; min-width: 0; max-width: none; gap: 10px; padding-top: 12px; border-top: 1px solid #eef0f4; }
+ .payment-inline-actions { flex: 1 1 auto; width: auto; min-width: 0; max-width: 220px; justify-content: flex-end; }
+ .payment-inline-actions > span { text-align: left; }
+ .payment-inline-feedback { flex-basis: 100%; }
+ .payment-batch-status { align-items: center; }
+}

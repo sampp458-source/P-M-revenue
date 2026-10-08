@@ -35,7 +35,7 @@ it.each(['storage','command creation'])('%s failure keeps the snapshot live with
   expect(api.command).not.toHaveBeenCalled();
   expect(sessionStorage.length).toBe(0);
   expect(screen.queryByText('조회 순서·건수 유지 중 · 최신 목록은 갱신해주세요.')).toBeNull();
-  expect(screen.getByText('목록에서 연속 처리할 수 있습니다.')).toBeTruthy();
+  expect(screen.queryByText('목록에서 연속 처리할 수 있습니다.')).toBeNull();
   expect(screen.getByRole('button',{name:'목록 갱신'})).toBeEnabled();
   await act(async()=>{await vi.advanceTimersByTimeAsync(30000);});
   expect(api.list).toHaveBeenCalledTimes(2);
