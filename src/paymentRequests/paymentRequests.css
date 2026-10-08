@@ -15,3 +15,20 @@
 /* A permanent status slot keeps both detail and list positions stable during refresh. */
 .payment-refresh-status { display: block; height: 20px; line-height: 20px; font-size: 12px; color: #64748b; }
 .payment-actions .payment-delete, .payment-delete { color: #b4483a; border: 1px solid #e6b9b2; background: transparent; min-height: 44px; }
+/* The snapshot is refreshed explicitly during a run of inline processing. */
+.payment-batch-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 64px; color: #536171; font-size: 13px; }
+.payment-batch-status button { flex: none; min-height: 44px; }
+.payment-inline-card { display: grid; grid-template-columns: minmax(0,1fr) minmax(240px,320px); gap: 16px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 10px; }
+.pt-task .payment-inline-open { display: grid; gap: 6px; text-align: left; background: transparent; border: 0; padding: 0; min-width: 0; }
+.payment-inline-open dl { display: grid; grid-template-columns: auto minmax(0,1fr); gap: 4px 12px; margin: 8px 0 0; min-height: 96px; font-size: 13px; }
+.payment-inline-open dt { color: #536171; }
+.payment-inline-open dd { margin: 0; overflow-wrap: anywhere; }
+.payment-inline-controls { display: grid; grid-template-rows: 28px minmax(96px,auto) minmax(44px,auto); gap: 8px; align-content: start; }
+.payment-inline-card .payment-inline-status { color: #334155; font-weight: 600; justify-self: start; border: 1px solid #dbe0e6; border-radius: 6px; padding: 2px 8px; }
+.payment-inline-actions { display: flex; align-items: start; align-content: start; flex-wrap: wrap; gap: 8px; }
+.pt-task .payment-inline-actions button { min-height: 44px; margin: 0; }
+.payment-inline-actions > span { flex-basis: 100%; }
+.payment-inline-feedback { font-size: 13px; }
+.payment-inline-feedback p { margin: 0; }
+.payment-inline-open:focus-visible { outline: 2px solid #4057c7; outline-offset: 4px; }
+@media (max-width: 639px) { .payment-inline-card { grid-template-columns: minmax(0,1fr); } .payment-inline-controls { grid-template-rows: 28px minmax(96px,auto) minmax(44px,auto); } }

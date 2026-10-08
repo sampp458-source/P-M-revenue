@@ -1,28 +1,22 @@
-import {useRef,useState} from 'react';
+import {useState} from 'react';
 import {Modal} from '../components/ui';
-import {paymentRequestRepository,PaymentFailure,type PaymentRepository} from './paymentRequestRepository';
+import {paymentRequestRepository,type PaymentRepository} from './paymentRequestRepository';
 import {paymentAmount,paymentStatus} from './paymentRequestPresentation';
-import type {PaymentAttempt,PaymentDetail as Detail} from './paymentRequestTypes';
+import {usePaymentCommand} from './usePaymentCommand';
+import type {PaymentDetail as Detail} from './paymentRequestTypes';
 import {taskTime} from '../taskRequests/taskRequestPresentation';
-export function PaymentDetail({item,repository=paymentRequestRepository,onRefresh,onDeleted}:{item:Detail;repository?:PaymentRepository;onRefresh:()=>Promise<void>;onDeleted?:()=>void}){
- const [note,setNote]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[retry,setRetry]=useState<PaymentAttempt>();
+export function PaymentDetail({item,repository=paymentRequestRepository,onRefresh,onDeleted,recoveryUserId}:{item:Detail;repository?:PaymentRepository;onRefresh:()=>Promise<void>;onDeleted?:()=>void;recoveryUserId?:string}){
+ const [note,setNote]=useState('');
  const [editing,setEditing]=useState(false),[deleting,setDeleting]=useState(false),[editVersion,setEditVersion]=useState(item.version);
  const [payer,setPayer]=useState(''),[amount,setAmount]=useState(''),[dog,setDog]=useState(''),[memo,setMemo]=useState('');
- const pending=useRef<PaymentAttempt|undefined>(undefined),lock=useRef(false);
+ const {run,busy,retry,error,setError}=usePaymentCommand(repository,async attempt=>{setEditing(false);setDeleting(false);if(attempt.action==='DELETED')onDeleted?.();else await onRefresh();},recoveryUserId&&item.request_type==='PAYMENT_CONFIRMATION_REQUEST'?{userId:recoveryUserId,id:item.id}:undefined);
  const confirmation=item.request_type==='PAYMENT_CONFIRMATION_REQUEST';
  const actions:[string,string][]=[...(item.can_process?(confirmation?(item.status==='REQUESTED'?[['CONFIRMED','입금 확인'],['NOT_FOUND','입금 미확인']]:item.status==='NOT_FOUND'?[['CONFIRMED','입금 확인']]:[]):item.status==='REQUESTED'?[['ACKNOWLEDGED','확인했습니다'],['REJECTED','반려']]:item.status==='ACKNOWLEDGED'?[['COMPLETED','지급 완료'],['REJECTED','반려']]:[]):[]),...(item.can_cancel?[['CANCELLED','요청 취소']]:[]),...(item.can_admin_close?[['ADMIN_CANCELLED','관리 종료']]:[])] as [string,string][];
- const act=(action:string)=>{
-  if(lock.current)return;
-  try{
-   if(!pending.current){
-    if(['REJECTED','CANCELLED','ADMIN_CANCELLED'].includes(action)&&!note.trim())throw new Error('사유를 입력해주세요.');
-    if(action==='UPDATED'&&!payer.trim())throw new Error('입금자명을 입력해주세요.');
-    pending.current={type:item.request_type,id:item.id,action,version:['UPDATED','DELETED'].includes(action)?editVersion:item.version,key:crypto.randomUUID(),payload:action==='UPDATED'?{payer_name:payer.trim(),reported_amount:paymentAmount(amount),dog_name:dog.trim()||null,note:memo.trim()||null}:action==='DELETED'?{}:{note:note.trim()||null}};
-   }
-   const attempt=pending.current;setRetry(attempt);lock.current=true;setBusy(true);setError('');
-   void repository.command(attempt).then(async()=>{pending.current=undefined;setRetry(undefined);setEditing(false);setDeleting(false);if(attempt.action==='DELETED')onDeleted?.();else await onRefresh();}).catch(e=>{if(e instanceof PaymentFailure&&e.definite){pending.current=undefined;setRetry(undefined);}setError(e.message);}).finally(()=>{lock.current=false;setBusy(false);});
-  }catch(e){setError((e as Error).message);}
- };
+ const act=(action:string)=>run(()=>{
+  if(['REJECTED','CANCELLED','ADMIN_CANCELLED'].includes(action)&&!note.trim())throw new Error('사유를 입력해주세요.');
+  if(action==='UPDATED'&&!payer.trim())throw new Error('입금자명을 입력해주세요.');
+  return {type:item.request_type,id:item.id,action,version:['UPDATED','DELETED'].includes(action)?editVersion:item.version,key:crypto.randomUUID(),payload:action==='UPDATED'?{payer_name:payer.trim(),reported_amount:paymentAmount(amount),dog_name:dog.trim()||null,note:memo.trim()||null}:action==='DELETED'?{}:{note:note.trim()||null}};
+ });
  const startEdit=()=>{setEditVersion(item.version);setPayer(item.payer_name||'');setAmount(String(item.reported_amount??''));setDog(item.dog_name||'');setMemo(item.note||'');setError('');setEditing(true);};
  return <article className="payment-detail"><h2>{confirmation?item.payer_name:item.title}</h2><p>{item.administrative_cancelled?'관리 종료':paymentStatus(item.request_type,item.status)}</p>{item.handler_unavailable&&<p role="status">처리 담당자 사용 불가 · 관리 확인 필요</p>}{(item.can_admin_close||item.administrative_cancelled)&&<p className="pt-secondary">요청 업무를 관리상 종료하는 기록입니다. {confirmation?'외부 입금 여부는 별도로 확인해야 합니다.':'외부 지급 여부는 별도로 확인해야 합니다.'}</p>}<dl><dt>요청자</dt><dd>{item.requester_name}</dd><dt>담당자</dt><dd>{item.handler_name}</dd><dt>금액</dt><dd>{(item.reported_amount??item.requested_amount)?.toLocaleString('ko-KR')}원</dd>{item.dog_name&&<><dt>반려견</dt><dd>{item.dog_name}</dd></>}{item.payee_name&&<><dt>지급 대상</dt><dd>{item.payee_name}</dd></>}{item.due_at&&<><dt>완료 희망일시</dt><dd>{taskTime(item.due_at)}</dd></>}</dl><p>{item.note||item.reason}</p><p>{item.resolution_note||item.completion_note||item.rejection_reason||item.cancel_reason}</p><p className="pt-secondary">{confirmation?'입금 여부 확인 기록이며 매출·수납 내역은 자동 등록되지 않습니다.':'P&M OS의 처리 기록이며 금융기관 거래를 자동 검증한 것은 아닙니다.'}</p>
  {actions.length>0&&<label>결과 메모 / 종료 사유<textarea maxLength={1000} value={note} disabled={busy||!!retry} placeholder={item.can_admin_close?'관리 종료 사유를 입력해주세요.':confirmation?'아직 입금되지 않음 · 입금자명 추가 확인 필요':'취소·반려 시 사유를 입력해주세요.'} onChange={e=>setNote(e.target.value)}/></label>}
