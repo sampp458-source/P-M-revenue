@@ -101,6 +101,11 @@
   .pn-notifications .pm-modal-panel:has(.pn-center-stable) { height:calc(100dvh - max(8px, env(safe-area-inset-top))); }
 }
 
+/* Center-only controls share the existing toolbar; retain mobile touch targets. */
+.pn-center-stable .pn-toolbar:first-of-type { flex-wrap: wrap; gap: 8px; }
+.pn-center-stable .pn-bulk-read { min-height: 44px; margin-left: auto; white-space: nowrap; }
+@media (max-width: 639px) { .pn-center-stable .pn-tabs button { min-height: 44px; } }
+
 /* Module Gate only: center the brand independently of the mobile Bell action. */
 @media (max-width: 639px) {
   .pm-access-v1.pm-access-v2.pm-module-gate {

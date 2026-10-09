@@ -48,9 +48,10 @@ export function NotificationDialogs({ navigate }: { navigate: (path: string) => 
   const [source, setSource] = useState<Publication | null>(null);
   const [retractOffer, setRetractOffer] = useState<Publication | null>(null);
   const [sentVersion, setSentVersion] = useState(0);
-  const [unread, setUnread] = useState(false);
+  const [unread, setUnread] = useState(true);
   const [offset, setOffset] = useState(0);
-  const [pageResult, setPageResult] = useState<{ key: string; items: Notice[] } | null>(null);
+  const [pageResult, setPageResult] = useState<{ key: string; items: Notice[]; unreadCount: number } | null>(null);
+  const [pageRevision, setPageRevision] = useState(0);
   const pageKey = `${offset}:${unread}`;
   const firstPage = offset === 0 && !unread;
   const page = firstPage ? (state?.loading ? null : state?.inbox.items ?? null) : pageResult?.key === pageKey ? pageResult.items : null;
@@ -68,12 +69,15 @@ export function NotificationDialogs({ navigate }: { navigate: (path: string) => 
   }, [view]);
   useEffect(() => { setError(""); }, [view]);
   useEffect(() => {
-    if (!repo || view !== "center" || firstPage) return;
+    if (!repo || view !== "center" || firstPage || busy) return;
     let live = true;
     setPageLoading(true);
-    void repo.inbox(offset, unread).then(r => { if (live) setPageResult({ key: pageKey, items: r.items }); }).catch(() => { if (live) setError("목록을 불러오지 못했습니다. 다시 열어 주세요."); }).finally(() => { if (live) setPageLoading(false); });
+    void repo.inbox(offset, unread).then(r => { if (live) {
+      if (unread && offset > 0 && offset >= r.unread_count) { setOffset(Math.max(0, Math.floor((r.unread_count - 1) / 50) * 50)); return; }
+      setPageResult({ key: pageKey, items: r.items, unreadCount: r.unread_count });
+    } }).catch(() => { if (live) setError("목록을 불러오지 못했습니다. 다시 열어 주세요."); }).finally(() => { if (live) setPageLoading(false); });
     return () => { live = false; };
-  }, [repo, view, offset, unread, state?.inbox, firstPage, pageKey]);
+  }, [repo, view, offset, unread, state?.inbox, firstPage, pageKey, pageRevision, busy]);
   const popup = state?.inbox.popup;
   useEffect(() => {
     if (view !== "summary" || !repo || !popup) return;
@@ -164,10 +168,10 @@ export function NotificationDialogs({ navigate }: { navigate: (path: string) => 
         </>}
         {state.view === "center" && <>
           {webPushEnabled && <PushSettings userId={state.userId} />}
-          <div className="pn-toolbar"><div className="pn-tabs" aria-label="알림 필터">{[false, true].map(v => <button key={String(v)} aria-pressed={unread === v} onClick={() => { setUnread(v); setOffset(0); }}>{v ? `읽지 않음 ${state.inbox.unread_count}` : "전체"}</button>)}</div></div>
+          <div className="pn-toolbar"><div className="pn-tabs" aria-label="알림 필터">{[true, false].map(v => <button key={String(v)} aria-pressed={unread === v} onClick={() => { setUnread(v); setOffset(0); }}>{v ? `읽지 않음 ${state.inbox.unread_count}` : "전체 기록"}</button>)}</div><button className="pn-secondary-button pn-bulk-read" disabled={busy || state.loading || state.inbox.unread_count === 0} onClick={() => void act(async () => { await state.repository.readAll(); setOffset(0); await state.refresh(); setPageRevision(v => v + 1); setToast("모든 알림을 읽음 처리했습니다."); })}>{busy ? "처리 중…" : "모두 읽음"}</button></div>
           {state.inbox.unacknowledged_count > 0 && <p className="pn-ack-summary">확인 필요한 공지 <b>{state.inbox.unacknowledged_count}건</b> · 읽음과 확인은 별도입니다.</p>}
-          <div className="pn-inbox-region" aria-busy={firstPage ? state.loading : pageLoading}>{page === null ? <p className="pn-inbox-loading" role="status">알림을 불러오는 중입니다.</p> : <div className="pn-notice-list">{(page || []).map(n => <NoticeRow key={n.id} item={n} onOpen={open} />)}{page?.length === 0 && <p className="pn-empty"><Bell size={25} />{unread ? "읽지 않은 알림이 없습니다." : "새로운 공지가 여기에 표시됩니다."}</p>}</div>}</div>
-          <div className="pn-toolbar"><div className="pn-pagination"><button aria-label="이전 알림" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))}><ChevronLeft size={16} /></button><span>{offset / 50 + 1} 페이지</span><button aria-label="다음 알림" disabled={page?.length !== 50} onClick={() => setOffset(offset + 50)}><ChevronRight size={16} /></button></div></div>
+          <div className="pn-inbox-region" aria-busy={firstPage ? state.loading : pageLoading}>{page === null ? <p className="pn-inbox-loading" role="status">알림을 불러오는 중입니다.</p> : <div className="pn-notice-list">{(page || []).map(n => <NoticeRow key={n.id} item={n} onOpen={open} />)}{page?.length === 0 && <p className="pn-empty"><Bell size={25} />{unread ? "새로운 알림이 없습니다." : "새로운 공지가 여기에 표시됩니다."}</p>}</div>}</div>
+          <div className="pn-toolbar"><div className="pn-pagination"><button aria-label="이전 알림" disabled={offset === 0} onClick={() => setOffset(Math.max(0, offset - 50))}><ChevronLeft size={16} /></button><span>{offset / 50 + 1} 페이지</span><button aria-label="다음 알림" disabled={page === null || (unread ? offset + 50 >= (pageResult?.key === pageKey ? pageResult.unreadCount : state.inbox.unread_count) : page.length !== 50)} onClick={() => setOffset(offset + 50)}><ChevronRight size={16} /></button></div></div>
         </>}
         {state.view === "detail" && detail && <>
           <button className="pn-text-button" onClick={() => state.setView("center")}>← 알림센터</button>

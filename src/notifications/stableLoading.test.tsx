@@ -28,7 +28,7 @@ it('first open has bounded center shell, no false empty; cached reopen keeps the
  const row=screen.getByRole('button',{name:/알림 유지/}); const refresh=deferred<Inbox>();vi.mocked(repo.inbox).mockReturnValue(refresh.promise);
  fireEvent.click(screen.getByRole('button',{name:'닫기'}));open();
  expect(screen.getByRole('button',{name:/알림 유지/})).toBeTruthy();
- expect(repo.inbox).toHaveBeenCalledTimes(3); // initial, first bell, second bell; no redundant page fetch
+ expect(repo.inbox).toHaveBeenCalledTimes(6); // three session refreshes plus separate authoritative unread pages
  await act(async()=>refresh.resolve(inbox));expect(row.textContent).toContain('알림 유지');
 });
 it.each(['focus','visibilitychange','revision'])('notification %s refresh preserves list DOM until authoritative response',async kind=>{
@@ -39,12 +39,13 @@ it.each(['focus','visibilitychange','revision'])('notification %s refresh preser
  if(kind==='revision')revision();else fireEvent(kind==='focus'?window:document,new Event(kind));
  await act(async()=>vi.advanceTimersByTimeAsync(180));
  expect(screen.getByRole('button',{name:/알림 유지/})).toBe(row);
- await act(async()=>pending.resolve({...emptyInbox}));expect(screen.queryByRole('button',{name:/알림 유지/})).toBeNull();expect(screen.getByText('새로운 공지가 여기에 표시됩니다.')).toBeTruthy();
+ await act(async()=>pending.resolve({...emptyInbox}));expect(screen.queryByRole('button',{name:/알림 유지/})).toBeNull();expect(screen.getByText('새로운 알림이 없습니다.')).toBeTruthy();
 });
 it('filtered inbox keeps its own rows during revision; switching filter never borrows another query',async()=>{
  const repo=notifications(async()=>inbox);await act(async()=>{});open();await act(async()=>{});
+ fireEvent.click(screen.getByRole('button',{name:'전체 기록'}));await act(async()=>{});
  const pending=deferred<Inbox>();vi.mocked(repo.inbox).mockReturnValue(pending.promise);
- fireEvent.click(screen.getByRole('button',{name:'읽지 않음 0'}));expect(screen.queryByRole('button',{name:/알림 유지/})).toBeNull();
+ fireEvent.click(screen.getByRole('button',{name:'읽지 않음 0'}));expect(screen.getByRole('button',{name:/알림 유지/})).toBeTruthy(); // its own previously fetched unread cache
  await act(async()=>pending.resolve(inbox));const row=screen.getByRole('button',{name:/알림 유지/});
  const next=deferred<Inbox>();vi.mocked(repo.inbox).mockReturnValue(next.promise);
  fireEvent.click(screen.getByRole('button',{name:/알림센터, 읽지 않은/}));expect(screen.getByRole('button',{name:/알림 유지/})).toBe(row);

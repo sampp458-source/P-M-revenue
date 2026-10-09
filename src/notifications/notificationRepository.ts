@@ -39,6 +39,7 @@ export const notificationRepository = {
   inbox: (offset = 0, unread = false) => rpc<Inbox>("get_notification_inbox_v1", { p_offset: offset, p_unread_only: unread }),
   detail: (id: string) => rpc<Notice | null>("get_notification_detail_v1", { p_notification_id: id }),
   read: (id: string) => rpc<void>("mark_notification_read_v1", { p_notification_id: id }),
+  readAll: () => rpc<number>("mark_all_notifications_read_v1"),
   acknowledge: (id: string) => rpc<void>("acknowledge_notification_v1", { p_notification_id: id }),
   presented: (ids: string[]) => rpc<void>("mark_notification_popup_presented_v1", { p_notification_ids: ids }),
   targets: () => rpc<Target[]>("get_announcement_targets_v1"),

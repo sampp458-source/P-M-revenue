@@ -20,6 +20,7 @@ beforeEach(() => {
     inbox: vi.fn(async (_offset = 0, unread = false) => ({ ...value, items: (unread ? value.items.filter(n => !n.read_at) : value.items).slice(_offset, _offset + 50) })),
     detail: vi.fn(async id => value.items.find(n => n.id === id) || null),
     read: vi.fn(async id => { value = { ...value, unread_count: 0, items: value.items.map(n => n.id === id ? { ...n, read_at: "2026-09-29T10:00:00Z" } : n) }; }),
+    readAll: vi.fn(async () => 0),
     acknowledge: vi.fn(async id => { value = { ...value, unacknowledged_count: 0, items: value.items.map(n => n.id === id ? { ...n, read_at: "2026-09-29T10:00:00Z", acknowledged_at: "2026-09-29T10:01:00Z" } : n) }; }),
     presented: vi.fn(async () => {}), subscribe: vi.fn((_id, callback) => { signal = callback; return unsubscribe; }),
     targets: vi.fn(async () => [{ id: "u1", name: "작성자" }, { id: "u2", name: "직원 가" }, { id: "u3", name: "직원 나" }]),
@@ -135,6 +136,7 @@ describe("center and sent UX refinement", () => {
     value.items = [notice(), notice("n2", { read_at: "now", ack_required: true }), notice("n3", { read_at: "now", ack_required: true, acknowledged_at: "now" })];
     mount(); await center();
     expect(screen.getByRole("button", { name: /공지 n1/ }).className).toContain("pn-unread");
+    fireEvent.click(screen.getByRole("button", { name: "전체 기록" }));
     const read = screen.getByRole("button", { name: /공지 n2/ });
     expect(read.className).toContain("pn-read");
     expect(within(read).getByText("확인 필요").className).toContain("pn-needs-ack");
@@ -226,7 +228,7 @@ describe("center and sent UX refinement", () => {
     fireEvent.click(screen.getByRole("button", { name: "공지 회수" }));
     await waitFor(() => expect(repo.retract).toHaveBeenCalledTimes(1));
     fireEvent.click(screen.getByRole("button", { name: "받은 알림" }));
-    await screen.findByText("새로운 공지가 여기에 표시됩니다.");
+    await screen.findByText("새로운 알림이 없습니다.");
     expect(screen.queryByRole("button", { name: /공지 n1/ })).toBeNull();
   });
 
