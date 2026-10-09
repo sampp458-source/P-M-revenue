@@ -11,6 +11,7 @@ export const paymentRequestRepository={
  command:(p:PaymentAttempt)=>rpc<{id:string;version:number;status:string}>(commands[p.type][p.action],{p_request_id:p.key,p_expected_version:p.version,p_payload:p.payload,...(p.id?{p_id:p.id}:{})}),
  detail:(type:PaymentType,id:string)=>rpc<PaymentDetail>('get_payment_request_detail_v1',{p_type:type,p_id:id}),
  list:(scope:string,type:string,filter:string,offset:number)=>rpc<{count:number;items:HubRow[]}>('get_request_hub_v1',{p_scope:scope,p_type:type,p_filter:filter,p_offset:offset}),
+ history:(type:string,date:string,offset:number,openOffset=0)=>rpc<{count:number;items:(HubRow&{processed_at:string})[];open:{count:number;items:HubRow[]}}>('get_payment_received_history_v1',{p_type:type,p_date:date,p_offset:offset,p_limit:50,p_open_offset:openOffset}),
  directory:()=>rpc<CapabilityRow[]>('get_payment_request_capability_directory_v1'),
  setCapability:(id:string,capability:string,active:boolean,version:number,key:string)=>rpc<void>('set_payment_request_capability_v1',{p_target_id:id,p_capability:capability,p_active:active,p_expected_version:version,p_request_id:key}),
 };

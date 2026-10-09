@@ -11,7 +11,7 @@ vi.mock('./paymentRequestRepository',async original=>({...await original<typeof 
 vi.mock('../lib/supabase',()=>({supabase:{rpc:vi.fn()}}));
 let item:PaymentDetail;
 const row=()=>({id:item.id,request_type:item.request_type,display_title:'예약금 확인',counterparty:'직원',status:item.status,lifecycle:item.status==='CONFIRMED'?'CLOSED':'OPEN',created_at:'2026-10-08T00:00:00Z',due_at:null});
-function tree(path='/operations/requests',revision=0){return <MemoryRouter initialEntries={[path]}><RequestHubWorkspace userId="reviewer" taskAccess={{enabled:true,can_create:false,owner:false}} paymentAccess={{...emptyPaymentAccess,confirmation_enabled:true,view_all:true}} revision={revision}/></MemoryRouter>;}
+function tree(path='/operations/requests',revision=0){return <MemoryRouter initialEntries={[path+(path.includes('?')?'&':'?')+'paymentView=list']}><RequestHubWorkspace userId="reviewer" taskAccess={{enabled:true,can_create:false,owner:false}} paymentAccess={{...emptyPaymentAccess,confirmation_enabled:true,view_all:true}} revision={revision}/></MemoryRouter>;}
 beforeEach(()=>{item={id:'one',request_type:'PAYMENT_CONFIRMATION_REQUEST',payer_name:'홍길동',dog_name:'보리',reported_amount:100000,requester_name:'직원',handler_name:'대표',status:'REQUESTED',version:1,can_process:true,can_cancel:false};api.list.mockImplementation(async()=>({count:1,items:[row()]}));api.detail.mockImplementation(async()=>({...item}));api.command.mockImplementation(async p=>{item={...item,status:p.action,version:2};return {id:item.id,status:item.status,version:2};});});
 afterEach(()=>{cleanup();vi.resetAllMocks();});
 async function ready(){await screen.findByText('100,000원');await waitFor(()=>expect(screen.getByRole('button',{name:'입금 확인'})).toBeEnabled());}

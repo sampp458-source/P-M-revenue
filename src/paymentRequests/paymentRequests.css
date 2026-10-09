@@ -68,3 +68,10 @@
  .payment-inline-feedback { flex-basis: 100%; }
  .payment-batch-status { align-items: center; }
 }
+
+.payment-history-workspace { margin-block: 16px; min-width: 0; }
+.payment-history-workspace > section { margin-block: 20px; }
+.payment-history-date { display: flex; align-items: end; gap: 12px; margin-block: 12px; flex-wrap: wrap; }
+.payment-history-date label { display: grid; gap: 4px; }
+.payment-history-date button,.payment-history-date input { min-height: 44px; }
+@media (max-width: 640px) { .payment-history-date { gap: 8px; } .payment-history-date label { order: -1; width: 100%; } }
