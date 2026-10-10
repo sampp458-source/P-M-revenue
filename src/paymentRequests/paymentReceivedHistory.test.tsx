@@ -62,3 +62,23 @@ it('inline snapshot holds an out-of-range page until explicit refresh',async()=>
  await act(async()=>{fireEvent(window,new Event('focus'));fireEvent(document,new Event('visibilitychange'));});expect(api.history).toHaveBeenCalledTimes(1);expect(screen.getByText('처리 대기 51건')).toBeInTheDocument();
  fireEvent.click(screen.getByRole('button',{name:'결제 목록 갱신'}));await screen.findByText('처리 대기 50건');expect(api.history).toHaveBeenCalledTimes(3);expect(api.history).toHaveBeenLastCalledWith('PAYMENT_CONFIRMATION_REQUEST','2026-10-08',0,0);
 });
+it('single-page empty queues hide pagination without changing server offsets',async()=>{
+ api.list.mockResolvedValue({count:0,items:[]});api.history.mockResolvedValue({open:{count:0,items:[]},count:0,items:[]});view();
+ await screen.findByText('처리 대기 0건');expect(screen.queryByRole('navigation',{name:'처리 대기 페이지'})).toBeNull();expect(screen.queryByRole('navigation',{name:'처리 이력 페이지'})).toBeNull();
+ expect(api.history).toHaveBeenCalledWith('PAYMENT_CONFIRMATION_REQUEST','2026-10-08',0,0);
+ expect(screen.getByLabelText('처리 날짜 (한국 시간)')).toHaveValue('2026-10-08');
+});
+it('one toolbar keeps integrated history and explicit mixed-list access',async()=>{
+ render(<MemoryRouter><RequestHubWorkspace userId="actor" taskAccess={{enabled:true,can_create:false,owner:false}} paymentAccess={{...emptyPaymentAccess,confirmation_enabled:true}} revision={0}/></MemoryRouter>);
+ await screen.findByText('완료 업무');expect(screen.queryByRole('navigation',{name:'결제 목록 보기'})).toBeNull();
+ fireEvent.change(screen.getByLabelText('목록 보기'),{target:{value:'list'}});
+ await waitFor(()=>expect(api.list).toHaveBeenLastCalledWith('inbox','ALL','all',0));expect(screen.queryByRole('region',{name:'결제 처리 대기 및 이력'})).toBeNull();
+ fireEvent.change(screen.getByLabelText('상태'),{target:{value:'done'}});
+ await waitFor(()=>expect(api.list).toHaveBeenLastCalledWith('inbox','ALL','done',0));
+ fireEvent.change(screen.getByLabelText('목록 보기'),{target:{value:'history'}});
+ await screen.findByText('처리 이력 30건');expect(screen.queryByRole('region',{name:'처리 대기'})).toBeNull();expect(screen.getByLabelText('상태')).toHaveValue('done');expect(screen.getByText('완료 업무')).toBeInTheDocument();
+});
+it('single-page mixed Task history stays available without unnecessary pagination',async()=>{
+ render(<MemoryRouter><RequestHubWorkspace userId="actor" taskAccess={{enabled:true,can_create:false,owner:false}} paymentAccess={{...emptyPaymentAccess,confirmation_enabled:true}} revision={0}/></MemoryRouter>);
+ await screen.findByText('완료 업무');expect(document.querySelector('.pt-list-region + .pt-pagination')).toBeNull();
+});

@@ -75,3 +75,52 @@
 .payment-history-date label { display: grid; gap: 4px; }
 .payment-history-date button,.payment-history-date input { min-height: 44px; }
 @media (max-width: 640px) { .payment-history-date { gap: 8px; } .payment-history-date label { order: -1; width: 100%; } }
+
+/* Request Hub only: shared controls, full-width work queues and compact empty states. */
+.pt-task-page.pt-request-hub { width: 100%; max-width: 1184px; gap: 20px; }
+.pt-request-hub .pt-page-header { align-items: center; }
+.pt-request-hub .pt-page-header h1 { margin-bottom: 4px; letter-spacing: -.025em; }
+.pt-request-hub .pt-page-header p { margin: 0; }
+.pt-request-hub .pt-workspace-region { gap: 20px; min-height: 320px; }
+.pt-request-hub .pt-page-tabs { padding: 0; border-bottom: 1px solid #e1e6ee; gap: 4px; }
+.pt-request-hub .pt-page-tabs button { border: 0; border-radius: 8px 8px 0 0; padding: 12px 20px; }
+.pt-request-hub .pt-page-tabs button[aria-pressed=true] { background: #edf2fc; color: #2854cc; box-shadow: inset 0 -2px #2854cc; }
+.pt-request-hub .payment-filters { display: flex; gap: 16px; margin: 0; padding: 16px 20px; background: #fff; border: 1px solid #e1e6ee; border-radius: 12px; }
+.pt-request-hub .payment-filters label { flex: 1 1 180px; max-width: 280px; font-size: 12px; font-weight: 600; color: #657184; }
+.pt-request-hub .payment-filters select { width: 100%; min-height: 44px; font-size: 14px; color: #182332; }
+.pt-request-hub .payment-history-workspace { margin: 0; display: grid; gap: 16px; }
+.pt-request-hub .payment-list-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pt-request-hub h2 { font-size: 18px; line-height: 26px; font-weight: 700; margin: 0; }
+.pt-request-hub .payment-list-heading > p { margin: 0; color: #657184; font-size: 13px; }
+.pt-request-hub .payment-history-section { margin: 0; padding: 20px; border: 1px solid #e1e6ee; border-radius: 12px; background: #fff; min-width: 0; }
+.pt-request-hub .payment-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 16px; }
+.pt-request-hub .payment-section-heading h3 { font-size: 16px; line-height: 24px; font-weight: 700; margin: 0; }
+.pt-request-hub .payment-section-heading p { margin: 0; font-size: 12px; }
+.pt-request-hub .payment-history-date { margin: 0; display: grid; grid-template-columns: 44px minmax(0,180px) 44px; align-items: end; gap: 6px; }
+.pt-request-hub .payment-history-date label { width: auto; order: 0; font-size: 11px; color: #657184; }
+.pt-request-hub .payment-history-date button { padding: 0; font-size: 24px; line-height: 1; background: #fff; }
+.pt-request-hub .payment-history-date input { width: 100%; box-sizing: border-box; font-size: 13px; color: #182332; }
+.pt-request-hub .payment-empty { display: grid; align-content: center; justify-items: center; gap: 6px; min-height: 44px; margin: 0; padding: 10px 0; background: transparent; border-radius: 0; color: #536171; font-size: 14px; text-align: center; }
+.pt-request-hub .payment-empty span { font-size: 12px; color: #657184; }
+.pt-request-hub .pt-list-region { min-height: 0; display: grid; gap: 12px; }
+.pt-request-hub .pt-pagination { justify-content: flex-end; margin-top: 16px; }
+.pt-request-hub .payment-refresh-status { height: 20px; line-height: 20px; font-size: 11px; text-align: right; }
+.pt-request-hub .payment-inline-card { min-width: 0; }
+@media (max-width: 767px) {
+ .pt-task-page.pt-request-hub { gap: 16px; }
+ .pt-request-hub .pt-page-header { flex-direction: row; gap: 12px; }
+ .pt-request-hub .pt-page-header h1 { font-size: 24px; }
+ .pt-request-hub .pt-page-header button { padding-inline: 12px; }
+ .pt-request-hub .pt-page-tabs button { flex: 1; padding-inline: 8px; font-size: 13px; }
+ .pt-request-hub .payment-filters { gap: 12px; padding: 12px; }
+ .pt-request-hub .payment-filters label { flex: 1 1 120px; max-width: none; }
+ .pt-request-hub .payment-history-section { padding: 16px; }
+ .pt-request-hub .payment-history-heading { align-items: start; }
+ .pt-request-hub .payment-history-date { width: 100%; grid-template-columns: 44px minmax(0,1fr) 44px; }
+ .pt-request-hub .payment-empty { min-height: 44px; padding: 10px 0; font-size: 13px; }
+ .pt-request-hub .payment-section-heading p { line-height: 1.6; }
+}
+
+.pt-request-hub .pt-list-region > .payment-list-heading { justify-content: flex-start; }
+.pt-request-hub .pt-list-region > .payment-empty { min-height: 28px; }
+.pt-request-hub .payment-section-heading h3 { white-space: nowrap; }
