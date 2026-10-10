@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { calculateOperationTodaySummary, type OperationSchedule } from "./operationsScheduleRepository";
+import { scheduleBusiness } from "./operationSchedulePresentation";
 import { DaycareReservationModal, validateDaycareReservationInput } from "./DaycareReservationModal";
 
 const mocks = vi.hoisted(() => ({
@@ -29,8 +31,8 @@ vi.mock("./hotelOperationsRepository", async (importOriginal) => ({
 }));
 
 const options = {
-  calendars: [{ id: "daycare-calendar", name: "Daycare", businessUnitCode: "daycare", businessUnitName: "데이케어", scopeType: "business_unit", color: "#06b6d4", sortOrder: 1 }],
-  scheduleTypes: [{ id: "daycare-type", name: "데이케어", calendarIds: ["daycare-calendar"] }],
+  calendars: [{ id: "kindergarten", name: "유치원", businessUnitCode: "daycare", businessUnitName: "유치원", scopeType: "business_unit", color: "#06b6d4", sortOrder: 0 }, { id: "daycare-calendar", name: "Hotel", businessUnitCode: "hotel", businessUnitName: "데이케어", scopeType: "business_unit", color: "#06b6d4", sortOrder: 1 }],
+  scheduleTypes: [{ id: "checkin-out", name: "입실·퇴실", calendarIds: ["daycare-calendar"] }, { id: "5cadf20b-021a-4948-a5dd-471677f51d21", name: "호텔 데이케어", calendarIds: ["daycare-calendar"] }],
   customers: [{ id: "customer-1", name: "보호자", phone: "01012345678" }],
   dogs: [{ id: "dog-1", customerId: "customer-1", name: "감자" }],
   assignees: [{ id: "staff-1", name: "담당자" }],
@@ -50,6 +52,17 @@ afterEach(() => {
 });
 
 describe("Daycare V1 common form", () => {
+  it("classifies by actual calendar business identity, preserving kindergarten and hotel events", () => {
+    const schedules = [
+      { id: "new-daycare", businessUnitCode: "hotel", calendarId: "hotel", title: "임의 제목" },
+      { id: "kindergarten", businessUnitCode: "daycare", calendarId: "kindergarten", title: "데이케어 문자열" },
+      { id: "checkin", businessUnitCode: "hotel", calendarId: "hotel", hotelEventKind: "check_in" },
+      { id: "checkout", businessUnitCode: "hotel", calendarId: "hotel", hotelEventKind: "check_out" },
+    ] as OperationSchedule[];
+    expect(scheduleBusiness(schedules[0]).label).toBe("호텔");
+    expect(scheduleBusiness(schedules[1]).label).toBe("유치원");
+    expect(calculateOperationTodaySummary(schedules).counts).toMatchObject({ hotel: 3, daycare: 1 });
+  });
   it("validates one same-day service block with required exact times and room type", () => {
     const base = { calendarId: "c", scheduleTypeId: "t", customerId: "customer", dogId: "dog", serviceDate: "2026-08-14", checkInTime: "10:00", checkOutTime: "18:00", roomTypeId: "deluxe", roomId: null, assigneeIds: ["staff"], memo: "" };
     expect(validateDaycareReservationInput(base)).toBe("");
@@ -86,9 +99,41 @@ describe("Daycare V1 common form", () => {
     fireEvent.click(screen.getByRole("button", { name: /예약 저장/ }));
     await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
     expect(mocks.create.mock.calls[0][0]).toMatchObject({
+      calendarId: "daycare-calendar", scheduleTypeId: "5cadf20b-021a-4948-a5dd-471677f51d21",
       customerId: "customer-1", dogId: "dog-1", serviceDate: "2026-08-14",
       checkInTime: "10:00", checkOutTime: "18:00", roomTypeId: "deluxe", roomId: null,
     });
+  });
+
+
+  it("fails closed when the dedicated hotel daycare type is unavailable", async () => {
+    mocks.options.mockResolvedValue({ ...options, scheduleTypes: [options.scheduleTypes[0]] });
+    mocks.snapshot.mockResolvedValue(snapshot);
+    render(<DaycareReservationModal open prefill={{ customerId: "customer-1", dogId: "dog-1" }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await waitFor(() => expect((screen.getByLabelText("객실 유형") as HTMLSelectElement).value).toBe("deluxe"));
+    fireEvent.click(screen.getByRole("button", { name: /예약 저장/ }));
+    expect(await screen.findByText("호텔 데이케어 캘린더와 일정 유형을 확인해 주세요.")).not.toBeNull();
+    expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("uses the hotel calendar/type on edit while preserving room, times, assignees and version", async () => {
+    mocks.options.mockResolvedValue(options);
+    mocks.snapshot.mockResolvedValue(snapshot);
+    mocks.update.mockResolvedValue({ operationScheduleId: "edited" });
+    const reservation = {
+      operationScheduleId: "edited", calendarId: "kindergarten", scheduleTypeId: "class",
+      startsAt: "2026-08-14T02:00:00Z", endsAt: "2026-08-14T05:00:00Z",
+      customer: { id: "customer-1" }, dog: { id: "dog-1" }, roomTypeId: "deluxe",
+      roomAllocation: { roomId: "room-1" }, assignees: [{ id: "staff-1" }], memo: "유지", version: 4,
+    } as Parameters<typeof DaycareReservationModal>[0]["reservation"];
+    render(<DaycareReservationModal open reservation={reservation} onClose={vi.fn()} onSaved={vi.fn()} />);
+    await waitFor(() => expect((screen.getByLabelText("객실 유형") as HTMLSelectElement).value).toBe("deluxe"));
+    fireEvent.click(screen.getByRole("button", { name: /예약 저장/ }));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1));
+    expect(mocks.update.mock.calls[0]).toEqual(["edited", 4, expect.objectContaining({
+      calendarId: "daycare-calendar", scheduleTypeId: "5cadf20b-021a-4948-a5dd-471677f51d21",
+      checkInTime: "11:00", checkOutTime: "14:00", roomId: "room-1", memo: "유지", assigneeIds: ["staff-1"],
+    })]);
   });
 
   it("wires Calendar, Customer, Dog, Hotel Operations, and Room Board to the shared domain", () => {

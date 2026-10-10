@@ -39,8 +39,8 @@ const dogs = [
   { id: "dog-2", name: "보리", customerId: "customer-2", breed: "말티즈", sex: "female" as const },
 ];
 const options = {
-  calendars: [{ id: "daycare", name: "데이케어", businessUnitCode: "daycare", businessUnitName: "데이케어", scopeType: "business_unit", color: "#06b6d4", sortOrder: 1 }],
-  scheduleTypes: [{ id: "daycare-type", name: "데이케어", calendarIds: ["daycare"], color: "#06b6d4", sortOrder: 1 }],
+  calendars: [{ id: "daycare", name: "데이케어", businessUnitCode: "hotel", businessUnitName: "데이케어", scopeType: "business_unit", color: "#06b6d4", sortOrder: 1 }],
+  scheduleTypes: [{ id: "5cadf20b-021a-4948-a5dd-471677f51d21", name: "호텔 데이케어", calendarIds: ["daycare"], color: "#06b6d4", sortOrder: 1 }],
   customers,
   dogs,
   assignees: [{ id: "staff-1", name: "담당자" }],

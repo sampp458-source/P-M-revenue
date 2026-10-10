@@ -26,6 +26,7 @@ export function validateDaycareReservationInput(
   if (selectedDog?.customerId && selectedDog.customerId !== input.customerId) {
     return "선택한 보호자와 반려견 정보가 일치하지 않습니다.";
   }
+  if (!input.calendarId || !input.scheduleTypeId) return "호텔 데이케어 캘린더와 일정 유형을 확인해 주세요.";
   if (!input.serviceDate) return "데이케어 날짜를 선택해 주세요.";
   if (!input.checkInTime || !input.checkOutTime) return "입실·퇴실 시간을 입력해 주세요.";
   if (input.checkOutTime <= input.checkInTime) return "퇴실 시간은 입실 시간보다 늦어야 합니다.";
@@ -117,9 +118,8 @@ export function DaycareReservationForm({
       .then(([nextOptions, nextSnapshot]) => {
         setOptions(nextOptions);
         setSnapshot(nextSnapshot);
-        if (reservation) return;
-        const calendar = nextOptions.calendars.find((item) => item.businessUnitCode === "daycare");
-        const scheduleType = nextOptions.scheduleTypes.find((item) => item.calendarIds?.includes(calendar?.id ?? ""));
+        const calendar = nextOptions.calendars.find((item) => item.businessUnitCode === "hotel");
+        const scheduleType = nextOptions.scheduleTypes.find((item) => item.id === "5cadf20b-021a-4948-a5dd-471677f51d21" && item.calendarIds?.includes(calendar?.id ?? ""));
         setInput((current) => ({
           ...current,
           customerId:
@@ -127,8 +127,8 @@ export function DaycareReservationForm({
             current.customerId,
           calendarId: calendar?.id ?? "",
           scheduleTypeId: scheduleType?.id ?? "",
-          roomTypeId: nextSnapshot.roomTypes[0]?.id ?? "",
-          assigneeIds: current.assigneeIds.length ? current.assigneeIds : nextOptions.assignees[0]?.id ? [nextOptions.assignees[0].id] : [],
+          roomTypeId: reservation ? current.roomTypeId : nextSnapshot.roomTypes[0]?.id ?? "",
+          assigneeIds: reservation ? current.assigneeIds : current.assigneeIds.length ? current.assigneeIds : nextOptions.assignees[0]?.id ? [nextOptions.assignees[0].id] : [],
         }));
       })
       .catch(() => setError("Daycare 예약 정보를 불러오지 못했습니다."))
