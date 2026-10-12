@@ -124,3 +124,20 @@
 .pt-request-hub .pt-list-region > .payment-list-heading { justify-content: flex-start; }
 .pt-request-hub .pt-list-region > .payment-empty { min-height: 28px; }
 .pt-request-hub .payment-section-heading h3 { white-space: nowrap; }
+
+/* Received workflow uses one server-paginated queue; advanced views retain their layout. */
+.pt-request-hub .payment-simple-toolbar {display:flex;flex-direction:column;gap:14px;margin-bottom:20px;}
+.pt-request-hub .payment-simple-heading {display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.pt-request-hub .payment-simple-heading h2 {font-size:20px;font-weight:700;color:#24364c;margin:0;}
+.pt-request-hub .payment-simple-heading button {min-height:44px;padding:9px 15px;border:1px solid #ccd7e4;border-radius:10px;background:white;color:#25496e;font-weight:600;}
+.pt-request-hub .payment-type-buttons {display:flex;gap:8px;flex-wrap:wrap;}
+.pt-request-hub .payment-type-buttons button {display:flex;align-items:center;gap:8px;min-height:44px;border:1px solid #d9e1eb;border-radius:10px;padding:9px 14px;background:white;color:#526174;}
+.pt-request-hub .payment-type-buttons button[aria-pressed=true] {background:#edf4fb;border-color:#9bbad8;color:#24547f;font-weight:700;}
+.pt-request-hub .payment-type-buttons span {font-variant-numeric:tabular-nums;font-size:12px;}
+.pt-request-hub .payment-advanced-link {align-self:flex-end;color:#657184;font-size:12px;min-height:32px;}
+@media(max-width:640px){.pt-request-hub .payment-simple-heading h2 {font-size:18px;}.pt-request-hub .payment-type-buttons button {padding:8px 12px;}.pt-request-hub .payment-simple-heading button {padding:8px 10px;font-size:13px;}}
+.pt-request-hub .payment-simple-toolbar {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;margin-bottom:0;}
+.pt-request-hub .payment-simple-heading {grid-column:1/-1;justify-content:flex-end;flex-wrap:wrap;}
+.pt-request-hub .payment-simple-heading h2 {margin-right:auto;}
+.pt-request-hub .payment-advanced-link {align-self:center;}
+.pt-request-hub .payment-simple-list-heading {display:none;}

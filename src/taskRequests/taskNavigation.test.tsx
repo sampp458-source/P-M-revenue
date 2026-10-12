@@ -57,7 +57,7 @@ it('Payment-only source preserves Request Hub navigation without Task runtime',a
  vi.mocked(paymentRequestRepository.access).mockResolvedValue({...emptyPaymentAccess,payment_enabled:true});
  vi.spyOn(paymentRequestRepository,'list').mockResolvedValue({count:0,items:[]});
  render(root('/operations/requests'));
- await screen.findByLabelText('유형');
+ await screen.findByRole('navigation',{name:'요청 유형'});
  expect(screen.getAllByRole('link',{name:'요청'}).length).toBeGreaterThan(0);
  expect(screen.queryByRole('option',{name:'업무'})).toBeNull();
 });
