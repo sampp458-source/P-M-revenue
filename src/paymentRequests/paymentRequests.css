@@ -141,3 +141,16 @@
 .pt-request-hub .payment-simple-heading h2 {margin-right:auto;}
 .pt-request-hub .payment-advanced-link {align-self:center;}
 .pt-request-hub .payment-simple-list-heading {display:none;}
+
+/* Compact, confirmed-empty received workflow. Existing cards and other scopes are unchanged. */
+.pt-request-hub .payment-global-empty {display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:136px;padding:24px 16px;border:1px solid #e1e6ee;border-radius:12px;background:#fff;text-align:center;}
+.pt-request-hub .payment-global-empty strong {font-size:15px;font-weight:600;color:#34465c;}
+.pt-request-hub .payment-global-empty span {font-size:13px;color:#657184;line-height:1.6;}
+.pt-request-hub .payment-zero-toolbar {position:relative;grid-template-columns:minmax(0,1fr) auto;}
+.pt-request-hub .payment-zero-toolbar .payment-simple-heading {display:contents;}
+.pt-request-hub .payment-zero-toolbar h2 {grid-column:1;grid-row:1;align-self:center;}
+.pt-request-hub .payment-zero-toolbar .payment-simple-heading > button:not(.payment-refresh-action) {grid-column:2;grid-row:1;}
+.pt-request-hub .payment-zero-toolbar .payment-refresh-action {grid-column:1;grid-row:2;justify-self:start;background:transparent;border:0;padding:0;color:#657184;font-size:12px;min-height:32px;}
+.pt-request-hub .payment-zero-toolbar .payment-advanced-link {grid-column:2;grid-row:2;}
+.pt-request-hub .pt-workspace-region:has(.payment-zero-toolbar) {min-height:0;align-content:start;}
+@media(max-width:640px){.pt-request-hub .payment-global-empty {min-height:128px;padding:22px 14px;}.pt-request-hub .payment-zero-toolbar .payment-refresh-action,.pt-request-hub .payment-zero-toolbar .payment-advanced-link {min-height:44px;}}
