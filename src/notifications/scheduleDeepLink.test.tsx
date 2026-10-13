@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor, act } from "@testing-libra
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import App from "../App";
+import type { OperationSchedule } from "../pages/operationsScheduleRepository";
 import { markModuleGateComplete } from "../app/moduleState";
 import { ModuleProvider } from "../app/ModuleContext";
 import { NotificationProvider } from "./NotificationProvider";
@@ -12,10 +13,11 @@ const auth = vi.hoisted(() => ({ user: { id: "self", email: "test@example.test" 
 vi.mock("../auth/AuthContext", () => ({ useAuth: () => auth }));
 vi.mock("../lib/supabase", () => ({ supabase: {} }));
 vi.mock("./webPushClient", () => ({ webPushEnabled: false }));
+const reminderSchedules=vi.hoisted(()=>({items:[] as OperationSchedule[]}));
 vi.mock("../pages/operationsScheduleRepository", async importOriginal => ({
   ...await importOriginal<object>(),
   fetchOperationScheduleOptions: vi.fn(async () => ({ calendars: [], scheduleTypes: [], assignees: [], dogs: [], customers: [] })),
-  fetchOperationSchedulesForRange: vi.fn(async () => []),
+  fetchOperationSchedulesForRange: vi.fn(async () => reminderSchedules.items),
   fetchCurrentOperationRole: vi.fn(async () => "owner"),
 }));
 let item: Notice;
@@ -29,7 +31,7 @@ function Root({ path = "/select-module" }: { path?: string }) {
   return <StrictMode><MemoryRouter initialEntries={[path]}><ModuleProvider><NotificationProvider enabled><Observer /><App /></NotificationProvider></ModuleProvider></MemoryRouter></StrictMode>;
 }
 beforeEach(() => {
-  localStorage.clear(); sessionStorage.clear(); routes=[]; auth.loading=false;
+  localStorage.clear(); sessionStorage.clear(); routes=[]; auth.loading=false; reminderSchedules.items=[];
   item={id:"notice",announcement_id:null,category:"SCHEDULE",deep_link_type:"SCHEDULE_DAY",deep_link_id:"00000000-0000-4000-8000-000000000001",schedule_local_date:"2026-10-04",title:"오늘 일정 1건이 있습니다.",message:"2026. 10. 04. · 나의 예정 일정",priority:"NORMAL",ack_required:false,created_at:"2026-10-04T12:00:00Z",read_at:null,acknowledged_at:null,popup_presented_at:null,revoked_at:null,expires_at:null};
   vi.spyOn(notificationRepository,"inbox").mockImplementation(async () => ({...emptyInbox,items:[item],unread_count:item.read_at?0:1}));
   vi.spyOn(notificationRepository,"subscribe").mockReturnValue(() => {});
@@ -79,4 +81,15 @@ it("normal Calendar entry has no notification drawer",()=>{
 
 it("notification navigation replaces history instead of adding a return-to-gate entry",async()=>{
   render(<Root/>);await tap();await destination();fireEvent.click(screen.getByRole('button',{name:'history back'}));expect(screen.getByTestId('route').textContent).toBe('/operations/calendar?notification_date=2026-10-04');
+});
+
+it("reminder center row keeps the existing Schedule Day navigation/read contract",async()=>{
+  item={...item,title:'일정 시작 전 알림',message:'2026. 10. 04. 09:00',deep_link_type:'SCHEDULE',expires_at:'2099-10-04T00:00:00Z'};
+  reminderSchedules.items=[{id:item.deep_link_id!,calendarId:'calendar',calendarName:'교육센터',calendarColor:'#4568B2',calendarScope:'business_unit',businessUnitCode:'training',businessUnitName:'교육센터',scheduleTypeId:'type',scheduleTypeName:'수업',scheduleTypeColor:'#4568B2',title:'Synthetic reminder schedule',memo:null,startsAt:'2026-10-04T00:00:00Z',endsAt:'2026-10-04T01:00:00Z',allDay:false,timeUnspecified:false,status:'scheduled',version:1,requestId:'request',createdBy:'self',createdByName:'테스트',createdAt:'2026-10-01T00:00:00Z',updatedBy:'self',updatedByName:'테스트',updatedAt:'2026-10-01T00:00:00Z',archivedAt:null,assignees:[],dogs:[],customers:[]}];
+  render(<Root/>);
+  fireEvent.click(await screen.findByRole('button',{name:/알림센터, 읽지 않은/}));
+  fireEvent.click(await screen.findByRole('button',{name:/일정 시작 전 알림/}));
+  await destination();expect(notificationRepository.read).toHaveBeenCalledWith('notice');
+  fireEvent.click(await screen.findByRole('button',{name:/Synthetic reminder schedule/}));
+  await screen.findByRole('dialog',{name:'일정 상세'});
 });

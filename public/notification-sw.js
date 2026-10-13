@@ -10,7 +10,7 @@ function pushBody(data) {
   const tasks = { TASK_REQUEST_ASSIGNED: "새 업무요청이 도착했습니다.", TASK_REQUEST_COMPLETED: "요청한 업무가 완료되었습니다.", TASK_REQUEST_CANCELLED: "업무요청이 취소되었습니다." };
   if (data.event_type === "TASK_REQUEST_OVERDUE") return data.task_audience === "requester" ? "요청한 업무가 아직 완료되지 않았습니다." : "완료되지 않은 업무요청이 있습니다.";
   if (Object.prototype.hasOwnProperty.call(tasks,data.event_type)) return tasks[data.event_type];
-  const labels = { ANNOUNCEMENT: "새 공지가 도착했습니다.", SCHEDULE_ASSIGNED: "새 일정이 등록되었습니다.", SCHEDULE_UPDATED: "일정이 변경되었습니다.", SCHEDULE_COMPLETED: "일정이 완료 처리되었습니다.", SCHEDULE_CANCELLED: "일정이 취소되었습니다." };
+  const labels = { ANNOUNCEMENT: "새 공지가 도착했습니다.", SCHEDULE_REMINDER: "곧 시작할 일정이 있습니다.", SCHEDULE_ASSIGNED: "새 일정이 등록되었습니다.", SCHEDULE_UPDATED: "일정이 변경되었습니다.", SCHEDULE_COMPLETED: "일정이 완료 처리되었습니다.", SCHEDULE_CANCELLED: "일정이 취소되었습니다." };
   if (data.event_type === "DAILY_SCHEDULE_SUMMARY" && Number.isSafeInteger(data.summary_count) && data.summary_count > 0) return `오늘 일정 ${data.summary_count}건이 있습니다.`;
   return (Object.prototype.hasOwnProperty.call(labels, data.event_type) ? labels[data.event_type] : null) || (data.deep_link_type === "ANNOUNCEMENT" ? labels.ANNOUNCEMENT : "새 알림이 도착했습니다.");
 }
@@ -18,6 +18,9 @@ self.addEventListener("push", event => {
   let data;
   try { data = event.data?.json(); } catch { return; }
   if (!valid(data)) return;
+  // Provider TTL is relative to acceptance, so also suppress a late reminder
+  // using its encrypted UTC deadline. Device clock accuracy is an OS boundary.
+  if (data.event_type === "SCHEDULE_REMINDER" && (!Number.isFinite(Date.parse(data.expires_at || "")) || Date.parse(data.expires_at) <= Date.now())) return;
   event.waitUntil(self.registration.showNotification("P&M OS", {
     body: pushBody(data),
     icon: "/android-chrome-192x192.png", badge: "/android-chrome-192x192.png",

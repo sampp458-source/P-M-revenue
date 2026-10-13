@@ -59,3 +59,19 @@ it('subscriptionchange retires unauthenticated replacement and notifies open cli
 it('invalid JSON push cannot surface arbitrary text',()=>{
   const s=sw();s.listeners.push({data:{json:()=>{throw Error('bad json');}},waitUntil:vi.fn()});expect(s.showNotification).not.toHaveBeenCalled();
 });
+
+describe('Schedule reminder Service Worker integration',()=>{
+  it('renders private reminder and preserves the center route',async()=>{
+    const s=sw();let pending:Promise<unknown>|undefined;
+    const reminder={...payload,deep_link_type:'CENTER',event_type:'SCHEDULE_REMINDER',expires_at:'2099-10-13T00:00:00Z'};
+    s.listeners.push({data:{json:()=>reminder},waitUntil:(p:Promise<unknown>)=>pending=p});await pending;
+    expect(s.showNotification).toHaveBeenCalledWith('P&M OS',expect.objectContaining({body:'곧 시작할 일정이 있습니다.',tag:`pnm-${payload.notification_id}`,renotify:false}));
+    s.listeners.notificationclick({notification:{close:vi.fn(),data:reminder},waitUntil:(p:Promise<unknown>)=>pending=p});await pending;
+    expect(s.openWindow).toHaveBeenCalledWith(`https://example.test/select-module?push_notification=${payload.notification_id}`);
+  });
+});
+
+it.each([undefined,'bad','2000-01-01T00:00:00Z'])('actual SW suppresses missing/expired reminder deadline %s',expires_at=>{
+  const s=sw();s.listeners.push({data:{json:()=>({...payload,deep_link_type:'CENTER',event_type:'SCHEDULE_REMINDER',expires_at})},waitUntil:vi.fn()});
+  expect(s.showNotification).not.toHaveBeenCalled();
+});

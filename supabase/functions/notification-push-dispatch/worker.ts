@@ -1,6 +1,6 @@
 // @deno-types="npm:@types/web-push@3.6.4"
 import webpush from "web-push";
-export type Delivery = { notification_id: string; deep_link_type: string; deep_link_id: string; category: string; event_type?: string; task_audience?: string; summary_count?: number; endpoint: string; p256dh: string; auth: string };
+export type Delivery = { notification_id: string; deep_link_type: string; deep_link_id: string; category: string; event_type?: string; task_audience?: string; summary_count?: number; endpoint: string; p256dh: string; auth: string; expires_at?: string };
 export type Claim = { delivery_id: string; token: string };
 export type Rpc = <T>(name: string, args: Record<string, unknown>) => Promise<T>;
 export type Vapid = { subject: string; publicKey: string; privateKey: string };
@@ -19,16 +19,23 @@ export function pushTemplate(d: Pick<Delivery, "category" | "event_type" | "summ
   }
   if ((d.category === 'PAYMENT_CONFIRMATION_REQUEST' && ['PAYMENT_CONFIRMATION_UPDATED','PAYMENT_CONFIRMATION_REQUESTED','PAYMENT_CONFIRMATION_CONFIRMED','PAYMENT_CONFIRMATION_NOT_FOUND','PAYMENT_CONFIRMATION_CANCELLED','PAYMENT_CONFIRMATION_ADMIN_CANCELLED'].includes(d.event_type || '')) || (d.category === 'PAYMENT_REQUEST' && ['PAYMENT_REQUEST_REQUESTED','PAYMENT_REQUEST_COMPLETED','PAYMENT_REQUEST_REJECTED','PAYMENT_REQUEST_CANCELLED','PAYMENT_REQUEST_ADMIN_CANCELLED'].includes(d.event_type || ''))) return { event_type: d.event_type };
   if (d.category !== "SCHEDULE") throw new Error("INVALID_PUSH_CATEGORY");
-  if (["SCHEDULE_ASSIGNED", "SCHEDULE_UPDATED", "SCHEDULE_COMPLETED", "SCHEDULE_CANCELLED"].includes(d.event_type || "")) return { event_type: d.event_type };
+  if (["SCHEDULE_REMINDER", "SCHEDULE_ASSIGNED", "SCHEDULE_UPDATED", "SCHEDULE_COMPLETED", "SCHEDULE_CANCELLED"].includes(d.event_type || "")) return { event_type: d.event_type };
   if (d.event_type === "DAILY_SCHEDULE_SUMMARY" && Number.isSafeInteger(d.summary_count) && d.summary_count! > 0) return { event_type: d.event_type, summary_count: d.summary_count };
   throw new Error("INVALID_PUSH_TEMPLATE");
 }
+export function reminderTTL(d: Pick<Delivery, "event_type" | "expires_at">, now = Date.now()): number {
+  if (d.event_type !== "SCHEDULE_REMINDER") return 300;
+  const expiry = Date.parse(d.expires_at || "");
+  const ttl = Math.floor((expiry - now) / 1000);
+  if (!Number.isFinite(ttl) || ttl < 1) throw new Error("REMINDER_EXPIRED");
+  return Math.min(300, ttl);
+}
 export function encryptedRequest(d: Delivery, vapid: Vapid) {
   if (!safeEndpoint(d.endpoint)) throw new Error("INVALID_ENDPOINT");
-  const payload = JSON.stringify({ ...pushTemplate(d), v: 1, notification_id: d.notification_id,
+  const payload = JSON.stringify({ ...pushTemplate(d), ...(d.event_type === "SCHEDULE_REMINDER" ? { expires_at: d.expires_at } : {}), v: 1, notification_id: d.notification_id,
     deep_link_type: d.deep_link_type === "ANNOUNCEMENT" ? "ANNOUNCEMENT" : "CENTER", deep_link_id: d.deep_link_id });
   return webpush.generateRequestDetails({ endpoint: d.endpoint, keys: { p256dh: d.p256dh, auth: d.auth } }, payload,
-    { vapidDetails: vapid, TTL: 300, urgency: "normal", topic: d.notification_id.replaceAll("-", ""), contentEncoding: "aes128gcm" });
+    { vapidDetails: vapid, TTL: reminderTTL(d), urgency: "normal", topic: d.notification_id.replaceAll("-", ""), contentEncoding: "aes128gcm" });
 }
 export function resultForStatus(status: number) {
   if (status >= 200 && status < 300) return "SENT";
@@ -45,13 +52,13 @@ export async function dispatch(rpc: Rpc, vapid: Vapid, send: typeof fetch = fetc
       try {
         const req = encryptedRequest(d, vapid);
         const response = await send(d.endpoint, { method: "POST", headers: req.headers as Record<string, string>,
-          body: new Uint8Array(req.body as Uint8Array), redirect: "error", signal: AbortSignal.timeout(8000) });
+          body: new Uint8Array(req.body as Uint8Array), redirect: "error", signal: AbortSignal.timeout(d.event_type === "SCHEDULE_REMINDER" ? Math.max(1, Math.min(8000, Date.parse(d.expires_at!) - Date.now())) : 8000) });
         result = resultForStatus(response.status);
         const value = response.headers.get("retry-after");
         if (value && /^\d+$/.test(value)) retry = Math.min(3600, Number(value));
         await response.body?.cancel();
-      } catch {
-        result = safeEndpoint(d.endpoint) ? "RETRY" : "PERMANENT";
+      } catch (error) {
+        result = d.event_type === "SCHEDULE_REMINDER" && ((error instanceof Error && error.message === "REMINDER_EXPIRED") || !Number.isFinite(Date.parse(d.expires_at || "")) || Date.parse(d.expires_at!) <= Date.now()) ? "CANCELLED" : safeEndpoint(d.endpoint) ? "RETRY" : "PERMANENT";
       }
     }
     const saved = await rpc<boolean>("finish_notification_push_delivery_v1", {

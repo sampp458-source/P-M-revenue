@@ -2,7 +2,7 @@ import { createECDH, randomBytes, hkdfSync, createDecipheriv } from "node:crypto
 // @deno-types="npm:@types/web-push@3.6.4"
 import webpush from "web-push";
 import { Buffer } from "node:buffer";
-import { dispatch, encryptedRequest, handler, pushTemplate, resultForStatus, safeEndpoint, type Delivery, type Rpc } from "./worker.ts";
+import { dispatch, reminderTTL, encryptedRequest, handler, pushTemplate, resultForStatus, safeEndpoint, type Delivery, type Rpc } from "./worker.ts";
 function assert(value: unknown) { if (!value) throw new Error("Assertion failed"); }
 const ecdh = createECDH("prime256v1"); ecdh.generateKeys();
 const vapid = { ...webpush.generateVAPIDKeys(), subject: "mailto:qa@example.com" };
@@ -110,4 +110,41 @@ Deno.test("administrative close uses event-only payload and never crosses paymen
    let rejected=false;try{pushTemplate({...dirty,category:other});}catch{rejected=true;}assert(rejected);
   }
  }
+});
+
+Deno.test("reminder template and TTL never exceed start; legacy TTL unchanged", () => {
+  const now=Date.now();
+  assert(reminderTTL({event_type:"SCHEDULE_REMINDER",expires_at:new Date(now+45000).toISOString()},now)===45);
+  assert(reminderTTL({event_type:"SCHEDULE_REMINDER",expires_at:new Date(now+900000).toISOString()},now)===300);
+  assert(reminderTTL({event_type:"ANNOUNCEMENT"},now)===300);
+  assert(pushTemplate({category:"SCHEDULE",event_type:"SCHEDULE_REMINDER"}).event_type==="SCHEDULE_REMINDER");
+  for(const expiry of [undefined,"bad",new Date(now).toISOString(),new Date(now-1).toISOString()]){
+    let threw=false;try{reminderTTL({event_type:"SCHEDULE_REMINDER",expires_at:expiry},now);}catch{threw=true;}assert(threw);
+  }
+});
+Deno.test("expired reminder never contacts provider and finishes CANCELLED", async()=>{
+  let sends=0;let result="";
+  const rpc:Rpc=async<T>(name:string,args:Record<string,unknown>)=>{
+    if(name.startsWith("claim"))return [{delivery_id:"d",token:"t"}] as T;
+    if(name.startsWith("get"))return {...delivery,category:"SCHEDULE",event_type:"SCHEDULE_REMINDER",expires_at:new Date(Date.now()-1000).toISOString()} as T;
+    result=String(args.p_result);return true as T;
+  };
+  await dispatch(rpc,vapid,async()=>{sends++;return new Response(null,{status:201});});
+  assert(sends===0 && result==="CANCELLED");
+});
+Deno.test("actual encrypted reminder sends generic template with bounded TTL",()=>{
+  const req=encryptedRequest({...delivery,category:"SCHEDULE",event_type:"SCHEDULE_REMINDER",expires_at:new Date(Date.now()+90000).toISOString()},vapid);
+  assert(Number(req.headers.TTL)>0 && Number(req.headers.TTL)<=90);
+  assert(!new TextDecoder().decode(req.body as Uint8Array).includes("SCHEDULE_REMINDER"));
+});
+
+Deno.test("subsecond reminder TTL cancels rather than retrying without a provider request",async()=>{
+  let sends=0;let result="";
+  const rpc:Rpc=async<T>(name:string,args:Record<string,unknown>)=>{
+    if(name.startsWith("claim"))return [{delivery_id:"d",token:"t"}] as T;
+    if(name.startsWith("get"))return {...delivery,category:"SCHEDULE",event_type:"SCHEDULE_REMINDER",expires_at:new Date(Date.now()+700).toISOString()} as T;
+    result=String(args.p_result);return true as T;
+  };
+  await dispatch(rpc,vapid,async()=>{sends++;return new Response(null,{status:201});});
+  assert(sends===0&&result==="CANCELLED");
 });
