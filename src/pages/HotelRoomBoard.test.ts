@@ -517,7 +517,8 @@ describe("Hotel Room Board", () => {
     expect(page).toContain("changeRoomTypeAfterCheckIn(");
     expect(page).not.toContain("from(\"hotel_room_allocations\")");
     expect(page).toContain("호실을 변경할 수 없습니다");
-    expect(page).toContain("해당 기간에 다른 예약이 있습니다.");
+    expect(page).toContain("message: error.message");
+    expect(page).toContain("확인 코드:");
     expect(page).toContain("카드 위치는 변경되지 않았습니다.");
     expect(page).toContain("객실 배정을 해제할까요?");
     expect(page).toContain("예약은 유지되며 호실 미배정 상태로 이동합니다.");

@@ -73,6 +73,7 @@ import {
   canManageHotelSettings,
   canOperateHotel,
 } from "./hotelOperationCapabilities";
+import { OverdueDaycarePanel } from "./OverdueDaycarePanel";
 import { DaycareOperationsPanel } from "./DaycareOperationsPanel";
 import {
   fetchDaycareOperationsForDate,
@@ -230,7 +231,8 @@ function roomDropErrorToast(error: unknown): HotelToast {
     if (error.kind === "room_conflict") {
       return {
         title: "호실을 변경할 수 없습니다",
-        message: "해당 기간에 다른 예약이 있습니다. 다른 호실을 선택해 주세요.",
+        message: error.message,
+        description: error.diagnostics ? `확인 코드: ${error.diagnostics.requestId} · ${error.code ?? "UNKNOWN"}` : undefined,
         tone: "error",
       };
     }
@@ -950,7 +952,7 @@ export function HotelOperationsPage() {
     const action = !allocation
       ? () => assignHotelRoom(stay.id, stay.version, roomId, "Room Board 드래그 배정", operationRequestId)
       : stay.checkedInAt
-        ? () => moveHotelRoomSameType(stay.id, stay.version, roomId, new Date().toISOString(), "Room Board 드래그 이동", operationRequestId)
+        ? () => moveHotelRoomSameType(stay.id, stay.version, roomId, new Date().toISOString(), "Room Board 드래그 이동", operationRequestId, allocation?.id)
         : () => reassignHotelRoomBeforeCheckIn(stay.id, stay.version, roomId, "Room Board 드래그 재배정", operationRequestId);
     void executeRoomBoardAction(
       stay,
@@ -1282,6 +1284,7 @@ export function HotelOperationsPage() {
                       new Date().toISOString(),
                       "Room Board 호실 이동 되돌리기",
                       requestId(),
+                      activeHotelAllocation(latestStay)?.id,
                     )
                 : undo.kind === "change_before"
                   ? () =>
@@ -1449,7 +1452,9 @@ export function HotelOperationsPage() {
         attentionCount={isPast ? new Set(currentSharedReads?.history?.unavailable.map(item => item.stayId) ?? []).size : attentionItems.length}
         attention={isPast ? (currentSharedReads?.history?.unavailable.length ? <HistoricalBoardWarning history={currentSharedReads.history} onOpenStay={id => void openStay(id)} /> : <p className="hotel-attention-empty">선택일에 확인 필요로 반환된 기록이 없습니다. 전체 이력 검증 완료를 의미하지 않습니다.</p>) : <HotelAttentionQueue items={attentionItems} disabled={!presentationReady || processing} showEmpty />}
         schedule={<HotelDayOperationsTimeline items={dayItems} />}
-        rooms={<HotelRoomBoard
+        rooms={<>
+      {dateMode === "TODAY" ? <OverdueDaycarePanel refreshKey={snapshot} onChanged={() => loadSnapshot(selectedDate).then(() => undefined)} /> : null}
+        <HotelRoomBoard
         attention={<HotelAttentionQueue items={attentionItems} disabled={!presentationReady || processing} />}
         completedSharedStays={currentSharedReads?.completed}
         completedSharedError={currentSharedReads?.error}
@@ -1480,7 +1485,7 @@ export function HotelOperationsPage() {
         onCancelSharedGroup={setCancelSharedGroupId}
         onUnassignStay={requestUnassignRoom}
         onUnassignSharedOccupancy={requestUnassignSharedOccupancy}
-      />}
+      /></>}
         modules={<>
       {!isPast ? <DaycareOperationsPanel
         reservations={daycareReservations}
@@ -1772,7 +1777,7 @@ export function HotelOperationsPage() {
               setPendingRoomBoardAction({ kind: "change_type", stayId: detail.id, roomId, effectiveAt: moveAt, useCurrentTime: false, reason });
               return;
             }
-            void runStayMutation(() => moveHotelRoomSameType(detail.id, detail.version, roomId, moveAt, reason, requestId()), "객실 이동을 기록했습니다.");
+            void runStayMutation(() => moveHotelRoomSameType(detail.id, detail.version, roomId, moveAt, reason, requestId(), activeHotelAllocation(detail)?.id), "객실 이동을 기록했습니다.");
           }} />
           {!detailSharedOccupancy && needsMissedCheckInRecovery(detail) ? (
             <HotelMissedCheckInRecoveryModal open={modal === "checkin"} stay={detail} processing={processing} onClose={() => setModal(null)} onSubmit={(at, roomId, version, capacityVersion, recoveryRequestId) => runStayMutation(

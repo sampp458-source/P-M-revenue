@@ -95,7 +95,9 @@ const throwDaycareError = (error: {
   }
   if (error.code === "23P01") {
     throw new DaycareRepositoryError(
-      "선택한 시간에 이미 사용 중인 호실입니다.",
+      error.message === "실제 퇴실 구간과 다른 객실 배정 이력이 겹칩니다. 이력을 확인해 주세요."
+        || error.message === "실제 퇴실 구간에 다른 점유 기록이 있거나 종료 근거가 부족합니다. 점유 이력을 확인해 주세요."
+        ? error.message : "선택한 시간에 이미 사용 중인 호실입니다.",
       "room_conflict",
       error.code,
     );
@@ -261,4 +263,31 @@ export function fetchDaycareOperationsForDate(localDate: string) {
   return rpc<DaycareReservation[]>("get_daycare_operations_for_date", {
     p_local_date: localDate,
   });
+}
+
+export interface OverdueDaycareReservation {
+  operationScheduleId: string;
+  version: number;
+  startsAt: string;
+  checkedInAt: string;
+  checkedOutAt: null;
+  dog: { name: string };
+  roomAllocation: { roomId: string; roomName: string } | null;
+}
+
+export function completeVerifiedDaycareCheckOut(
+  scheduleId: string, expectedVersion: number, checkedOutAt: string,
+  confirmed: boolean, requestId: string,
+) {
+  return rpc<{ operationScheduleId: string; version: number; checkedOutAt: string; recordedAt: string }>(
+    "complete_verified_daycare_check_out_v1", {
+      p_operation_schedule_id: scheduleId, p_expected_version: expectedVersion,
+      p_checked_out_at: checkedOutAt, p_request_id: requestId, p_confirmed: confirmed,
+    },
+  );
+}
+
+/** Canonical actual holds only; independent of the selected service date. */
+export function fetchOverdueDaycareOperations() {
+  return rpc<OverdueDaycareReservation[]>("get_overdue_daycare_operations_v1", {});
 }

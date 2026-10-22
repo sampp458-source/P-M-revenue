@@ -14,8 +14,9 @@ const originalHashes = {
   "src/pages/CustomerManagement.tsx": "e9e00cac2485547c556329504c0de5a4ad3b4146f16cdae36aa0038adf7f896a",
   "src/pages/DashboardDB.tsx": "ceb8be51c2d57c8dabe9a6d0ea46f2a176b23219126dcb24055bd67647f392c2",
   "src/pages/HotelHistoricalRoomGrid.tsx": "1319e5ba934d2e36a8116517505c53ca0df5606ab994dff4758e5d6fb59c5a96",
-  // Legacy physical carryover: canonical current room / unresolved safety attention. No CSS change.
-  "src/pages/HotelOperations.tsx": "6819151e31b37dc79a35bcc906caea78bb8cf995b9937cf7284ca563ae399fa2",
+  // Room failure copy now preserves the server-classified reason and request reference.
+  // Diagnostics and today-only overdue recovery visibility are covered by hotelRoomMoveDiagnostics / OverdueDaycarePanel; existing commands/guards and CSS are unchanged.
+  "src/pages/HotelOperations.tsx": "50fc34ba62bf366fb2ea75b1d4924ec2abbd67f8f30d8c3c00b9d01dfdcf55f1",
   "src/pages/HotelOperationsWorkspace.tsx": "62876b46fc4021a1d3c34a6fece777ee42a9469e0b75af979b56a37426ee1cbd",
   "src/pages/HotelRoomBoard.tsx": "aa98fde3db8e75e5b0f51fdb78532140b2bc7510dc3286da84533a7172772d1a",
   "src/pages/HotelRoomBoardPresentation.tsx": "e63f5c43f536a98cb730b389d8809d99cf3db4b2ae3d8d7195b2ae27c85a34e1",

@@ -243,6 +243,17 @@ export type HotelRepositoryErrorKind =
   | "unavailable";
 
 export class HotelOperationsRepositoryError extends Error {
+  /** Local command evidence only; never render raw details or send telemetry. */
+  diagnostics?: {
+    rpc: string;
+    requestId: string;
+    stayId: string;
+    sourceAllocationId?: string;
+    targetRoomId: string;
+    effectiveAt: string;
+    expectedVersion: number;
+    server: SupabaseErrorLike | null;
+  };
   constructor(
     message: string,
     public readonly kind: HotelRepositoryErrorKind,
@@ -253,10 +264,18 @@ export class HotelOperationsRepositoryError extends Error {
   }
 }
 
+// Bounded local support evidence. No console, storage, telemetry or customer payload.
+let lastRoomMoveDiagnostic: HotelOperationsRepositoryError["diagnostics"];
+export function getLastHotelRoomMoveDiagnostic() {
+  return lastRoomMoveDiagnostic ? structuredClone(lastRoomMoveDiagnostic) : null;
+}
+
 interface SupabaseErrorLike {
   code?: string;
   message?: string;
   details?: string;
+  hint?: string;
+  constraint?: string;
 }
 
 function throwHotelError(error: SupabaseErrorLike | null) {
@@ -284,7 +303,11 @@ function throwHotelError(error: SupabaseErrorLike | null) {
     /room.*conflict|room.*overlap|호실.*충돌|allocation.*overlap/i.test(raw)
   ) {
     throw new HotelOperationsRepositoryError(
-      "선택한 호실은 예약 기간과 충돌합니다. 다른 호실을 선택해 주세요.",
+      error.message?.trim() === "실제 퇴실이 완료되지 않은 호실입니다."
+        ? "해당 객실에 실제 퇴실이 완료되지 않은 이용 기록이 있습니다. 이용 상태를 확인해 주세요."
+        : error.message?.trim() === "선택한 기간에 이미 사용 중인 호실입니다."
+          ? "이동 시각 이후 배정 기간에 다른 객실 배정이 있습니다. 다른 호실을 선택해 주세요."
+          : "객실 이동을 완료하지 못했습니다. 최신 객실 상태와 확인 코드를 확인해 주세요.",
       "room_conflict",
       code,
     );
@@ -329,7 +352,28 @@ function throwHotelError(error: SupabaseErrorLike | null) {
 
 async function rpc<T>(name: string, args: Record<string, unknown>) {
   const result = await supabase.rpc(name, args);
-  throwHotelError(result.error);
+  try {
+    throwHotelError(result.error);
+  } catch (error) {
+    if (name === "move_hotel_room_same_type" && error instanceof HotelOperationsRepositoryError) {
+      error.diagnostics = {
+        rpc: name,
+        requestId: String(args.p_request_id),
+        stayId: String(args.p_hotel_stay_id),
+        targetRoomId: String(args.p_new_room_id),
+        effectiveAt: String(args.p_move_at),
+        expectedVersion: Number(args.p_expected_version),
+        server: result.error ? {
+          code: result.error.code,
+          message: result.error.message,
+          details: result.error.details,
+          hint: result.error.hint,
+          constraint: (result.error as SupabaseErrorLike).constraint,
+        } : null,
+      };
+    }
+    throw error;
+  }
   return result.data as T;
 }
 
@@ -472,6 +516,7 @@ export function moveHotelRoomSameType(
   moveAt: string,
   reason: string,
   requestId: string,
+  sourceAllocationId?: string,
 ) {
   return rpc<HotelStay>("move_hotel_room_same_type", {
     p_hotel_stay_id: hotelStayId,
@@ -480,6 +525,12 @@ export function moveHotelRoomSameType(
     p_move_at: moveAt,
     p_reason: reason || null,
     p_request_id: requestId,
+  }).catch((error: unknown) => {
+    if (error instanceof HotelOperationsRepositoryError && error.diagnostics) {
+      error.diagnostics.sourceAllocationId = sourceAllocationId;
+      lastRoomMoveDiagnostic = structuredClone(error.diagnostics);
+    }
+    throw error;
   });
 }
 

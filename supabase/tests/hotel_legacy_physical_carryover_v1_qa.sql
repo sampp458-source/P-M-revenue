@@ -1,3 +1,4 @@
+-- Transaction-stable KST today/tomorrow for current projections; fixed historical dates below are immutable cutover evidence.
 -- Synthetic, socket-only fixture. No Production connection or identifiers.
 BEGIN;
 DO $$ BEGIN IF current_database()<>'single_checkin_fixture_016' OR inet_server_addr() IS NOT NULL THEN RAISE EXCEPTION 'LOCAL_ONLY'; END IF; END $$;
@@ -52,10 +53,10 @@ SELECT jsonb_build_object('selectedDateUnassigned',j->'selectedDateUnassigned',
  'totalCapacity',j->'totalCapacity','unassignedRoomTypeCount',j->'unassignedRoomTypeCount',
  'roomTypes',(SELECT jsonb_agg(t-'checkedInNow'-'allocatedNow'-'physicallyEmpty') FROM jsonb_array_elements(j->'roomTypes') t))
 $$;
-SELECT pg_temp.ok(pg_temp.capacity_payload(get_hotel_operations_snapshot_v2('2026-09-28'))=pg_temp.capacity_payload(qa_old_snapshot_v2('2026-09-28')),'current v2 selected-date fields identical to predecessor base');
-SELECT pg_temp.ok(EXISTS(SELECT 1 FROM jsonb_array_elements(get_hotel_operations_snapshot_v2('2026-09-28')->'stays') s WHERE s->>'id'=pg_temp.f(101)::text AND s->'currentPhysicalRoom'->>'state'='occupied' AND s->'currentPhysicalRoom'->>'date'='2026-09-28' AND s->'currentPhysicalRoom'->'allocation'->>'roomId'=pg_temp.f(11)::text),'current v2 preserves Benger legacy physical field');
-SELECT pg_temp.ok(NOT (get_hotel_operations_snapshot_v2('2026-09-28')->'selectedDateUnassigned'->'singleStayIds' ? pg_temp.f(101)::text),'current v2 does not reclassify checked-in Benger as selected unassigned');
-SELECT pg_temp.ok(pg_temp.capacity_payload(get_hotel_operations_snapshot_v2('2026-09-29'))=pg_temp.capacity_payload(qa_old_snapshot_v2('2026-09-29')),'future v2 capacity fields preserved');
+SELECT pg_temp.ok(pg_temp.capacity_payload(get_hotel_operations_snapshot_v2((now() AT TIME ZONE 'Asia/Seoul')::date))=pg_temp.capacity_payload(qa_old_snapshot_v2((now() AT TIME ZONE 'Asia/Seoul')::date)),'current v2 selected-date fields identical to predecessor base');
+SELECT pg_temp.ok(EXISTS(SELECT 1 FROM jsonb_array_elements(get_hotel_operations_snapshot_v2((now() AT TIME ZONE 'Asia/Seoul')::date)->'stays') s WHERE s->>'id'=pg_temp.f(101)::text AND s->'currentPhysicalRoom'->>'state'='occupied' AND s->'currentPhysicalRoom'->>'date'=((now() AT TIME ZONE 'Asia/Seoul')::date)::text AND s->'currentPhysicalRoom'->'allocation'->>'roomId'=pg_temp.f(11)::text),'current v2 preserves Benger legacy physical field');
+SELECT pg_temp.ok(NOT (get_hotel_operations_snapshot_v2((now() AT TIME ZONE 'Asia/Seoul')::date)->'selectedDateUnassigned'->'singleStayIds' ? pg_temp.f(101)::text),'current v2 does not reclassify checked-in Benger as selected unassigned');
+SELECT pg_temp.ok(pg_temp.capacity_payload(get_hotel_operations_snapshot_v2((now() AT TIME ZONE 'Asia/Seoul')::date+1))=pg_temp.capacity_payload(qa_old_snapshot_v2((now() AT TIME ZONE 'Asia/Seoul')::date+1)),'future v2 capacity fields preserved');
 -- Canonical Single -> Shared merge shape: primary capacity converts in place,
 -- secondary capacity/allocation is archived, active membership owns one DELUXE room.
 SAVEPOINT before_shared_transition;
@@ -171,5 +172,5 @@ SELECT pg_temp.ok(NOT EXISTS(SELECT 1 FROM hotel_legacy_physical_anchors_interna
 -- Snapshot uses the same server resolution; past/future carry no current projection.
 SELECT pg_temp.ok(EXISTS(SELECT 1 FROM jsonb_array_elements(get_hotel_operations_snapshot((now() AT TIME ZONE 'Asia/Seoul')::date)->'stays') s WHERE s->>'id'=pg_temp.f(103)::text AND s->'currentPhysicalRoom'->'allocation'->>'roomId'=pg_temp.f(21)::text),'snapshot merges canonical current return');
 SELECT pg_temp.ok(NOT EXISTS(SELECT 1 FROM jsonb_array_elements(get_hotel_operations_snapshot('2026-09-24')->'stays') s WHERE s ? 'currentPhysicalRoom'),'past snapshot untouched');
-SELECT pg_temp.ok(NOT EXISTS(SELECT 1 FROM jsonb_array_elements(get_hotel_operations_snapshot('2026-09-30')->'stays') s WHERE s ? 'currentPhysicalRoom'),'future snapshot untouched');
+SELECT pg_temp.ok(NOT EXISTS(SELECT 1 FROM jsonb_array_elements(get_hotel_operations_snapshot((now() AT TIME ZONE 'Asia/Seoul')::date+1)->'stays') s WHERE s ? 'currentPhysicalRoom'),'future snapshot untouched');
 ROLLBACK;
