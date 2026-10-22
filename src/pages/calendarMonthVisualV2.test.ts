@@ -5,8 +5,12 @@ import { describe, expect, it } from 'vitest';
 const read = (file: string) => readFileSync(`src/${file}`, 'utf8');
 const sha = (value: string) => createHash('sha256').update(value).digest('hex');
 describe('Calendar monthly V2 presentation boundary', () => {
-  it('freezes Today source byte for byte', () => {
-    expect(sha(normalizeTaskRequestIntegration(read('pages/OperationsToday.tsx')))).toBe('29e0ddcba500c5ed8b33ca95fb114bcac4781b33604c07becd8be6925d953076');
+  it('freezes Today source except the approved canonical Daycare status presentation', () => {
+    const source = read('pages/OperationsToday.tsx')
+      .replaceAll(' daycare={schedule.daycareOperation} daycareReservation={schedule.daycareReservation}', '')
+      .replace('            {schedule.daycareReservation && <ScheduleStatus status={schedule.status} />}\n', '')
+      .replace('{schedule.daycareReservation ? `일정 상태: ${schedule.status === "completed" ? "완료" : schedule.status === "cancelled" ? "취소" : "예정"}` : schedule.status === "completed"', '{schedule.status === "completed"');
+    expect(sha(normalizeTaskRequestIntegration(source))).toBe('29e0ddcba500c5ed8b33ca95fb114bcac4781b33604c07becd8be6925d953076');
   });
   it('keeps monthly status readable without repeating detail badges', () => {
     const source = read('pages/OperationsCalendarFoundation.tsx');

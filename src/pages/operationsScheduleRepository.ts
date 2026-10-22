@@ -34,6 +34,12 @@ export interface OperationDog extends OperationPerson {
   sex?: "male" | "female" | null;
 }
 
+export interface DaycareScheduleOperation {
+  lifecycleStatus: "scheduled" | "checked_in" | "completed" | "cancelled";
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
+}
+
 export interface OperationSchedule {
   id: string;
   calendarId: string;
@@ -68,6 +74,7 @@ export interface OperationSchedule {
   hotelSharedRoom?: boolean;
   hotelRoomResolutionStatus?: HotelRoomResolutionStatus | null;
   daycareReservation?: boolean;
+  daycareOperation?: DaycareScheduleOperation | null;
   assignees: OperationPerson[];
   dogs: OperationDog[];
   customers: OperationCustomer[];
@@ -597,16 +604,23 @@ async function attachDaycareReservationIdentity(
   if (scheduleIds.length === 0) return schedules;
   const result = await supabase
     .from("daycare_operation_states")
-    .select("operation_schedule_id")
+    .select("operation_schedule_id, lifecycle_status, checked_in_at, checked_out_at")
     .in("operation_schedule_id", scheduleIds);
   throwScheduleError(result.error);
-  const daycareIds = new Set(
-    (result.data ?? []).map((row) => row.operation_schedule_id),
-  );
-  return schedules.map((schedule) => ({
-    ...schedule,
-    daycareReservation: daycareIds.has(schedule.id),
-  }));
+  const states = new Map((result.data ?? []).map((row) => [row.operation_schedule_id, row]));
+  return schedules.map((schedule) => {
+    const state = states.get(schedule.id);
+    const knownStatus = state && ["scheduled", "checked_in", "completed", "cancelled"].includes(state.lifecycle_status);
+    return {
+      ...schedule,
+      daycareReservation: Boolean(state),
+      daycareOperation: knownStatus ? {
+        lifecycleStatus: state.lifecycle_status as DaycareScheduleOperation["lifecycleStatus"],
+        checkedInAt: state.checked_in_at ?? null,
+        checkedOutAt: state.checked_out_at ?? null,
+      } : null,
+    };
+  });
 }
 
 async function attachOperationDomainLinks(schedules: OperationSchedule[]) {

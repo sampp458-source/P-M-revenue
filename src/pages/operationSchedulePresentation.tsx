@@ -20,8 +20,21 @@ export function ScheduleBusinessMarker({ schedule }: { schedule: OperationSchedu
   const business = scheduleBusiness(schedule);
   return <span className="pm-schedule-business"><i aria-hidden="true" style={{ backgroundColor: business.color }} />{business.label}</span>;
 }
-export function ScheduleStatus({ status }: { status: OperationSchedule['status'] }) {
-  return <span className="pm-schedule-status" data-status={status}>{status === 'completed' ? '완료' : status === 'cancelled' ? '취소' : '예정'}</span>;
+export function daycareScheduleStatus(operation: OperationSchedule['daycareOperation']) {
+  if (!operation) return null;
+  const { lifecycleStatus, checkedInAt, checkedOutAt } = operation;
+  const entered = checkedInAt !== null && Number.isFinite(Date.parse(checkedInAt));
+  const exited = checkedOutAt !== null && Number.isFinite(Date.parse(checkedOutAt));
+  if (lifecycleStatus === 'cancelled' && !checkedInAt && !checkedOutAt) return { label: '취소', tone: 'cancelled' };
+  if (lifecycleStatus === 'completed' && entered && exited && Date.parse(checkedOutAt!) >= Date.parse(checkedInAt!)) return { label: '퇴실 완료', tone: 'completed' };
+  if (lifecycleStatus === 'checked_in' && entered && !checkedOutAt) return { label: '이용중', tone: 'scheduled' };
+  if (lifecycleStatus === 'scheduled' && !checkedInAt && !checkedOutAt) return { label: '예정', tone: 'scheduled' };
+  return { label: '입퇴실 확인 필요', tone: 'scheduled' };
+}
+
+export function ScheduleStatus({ status, daycare, daycareReservation = false }: { status: OperationSchedule['status']; daycare?: OperationSchedule['daycareOperation']; daycareReservation?: boolean }) {
+  const operational = daycareScheduleStatus(daycare) ?? (daycareReservation ? { label: '입퇴실 확인 필요', tone: 'scheduled' } : null);
+  return <span className="pm-schedule-status" data-status={operational?.tone ?? status} data-daycare-state={daycare?.lifecycleStatus}>{operational?.label ?? (status === 'completed' ? '완료' : status === 'cancelled' ? '취소' : '예정')}</span>;
 }
 export function SchedulePeople({ schedule }: { schedule: OperationSchedule }) {
   return <div className="pm-schedule-people" data-room-attention={Boolean(schedule.status === "scheduled" && schedule.hotelEventKind && (schedule.hotelRoomResolutionStatus === "unavailable" || schedule.hotelRoomResolutionStatus === "unknown"))}>

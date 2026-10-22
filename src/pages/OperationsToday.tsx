@@ -1342,7 +1342,7 @@ function ScheduleRow({
         </div>
       </div>
       <span className="pm-today-event-status flex flex-col items-end gap-2">
-        <ScheduleStatus status={schedule.status} />
+        <ScheduleStatus status={schedule.status} daycare={schedule.daycareOperation} daycareReservation={schedule.daycareReservation} />
         <span className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted transition-[color,background-color,transform] duration-[160ms] ease-out group-hover:translate-x-0.5 group-hover:bg-primary-soft group-hover:text-primary">
           <ChevronRight size={17} />
         </span>
@@ -2248,8 +2248,9 @@ export function ScheduleDetailModal({
       <div className="relative flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-start sm:justify-between">
         <div className="pr-14 sm:pr-0">
           <div className="flex flex-wrap gap-2">
+            {schedule.daycareReservation && <ScheduleStatus status={schedule.status} daycare={schedule.daycareOperation} daycareReservation={schedule.daycareReservation} />}
             <Badge tone="gray">
-              {schedule.status === "completed"
+              {schedule.daycareReservation ? `일정 상태: ${schedule.status === "completed" ? "완료" : schedule.status === "cancelled" ? "취소" : "예정"}` : schedule.status === "completed"
                 ? "완료"
                 : schedule.status === "cancelled"
                   ? "취소"
