@@ -1487,13 +1487,15 @@ export function HotelOperationsPage() {
         onUnassignSharedOccupancy={requestUnassignSharedOccupancy}
       /></>}
         modules={<>
-      {!isPast ? <DaycareOperationsPanel
+      <DaycareOperationsPanel
+        historicalOnly={isPast}
+        canAdminReconcile={profile?.role === "admin" && isHotelOperator}
         reservations={daycareReservations}
         snapshot={snapshot}
         onChanged={async () => {
           await loadSnapshot(selectedDate);
         }}
-      /> : null}
+      />
 
       <LongStayOperationsPanel
         readOnly={isPast}

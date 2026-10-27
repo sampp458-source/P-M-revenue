@@ -4,7 +4,8 @@ export type DaycareLifecycleStatus =
   | "scheduled"
   | "checked_in"
   | "completed"
-  | "cancelled";
+  | "cancelled"
+  | "administratively_released";
 
 export interface DaycareReservation {
   operationScheduleId: string;
@@ -24,6 +25,7 @@ export interface DaycareReservation {
   checkedInAt: string | null;
   checkedOutAt: string | null;
   cancelledAt: string | null;
+  administrativeRelease?: { releasedAt: string; releasedBy: string; actualCheckoutKnown: false; reason: string } | null;
   dog: { id: string; name: string; customerId: string | null };
   customer: { id: string; name: string | null; phone: string | null };
   assignees: Array<{ id: string; name: string | null }>;
@@ -290,4 +292,12 @@ export function completeVerifiedDaycareCheckOut(
 /** Canonical actual holds only; independent of the selected service date. */
 export function fetchOverdueDaycareOperations() {
   return rpc<OverdueDaycareReservation[]>("get_overdue_daycare_operations_v1", {});
+}
+
+/** One atomic command: no transient current occupancy is manufactured for a historical visit. */
+export function recordVerifiedDaycareVisit(id: string, version: number, checkedInAt: string, checkedOutAt: string, confirmed: boolean, requestId: string) {
+  return rpc<DaycareReservation>("record_verified_daycare_visit_v1", {p_operation_schedule_id:id,p_expected_version:version,p_checked_in_at:checkedInAt,p_checked_out_at:checkedOutAt,p_request_id:requestId,p_confirmed:confirmed});
+}
+export function administrativelyReleaseDaycareOccupancy(id: string, dogId: string, version: number, reason: string, evidence: string, approval: string, confirmedVacant: boolean, requestId: string) {
+  return rpc<DaycareReservation>("administratively_release_daycare_occupancy_v1", {p_operation_schedule_id:id,p_dog_id:dogId,p_expected_version:version,p_reason:reason,p_evidence:evidence,p_approval:approval,p_confirmed_vacant:confirmedVacant,p_request_id:requestId});
 }

@@ -35,7 +35,7 @@ export interface OperationDog extends OperationPerson {
 }
 
 export interface DaycareScheduleOperation {
-  lifecycleStatus: "scheduled" | "checked_in" | "completed" | "cancelled";
+  lifecycleStatus: "scheduled" | "checked_in" | "completed" | "cancelled" | "administratively_released";
   checkedInAt: string | null;
   checkedOutAt: string | null;
 }
@@ -610,7 +610,7 @@ async function attachDaycareReservationIdentity(
   const states = new Map((result.data ?? []).map((row) => [row.operation_schedule_id, row]));
   return schedules.map((schedule) => {
     const state = states.get(schedule.id);
-    const knownStatus = state && ["scheduled", "checked_in", "completed", "cancelled"].includes(state.lifecycle_status);
+    const knownStatus = state && ["scheduled", "checked_in", "completed", "cancelled", "administratively_released"].includes(state.lifecycle_status);
     return {
       ...schedule,
       daycareReservation: Boolean(state),

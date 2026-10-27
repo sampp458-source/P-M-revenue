@@ -25,6 +25,7 @@ export function daycareScheduleStatus(operation: OperationSchedule['daycareOpera
   const { lifecycleStatus, checkedInAt, checkedOutAt } = operation;
   const entered = checkedInAt !== null && Number.isFinite(Date.parse(checkedInAt));
   const exited = checkedOutAt !== null && Number.isFinite(Date.parse(checkedOutAt));
+  if (lifecycleStatus === 'administratively_released' && entered && !checkedOutAt) return { label: '행정 점유 해제 · 실제 퇴실시각 미확정', tone: 'scheduled' };
   if (lifecycleStatus === 'cancelled' && !checkedInAt && !checkedOutAt) return { label: '취소', tone: 'cancelled' };
   if (lifecycleStatus === 'completed' && entered && exited && Date.parse(checkedOutAt!) >= Date.parse(checkedInAt!)) return { label: '퇴실 완료', tone: 'completed' };
   if (lifecycleStatus === 'checked_in' && entered && !checkedOutAt) return { label: '이용중', tone: 'scheduled' };
