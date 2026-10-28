@@ -55,6 +55,10 @@
  .pm-design-v1.pm-hotel-v1.pm-hotel-v2 .hotel-board-overview+div{padding-inline:0}
  .pm-design-v1.pm-hotel-v1.pm-hotel-v2 .hotel-room-plate-layout{gap:14px}
 }
+/* Scope the 320px scrollbar allowance to Hotel; keep the shared stylesheet frozen. */
+@media (width <= 320px) {
+ html:has(.pm-hotel-v2),body:has(.pm-hotel-v2){min-width:0}
+}
 @media(width < 48rem){
  .pm-design-v1.pm-hotel-v1.pm-hotel-v2 .hotel-command-heading h1{font-size:1.8rem}
  .pm-design-v1.pm-hotel-v1.pm-hotel-v2 .hotel-command-heading p{font-size:.75rem;line-height:1.6}
@@ -225,7 +229,7 @@
 @media(width < 48rem){
  .pm-design-v1.pm-hotel-v1.pm-hotel-v2 .hotel-command-heading>.pm-v1-page-header{flex-direction:row;align-items:center;gap:10px;margin-bottom:0}
  .pm-design-v1.pm-hotel-v1.pm-hotel-v2 .hotel-command-heading>.pm-v1-page-header>div:first-child{min-width:0;flex:1}
- .pm-design-v1.pm-hotel-v1.pm-hotel-v2 .hotel-command-heading>.pm-v1-page-header>div:last-child{flex:none}
+ .pm-design-v1.pm-hotel-v1.pm-hotel-v2 .hotel-command-heading>.pm-v1-page-header>div:last-child:not(:first-child){flex:none}
  .pm-design-v1.pm-hotel-v1.pm-hotel-v2 .hotel-date-controls{gap:6px;align-items:center;background:transparent;border:0;padding:0}
  .pm-design-v1.pm-hotel-v1.pm-hotel-v2 .hotel-date-controls>label{display:flex;align-items:center;gap:8px}
  .pm-design-v1.pm-hotel-v1.pm-hotel-v2 .hotel-board-overview h2{margin-top:0}

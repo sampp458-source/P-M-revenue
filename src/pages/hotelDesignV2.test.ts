@@ -9,7 +9,12 @@ describe('Hotel V2 opt-in and interaction boundary',()=>{
   expect(foundation).not.toContain(':root {');
   for(const css of [foundation,hotel]){
    const clean=css.replace(/\/\*[\s\S]*?\*\//g,'').replace(/@(?:media|layer)[^{}]+\{/g,'');
-   for(const [,selector] of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) expect(selector.trim()).toMatch(/^(\.pm-design|\.bg-app-background:has\(> \.app-sidebar\):has\(\.pm-hotel-v2\))/);
+   for(const [,selector,declarations] of clean.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if(selector.trim()==='html:has(.pm-hotel-v2),body:has(.pm-hotel-v2)') {
+     expect(declarations.trim()).toBe('min-width:0');
+     expect(hotel).toContain('@media (width <= 320px)');
+    } else expect(selector.trim()).toMatch(/^(\.pm-design|\.bg-app-background:has\(> \.app-sidebar\):has\(\.pm-hotel-v2\))/);
+   }
   }
  });
  it('does not override motion transforms, pane visibility or event hit testing',()=>{
