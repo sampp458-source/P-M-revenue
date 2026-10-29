@@ -61,7 +61,11 @@ describe('Operations schedule presentation contract', () => {
     expect(source).toContain('w-full max-w-[560px]');
   });
   it('scopes styling to Today/Calendar and isolates business from status paint', () => {
-    const css = readFileSync('src/operations-schedule-presentation.css', 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/@(?:layer|media)[^{]+\{/g, '');
+    const raw = readFileSync('src/operations-schedule-presentation.css', 'utf8');
+    const narrow320 = '@media(max-width:320px) {\nhtml:has(.pm-design-d:is(.pm-today-v1,.pm-calendar-v1)),body:has(.pm-design-d:is(.pm-today-v1,.pm-calendar-v1)) {min-width:0!important;}\n}';
+    expect(raw).toContain(narrow320);
+    expect(raw).not.toContain('overflow-x:hidden');
+    const css = raw.replace(narrow320,'').replace(/\/\*[\s\S]*?\*\//g, '').replace(/@(?:layer|media)[^{]+\{/g, '');
     for (const [, selector] of css.matchAll(/([^{}]+)\{[^{}]*\}/g)) expect(selector.trim()).toMatch(/^\.pm-design-d(?::is\(\.pm-today-v1,\.pm-calendar-v1\)|\.pm-(?:today|calendar)-v1|\.pm-d-page\.pm-calendar-v1)/);
     expect(css).not.toMatch(/visibility:\s*hidden|pointer-events:\s*none/);
     expect(css).toContain('--pm-d-semantic-mint');

@@ -57,6 +57,10 @@
 .pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-month-schedule[data-daycare=true] {grid-template-columns:minmax(0,1fr)!important;}
 .pm-design-d.pm-d-page.pm-calendar-v1.pm-calendar-v2.pm-d-rollout2 .pm-month-schedule[data-daycare=true] .pm-month-state {grid-column:1!important;grid-row:3!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;font-size:11px!important;}
 .pm-design-d:is(.pm-today-v1,.pm-calendar-v1) .pm-schedule-status[data-daycare-state=administratively_released] {min-width:0!important;max-width:100%!important;white-space:normal!important;overflow-wrap:anywhere!important;}
+/* Fit the actual 320px viewport including its vertical scrollbar, only on schedule pages. */
+@media(max-width:320px) {
+html:has(.pm-design-d:is(.pm-today-v1,.pm-calendar-v1)),body:has(.pm-design-d:is(.pm-today-v1,.pm-calendar-v1)) {min-width:0!important;}
+}
 /* Actionability applies only to interactive Today/day-drawer rows, never month cells. */
 .pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page :is(.pm-today-event,.pm-schedule-day-row) {--pm-schedule-strength:1;}
 .pm-design-d:is(.pm-today-v1,.pm-calendar-v1).pm-d-page :is(.pm-today-event,.pm-schedule-day-row)[data-status=completed] {--pm-schedule-strength:.74;}
