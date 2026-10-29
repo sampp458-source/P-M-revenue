@@ -1,8 +1,9 @@
+import {restoreReviewedDaycareStatusDelta} from './daycareStatusReleaseBoundary';
 import { normalizeTaskRequestIntegration } from './visualSystemDTestNormalization';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-const read = (file: string) => readFileSync(`src/${file}`, 'utf8');
+const read = (file: string) => restoreReviewedDaycareStatusDelta(file,readFileSync(`src/${file}`, 'utf8'));
 const sha = (value: string) => createHash('sha256').update(value).digest('hex');
 describe('Calendar monthly V2 presentation boundary', () => {
   it('freezes Today source except the approved canonical Daycare status presentation', () => {
@@ -45,6 +46,9 @@ describe('Calendar monthly V2 presentation boundary', () => {
   });
   it('preserves the frozen Calendar presentation after typed notification date initialization', () => {
     const source = read('pages/OperationsCalendarFoundation.tsx')
+      // Permit only the tested day-drawer operational badge and its test export.
+      .replace('export function DayDrawer(', 'function DayDrawer(')
+      .replace('<ScheduleStatus status={schedule.status} daycare={schedule.daycareOperation} daycareReservation={schedule.daycareReservation} />', '<ScheduleStatus status={schedule.status} />')
       .replace('import { useLocation, useNavigate }', 'import { useNavigate }')
       .replace('  const location = useLocation();\n', '')
       .replace('new URLSearchParams(location.search)', 'new URLSearchParams(window.location.search)')

@@ -1,6 +1,7 @@
+import {useScheduleOperationalRefresh} from './useScheduleOperationalRefresh';
 import { validScheduleDate } from "../notifications/scheduleNotificationNavigation";
 import "../operations-schedule-presentation.css";
-import { scheduleBusiness, ScheduleBusinessMarker, SchedulePeople, ScheduleStatus, MobileCalendarStatusLegend, MobileCalendarStatusSummary } from "./operationSchedulePresentation";
+import { effectiveScheduleStatus, scheduleBusiness, ScheduleBusinessMarker, SchedulePeople, ScheduleStatus, MobileCalendarStatusLegend, MobileCalendarStatusSummary } from "./operationSchedulePresentation";
 import "../design-system-v2.css";
 import "../calendar-design-v2.css";
 import {
@@ -247,6 +248,8 @@ export function OperationsCalendarFoundationPage() {
       setLoading(false);
     }
   }, [options, rangeEnd, rangeStart]);
+
+  useScheduleOperationalRefresh(loadMonth);
 
   useEffect(() => {
     void loadMonth();
@@ -971,7 +974,7 @@ function CalendarCell({
   );
 }
 
-function MonthScheduleCard({
+export function MonthScheduleCard({
   schedule,
   currentUserId,
 }: {
@@ -983,19 +986,19 @@ function MonthScheduleCard({
     : operationScheduleDisplayTitle(schedule) || schedule.dogs[0]?.name || "제목 없음";
   const isMine = isOperationScheduleAssignedTo(schedule, currentUserId);
   return (
-    <div className="pm-calendar-event pm-month-schedule" data-status={schedule.status} data-mine={isMine} title={`${operationScheduleDisplayTitle(schedule)} · ${scheduleBusiness(schedule).label}`}>
+    <div className="pm-calendar-event pm-month-schedule" data-daycare={schedule.daycareReservation || undefined} data-status={effectiveScheduleStatus(schedule).tone} data-mine={isMine} title={`${operationScheduleDisplayTitle(schedule)} · ${scheduleBusiness(schedule).label}`}>
       <i className="pm-month-business-rail" style={{ backgroundColor: scheduleBusiness(schedule).color }} aria-hidden="true" />
       <span className="pm-month-title">{displayTitle}</span>
       <span className="pm-month-meta"><time>{operationScheduleTimeLabel(schedule)}</time>{!schedule.hotelEventKind && <span className="pm-month-type">{schedule.scheduleTypeName}</span>}</span>
       {schedule.dogs.some(dog => dog.profileStatus === "removed") && <span className="pm-month-type">프로필 삭제됨</span>}
-      <span className="pm-month-state" aria-label={schedule.status === "completed" ? "완료" : schedule.status === "cancelled" ? "취소" : "예정"} title={schedule.status === "completed" ? "완료" : schedule.status === "cancelled" ? "취소" : "예정"}>
-        {schedule.status === "completed" ? "✓" : schedule.status === "cancelled" ? "×" : "·"}
+      <span className="pm-month-state" aria-label={effectiveScheduleStatus(schedule).label} title={effectiveScheduleStatus(schedule).label}>
+        {schedule.daycareReservation ? effectiveScheduleStatus(schedule).label : schedule.status === "completed" ? "✓" : schedule.status === "cancelled" ? "×" : "·"}
       </span>
     </div>
   );
 }
 
-function DayDrawer({
+export function DayDrawer({
   open,
   date,
   schedules,
@@ -1140,9 +1143,9 @@ function DayDrawer({
               <p className="pm-schedule-day-detail">예정 일정 기준 · 실제 입퇴실 기록은 상세에서 확인</p>
               <p className="pm-schedule-day-detail">전체 {schedules.length} · 입실 {schedules.filter(schedule => schedule.hotelEventKind === "check_in").length} · 퇴실 {schedules.filter(schedule => schedule.hotelEventKind === "check_out").length}</p>
               {[...schedules].sort((a, b) => Number(Boolean(a.timeUnspecified)) - Number(Boolean(b.timeUnspecified)) || Date.parse(a.startsAt) - Date.parse(b.startsAt) || a.id.localeCompare(b.id)).map(schedule => (
-                <button key={schedule.id} type="button" className="pm-schedule-day-row" data-status={schedule.status} onClick={() => onOpen(schedule)}>
+                <button key={schedule.id} type="button" className="pm-schedule-day-row" data-status={effectiveScheduleStatus(schedule).tone} onClick={() => onOpen(schedule)}>
                   <span className="pm-schedule-day-rail" style={{ backgroundColor: scheduleBusiness(schedule).color }} aria-hidden="true" />
-                  <span className="pm-schedule-day-top"><time className="pm-schedule-time">{operationScheduleTimeLabel(schedule)}</time><ScheduleStatus status={schedule.status} /></span>
+                  <span className="pm-schedule-day-top"><time className="pm-schedule-time">{operationScheduleTimeLabel(schedule)}</time><ScheduleStatus status={schedule.status} daycare={schedule.daycareOperation} daycareReservation={schedule.daycareReservation} /></span>
                   <strong>{schedule.hotelEventKind ? compactDogNames(schedule.dogs) : operationScheduleDisplayTitle(schedule)}</strong>
                   <span className="pm-schedule-day-detail">{schedule.hotelEventKind ? `${schedule.hotelEventKind === "check_in" ? "입실" : "퇴실"} · ${operationScheduleHotelRoomLabel(schedule)}` : schedule.scheduleTypeName}</span>
                   <ScheduleBusinessMarker schedule={schedule} />

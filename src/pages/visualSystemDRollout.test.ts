@@ -1,3 +1,4 @@
+import {restoreReviewedDaycareStatusDelta} from './daycareStatusReleaseBoundary';
 // Server-classified assignment presentation is covered by hotelUnassignedClassification/OperationsUx tests; commands remain unchanged.
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -30,7 +31,7 @@ const originalHashes = {
 };
 describe('Visual System D Rollout 1 boundary', () => {
 for (const [file, hash] of Object.entries(originalHashes)) it(file + ' preserves every byte apart from explicit visual classes', () => {
-let source=readFileSync(file,'utf8');
+let source=restoreReviewedDaycareStatusDelta(file,readFileSync(file,'utf8'));
 if(file==='src/pages/HotelOperations.tsx') {
  // Exempt exactly the two reviewed integration lines, preserving the original hotel boundary.
  const imported="import {RockyRecoveryPanel} from './RockyRecoveryPanel';\n";

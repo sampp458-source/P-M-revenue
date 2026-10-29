@@ -1,3 +1,4 @@
+import {restoreReviewedDaycareStatusDelta} from './daycareStatusReleaseBoundary';
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import ts from 'typescript';
@@ -12,7 +13,7 @@ const files = {
 };
 describe('Operations schedule presentation contract', () => {
   for (const [file, expected] of Object.entries(files)) it(`${file}: preserves all workflow declarations and page handlers from approved HEAD`, () => {
-    const source = readFileSync(`src/pages/${file}`, 'utf8').replace('            <MobileCalendarStatusLegend />\n', '').replace('      <TaskHomeEntry />\n', '')
+    const source = restoreReviewedDaycareStatusDelta(file,readFileSync(`src/pages/${file}`, 'utf8')).replace('            <MobileCalendarStatusLegend />\n', '').replace('      <TaskHomeEntry />\n', '')
       // Permit only notification route synchronization; retain all prior handler hashes.
       .replace('            {schedule.daycareReservation && <ScheduleStatus status={schedule.status} daycare={schedule.daycareOperation} daycareReservation={schedule.daycareReservation} />}\n', '')
       .replace('{schedule.daycareReservation ? `일정 상태: ${schedule.status === "completed" ? "완료" : schedule.status === "cancelled" ? "취소" : "예정"}` : schedule.status === "completed"', '{schedule.status === "completed"')

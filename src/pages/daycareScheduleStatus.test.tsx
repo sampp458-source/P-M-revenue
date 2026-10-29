@@ -16,7 +16,7 @@ describe('canonical daycare operational presentation, independent of schedule co
   it.each([
     [state('scheduled'),'예정'],
     [state('checked_in',entry),'이용중'],
-    [state('completed',entry,'2026-10-23T08:00:00Z'),'퇴실 완료'],
+    [state('completed',entry,'2026-10-23T08:00:00Z'),'완료'],
     [state('cancelled'),'취소'],
     [state('completed',entry),'입퇴실 확인 필요'],
     [state('checked_in',null),'입퇴실 확인 필요'],
@@ -34,7 +34,7 @@ describe('canonical daycare operational presentation, independent of schedule co
     expect(label(fixture({status:'completed',daycareOperation:state('scheduled')}))).toContain('예정');
   });
   it('does not equate actual checkout with a separate scheduled workflow being completed', () => {
-    const s=fixture({daycareOperation:state('completed',entry,'2026-10-22T08:00:00Z')});expect(label(s)).toContain('퇴실 완료');expect(s.status).toBe('scheduled');
+    const s=fixture({daycareOperation:state('completed',entry,'2026-10-22T08:00:00Z')});expect(label(s)).toContain('완료');expect(s.status).toBe('scheduled');
   });
   it('does not guess missing operational data and leaves unrelated schedule types unchanged', () => {
     expect(label(fixture())).toContain('입퇴실 확인 필요');
@@ -47,7 +47,7 @@ describe('canonical daycare operational presentation, independent of schedule co
   });
   it('detail shows operational and schedule statuses independently without invoking a command', () => {
     const noop=vi.fn();render(<ScheduleDetailModal schedule={fixture({daycareOperation:state('checked_in',entry)})} processing={false} canManage={false} onClose={noop} onEdit={noop} onComplete={noop} onCancel={noop} onArchive={noop} onOpenDog={noop} onOpenCustomer={noop}/>);
-    expect(screen.getByText('이용중')).toBeTruthy();expect(screen.getByText('일정 상태: 예정')).toBeTruthy();expect(db.rpc).not.toHaveBeenCalled();expect(noop).not.toHaveBeenCalled();
+    expect(screen.getByText('이용중')).toBeTruthy();expect(screen.getByText('일정 업무 처리(운영 상태와 별도): 예정')).toBeTruthy();expect(db.rpc).not.toHaveBeenCalled();expect(noop).not.toHaveBeenCalled();
   });
 });
 function setupReads() {
@@ -66,7 +66,7 @@ describe('date-scoped batched canonical state read',()=>{
     const options={calendars:[],scheduleTypes:[],assignees:[],dogs:[],customers:[]};
     for(const load of [()=>fetchOperationSchedulesForDay(date),()=>fetchOperationSchedulesForRange(date,'2026-10-24',options)]) {
       db.state=[{operation_schedule_id:'sancho',lifecycle_status:'checked_in',checked_in_at:entry,checked_out_at:null}];db.from.mockClear();const rows=await load();expect(rows[0].daycareReservation).toBe(true);expect(label(rows[0])).toContain('이용중');expect(db.from.mock.calls.filter(([t])=>t==='daycare_operation_states')).toHaveLength(1);
-      db.state=[{...db.state[0],lifecycle_status:'completed',checked_out_at:'2026-10-23T08:00:00Z'}];expect(label((await load())[0])).toContain('퇴실 완료');
+      db.state=[{...db.state[0],lifecycle_status:'completed',checked_out_at:'2026-10-23T08:00:00Z'}];expect(label((await load())[0])).toContain('완료');
     }
     expect(db.selects.every(x=>x==='operation_schedule_id, lifecycle_status, checked_in_at, checked_out_at')).toBe(true);
   });

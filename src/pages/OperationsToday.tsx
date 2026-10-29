@@ -1,6 +1,7 @@
+import {useScheduleOperationalRefresh} from './useScheduleOperationalRefresh';
 import { TaskHomeEntry } from "../taskRequests/TaskHomeEntry";
 import "../operations-schedule-presentation.css";
-import { SCHEDULE_BUSINESSES, scheduleBusiness, ScheduleBusinessMarker, SchedulePeople, ScheduleStatus } from "./operationSchedulePresentation";
+import { SCHEDULE_BUSINESSES, effectiveScheduleStatus, scheduleBusiness, ScheduleBusinessMarker, SchedulePeople, ScheduleStatus } from "./operationSchedulePresentation";
 import "../design-system-v2.css";
 import "../today-design-v2.css";
 import {
@@ -757,6 +758,8 @@ export function OperationsTodayPage() {
     }
   }, [localDate]);
 
+  useScheduleOperationalRefresh(loadSchedules);
+
   const loadOptions = useCallback(async () => {
     setOptionsLoading(true);
     try {
@@ -1284,7 +1287,7 @@ export function OperationsTodayPage() {
   );
 }
 
-function ScheduleRow({
+export function ScheduleRow({
   schedule,
   currentUserId,
   onOpen,
@@ -1294,14 +1297,14 @@ function ScheduleRow({
   onOpen: () => void;
 }) {
   const isMine = isOperationScheduleAssignedTo(schedule, currentUserId);
-  const completed = schedule.status === "completed";
+  const completed = effectiveScheduleStatus(schedule).key === "completed";
   const cancelled = schedule.status === "cancelled";
   const time = operationScheduleTimeLabel(schedule);
   return (
     <button
       type="button"
       data-operation-card="schedule"
-      data-status={schedule.status}
+      data-status={effectiveScheduleStatus(schedule).tone}
       aria-label={`${operationScheduleDisplayTitle(schedule)} 일정 상세 보기`}
       onClick={onOpen}
       className={cn(
@@ -1399,7 +1402,7 @@ function TodayAlerts({ alerts }: { alerts: string[] }) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-bold text-text-primary">오늘 확인</h2>
-          <p className="mt-1 text-xs text-text-muted">일정에서 자동 계산한 운영 알림</p>
+          <p className="mt-1 text-xs text-text-muted">일정 업무 확인 기준 · Daycare 이용 상태와 별도</p>
         </div>
         <ClipboardCheck size={19} className="text-text-muted" />
       </div>
@@ -2249,17 +2252,12 @@ export function ScheduleDetailModal({
         <div className="pr-14 sm:pr-0">
           <div className="flex flex-wrap gap-2">
             {schedule.daycareReservation && <ScheduleStatus status={schedule.status} daycare={schedule.daycareOperation} daycareReservation={schedule.daycareReservation} />}
-            <Badge tone="gray">
-              {schedule.daycareReservation ? `일정 상태: ${schedule.status === "completed" ? "완료" : schedule.status === "cancelled" ? "취소" : "예정"}` : schedule.status === "completed"
-                ? "완료"
-                : schedule.status === "cancelled"
-                  ? "취소"
-                  : "예정"}
-            </Badge>
+            {!schedule.daycareReservation && <Badge tone="gray">{schedule.status === "completed" ? "완료" : schedule.status === "cancelled" ? "취소" : "예정"}</Badge>}
             <Badge>{schedule.calendarName}</Badge>
             <Badge>{schedule.scheduleTypeName}</Badge>
             {showLegacyHotelConversion ? <Badge tone="gray">기존 수동 일정</Badge> : null}
           </div>
+          {schedule.daycareReservation && <p className="mt-2 text-xs text-text-secondary">일정 업무 처리(운영 상태와 별도): {schedule.status === "completed" ? "완료" : schedule.status === "cancelled" ? "취소" : "예정"}</p>}
           <h3 className="mt-3 text-2xl font-bold tracking-[-0.03em] text-text-primary">{operationScheduleDisplayTitle(schedule)}</h3>
           <p className="mt-2 text-sm text-text-secondary">
             {start.date} · {schedule.allDay

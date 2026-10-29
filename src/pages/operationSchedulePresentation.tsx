@@ -1,3 +1,4 @@
+import {daycareOperationalStatus} from './daycareOperationalStatus';
 import { operationPersonDisplayName, schedulePrimaryAssignee, type OperationSchedule } from './operationsScheduleRepository';
 
 // Existing Production Today summary palette. Business identity is independent of lifecycle status.
@@ -20,21 +21,13 @@ export function ScheduleBusinessMarker({ schedule }: { schedule: OperationSchedu
   const business = scheduleBusiness(schedule);
   return <span className="pm-schedule-business"><i aria-hidden="true" style={{ backgroundColor: business.color }} />{business.label}</span>;
 }
-export function daycareScheduleStatus(operation: OperationSchedule['daycareOperation']) {
-  if (!operation) return null;
-  const { lifecycleStatus, checkedInAt, checkedOutAt } = operation;
-  const entered = checkedInAt !== null && Number.isFinite(Date.parse(checkedInAt));
-  const exited = checkedOutAt !== null && Number.isFinite(Date.parse(checkedOutAt));
-  if (lifecycleStatus === 'administratively_released' && entered && !checkedOutAt) return { label: '행정 점유 해제 · 실제 퇴실시각 미확정', tone: 'scheduled' };
-  if (lifecycleStatus === 'cancelled' && !checkedInAt && !checkedOutAt) return { label: '취소', tone: 'cancelled' };
-  if (lifecycleStatus === 'completed' && entered && exited && Date.parse(checkedOutAt!) >= Date.parse(checkedInAt!)) return { label: '퇴실 완료', tone: 'completed' };
-  if (lifecycleStatus === 'checked_in' && entered && !checkedOutAt) return { label: '이용중', tone: 'scheduled' };
-  if (lifecycleStatus === 'scheduled' && !checkedInAt && !checkedOutAt) return { label: '예정', tone: 'scheduled' };
-  return { label: '입퇴실 확인 필요', tone: 'scheduled' };
+export const daycareScheduleStatus = daycareOperationalStatus;
+export function effectiveScheduleStatus(schedule: Pick<OperationSchedule,'status'|'daycareOperation'|'daycareReservation'>) {
+ return daycareOperationalStatus(schedule.daycareOperation) ?? (schedule.daycareReservation ? {label:'입퇴실 확인 필요',tone:'scheduled' as const,key:'review'} : {label:schedule.status==='completed'?'완료':schedule.status==='cancelled'?'취소':'예정',tone:schedule.status,key:schedule.status});
 }
 
 export function ScheduleStatus({ status, daycare, daycareReservation = false }: { status: OperationSchedule['status']; daycare?: OperationSchedule['daycareOperation']; daycareReservation?: boolean }) {
-  const operational = daycareScheduleStatus(daycare) ?? (daycareReservation ? { label: '입퇴실 확인 필요', tone: 'scheduled' } : null);
+  const operational = effectiveScheduleStatus({status,daycareOperation:daycare,daycareReservation});
   return <span className="pm-schedule-status" data-status={operational?.tone ?? status} data-daycare-state={daycare?.lifecycleStatus}>{operational?.label ?? (status === 'completed' ? '완료' : status === 'cancelled' ? '취소' : '예정')}</span>;
 }
 export function SchedulePeople({ schedule }: { schedule: OperationSchedule }) {
@@ -46,6 +39,9 @@ export function SchedulePeople({ schedule }: { schedule: OperationSchedule }) {
 
 const MONTH_STATUSES = [
   { status: 'scheduled', label: '예정' },
+  { status: 'in_use', label: '이용중' },
+  { status: 'reconciled', label: '행정 정정' },
+  { status: 'review', label: '확인 필요' },
   { status: 'completed', label: '완료' },
   { status: 'cancelled', label: '취소' },
 ] as const;
@@ -58,7 +54,7 @@ export function MobileCalendarStatusLegend() {
 
 // Counts summarize the supplied date's existing records; no filtering or domain state changes.
 export function MobileCalendarStatusSummary({ schedules, id }: { schedules: OperationSchedule[]; id: string }) {
-  const counts = MONTH_STATUSES.map(item => ({ ...item, count: schedules.filter(schedule => schedule.status === item.status).length })).filter(item => item.count > 0);
+  const counts = MONTH_STATUSES.map(item => ({ ...item, count: schedules.filter(schedule => effectiveScheduleStatus(schedule).key === item.status).length })).filter(item => item.count > 0);
   if (!counts.length) return null;
   const description = counts.map(({ label, count }) => `${label} ${count}건`).join(', ');
   return <span id={id} className="pm-month-status-summary" role="img" aria-label={description} title={description}>

@@ -1,3 +1,4 @@
+import {useScheduleOperationalRefresh} from './useScheduleOperationalRefresh';
 import {RockyRecoveryPanel} from './RockyRecoveryPanel';
 import { hotelUnassignedClassificationPresentation } from "./hotelUnassignedClassificationPresentation";
 import { hotelFutureUnassignedPresentation } from "./hotelFutureUnassignedPresentation";
@@ -592,6 +593,8 @@ export function HotelOperationsPage() {
       }
     }
   }, [loadSharedMemberStays, loadUnassignedSharedGroups, profile, selectedDate, requestGeneration]);
+
+  useScheduleOperationalRefresh(loadPage);
 
   useEffect(() => {
     void loadPage();

@@ -152,7 +152,7 @@ describe("Daycare V1 common form", () => {
     expect(dog).toContain("prefill={{ customerId: owner.id, dogId: dog.id }}");
     expect(hotel).toContain("fetchDaycareOperationsForDate(selectedDate)");
     expect(hotel).toContain("<DaycareOperationsPanel");
-    expect(board).toContain("daycareReservation.lifecycleStatus === \"checked_in\"");
+    expect(board).toContain("daycareOperationalStatus(daycareReservation)");
     expect(board).toContain("reservation.lifecycleStatus !== \"completed\"");
     for (const operation of [
       "assignDaycareRoom", "unassignDaycareRoom", "completeDaycareCheckIn",

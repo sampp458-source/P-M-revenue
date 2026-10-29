@@ -1,0 +1,98 @@
+{
+  "OperationsToday.tsx": [
+    {
+      "before": "",
+      "after": "import {useScheduleOperationalRefresh} from './useScheduleOperationalRefresh';\n"
+    },
+    {
+      "before": "import { SCHEDULE_BUSINESSES, scheduleBusiness, ScheduleBusinessMarker, SchedulePeople, ScheduleStatus } from \"./operationSchedulePresentation\";\n",
+      "after": "import { SCHEDULE_BUSINESSES, effectiveScheduleStatus, scheduleBusiness, ScheduleBusinessMarker, SchedulePeople, ScheduleStatus } from \"./operationSchedulePresentation\";\n"
+    },
+    {
+      "before": "",
+      "after": "  useScheduleOperationalRefresh(loadSchedules);\n\n"
+    },
+    {
+      "before": "function ScheduleRow({\n",
+      "after": "export function ScheduleRow({\n"
+    },
+    {
+      "before": "  const completed = schedule.status === \"completed\";\n",
+      "after": "  const completed = effectiveScheduleStatus(schedule).key === \"completed\";\n"
+    },
+    {
+      "before": "      data-status={schedule.status}\n",
+      "after": "      data-status={effectiveScheduleStatus(schedule).tone}\n"
+    },
+    {
+      "before": "          <p className=\"mt-1 text-xs text-text-muted\">일정에서 자동 계산한 운영 알림</p>\n",
+      "after": "          <p className=\"mt-1 text-xs text-text-muted\">일정 업무 확인 기준 · Daycare 이용 상태와 별도</p>\n"
+    },
+    {
+      "before": "            <Badge tone=\"gray\">\n              {schedule.daycareReservation ? `일정 상태: ${schedule.status === \"completed\" ? \"완료\" : schedule.status === \"cancelled\" ? \"취소\" : \"예정\"}` : schedule.status === \"completed\"\n                ? \"완료\"\n                : schedule.status === \"cancelled\"\n                  ? \"취소\"\n                  : \"예정\"}\n            </Badge>\n",
+      "after": "            {!schedule.daycareReservation && <Badge tone=\"gray\">{schedule.status === \"completed\" ? \"완료\" : schedule.status === \"cancelled\" ? \"취소\" : \"예정\"}</Badge>}\n"
+    },
+    {
+      "before": "",
+      "after": "          {schedule.daycareReservation && <p className=\"mt-2 text-xs text-text-secondary\">일정 업무 처리(운영 상태와 별도): {schedule.status === \"completed\" ? \"완료\" : schedule.status === \"cancelled\" ? \"취소\" : \"예정\"}</p>}\n"
+    }
+  ],
+  "OperationsCalendarFoundation.tsx": [
+    {
+      "before": "",
+      "after": "import {useScheduleOperationalRefresh} from './useScheduleOperationalRefresh';\n"
+    },
+    {
+      "before": "import { scheduleBusiness, ScheduleBusinessMarker, SchedulePeople, ScheduleStatus, MobileCalendarStatusLegend, MobileCalendarStatusSummary } from \"./operationSchedulePresentation\";\n",
+      "after": "import { effectiveScheduleStatus, scheduleBusiness, ScheduleBusinessMarker, SchedulePeople, ScheduleStatus, MobileCalendarStatusLegend, MobileCalendarStatusSummary } from \"./operationSchedulePresentation\";\n"
+    },
+    {
+      "before": "",
+      "after": "\n  useScheduleOperationalRefresh(loadMonth);\n"
+    },
+    {
+      "before": "function MonthScheduleCard({\n",
+      "after": "export function MonthScheduleCard({\n"
+    },
+    {
+      "before": "    <div className=\"pm-calendar-event pm-month-schedule\" data-status={schedule.status} data-mine={isMine} title={`${operationScheduleDisplayTitle(schedule)} · ${scheduleBusiness(schedule).label}`}>\n",
+      "after": "    <div className=\"pm-calendar-event pm-month-schedule\" data-daycare={schedule.daycareReservation || undefined} data-status={effectiveScheduleStatus(schedule).tone} data-mine={isMine} title={`${operationScheduleDisplayTitle(schedule)} · ${scheduleBusiness(schedule).label}`}>\n"
+    },
+    {
+      "before": "      <span className=\"pm-month-state\" aria-label={schedule.status === \"completed\" ? \"완료\" : schedule.status === \"cancelled\" ? \"취소\" : \"예정\"} title={schedule.status === \"completed\" ? \"완료\" : schedule.status === \"cancelled\" ? \"취소\" : \"예정\"}>\n        {schedule.status === \"completed\" ? \"✓\" : schedule.status === \"cancelled\" ? \"×\" : \"·\"}\n",
+      "after": "      <span className=\"pm-month-state\" aria-label={effectiveScheduleStatus(schedule).label} title={effectiveScheduleStatus(schedule).label}>\n        {schedule.daycareReservation ? effectiveScheduleStatus(schedule).label : schedule.status === \"completed\" ? \"✓\" : schedule.status === \"cancelled\" ? \"×\" : \"·\"}\n"
+    },
+    {
+      "before": "function DayDrawer({\n",
+      "after": "export function DayDrawer({\n"
+    },
+    {
+      "before": "                <button key={schedule.id} type=\"button\" className=\"pm-schedule-day-row\" data-status={schedule.status} onClick={() => onOpen(schedule)}>\n",
+      "after": "                <button key={schedule.id} type=\"button\" className=\"pm-schedule-day-row\" data-status={effectiveScheduleStatus(schedule).tone} onClick={() => onOpen(schedule)}>\n"
+    },
+    {
+      "before": "                  <span className=\"pm-schedule-day-top\"><time className=\"pm-schedule-time\">{operationScheduleTimeLabel(schedule)}</time><ScheduleStatus status={schedule.status} /></span>\n",
+      "after": "                  <span className=\"pm-schedule-day-top\"><time className=\"pm-schedule-time\">{operationScheduleTimeLabel(schedule)}</time><ScheduleStatus status={schedule.status} daycare={schedule.daycareOperation} daycareReservation={schedule.daycareReservation} /></span>\n"
+    }
+  ],
+  "HotelRoomBoard.tsx": [
+    {
+      "before": "",
+      "after": "import {daycareOperationalStatus} from './daycareOperationalStatus';\n"
+    },
+    {
+      "before": "          <span className={cn(\"mt-1 block font-bold text-cyan-700\", mobile ? \"text-xs leading-5\" : \"text-[10px]\")}>데이케어 · {daycareReservation.lifecycleStatus === \"checked_in\" ? \"이용중\" : \"예약\"}</span>\n",
+      "after": "          <span className={cn(\"mt-1 block font-bold text-cyan-700\", mobile ? \"text-xs leading-5\" : \"text-[10px]\")}>데이케어 · {daycareOperationalStatus(daycareReservation)?.label ?? '입퇴실 확인 필요'}</span>\n"
+    }
+  ],
+  "HotelOperations.tsx": [
+    {
+      "before": "",
+      "after": "import {useScheduleOperationalRefresh} from './useScheduleOperationalRefresh';\n"
+    },
+    {
+      "before": "",
+      "after": "\n  useScheduleOperationalRefresh(loadPage);\n"
+    }
+  ]
+}

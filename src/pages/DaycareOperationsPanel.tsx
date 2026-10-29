@@ -1,3 +1,4 @@
+import {daycareOperationalStatus} from './daycareOperationalStatus';
 import { useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, LogIn, LogOut, Pencil, X } from "lucide-react";
 import { Badge, Button, Card, EmptyState, Field, Input, Modal, ModalActions, ResponsiveActionGroup, Select } from "../components/ui";
@@ -14,13 +15,6 @@ import {
   type DaycareReservation,
 } from "./daycareOperationsRepository";
 
-const lifecycleLabel: Record<DaycareReservation["lifecycleStatus"], string> = {
-  scheduled: "예약",
-  checked_in: "이용중",
-  completed: "완료",
-  cancelled: "취소",
-  administratively_released: "행정 점유 해제 · 실제 퇴실시각 미확정",
-};
 
 const displayActualTime = (value: string | null | undefined) => value && Number.isFinite(Date.parse(value))
   ? `${new Intl.DateTimeFormat("ko-KR", {timeZone:"Asia/Seoul",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).format(new Date(value))} KST` : "미확인";
@@ -94,7 +88,7 @@ export function DaycareOperationsPanel({
             <article key={reservation.operationScheduleId} className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div><div className="flex flex-wrap items-center gap-2"><strong className="text-base text-text-primary">{reservation.dog.name}</strong><Badge tone="blue">데이케어</Badge></div><p className="mt-1 text-sm text-text-secondary">{reservation.roomTypeCode} · {new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(reservation.startsAt))}–{new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(reservation.endsAt))} · {reservation.roomAllocation?.roomName ?? "호실 미배정"}</p></div>
-                <Badge tone={reservation.lifecycleStatus === "completed" ? "gray" : reservation.lifecycleStatus === "cancelled" ? "red" : reservation.lifecycleStatus === "checked_in" ? "green" : "blue"}>{lifecycleLabel[reservation.lifecycleStatus]}</Badge>
+                <Badge tone={reservation.lifecycleStatus === "completed" ? "gray" : reservation.lifecycleStatus === "cancelled" ? "red" : reservation.lifecycleStatus === "checked_in" ? "green" : "blue"}>{daycareOperationalStatus(reservation)?.label ?? '입퇴실 확인 필요'}</Badge>
               </div>
               {reservation.lifecycleStatus === "administratively_released" ? <p className="mt-3 text-sm text-text-secondary">원본 입실 {displayActualTime(reservation.checkedInAt)} · 실제 퇴실시각 미확정 · 행정 해제 {displayActualTime(reservation.administrativeRelease?.releasedAt)}. 일정 업무 완료와 별개입니다.</p> : null}
               {reservation.lifecycleStatus === "scheduled" ? <div className="mt-4 space-y-3">

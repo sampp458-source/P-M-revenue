@@ -1,0 +1,42 @@
+{
+  "source": "real isolated DB official create -> assign -> check-in -> checkout, real triggers, exact installed Hotel input contract",
+  "states": [
+    {
+      "lifecycleStatus": "scheduled",
+      "checkedInAt": null,
+      "checkedOutAt": null,
+      "scheduleStatus": "scheduled",
+      "version": 1,
+      "scheduleVersion": 1
+    },
+    {
+      "lifecycleStatus": "scheduled",
+      "checkedInAt": null,
+      "checkedOutAt": null,
+      "scheduleStatus": "scheduled",
+      "version": 2,
+      "scheduleVersion": 1
+    },
+    {
+      "lifecycleStatus": "checked_in",
+      "checkedInAt": "2026-10-27T10:30:00+09:00",
+      "checkedOutAt": null,
+      "scheduleStatus": "scheduled",
+      "version": 3,
+      "scheduleVersion": 1
+    },
+    {
+      "lifecycleStatus": "completed",
+      "checkedInAt": "2026-10-27T10:30:00+09:00",
+      "checkedOutAt": "2026-10-27T18:10:00+09:00",
+      "scheduleStatus": "completed",
+      "version": 4,
+      "scheduleVersion": 2
+    }
+  ],
+  "secondReader": {
+    "lifecycleStatus": "completed",
+    "checkedInAt": "2026-10-27T10:30:00+09:00",
+    "checkedOutAt": "2026-10-27T18:10:00+09:00"
+  }
+}

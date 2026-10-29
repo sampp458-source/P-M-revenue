@@ -1,3 +1,4 @@
+import {daycareOperationalStatus} from './daycareOperationalStatus';
 import { useHotelPreassignEligibility } from "./useHotelPreassignEligibility";
 import "./hotel-unassigned-classification.css";
 import { hotelUnassignedClassificationPresentation, hotelUnassignedLabels, type HotelUnassignedItem } from "./hotelUnassignedClassificationPresentation";
@@ -1012,7 +1013,7 @@ function RoomCell(props: CurrentRoomCellProps | HistoricalRoomCellProps) {
           aria-label={`${daycareReservation.dog.name} 데이케어`}
         >
           <span className={cn("block truncate font-extrabold text-cyan-950", mobile ? "text-sm leading-5" : "text-xs")}>{daycareReservation.dog.name}</span>
-          <span className={cn("mt-1 block font-bold text-cyan-700", mobile ? "text-xs leading-5" : "text-[10px]")}>데이케어 · {daycareReservation.lifecycleStatus === "checked_in" ? "이용중" : "예약"}</span>
+          <span className={cn("mt-1 block font-bold text-cyan-700", mobile ? "text-xs leading-5" : "text-[10px]")}>데이케어 · {daycareOperationalStatus(daycareReservation)?.label ?? '입퇴실 확인 필요'}</span>
           <span className={cn("mt-0.5 block text-cyan-800", mobile ? "text-xs leading-5" : "text-[10px]")}>퇴실 {new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(daycareReservation.endsAt))}</span>
         </button>
       ) : sharedOccupancy ? (
