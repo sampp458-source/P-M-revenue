@@ -1,3 +1,4 @@
+import {RockyRecoveryPanel} from './RockyRecoveryPanel';
 import { hotelUnassignedClassificationPresentation } from "./hotelUnassignedClassificationPresentation";
 import { hotelFutureUnassignedPresentation } from "./hotelFutureUnassignedPresentation";
 import "../design-system-v2.css";
@@ -1487,6 +1488,7 @@ export function HotelOperationsPage() {
         onUnassignSharedOccupancy={requestUnassignSharedOccupancy}
       /></>}
         modules={<>
+      <RockyRecoveryPanel allowed={profile?.role === "admin" && isHotelOperator} />
       <DaycareOperationsPanel
         historicalOnly={isPast}
         canAdminReconcile={profile?.role === "admin" && isHotelOperator}
