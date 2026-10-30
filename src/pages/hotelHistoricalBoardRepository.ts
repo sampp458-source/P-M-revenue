@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-export type HistoricalDayEvent = 'continuing' | 'check_in' | 'check_out' | 'moved_in' | 'moved_out' | 'returned' | 'left_for_absence';
+export type HistoricalDayEvent = 'continuing' | 'check_in' | 'check_out' | 'moved_in' | 'moved_out' | 'returned' | 'left_for_absence' | 'administratively_closed';
 export interface HistoricalSegment {
   physicalOccupancyId?: string | null;
   segmentId: string; stayId: string; dogId: string; dogName: string;
@@ -16,7 +16,7 @@ const object = (v: unknown): v is Record<string, unknown> => v !== null && typeo
 const text = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
 const instant = (v: unknown): v is string => text(v) && Number.isFinite(Date.parse(v));
 const kinds = ['single', 'shared', 'longstay'];
-const events = ['continuing', 'check_in', 'check_out', 'moved_in', 'moved_out', 'returned', 'left_for_absence'];
+const events = ['continuing', 'check_in', 'check_out', 'moved_in', 'moved_out', 'returned', 'left_for_absence', 'administratively_closed'];
 export function parseHistoricalBoard(data: unknown, date: string): HistoricalBoard {
   const ids = new Set<string>();
   const dayStart = Date.parse(`${date}T00:00:00+09:00`);

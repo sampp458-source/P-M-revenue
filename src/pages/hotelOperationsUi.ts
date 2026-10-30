@@ -2,6 +2,7 @@ import { operationScheduleHotelRoomLabel } from "./operationsScheduleRepository"
 import type { HotelEventRoomProjections, HotelRoomAllocation, HotelStay } from "./hotelOperationsRepository";
 
 export type HotelStayStatus =
+  | "행정 종료 · 시각 미확정"
   | "예약"
   | "호실 미배정"
   | "호실 배정"
@@ -42,6 +43,7 @@ export function activeHotelAllocation(
 export const HOTEL_PHYSICAL_CUTOVER = "2026-09-25T00:00:00+09:00";
 
 export function hotelStayHasPhysicalHold(stay: HotelStay, instant = new Date().toISOString()) {
+  if (stay.administrativeClosure) return false;
   if (stay.currentPhysicalRoom) {
     return Boolean(!stay.archivedAt && !stay.checkedOutAt && stay.checkedInAt
       && stay.currentPhysicalRoom.date === seoulInputParts(instant).date
@@ -54,6 +56,7 @@ export function hotelStayHasPhysicalHold(stay: HotelStay, instant = new Date().t
 
 /** Legacy departure access is separate from room occupancy and never locks a room. */
 export function hotelStayNeedsCheckoutReview(stay: HotelStay, instant: string) {
+  if (stay.administrativeClosure) return false;
   const checkout = hotelStayScheduleEvent(stay, "check_out");
   // Proven current occupants use the normal room-card checkout path.
   if (hotelStayHasPhysicalHold(stay, instant)) return false;
@@ -70,9 +73,10 @@ export function hotelStayNeedsCheckoutReview(stay: HotelStay, instant: string) {
  * are absent from hotel_stay_json). Never revive an older room after a room move.
  */
 export function currentHotelAllocation(stay: HotelStay, selectedInstant?: string) {
+  if (stay.administrativeClosure) return null;
   if (!selectedInstant) return activeHotelAllocation(stay);
   const instant = new Date(selectedInstant).getTime();
-  if (stay.archivedAt || stay.checkedOutAt) return null;
+  if (stay.archivedAt || stay.checkedOutAt || stay.administrativeClosure) return null;
   if (stay.checkedInAt && stay.currentPhysicalRoom) {
     return hotelStayHasPhysicalHold(stay, selectedInstant)
       ? stay.currentPhysicalRoom.allocation : null;
@@ -89,7 +93,7 @@ export function currentHotelAllocation(stay: HotelStay, selectedInstant?: string
 
 /** A checked-in guest without a resolved current room is not an unassigned booking. */
 export function hotelStayNeedsPhysicalRoomReview(stay: HotelStay, instant: string) {
-  return Boolean(!stay.archivedAt && stay.checkedInAt && !stay.checkedOutAt
+  return Boolean(!stay.administrativeClosure && !stay.archivedAt && stay.checkedInAt && !stay.checkedOutAt
     && !(stay.currentPhysicalRoom?.state === "released"
       && stay.currentPhysicalRoom.date === seoulInputParts(instant).date)
     && !currentHotelAllocation(stay, instant));
@@ -110,6 +114,7 @@ export function hotelOverdueCheckoutLabel(stay: HotelStay, instant = new Date().
 }
 
 export function hotelStayStatus(stay: HotelStay): HotelStayStatus {
+  if (stay.administrativeClosure) return "행정 종료 · 시각 미확정";
   if (stay.checkedOutAt) return "퇴실 완료";
   if (stay.checkedInAt) {
     return stay.roomAllocations.length > 1 ? "객실 이동" : "사용 중";

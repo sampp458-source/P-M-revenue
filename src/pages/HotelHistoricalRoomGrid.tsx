@@ -3,7 +3,7 @@ import {Clock3, TriangleAlert} from 'lucide-react';
 import {Badge, Modal, cn} from '../components/ui';
 import {RoomBoardCellFrame, RoomBoardDesktopGroup, RoomBoardMobileGroup, roomStageClass} from './HotelRoomBoardPresentation';
 import type { HistoricalBoard, HistoricalDayEvent, HistoricalSegment } from './hotelHistoricalBoardRepository';
-const labels: Record<HistoricalDayEvent, string> = {continuing:'이용중',check_in:'당일 입실',check_out:'당일 퇴실',moved_in:'이동 입실',moved_out:'이동 퇴실',returned:'외출 복귀',left_for_absence:'외출 시작'};
+const labels: Record<HistoricalDayEvent, string> = {continuing:'이용중',check_in:'당일 입실',check_out:'당일 퇴실',moved_in:'이동 입실',moved_out:'이동 퇴실',returned:'외출 복귀',left_for_absence:'외출 시작',administratively_closed:'행정 종료 · 시각 미확정'};
 const clock = new Intl.DateTimeFormat('ko-KR', {timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 function displayRange(from:number,until:number,date:string) {
  const dayEnd=Date.parse(`${date}T00:00:00+09:00`)+86_400_000;
@@ -53,7 +53,7 @@ export function HistoricalOccupants({segments,onOpenStay,mobile,date}:{segments:
   <button type="button" aria-label={`${items.map(s=>s.dogName).join(' · ')} 투숙 시간 상세`} onClick={()=>setDetail(slice)} className="mt-1 rounded p-1 text-text-muted hover:text-text-primary focus-visible:ring-2 focus-visible:ring-primary"><Clock3 size={14}/></button>
  </div>;})}</div>
  <Modal open={detail!==null} title="투숙 시간" onClose={()=>setDetail(null)} size="small">
-  {detail?<div className="space-y-3 text-sm"><p className="font-bold">{detail.items.map(s=>s.dogName).join(' · ')}</p><p>선택일 표시 구간 {displayRange(detail.from,detail.until,date)}</p><p className="text-xs text-text-secondary">선택한 날짜 안에서 표시하는 시간입니다. 실제 입·퇴실 및 이동 시각과는 다를 수 있습니다.</p>{detail.items.map(s=><div key={s.segmentId}><p>{s.dogName} · 선택일 상태: {s.selectedDayEvents.map(e=>labels[e]).join(' · ')}</p><p className="text-xs text-text-secondary">객실 사용 구간: {new Date(s.usedFrom).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})} – {new Date(s.usedUntil).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})}</p></div>)}</div>:null}
+  {detail?<div className="space-y-3 text-sm"><p className="font-bold">{detail.items.map(s=>s.dogName).join(' · ')}</p><p>선택일 표시 구간 {displayRange(detail.from,detail.until,date)}</p><p className="text-xs text-text-secondary">선택한 날짜 안에서 표시하는 시간입니다. 실제 입·퇴실 및 이동 시각과는 다를 수 있습니다.</p>{detail.items.map(s=><div key={s.segmentId}><p>{s.dogName} · 선택일 상태: {s.selectedDayEvents.map(e=>labels[e]).join(' · ')}</p>{s.selectedDayEvents.includes('administratively_closed')?<p className="text-xs text-text-secondary">실제 퇴실 시각 미확정. 종료 경계는 확인된 퇴실 날짜 전체를 포함하는 보수적 검증 범위이며, 실제 퇴실 시각이 아닙니다.</p>:null}<p className="text-xs text-text-secondary">객실 사용 구간: {new Date(s.usedFrom).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})} – {new Date(s.usedUntil).toLocaleString('ko-KR',{timeZone:'Asia/Seoul'})}</p></div>)}</div>:null}
  </Modal></>;
 }
 function unavailableExplanation(reason:string):string {

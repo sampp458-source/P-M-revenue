@@ -133,6 +133,7 @@ export interface HotelCapacityReservation {
 }
 
 export interface HotelStay {
+  administrativeClosure?: {status:"administratively_closed";confirmedCheckoutDate:string;actualCheckoutTimeKnown:false;occupancyUntil:string;processedAt:string;processedBy:string;reason:string;evidence:string;requestId:string}|null;
   id: string;
   dogId: string;
   dogName: string;
