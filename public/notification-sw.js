@@ -4,6 +4,9 @@ function valid(data) {
   return data && data.v === 1 && uuid.test(data.notification_id) && uuid.test(data.deep_link_id)
     && ["ANNOUNCEMENT", "CENTER"].includes(data.deep_link_type) && !("url" in data);
 }
+function validPreview(data) {
+  return data.preview_version === 1 && data.preview && typeof data.preview.title === "string" && data.preview.title.length > 0 && Array.from(data.preview.title).length <= 80 && typeof data.preview.body === "string" && Array.from(data.preview.body).length <= 160;
+}
 function pushBody(data) {
   const payments = { PAYMENT_CONFIRMATION_REQUESTED: '새 결제 확인 요청이 있습니다.', PAYMENT_CONFIRMATION_CONFIRMED: '입금이 확인되었습니다.', PAYMENT_CONFIRMATION_NOT_FOUND: '입금이 아직 확인되지 않았습니다.', PAYMENT_CONFIRMATION_UPDATED: '결제 확인 요청이 수정되었습니다.', PAYMENT_CONFIRMATION_CANCELLED: '요청이 취소되었습니다.', PAYMENT_REQUEST_REQUESTED: '새 지급 요청이 있습니다.', PAYMENT_REQUEST_COMPLETED: '요청한 지급이 완료되었습니다.', PAYMENT_REQUEST_REJECTED: '지급 요청이 반려되었습니다.', PAYMENT_REQUEST_CANCELLED: '요청이 취소되었습니다.', PAYMENT_CONFIRMATION_ADMIN_CANCELLED: '결제 확인 요청이 관리 종료되었습니다. 입금 여부를 확인해 주세요.', PAYMENT_REQUEST_ADMIN_CANCELLED: '지급 요청이 관리 종료되었습니다. 외부 지급 여부를 확인해 주세요.' };
   if (Object.prototype.hasOwnProperty.call(payments, data.event_type)) return payments[data.event_type];
@@ -21,8 +24,8 @@ self.addEventListener("push", event => {
   // Provider TTL is relative to acceptance, so also suppress a late reminder
   // using its encrypted UTC deadline. Device clock accuracy is an OS boundary.
   if (data.event_type === "SCHEDULE_REMINDER" && (!Number.isFinite(Date.parse(data.expires_at || "")) || Date.parse(data.expires_at) <= Date.now())) return;
-  event.waitUntil(self.registration.showNotification("P&M OS", {
-    body: pushBody(data),
+  event.waitUntil(self.registration.showNotification(validPreview(data) ? data.preview.title : "P&M OS", {
+    body: validPreview(data) ? data.preview.body : pushBody(data),
     icon: "/android-chrome-192x192.png", badge: "/android-chrome-192x192.png",
     tag: `pnm-${data.notification_id}`, renotify: false,
     data: { v: 1, notification_id: data.notification_id, deep_link_type: data.deep_link_type, deep_link_id: data.deep_link_id },

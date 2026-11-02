@@ -1,6 +1,7 @@
+import { buildPreview, type PreviewSource } from "./preview.ts";
 // @deno-types="npm:@types/web-push@3.6.4"
 import webpush from "web-push";
-export type Delivery = { notification_id: string; deep_link_type: string; deep_link_id: string; category: string; event_type?: string; task_audience?: string; summary_count?: number; endpoint: string; p256dh: string; auth: string; expires_at?: string };
+export type Delivery = { notification_id: string; deep_link_type: string; deep_link_id: string; category: string; event_type?: string; task_audience?: string; summary_count?: number; endpoint: string; p256dh: string; auth: string; expires_at?: string; preview_source?: PreviewSource };
 export type Claim = { delivery_id: string; token: string };
 export type Rpc = <T>(name: string, args: Record<string, unknown>) => Promise<T>;
 export type Vapid = { subject: string; publicKey: string; privateKey: string };
@@ -32,7 +33,7 @@ export function reminderTTL(d: Pick<Delivery, "event_type" | "expires_at">, now 
 }
 export function encryptedRequest(d: Delivery, vapid: Vapid) {
   if (!safeEndpoint(d.endpoint)) throw new Error("INVALID_ENDPOINT");
-  const payload = JSON.stringify({ ...pushTemplate(d), ...(d.event_type === "SCHEDULE_REMINDER" ? { expires_at: d.expires_at } : {}), v: 1, notification_id: d.notification_id,
+  const payload = JSON.stringify({ ...pushTemplate(d), ...buildPreview(d), ...(d.event_type === "SCHEDULE_REMINDER" ? { expires_at: d.expires_at } : {}), v: 1, notification_id: d.notification_id,
     deep_link_type: d.deep_link_type === "ANNOUNCEMENT" ? "ANNOUNCEMENT" : "CENTER", deep_link_id: d.deep_link_id });
   return webpush.generateRequestDetails({ endpoint: d.endpoint, keys: { p256dh: d.p256dh, auth: d.auth } }, payload,
     { vapidDetails: vapid, TTL: reminderTTL(d), urgency: "normal", topic: d.notification_id.replaceAll("-", ""), contentEncoding: "aes128gcm" });
