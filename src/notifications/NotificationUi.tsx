@@ -3,6 +3,7 @@ import { useTaskAccess } from "../taskRequests/useTaskAccess";
 import { taskRequestPath } from "../taskRequests/taskNavigation";
 import { announcementExpiryError, announcementExpiryLocal, announcementExpiryMin, announcementExpiryUtc } from "./announcementExpiry";
 import { scheduleNotificationPath } from "./scheduleNotificationNavigation";
+import { AdminPushSelfTest } from "./AdminPushSelfTest";
 import { PushSettings } from "./PushSettings";
 import { webPushEnabled } from "./webPushClient";
 import { useEffect, useRef, useState } from "react";
@@ -29,7 +30,7 @@ export function NotificationBell() {
 function NoticeRow({ item, onOpen }: { item: Notice; onOpen: (item: Notice) => void }) {
   return <button type="button" className={`pn-notice-row ${item.read_at ? "pn-read" : "pn-unread"}`} onClick={() => onOpen(item)}>
     <span className={`pn-read-dot ${item.read_at ? "is-read" : ""}`} aria-label={item.read_at ? "읽음" : "읽지 않음"} />
-    <span className="pn-notice-copy"><span className="pn-notice-meta">{item.category === "PAYMENT_CONFIRMATION_REQUEST" ? "결제 확인" : item.category === "PAYMENT_REQUEST" ? "지급 요청" : item.category === "TASK_REQUEST" ? "업무요청" : item.category === "SCHEDULE" ? "일정" : "공지"} · {relativeTime(item.created_at)}{item.priority === "IMPORTANT" && <span className="pn-important">중요</span>}</span>
+    <span className="pn-notice-copy"><span className="pn-notice-meta">{item.category === "PAYMENT_CONFIRMATION_REQUEST" ? "결제 확인" : item.category === "PAYMENT_REQUEST" ? "지급 요청" : item.category === "TASK_REQUEST" ? "업무요청" : item.category === "SCHEDULE" ? "일정" : item.category === "PUSH_SELF_TEST" ? "테스트 알림" : "공지"} · {relativeTime(item.created_at)}{item.priority === "IMPORTANT" && <span className="pn-important">중요</span>}</span>
       <strong>{item.title}</strong><span className="pn-preview">{item.message}</span>
       {(!item.category || item.category === "ANNOUNCEMENT") && item.ack_required && <span className={`pn-ack-state ${item.acknowledged_at ? "pn-acked" : "pn-needs-ack"}`}>{item.acknowledged_at ? "확인 완료" : "확인 필요"}</span>}
     </span><ChevronRight size={16} aria-hidden="true" />
@@ -167,7 +168,7 @@ export function NotificationDialogs({ navigate }: { navigate: (path: string) => 
           </div>}
         </>}
         {state.view === "center" && <>
-          {webPushEnabled && <PushSettings userId={state.userId} />}
+          {webPushEnabled && <><PushSettings userId={state.userId} /><AdminPushSelfTest key={state.userId} userId={state.userId} /></>}
           <div className="pn-toolbar"><div className="pn-tabs" aria-label="알림 필터">{[true, false].map(v => <button key={String(v)} aria-pressed={unread === v} onClick={() => { setUnread(v); setOffset(0); }}>{v ? `읽지 않음 ${state.inbox.unread_count}` : "전체 기록"}</button>)}</div><button className="pn-secondary-button pn-bulk-read" disabled={busy || state.loading || state.inbox.unread_count === 0} onClick={() => void act(async () => { await state.repository.readAll(); setOffset(0); await state.refresh(); setPageRevision(v => v + 1); setToast("모든 알림을 읽음 처리했습니다."); })}>{busy ? "처리 중…" : "모두 읽음"}</button></div>
           {state.inbox.unacknowledged_count > 0 && <p className="pn-ack-summary">확인 필요한 공지 <b>{state.inbox.unacknowledged_count}건</b> · 읽음과 확인은 별도입니다.</p>}
           <div className="pn-inbox-region" aria-busy={firstPage ? state.loading : pageLoading}>{page === null ? <p className="pn-inbox-loading" role="status">알림을 불러오는 중입니다.</p> : <div className="pn-notice-list">{(page || []).map(n => <NoticeRow key={n.id} item={n} onOpen={open} />)}{page?.length === 0 && <p className="pn-empty"><Bell size={25} />{unread ? "새로운 알림이 없습니다." : "새로운 공지가 여기에 표시됩니다."}</p>}</div>}</div>

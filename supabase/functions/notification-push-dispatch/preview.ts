@@ -32,6 +32,7 @@ const paymentMessages: Record<string,string> = {
   PAYMENT_REQUEST_ADMIN_CANCELLED:"지급 요청이 관리 종료되었습니다. 외부 지급 여부는 별도로 확인해주세요.",
 };
 export function buildPreview(d: Source, now = Date.now()) {
+  if (d.category === "PUSH_SELF_TEST" && d.event_type === "ADMIN_PUSH_SELF_TEST") return { preview_version: 1, preview: { title: "[테스트 알림] 새 미리보기 확인", body: "P&M OS 알림 표시 테스트입니다. 실제 업무 처리는 필요하지 않습니다." } };
   const p = d.preview_source; if (!p) return {};
   const kind = d.category === "ANNOUNCEMENT" ? "ANNOUNCEMENT" : d.event_type || "";
   const prefix = kind === "ANNOUNCEMENT" ? "공지" : prefixes[kind]; if (!prefix) return {};

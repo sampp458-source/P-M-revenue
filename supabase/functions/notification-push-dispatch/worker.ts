@@ -13,6 +13,7 @@ export function safeEndpoint(value: string): boolean {
   } catch { return false; }
 }
 export function pushTemplate(d: Pick<Delivery, "category" | "event_type" | "summary_count" | "task_audience">) {
+  if (d.category === "PUSH_SELF_TEST" && d.event_type === "ADMIN_PUSH_SELF_TEST") return { event_type: d.event_type };
   if (d.category === "ANNOUNCEMENT") return { event_type: "ANNOUNCEMENT" };
   if (d.category === "TASK_REQUEST" && ["TASK_REQUEST_ASSIGNED","TASK_REQUEST_OVERDUE","TASK_REQUEST_COMPLETED","TASK_REQUEST_CANCELLED"].includes(d.event_type || "")) {
     if (d.task_audience !== "target" && d.task_audience !== "requester") throw new Error("INVALID_TASK_AUDIENCE");

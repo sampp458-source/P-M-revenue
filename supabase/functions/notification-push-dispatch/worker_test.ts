@@ -148,3 +148,17 @@ Deno.test("subsecond reminder TTL cancels rather than retrying without a provide
   await dispatch(rpc,vapid,async()=>{sends++;return new Response(null,{status:201});});
   assert(sends===0&&result==="CANCELLED");
 });
+Deno.test("admin self-test uses same encrypted transport with fixed payload and CENTER", () => {
+ const d: Delivery={...delivery,category:"PUSH_SELF_TEST",event_type:"ADMIN_PUSH_SELF_TEST",deep_link_type:"CENTER",preview_source:{title:"untrusted secret",body:"010-1234-5678"}};
+ const req=encryptedRequest(d,vapid); const body=Buffer.from(req.body as Uint8Array);
+ const salt=body.subarray(0,16),sender=body.subarray(21,21+body[20]);
+ const ikm=hkdfSync("sha256",ecdh.computeSecret(sender),Buffer.from(d.auth,"base64url"),Buffer.concat([Buffer.from("WebPush: info\0"),ecdh.getPublicKey(),sender]),32);
+ const cek=hkdfSync("sha256",Buffer.from(ikm),salt,Buffer.from("Content-Encoding: aes128gcm\0"),16);
+ const nonce=hkdfSync("sha256",Buffer.from(ikm),salt,Buffer.from("Content-Encoding: nonce\0"),12);
+ const cipher=body.subarray(21+body[20]);const decipher=createDecipheriv("aes-128-gcm",Buffer.from(cek),Buffer.from(nonce));decipher.setAuthTag(cipher.subarray(-16));
+ const plain=Buffer.concat([decipher.update(cipher.subarray(0,-16)),decipher.final()]);const payload=JSON.parse(plain.subarray(0,-1).toString());
+ assert(payload.event_type==="ADMIN_PUSH_SELF_TEST"&&payload.deep_link_type==="CENTER");
+ assert(payload.preview.title==="[테스트 알림] 새 미리보기 확인");
+ assert(payload.preview.body==="P&M OS 알림 표시 테스트입니다. 실제 업무 처리는 필요하지 않습니다.");
+ assert(!JSON.stringify(payload).includes("secret")&&!JSON.stringify(payload).includes("010-1234"));
+});
