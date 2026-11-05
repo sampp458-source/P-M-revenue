@@ -2,7 +2,7 @@ import {describe,expect,it} from 'vitest';
 import {readFileSync} from 'node:fs';
 import {calculateHotelQuote,formatHotelQuote,HOTEL_NIGHTLY_RATES,type QuoteInput,type QuoteRoom,type HotelQuote} from './hotelRateCalculatorLogic';
 const room=(type:'STANDARD'|'DELUXE'='DELUXE',nights=3,id='a',order=1,startDay=1,rate=HOTEL_NIGHTLY_RATES[type]):QuoteRoom=>({type,nights,id,order,startDay,rate});
-const input=(rooms=[room()],stamps=0):QuoteInput=>({rooms,stamps,completedCoupons:0,paidAmount:0});
+const input=(rooms=[room()],stamps=0):QuoteInput=>({rooms,stamps,paidAmount:0});
 function quote(v:QuoteInput):HotelQuote{const r=calculateHotelQuote(v);if(!r.ok)throw new Error(r.error);return r.quote;}
 describe('approved hotel coupon examples',()=>{
  it.each([[0,3,300000],[0,5,450000],[2,4,370000],[3,4,380000],[0,10,850000],[0,20,1700000],[8,5,400000],[9,7,550000],[4,1,90000],[5,1,100000],[9,1,0],[0,11,950000],[0,15,1300000]])('stamp %i + DELUXE %i nights = %i',(s,n,m)=>{expect(quote(input([room('DELUXE',n)],s)).final).toBe(m);});
@@ -10,7 +10,7 @@ describe('approved hotel coupon examples',()=>{
  it('mixed three nights 442000; standard first regardless of input order',()=>{const q=quote(input([room('DELUXE',3,'d',2),room('STANDARD',3,'s')]));expect(q.final).toBe(442000);expect(q.tenPercentDiscount).toBe(38000);expect(q.nights.map(n=>n.type)).toEqual(['STANDARD','DELUXE','STANDARD','DELUXE','STANDARD','DELUXE']);});
  it('one DELUXE room never multiplies by dogs',()=>{expect(quote(input([room()])).totalRoomNights).toBe(3);expect(quote(input([room()])).final).toBe(300000);});
  it('same type two rooms earn both stamps with stable order',()=>{const a=room('DELUXE',3,'a',1),b=room('DELUXE',3,'b',2);const q=quote(input([b,a]));expect(q.totalRoomNights).toBe(6);expect(q.final).toBe(550000);expect(q.nights[0].roomId).toBe('a');expect(quote(input([a,b]))).toEqual(q);});
- it('completed coupon count changes labels only',()=>{const q=quote({...input([room('DELUXE',4)],3),completedCoupons:2});expect(q.final).toBe(380000);expect(q.totalCompletedCoupons).toBe(2);expect(q.coupons[0].number).toBe(3);});
+ it('coupon labels are relative to this quote and current stamps are sufficient',()=>{const q=quote(input([room('DELUXE',4)],3));expect(q.final).toBe(380000);expect(q.coupons[0].number).toBe(1);expect(q.stampsAfter).toBe(7);expect(q.couponsCompleted).toBe(0);expect(q).not.toHaveProperty('totalCompletedCoupons');});
  it('continuous extension totals once and subtracts payments',()=>{const q=quote({...input([room('DELUXE',3+2)]),paidAmount:300000});expect(q.final).toBe(450000);expect(q.additional).toBe(150000);expect(q.stampsAfter).toBe(5);expect(quote(input([room('DELUXE',2)],3)).final).toBe(180000);});
  it('overpayment is separate and no negative additional',()=>{const q=quote({...input([room()]),paidAmount:400000});expect(q.additional).toBe(0);expect(q.overpaid).toBe(100000);});
  it('type change uses relative periods 3 STANDARD then 2 DELUXE',()=>{const q=quote(input([room('STANDARD',3),room('DELUXE',2,'b',2,4)]));expect(q.final).toBe(342000);expect(q.nights.map(n=>n.day)).toEqual([1,2,3,4,5]);});
@@ -28,9 +28,11 @@ describe('validation and deterministic quote only',()=>{
  it.each([0,-1,1.2,NaN,Infinity])('rejects rate %s',r=>expect(calculateHotelQuote(input([room('DELUXE',1,'a',1,1,r)])).ok).toBe(false));
  it.each([-1,10,0.5,NaN])('rejects stamp %s',s=>expect(calculateHotelQuote(input([room()],s)).ok).toBe(false));
  it('rejects invalid start, duplicate identities, empty and oversized quotes',()=>{expect(calculateHotelQuote(input([room('STANDARD',1,'a',1,0)])).ok).toBe(false);expect(calculateHotelQuote(input([room(),room()])).ok).toBe(false);expect(calculateHotelQuote(input([])).ok).toBe(false);expect(calculateHotelQuote(input([room('DELUXE',5001)])).ok).toBe(false);});
- it('bounds safe integer money and coupon totals',()=>{expect(calculateHotelQuote(input([room('DELUXE',2,'a',1,1,Number.MAX_SAFE_INTEGER)])).ok).toBe(false);expect(calculateHotelQuote({...input(),completedCoupons:Number.MAX_SAFE_INTEGER}).ok).toBe(false);expect(calculateHotelQuote({...input(),paidAmount:-1}).ok).toBe(false);});
+ it('bounds safe integer money',()=>{expect(calculateHotelQuote(input([room('DELUXE',2,'a',1,1,Number.MAX_SAFE_INTEGER)])).ok).toBe(false);expect(calculateHotelQuote({...input(),paidAmount:-1}).ok).toBe(false);});
  it('floors discount per room-night, not display rounding',()=>{const q=quote(input([room('STANDARD',5,'a',1,1,60005)]));expect(q.tenPercentDiscount).toBe(30000);expect(q.final).toBe(270025);});
- it('5000 nights is deterministic and does not mutate frozen input',()=>{const v=Object.freeze({...input([Object.freeze(room('DELUXE',5000))]),rooms:Object.freeze([Object.freeze(room('DELUXE',5000))])});const q=quote(v);expect(q.final).toBe(425000000);expect(q.totalCompletedCoupons).toBe(500);expect(quote(v)).toEqual(q);});
+ it('5000 nights is deterministic and does not mutate frozen input',()=>{const v=Object.freeze({...input([Object.freeze(room('DELUXE',5000))]),rooms:Object.freeze([Object.freeze(room('DELUXE',5000))])});const q=quote(v);expect(q.final).toBe(425000000);expect(q.couponsCompleted).toBe(500);expect(quote(v)).toEqual(q);});
  it('copy reflects the actual quote including extension and room selection',()=>{const q=quote({...input([room('DELUXE',5)]),paidAmount:300000});const s=formatHotelQuote(q);expect(s).toContain('450,000원');expect(s).toContain('150,000원');expect(s).toContain('5박');expect(s).toContain('1박 100,000원');expect(s).toContain('실제 결제 확정 금액이 아닌 예상 요금');});
  it('calculator source has no network or persistent storage dependency',()=>{for(const path of ['src/pages/hotelRateCalculatorLogic.ts','src/pages/HotelRateCalculatorModal.tsx']){const s=readFileSync(path,'utf8');expect(s).not.toMatch(/supabase|Repository|localStorage|sessionStorage|fetch\s*\(|XMLHttpRequest/);}});
 });
+
+it('copy contains only current and this-visit coupon progress, never lifetime history',()=>{const q=quote(input([room('DELUXE',2)],9));expect(q.stampsAfter).toBe(1);expect(q.couponsCompleted).toBe(1);expect(q.coupons.map(c=>c.number)).toEqual([1,2]);const s=formatHotelQuote(q);expect(s).toContain('시작 9개 + 이번 2개 → 새 쿠폰 도장 1개');expect(s).toContain('이번 이용 중 쿠폰 1장 완료');expect(s).not.toMatch(/누적|기존 완료/);});
