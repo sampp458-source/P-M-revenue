@@ -1,3 +1,4 @@
+import {additionalServiceMessageLines,type AdditionalServiceQuote} from './hotelAdditionalServices';
 /** Quote-only rules. No clock, storage, repository or network dependencies. */
 export type RoomKind = 'STANDARD' | 'DELUXE';
 export const HOTEL_NIGHTLY_RATES: Record<RoomKind, number> = {STANDARD: 60_000, DELUXE: 100_000};
@@ -40,8 +41,8 @@ export function calculateHotelQuote(input: QuoteInput): QuoteResult {
  const couponsCompleted=Math.floor((stamps+count)/10);
  return {ok:true,quote:{nights,benefits,coupons,unresolved,totalRoomNights:count,gross,tenPercentNights,tenPercentDiscount,freeNights:used.size,freeDiscount,totalDiscount,final,additional:final===null?null:Math.max(0,final-paidAmount),overpaid:final===null?null:Math.max(0,paidAmount-final),stampsAfter:(stamps+count)%10,couponsCompleted,paidAmount,startStamps:stamps}};
 }
-export function formatHotelQuote(quote:HotelQuote):string {
- if(quote.final===null||quote.unresolved)throw new Error('무료 객실을 모두 선택해 주세요.');
+export function formatHotelQuote(quote:HotelQuote,services?:AdditionalServiceQuote):string {
+ if(quote.final===null||quote.unresolved||services?.final===null)throw new Error('무료 객실을 모두 선택해 주세요.');
  const roomName=(type:RoomKind)=>type==='STANDARD'?'스탠다드':'디럭스';
  const rooms=Array.from(new Set(quote.nights.map(n=>n.roomId))).map(id=>{
   const nights=quote.nights.filter(n=>n.roomId===id);
@@ -58,15 +59,16 @@ export function formatHotelQuote(quote:HotelQuote):string {
   `정상 요금: ${quoteWon(quote.gross)}`,
   ...(quote.tenPercentDiscount>0?[`쿠폰 할인: -${quoteWon(quote.tenPercentDiscount)}`]:[]),
   ...(quote.freeNights>0?['무료 숙박 혜택',...freeRooms]:[]),'',
-  `총 안내 금액: ${quoteWon(quote.final)}`,
+  ...(services&&services.total>0?['추가 서비스',...additionalServiceMessageLines(services),'']:[]),
+  `총 안내 금액: ${quoteWon(services?services.final!:quote.final)}`,
   ...(quote.paidAmount>0?[
    `이미 결제하신 금액: ${quoteWon(quote.paidAmount)}`,
-   `추가 결제 안내 금액: ${quoteWon(quote.additional!)}`,
-   ...(quote.overpaid!>0?[`초과 결제 금액: ${quoteWon(quote.overpaid!)} (별도 정산 확인이 필요합니다.)`]:[])
+   `추가 결제 안내 금액: ${quoteWon(services?services.additional!:quote.additional!)}`,
+   ...((services?services.overpaid!:quote.overpaid!)>0?[`초과 결제 금액: ${quoteWon(services?services.overpaid!:quote.overpaid!)} (별도 정산 확인이 필요합니다.)`]:[])
   ]:[]),'',
   `이번 이용 시 쿠폰 도장 ${quote.totalRoomNights}개가 적립됩니다.`,'',
   '※ 안내드린 금액은 현재 이용 조건 기준이며,',
-  '숙박 일정이나 객실 구성이 변경되면',
+  services&&services.total>0?'숙박 일정이나 객실·서비스 구성이 변경되면':'숙박 일정이나 객실 구성이 변경되면',
   '금액이 달라질 수 있습니다.','',
   '예약을 원하시면 편하게 말씀해 주세요. 😊'
  ].join('\n');

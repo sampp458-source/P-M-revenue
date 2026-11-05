@@ -1,6 +1,7 @@
 import {useRef,useState} from 'react';
 import {Button,Field,Input,Modal,Select} from '../components/ui';
 import {calculateHotelQuote,formatHotelQuote,HOTEL_NIGHTLY_RATES,MAX_QUOTE_ROOMS,quoteWon,type RoomKind,type QuoteRoom} from './hotelRateCalculatorLogic';
+import {calculateAdditionalServices,timeServiceFee} from './hotelAdditionalServices';
 import './hotel-rate-calculator.css';
 type DraftRoom={id:string;order:number;type:RoomKind;nights:string;rate:string;startDay:string;extra:string};
 const numeric=(s:string)=>s.trim()&&/^\d+$/.test(s)?Number(s):NaN;
@@ -10,6 +11,8 @@ export function HotelRateCalculatorModal({onClose}:{onClose:()=>void}) {
  const [rooms,setRooms]=useState<DraftRoom[]>([draftRoom(1,'STANDARD')]);const nextOrder=useRef(2);
  const [stamps,setStamps]=useState('0');const [extension,setExtension]=useState(false);const [paid,setPaid]=useState('0');
  const [freeSelections,setFreeSelections]=useState<Record<string,string>>({});const [copyMessage,setCopyMessage]=useState('');const [copying,setCopying]=useState(false);const [fallback,setFallback]=useState('');
+ const [earlyEnabled,setEarlyEnabled]=useState(false);const [lateEnabled,setLateEnabled]=useState(false);
+ const [serviceTimes,setServiceTimes]=useState<Record<string,{early?:string;late?:string}>>({});const [agility,setAgility]=useState('0');const [fitness,setFitness]=useState('0');
  const [detailLimit,setDetailLimit]=useState(50);const [couponPage,setCouponPage]=useState(0);
  const currentTypes=new Set(rooms.map(r=>r.type));const mode=currentTypes.size===2?'BOTH':rooms[0].type;
  const clearFeedback=()=>{setCopyMessage('');setFallback('');};
@@ -20,8 +23,12 @@ export function HotelRateCalculatorModal({onClose}:{onClose:()=>void}) {
  const extensionInvalid=extension&&rooms.some(r=>!Number.isSafeInteger(numeric(r.nights))||numeric(r.nights)<1||!Number.isSafeInteger(numeric(r.extra))||numeric(r.extra)<0);
  const result=extensionInvalid?{ok:false as const,error:'기존 숙박은 1박 이상, 추가 연장은 0박 이상의 정수로 입력해 주세요.'}:calculateHotelQuote({stamps:numeric(stamps),rooms:roomInputs,paidAmount:extension?numeric(paid):0,freeSelections});
  const quote=result.ok?result.quote:null;
+ const serviceInput={rooms:rooms.map(r=>({roomId:r.id,early:earlyEnabled?(serviceTimes[r.id]?.early??'10:00'):null,late:lateEnabled?(serviceTimes[r.id]?.late??'20:00'):null})),agility:numeric(agility),fitness:numeric(fitness)};
+ const services=quote?calculateAdditionalServices(quote,serviceInput):null;const pricing=services?.ok?services.quote:null;
+ const error=!result.ok?result.error:services&&!services.ok?services.error:null;
+ const changeServiceTime=(id:string,kind:'early'|'late',value:string)=>{clearFeedback();setServiceTimes(v=>({...v,[id]:{...v[id],[kind]:value}}));};
  const visibleCouponPage=quote?Math.min(couponPage,Math.max(0,Math.ceil(quote.coupons.length/5)-1)):0;
- const copy=async()=>{if(!quote||quote.final===null||copying)return;const text=formatHotelQuote(quote);setCopying(true);setCopyMessage('');try{await navigator.clipboard.writeText(text);setCopyMessage('고객 안내문을 복사했습니다.');setFallback('');}catch{setCopyMessage('복사하지 못했습니다. 아래 문구를 선택해 직접 복사해 주세요.');setFallback(text);}finally{setCopying(false);}};
+ const copy=async()=>{if(!quote||!pricing||pricing.final===null||copying)return;const text=formatHotelQuote(quote,pricing);setCopying(true);setCopyMessage('');try{await navigator.clipboard.writeText(text);setCopyMessage('고객 안내문을 복사했습니다.');setFallback('');}catch{setCopyMessage('복사하지 못했습니다. 아래 문구를 선택해 직접 복사해 주세요.');setFallback(text);}finally{setCopying(false);}};
  return <Modal open title="호텔 요금 계산기" description="한 가정 기준 · 닫으면 초기화됩니다." size="large" onClose={onClose}>
   <div className="hotel-rate-calculator">
    <div className="hrc-layout">
@@ -37,19 +44,27 @@ export function HotelRateCalculatorModal({onClose}:{onClose:()=>void}) {
       </div>)}
      </div>
 
+     <details className="hrc-options hrc-services"><summary>추가 서비스</summary>
+      <p className="hrc-hint">시간 요금은 객실별 최초 입실·최종 퇴실에 한 번만 적용합니다. 내부 객실 이동은 기본 시간으로 두세요.</p>
+      {(['early','late'] as const).map(kind=>{const early=kind==='early';const enabled=early?earlyEnabled:lateEnabled;const title=early?'이른 입실':'늦은 퇴실';return <div key={kind}><label className="hrc-check"><input type="checkbox" checked={enabled} onChange={e=>{clearFeedback();(early?setEarlyEnabled:setLateEnabled)(e.target.checked);}}/>{title}</label>{enabled&&rooms.map(r=>{const time=serviceTimes[r.id]?.[kind]??(early?'10:00':'20:00');const fee=timeServiceFee(kind,time);return <div key={r.id} className="hrc-service-time"><Field label={rooms.length===1?`희망 ${early?'입실':'퇴실'} 시간`:`${r.type} 객실 ${r.order} ${title}`}><Input aria-label={`${r.type} 객실 ${r.order} ${title} 시간`} type="time" min={early?'08:00':'20:00'} max={early?'10:00':'22:00'} step="60" value={time} onInput={e=>changeServiceTime(r.id,kind,e.currentTarget.value)} onChange={e=>changeServiceTime(r.id,kind,e.target.value)}/></Field><span>{fee===null?'시간 확인 필요':quoteWon(fee)}</span></div>;})}</div>;})}
+      {([{name:'어질리티',value:agility,set:setAgility},{name:'피트니스',value:fitness,set:setFitness}]).map(p=><div className="hrc-program-row" key={p.name}><span>{p.name}</span><div className="hrc-stepper"><Button variant="secondary" aria-label={`${p.name} 회수 감소`} disabled={!Number.isFinite(numeric(p.value))||numeric(p.value)<=0} onClick={()=>{clearFeedback();p.set(String(numeric(p.value)-1));}}>−</Button><Input aria-label={`${p.name} 총 신청 회수`} type="number" inputMode="numeric" min="0" step="1" value={p.value} onChange={e=>{clearFeedback();p.set(e.target.value);}}/><Button variant="secondary" aria-label={`${p.name} 회수 증가`} onClick={()=>{clearFeedback();p.set(String((Number.isFinite(numeric(p.value))?numeric(p.value):0)+1));}}>+</Button></div></div>)}
+      <p className="hrc-hint">프로그램은 반려견별 신청한 총 회수입니다. 각 1회 20,000원 · 추가 서비스는 쿠폰 할인·적립 대상이 아닙니다.</p>
+     </details>
+
     </div>
     <div className="hrc-result" aria-label="요금 계산 결과">
-     {!result.ok?<div role="alert" className="hrc-error">{result.error}<p>입력값을 수정하면 즉시 다시 계산합니다.</p></div>:quote&&<>
-      <div className="hrc-total"><span>예상 최종 결제금액</span><strong aria-label="최종 예상 결제금액">{quote.final===null?'무료 객실 선택 필요':quoteWon(quote.final)}</strong><small>실제 결제 확정 금액이 아닌 예상 요금입니다.</small></div>
+     {error?<div role="alert" className="hrc-error">{error}<p>입력값을 수정하면 즉시 다시 계산합니다.</p></div>:quote&&pricing&&<>
+      <div className="hrc-total"><span>예상 최종 결제금액</span><strong aria-label="최종 예상 결제금액">{pricing.final===null?'무료 객실 선택 필요':quoteWon(pricing.final)}</strong><small>실제 결제 확정 금액이 아닌 예상 요금입니다.</small></div>
       <p className="hrc-hint">{rooms.filter(r=>r.type==='STANDARD').length>0?`STANDARD ${rooms.filter(r=>r.type==='STANDARD').length}실 `:''}{rooms.filter(r=>r.type==='DELUXE').length>0?`DELUXE ${rooms.filter(r=>r.type==='DELUXE').length}실`:''} · 총 {quote.totalRoomNights.toLocaleString()} 룸나이트</p>
       <dl className="hrc-breakdown"><div><dt>정상가</dt><dd>{quoteWon(quote.gross)}</dd></div><div><dt>쿠폰 할인</dt><dd>−{quoteWon(quote.tenPercentDiscount)}</dd></div><div><dt>무료 숙박</dt><dd>−{quoteWon(quote.freeDiscount)}</dd></div><div><dt>총 할인금액</dt><dd>−{quoteWon(quote.totalDiscount)}</dd></div></dl>
-      {quote.benefits.length>0&&<div className="hrc-free"><h3>무료 숙박 선택</h3>{quote.benefits.map(b=><fieldset key={b.id}><legend>{b.day}일차 · 이번 견적 쿠폰 {b.coupon} 무료 1박{b.candidates.length===1?' · 자동 적용':''}</legend><div className="hrc-free-choices">{b.candidates.map(id=>{const n=quote.nights.find(n=>n.id===id)!;const taken=quote.benefits.some(other=>other.id!==b.id&&other.selected===id);const preview=calculateHotelQuote({stamps:numeric(stamps),rooms:roomInputs,paidAmount:extension?numeric(paid):0,freeSelections:{...freeSelections,[b.id]:id}});return <Button key={id} variant={b.selected===id?'primary':'secondary'} aria-pressed={b.selected===id} disabled={taken||b.candidates.length===1} onClick={()=>{clearFeedback();setFreeSelections(v=>({...v,[b.id]:id}));}}><span>{n.roomLabel} 무료</span><small>{taken?'다른 무료 혜택 적용':preview.ok&&preview.quote.final!==null?`예상 결제 ${quoteWon(preview.quote.final)}`:'다른 무료 혜택도 선택해 주세요'}</small></Button>;})}</div></fieldset>)}</div>}
+      {pricing.total>0&&<dl className="hrc-breakdown hrc-service-breakdown" aria-label="추가 서비스 요금">{pricing.early.some(r=>r.amount>0)&&<div><dt>이른 입실</dt><dd>+{quoteWon(pricing.early.reduce((s,r)=>s+r.amount,0))}</dd></div>}{pricing.late.some(r=>r.amount>0)&&<div><dt>늦은 퇴실</dt><dd>+{quoteWon(pricing.late.reduce((s,r)=>s+r.amount,0))}</dd></div>}{pricing.agility>0&&<div><dt>어질리티 {pricing.agility}회</dt><dd>+{quoteWon(pricing.agilityAmount)}</dd></div>}{pricing.fitness>0&&<div><dt>피트니스 {pricing.fitness}회</dt><dd>+{quoteWon(pricing.fitnessAmount)}</dd></div>}</dl>}
+      {quote.benefits.length>0&&<div className="hrc-free"><h3>무료 숙박 선택</h3>{quote.benefits.map(b=><fieldset key={b.id}><legend>{b.day}일차 · 이번 견적 쿠폰 {b.coupon} 무료 1박{b.candidates.length===1?' · 자동 적용':''}</legend><div className="hrc-free-choices">{b.candidates.map(id=>{const n=quote.nights.find(n=>n.id===id)!;const taken=quote.benefits.some(other=>other.id!==b.id&&other.selected===id);const preview=calculateHotelQuote({stamps:numeric(stamps),rooms:roomInputs,paidAmount:extension?numeric(paid):0,freeSelections:{...freeSelections,[b.id]:id}});const candidate=preview.ok?calculateAdditionalServices(preview.quote,serviceInput):null;return <Button key={id} variant={b.selected===id?'primary':'secondary'} aria-pressed={b.selected===id} disabled={taken||b.candidates.length===1} onClick={()=>{clearFeedback();setFreeSelections(v=>({...v,[b.id]:id}));}}><span>{n.roomLabel} 무료</span><small>{taken?'다른 무료 혜택 적용':candidate?.ok&&candidate.quote.final!==null?`예상 결제 ${quoteWon(candidate.quote.final)}`:'다른 무료 혜택도 선택해 주세요'}</small></Button>;})}</div></fieldset>)}</div>}
 
-      {extension&&<div className="hrc-extension-total"><p>이미 결제한 금액 {quoteWon(quote.paidAmount)}</p><strong>추가 청구 예상 {quote.additional===null?'선택 필요':quoteWon(quote.additional)}</strong>{!!quote.overpaid&&<p>초과 결제 정산 참고 {quoteWon(quote.overpaid)} · 자동 환불하지 않습니다.</p>}</div>}
+      {extension&&<div className="hrc-extension-total"><p>이미 결제한 금액 {quoteWon(quote.paidAmount)}</p><strong>추가 청구 예상 {pricing.additional===null?'선택 필요':quoteWon(pricing.additional)}</strong>{!!pricing.overpaid&&<p>초과 결제 정산 참고 {quoteWon(pricing.overpaid!)} · 자동 환불하지 않습니다.</p>}</div>}
       <div className="hrc-stamp-summary"><strong>이번 적립 {quote.totalRoomNights}개 · {quote.couponsCompleted?'새 쿠폰 도장':'계산 후 현재 도장'} {quote.stampsAfter}개</strong>{quote.couponsCompleted>0&&<p>이번 이용 중 쿠폰 {quote.couponsCompleted}장 완료</p>}</div>
 
      </>}
-     <div className="hrc-copy"><Button type="button" disabled={!quote||quote.final===null||copying} onClick={()=>void copy()}>고객 안내문 복사</Button><p role="status">{copyMessage||'고객에게 자동 발송하지 않습니다.'}</p></div>
+     <div className="hrc-copy"><Button type="button" disabled={!quote||!pricing||pricing.final===null||copying} onClick={()=>void copy()}>고객 안내문 복사</Button><p role="status">{copyMessage||'고객에게 자동 발송하지 않습니다.'}</p></div>
      {fallback&&<Field label="직접 복사할 고객 안내문"><textarea className="hrc-fallback" readOnly value={fallback} onFocus={e=>e.currentTarget.select()}/></Field>}
     </div>
    </div>

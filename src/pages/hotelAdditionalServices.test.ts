@@ -1,0 +1,26 @@
+import {describe,it,expect} from 'vitest';
+import {calculateHotelQuote,formatHotelQuote,type QuoteRoom} from './hotelRateCalculatorLogic';
+import {calculateAdditionalServices,timeServiceFee,type AdditionalServiceInput} from './hotelAdditionalServices';
+const room=(id='a',type:'STANDARD'|'DELUXE'='DELUXE',nights=4,startDay=1):QuoteRoom=>({id,order:id==='a'?1:2,type,nights,startDay,rate:type==='STANDARD'?60000:100000});
+function lodging(rooms=[room()],stamps=3,paidAmount=0){const q=calculateHotelQuote({rooms,stamps,paidAmount});if(!q.ok)throw Error(q.error);return q.quote;}
+const none:AdditionalServiceInput={rooms:[],agility:0,fitness:0};
+function priced(input:AdditionalServiceInput,q=lodging()){const r=calculateAdditionalServices(q,input);if(!r.ok)throw Error(r.error);return r.quote;}
+describe('minute-based time service boundaries',()=>{
+ it.each([['10:00',0],['09:30',5000],['09:00',5000],['08:59',10000],['08:10',10000],['08:00',10000]] as const)('early %s = %i',(time,fee)=>expect(timeServiceFee('early',time)).toBe(fee));
+ it.each([['20:00',0],['20:30',5000],['21:00',5000],['21:01',10000],['21:30',10000],['22:00',10000]] as const)('late %s = %i',(time,fee)=>expect(timeServiceFee('late',time)).toBe(fee));
+ it.each(['07:59','10:01','08:60','8:10','08:10:30','','24:00'])('rejects invalid early %s',t=>expect(timeServiceFee('early',t)).toBeNull());
+ it.each(['19:59','22:01','20:60','20:00:01',''])('rejects invalid late %s',t=>expect(timeServiceFee('late',t)).toBeNull());
+});
+describe('separate once-per-room service pricing',()=>{
+ it('zero services preserves all V1.3 final values and exact customer message',()=>{for(let s=0;s<10;s++)for(let n=1;n<=30;n++){const q=lodging([room('a','DELUXE',n)],s,300000);const p=priced(none,q);expect(p.final).toBe(q.final);expect(p.additional).toBe(q.additional);expect(p.overpaid).toBe(q.overpaid);expect(formatHotelQuote(q,p)).toBe(formatHotelQuote(q));}});
+ it('approved composite total460000; coupons and stamps remain lodging-only',()=>{const q=lodging();const before=structuredClone(q);const p=priced({rooms:[{roomId:'a',early:'08:10',late:'21:30'}],agility:2,fitness:1},q);expect(p.total).toBe(80000);expect(p.final).toBe(460000);expect(q).toEqual(before);const text=formatHotelQuote(q,p);expect(text).toContain('총 안내 금액: 460,000원');expect(text).toContain('이른 입실 · 디럭스 08:10: 10,000원');expect(text).toContain('어질리티 2회: 40,000원');expect(text).toContain('쿠폰 도장 4개');});
+ it('two rooms charged20000 once each, never per night or dog',()=>{const q=lodging([room('a','STANDARD',10),room('b','DELUXE',10)],0);const p=priced({rooms:[{roomId:'a',early:'08:10',late:null},{roomId:'b',early:'08:10',late:null}],agility:2,fitness:0},q);expect(p.early.reduce((s,r)=>s+r.amount,0)).toBe(20000);expect(p.agilityAmount).toBe(40000);expect(q.totalRoomNights).toBe(20);});
+ it('independent room times and distinct same-type room labels',()=>{const q=lodging([room('a'),room('b')]);const p=priced({rooms:[{roomId:'a',early:'08:10',late:'20:30'},{roomId:'b',early:'09:45',late:'22:00'}],agility:0,fitness:0},q);expect(p.total).toBe(30000);expect(p.early.map(r=>r.roomLabel)).toEqual(['디럭스 1번째 객실','디럭스 2번째 객실']);});
+ it('free lodging never discounts time or programs',()=>{const q=lodging([room('a','DELUXE',1)],9);expect(q.final).toBe(0);const p=priced({rooms:[{roomId:'a',early:'08:10',late:'21:30'}],agility:1,fitness:1},q);expect(p.final).toBe(60000);expect(q.stampsAfter).toBe(0);});
+ it('long extension never multiplies services and paid amount subtracts full total',()=>{const q=lodging([room('a','DELUXE',5)],0,300000);const p=priced({rooms:[{roomId:'a',early:'08:10',late:null}],agility:2,fitness:0},q);expect(p.final).toBe(500000);expect(p.additional).toBe(200000);expect(formatHotelQuote(q,p)).toContain('추가 결제 안내 금액: 200,000원');});
+ it('internal room change adds no automatic fees, new room gets normal default only',()=>{const q=lodging([room('a','STANDARD',3),room('b','DELUXE',2,4)],0);expect(priced({rooms:[{roomId:'a',early:'08:10',late:null},{roomId:'b',early:'10:00',late:'20:00'}],agility:0,fitness:0},q).total).toBe(10000);});
+ it('unresolved lodging free choice keeps final and copy blocked',()=>{const q=lodging([room('a','STANDARD',1),room('b','DELUXE',1)],9);const p=priced({...none,agility:1},q);expect(p.final).toBeNull();expect(()=>formatHotelQuote(q,p)).toThrow();});
+ it('zero fee selected times do not create customer service lines',()=>{const q=lodging();const p=priced({rooms:[{roomId:'a',early:'10:00',late:'20:00'}],agility:0,fitness:0},q);expect(formatHotelQuote(q,p)).not.toContain('추가 서비스');});
+ it.each([-1,0.5,NaN,Infinity,Number.MAX_SAFE_INTEGER])('rejects invalid/overflow count %s',n=>expect(calculateAdditionalServices(lodging(),{...none,agility:n}).ok).toBe(false));
+ it('rejects unknown/duplicate room identities and malformed time',()=>{expect(calculateAdditionalServices(lodging(),{...none,rooms:[{roomId:'b',early:'08:10',late:null}]}).ok).toBe(false);expect(calculateAdditionalServices(lodging(),{...none,rooms:[{roomId:'a',early:'08:10',late:null},{roomId:'a',early:'08:10',late:null}]}).ok).toBe(false);expect(calculateAdditionalServices(lodging(),{...none,rooms:[{roomId:'a',early:'07:59',late:null}]}).ok).toBe(false);});
+});
