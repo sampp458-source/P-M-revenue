@@ -93,10 +93,10 @@
 .hrc-services {margin-top:12px;padding-top:10px;border-top:1px solid #dce3ec;min-width:0}
 .hrc-services h3 {margin:0 0 6px;font-size:13px;font-weight:600}
 .hrc-service-room>p {font-size:11px;color:#62718a;margin:8px 0 4px}
-.hrc-service-row {display:grid;grid-template-columns:52px minmax(0,1fr) 48px;align-items:center;gap:4px;min-width:0;margin-top:4px}
-.hrc-service-row>label {font-size:12px;line-height:1.4}
+.hrc-service-row {display:grid;grid-template-columns:48px minmax(0,1fr) 58px;align-items:center;gap:4px;min-width:0;margin-top:4px}
+.hrc-service-row>label {font-size:11px;line-height:1.4}
 .hrc-service-row>input {width:100%;min-width:0;max-width:154px;padding:0 6px;height:44px}
-.hrc-service-fee {min-width:0;font-size:10px;text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.hrc-service-fee {min-width:0;word-break:keep-all;font-size:10px;text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .hrc-program-row .hrc-stepper {grid-template-columns:44px minmax(44px,1fr) 44px;gap:2px;width:100%;max-width:144px}
 .hrc-program-value {position:relative;min-width:0}
 .hrc-program-value input {width:100%;min-width:0;padding:0 14px 0 2px;height:44px;text-align:center}
