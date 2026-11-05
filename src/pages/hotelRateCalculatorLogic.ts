@@ -42,7 +42,32 @@ export function calculateHotelQuote(input: QuoteInput): QuoteResult {
 }
 export function formatHotelQuote(quote:HotelQuote):string {
  if(quote.final===null||quote.unresolved)throw new Error('무료 객실을 모두 선택해 주세요.');
- const rooms=Array.from(new Set(quote.nights.map(n=>n.roomId))).map(id=>{const ns=quote.nights.filter(n=>n.roomId===id);return `${ns[0].roomLabel}: ${ns.length}박 · ${ns[0].day}~${ns.at(-1)!.day}일차 · 1박 ${quoteWon(ns[0].rate)}`;});
- const roomSummary=(['STANDARD','DELUXE'] as const).map(type=>{const count=new Set(quote.nights.filter(n=>n.type===type).map(n=>n.roomId)).size;return count?`${type} ${count}실`:'';}).filter(Boolean).join(' + ');
- return ['[P&M 호텔 예상 요금]','',`객실: ${roomSummary}`,`숙박: ${rooms.length===1?`${quote.totalRoomNights}박`:'객실별 아래 내역 참고'}`,...rooms,`총 객실 숙박: ${quote.totalRoomNights} 룸나이트`,'',`정상가: ${quoteWon(quote.gross)}`,`쿠폰 할인: -${quoteWon(quote.tenPercentDiscount)}`,`무료 숙박: -${quoteWon(quote.freeDiscount)} (${quote.freeNights}박)`,...quote.benefits.map(b=>{const n=quote.nights.find(n=>n.id===b.selected)!;return `무료 선택: ${b.day}일차 ${n.roomLabel}`;}),'',`예상 결제금액: ${quoteWon(quote.final)}`,...(quote.paidAmount?[`기결제: ${quoteWon(quote.paidAmount)}`,`추가 결제 예상: ${quoteWon(quote.additional!)}`,...(quote.overpaid?[`초과 결제 정산 참고: ${quoteWon(quote.overpaid)}`]:[])]:[]),`도장: 시작 ${quote.startStamps}개 + 이번 ${quote.totalRoomNights}개 → ${quote.couponsCompleted?'새 쿠폰 도장':'현재 도장'} ${quote.stampsAfter}개`, `이번 이용 중 쿠폰 ${quote.couponsCompleted}장 완료`,'','※ 실제 결제 확정 금액이 아닌 예상 요금입니다.'].join('\n');
+ const roomName=(type:RoomKind)=>type==='STANDARD'?'스탠다드':'디럭스';
+ const rooms=Array.from(new Set(quote.nights.map(n=>n.roomId))).map(id=>{
+  const nights=quote.nights.filter(n=>n.roomId===id);
+  return `- ${roomName(nights[0].type)} 1실 / ${nights.length}박: ${quoteWon(nights.reduce((sum,n)=>sum+n.rate,0))}`;
+ });
+ const freeRooms=(['STANDARD','DELUXE'] as const).flatMap(type=>{
+  const nights=quote.nights.filter(n=>n.type===type&&n.free);
+  return nights.length?[`- ${roomName(type)} ${nights.length}박 무료: -${quoteWon(nights.reduce((sum,n)=>sum+n.rate,0))}`]:[];
+ });
+ return [
+  '안녕하세요, P&M 호텔입니다. 🐾','',
+  '문의주신 호텔 이용 요금을 안내드립니다.','',
+  '숙박 요금',...rooms,'',
+  `정상 요금: ${quoteWon(quote.gross)}`,
+  ...(quote.tenPercentDiscount>0?[`쿠폰 할인: -${quoteWon(quote.tenPercentDiscount)}`]:[]),
+  ...(quote.freeNights>0?['무료 숙박 혜택',...freeRooms]:[]),'',
+  `총 안내 금액: ${quoteWon(quote.final)}`,
+  ...(quote.paidAmount>0?[
+   `이미 결제하신 금액: ${quoteWon(quote.paidAmount)}`,
+   `추가 결제 안내 금액: ${quoteWon(quote.additional!)}`,
+   ...(quote.overpaid!>0?[`초과 결제 금액: ${quoteWon(quote.overpaid!)} (별도 정산 확인이 필요합니다.)`]:[])
+  ]:[]),'',
+  `이번 이용 시 쿠폰 도장 ${quote.totalRoomNights}개가 적립됩니다.`,'',
+  '※ 안내드린 금액은 현재 이용 조건 기준이며,',
+  '숙박 일정이나 객실 구성이 변경되면',
+  '금액이 달라질 수 있습니다.','',
+  '예약을 원하시면 편하게 말씀해 주세요. 😊'
+ ].join('\n');
 }

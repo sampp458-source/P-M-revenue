@@ -21,7 +21,7 @@ export function HotelRateCalculatorModal({onClose}:{onClose:()=>void}) {
  const result=extensionInvalid?{ok:false as const,error:'기존 숙박은 1박 이상, 추가 연장은 0박 이상의 정수로 입력해 주세요.'}:calculateHotelQuote({stamps:numeric(stamps),rooms:roomInputs,paidAmount:extension?numeric(paid):0,freeSelections});
  const quote=result.ok?result.quote:null;
  const visibleCouponPage=quote?Math.min(couponPage,Math.max(0,Math.ceil(quote.coupons.length/5)-1)):0;
- const copy=async()=>{if(!quote||quote.final===null||copying)return;const text=formatHotelQuote(quote);setCopying(true);setCopyMessage('');try{await navigator.clipboard.writeText(text);setCopyMessage('계산 결과를 복사했습니다.');setFallback('');}catch{setCopyMessage('복사하지 못했습니다. 아래 문구를 선택해 직접 복사해 주세요.');setFallback(text);}finally{setCopying(false);}};
+ const copy=async()=>{if(!quote||quote.final===null||copying)return;const text=formatHotelQuote(quote);setCopying(true);setCopyMessage('');try{await navigator.clipboard.writeText(text);setCopyMessage('고객 안내문을 복사했습니다.');setFallback('');}catch{setCopyMessage('복사하지 못했습니다. 아래 문구를 선택해 직접 복사해 주세요.');setFallback(text);}finally{setCopying(false);}};
  return <Modal open title="호텔 요금 계산기" description="한 가정 기준 · 닫으면 초기화됩니다." size="large" onClose={onClose}>
   <div className="hotel-rate-calculator">
    <div className="hrc-layout">
@@ -49,8 +49,8 @@ export function HotelRateCalculatorModal({onClose}:{onClose:()=>void}) {
       <div className="hrc-stamp-summary"><strong>이번 적립 {quote.totalRoomNights}개 · {quote.couponsCompleted?'새 쿠폰 도장':'계산 후 현재 도장'} {quote.stampsAfter}개</strong>{quote.couponsCompleted>0&&<p>이번 이용 중 쿠폰 {quote.couponsCompleted}장 완료</p>}</div>
 
      </>}
-     <div className="hrc-copy"><Button type="button" disabled={!quote||quote.final===null||copying} onClick={()=>void copy()}>계산 결과 복사</Button><p role="status">{copyMessage||'고객에게 자동 발송하지 않습니다.'}</p></div>
-     {fallback&&<Field label="직접 복사할 상담 문구"><textarea className="hrc-fallback" readOnly value={fallback} onFocus={e=>e.currentTarget.select()}/></Field>}
+     <div className="hrc-copy"><Button type="button" disabled={!quote||quote.final===null||copying} onClick={()=>void copy()}>고객 안내문 복사</Button><p role="status">{copyMessage||'고객에게 자동 발송하지 않습니다.'}</p></div>
+     {fallback&&<Field label="직접 복사할 고객 안내문"><textarea className="hrc-fallback" readOnly value={fallback} onFocus={e=>e.currentTarget.select()}/></Field>}
     </div>
    </div>
    {quote&&<details className="hrc-options"><summary>상세 내역 보기</summary>      <div className="hrc-coupons">{quote.coupons.slice(visibleCouponPage*5,visibleCouponPage*5+5).map(c=><div key={c.number}><p>이번 견적 쿠폰 {c.number} · {c.completed?'완료':`${c.after}/10개`}</p><div className="hrc-stamps" role="img" aria-label={`쿠폰 ${c.number} ${c.after}개 도장`}>{Array.from({length:10},(_,i)=><span key={i} className={i<c.before?'hrc-old':i<c.after?'hrc-new':''}>{i+1}</span>)}</div></div>)}{quote.coupons.length>5&&<div className="hrc-actions"><Button variant="secondary" disabled={visibleCouponPage===0} onClick={()=>setCouponPage(visibleCouponPage-1)}>이전 쿠폰</Button><Button variant="secondary" disabled={(visibleCouponPage+1)*5>=quote.coupons.length} onClick={()=>setCouponPage(visibleCouponPage+1)}>다음 쿠폰</Button></div>}</div><div className="hrc-night-list">{quote.nights.slice(0,detailLimit).map(n=><div key={n.id}><strong>{n.day}일차 · {n.roomLabel}</strong><span>이번 견적 쿠폰 {n.coupon} · {n.stamp}번째 도장 · 기본 {quoteWon(n.rate)}</span><span>{n.free?'무료':n.discount?'10% 할인':'정상가'} · {quoteWon(n.final)}</span></div>)}</div>{quote.totalRoomNights>detailLimit&&<Button variant="secondary" onClick={()=>setDetailLimit(v=>v+50)}>상세 50박 더 보기</Button>}</details>}
