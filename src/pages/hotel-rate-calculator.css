@@ -48,3 +48,35 @@
 .hrc-night-list span {overflow-wrap:anywhere}
 @media(min-width:768px){.hrc-layout {grid-template-columns:minmax(0,1fr) minmax(0,.95fr)}.hrc-result {position:sticky;top:0}.hrc-room {padding:18px}.hrc-result {padding:22px}}
 @media(max-width:374px){.hrc-basic-grid {grid-template-columns:minmax(0,1fr)}.hrc-room,.hrc-result {padding:12px}.hrc-stamps {gap:2px}}
+/* V1.1: three compact inputs, immediate result, secondary controls disclosed below. */
+.hrc-layout {gap:16px;grid-template-columns:minmax(0,1fr)}
+.hrc-basic-grid {gap:12px}
+.hrc-nights {margin-top:12px}
+.hrc-input-label {display:block;font-size:13px;font-weight:600;margin-bottom:6px}
+.hrc-night-row {display:flex;align-items:center;gap:10px;margin-top:8px;min-width:0}
+.hrc-night-row>span {font-size:12px;min-width:80px;overflow-wrap:anywhere}
+.hrc-stepper {flex:1;min-width:0;gap:6px}
+.hrc-night-value {position:relative;min-width:0}
+.hrc-night-value input {width:100%;padding-right:32px}
+.hrc-night-value>span {position:absolute;right:12px;top:50%;transform:translateY(-50%);font-size:13px;pointer-events:none}
+.hrc-result {padding:16px;position:static;border-radius:12px}
+.hrc-total {gap:4px}
+.hrc-total strong {font-size:clamp(28px,5vw,38px)}
+.hrc-breakdown {margin:14px 0;gap:7px}
+.hrc-breakdown>div:last-child {font-weight:600;color:#254e78}
+.hrc-stamp-summary {margin-top:12px}
+.hrc-stamp-summary p {margin-bottom:0}
+.hrc-copy {margin-top:12px}
+.hrc-free {margin-top:12px;gap:8px}
+.hrc-free fieldset {border:0;padding:0;margin:0;min-width:0}
+.hrc-free legend {font-size:12px;margin-bottom:6px}
+.hrc-free-choices {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.hrc-free-choices button {white-space:normal;display:flex;flex-direction:column;gap:4px;padding:10px;min-width:0;overflow-wrap:anywhere}
+.hrc-free-choices small {font-size:11px;font-weight:400}
+.hrc-advanced-content {display:grid;gap:12px}
+.hrc-advanced-content h3 {font-size:13px;margin:0}
+.hrc-advanced-content .hrc-hint {margin:0}
+.hrc-remove-rooms {display:flex;flex-wrap:wrap;gap:4px}
+.hrc-options {margin-top:10px;padding-top:6px}
+@media(min-width:768px){.hrc-layout {grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:20px}.hrc-result {padding:18px}}
+@media(max-width:374px){.hrc-basic-grid {grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.hrc-basic-grid select {padding-left:8px;padding-right:20px}.hrc-night-row>span {min-width:66px;font-size:11px}.hrc-free-choices {grid-template-columns:minmax(0,1fr)}}
