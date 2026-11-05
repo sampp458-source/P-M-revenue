@@ -31,7 +31,30 @@ const originalHashes = {
 };
 describe('Visual System D Rollout 1 boundary', () => {
 for (const [file, hash] of Object.entries(originalHashes)) it(file + ' preserves every byte apart from explicit visual classes', () => {
-let source=restoreReviewedDaycareStatusDelta(file,readFileSync(file,'utf8'));
+let source=readFileSync(file,'utf8');
+if(file==='src/pages/HotelOperations.tsx') {
+ // Restore only the approved quote-only entry hook; every other hotel byte remains frozen.
+ const calculatorDelta: Array<[string,string]> = [
+  [
+    "",
+    "import {HotelRateCalculatorModal} from \"./HotelRateCalculatorModal\";\n"
+  ],
+  [
+    "",
+    "  const [rateCalculatorOpen, setRateCalculatorOpen] = useState(false);\n"
+  ],
+  [
+    "        action={!isPast ? (\n          <div className=\"flex flex-wrap gap-2\">\n            {isHotelSettingsManager && snapshot.settings ? (\n              <Button type=\"button\" disabled={!presentationReady} variant=\"secondary\" onClick={() => setModal(\"settings\")}>\n                <Settings size={17} /> 기본 시간\n              </Button>\n            ) : null}\n            <Button type=\"button\" disabled={!presentationReady} onClick={openNewSchedule}>\n              <CalendarDays size={17} /> 새 일정\n            </Button>\n          </div>\n        ) : undefined}",
+    "        action={(\n          <div className=\"flex min-w-0 flex-wrap gap-2\">\n            {isHotelOperator && <Button type=\"button\" variant=\"secondary\" onClick={() => setRateCalculatorOpen(true)}>요금 계산기</Button>}\n            {!isPast && <>\n            {isHotelSettingsManager && snapshot.settings ? (\n              <Button type=\"button\" disabled={!presentationReady} variant=\"secondary\" onClick={() => setModal(\"settings\")}>\n                <Settings size={17} /> 기본 시간\n              </Button>\n            ) : null}\n            <Button type=\"button\" disabled={!presentationReady} onClick={openNewSchedule}>\n              <CalendarDays size={17} /> 새 일정\n            </Button>\n            </>}\n          </div>\n        )}"
+  ],
+  [
+    "      />\n\n      </div>\n      <div className=\"hotel-date-controls",
+    "      />\n      </div>\n      {rateCalculatorOpen && <HotelRateCalculatorModal onClose={() => setRateCalculatorOpen(false)} />}\n      <div className=\"hotel-date-controls"
+  ]
+];
+ for(const [before,after] of calculatorDelta){expect(source.split(after)).toHaveLength(2);source=source.replace(after,before);}
+}
+source=restoreReviewedDaycareStatusDelta(file,source);
 if(file==='src/pages/HotelOperations.tsx') {
  // Exempt exactly the two reviewed integration lines, preserving the original hotel boundary.
  const imported="import {RockyRecoveryPanel} from './RockyRecoveryPanel';\n";

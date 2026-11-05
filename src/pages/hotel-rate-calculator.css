@@ -1,0 +1,50 @@
+.hotel-rate-calculator {min-width:0;color:var(--color-text-primary,#17243a)}
+.hotel-rate-calculator * {box-sizing:border-box}
+.hrc-layout {display:grid;grid-template-columns:minmax(0,1fr);gap:24px}
+.hrc-inputs,.hrc-result {min-width:0}
+.hrc-basic-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.hrc-room {margin-top:16px;padding:16px;border:1px solid #dce3ec;border-radius:16px;background:#fff}
+.hrc-room-heading {display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.hrc-hint {font-size:12px;line-height:1.65;color:#62718a;margin:8px 0 12px;overflow-wrap:anywhere}
+.hrc-stepper {display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:8px}
+.hrc-stepper button {padding:0;min-width:44px}
+.hrc-stepper input {text-align:center}
+.hrc-options {margin-top:16px;border-top:1px solid #dce3ec;padding-top:12px;min-width:0}
+.hrc-options summary {cursor:pointer;min-height:44px;display:list-item;align-content:center;font-size:14px;font-weight:600;list-style-position:inside}
+.hrc-options>div,.hrc-options>label {margin-top:12px}
+.hrc-actions {display:flex;gap:8px;flex-wrap:wrap}
+.hrc-price-row {display:flex;align-items:end;gap:8px;flex-wrap:wrap}
+.hrc-price-row>div {flex:1;min-width:120px}
+.hrc-check {display:flex;gap:10px;align-items:center;min-height:44px;font-size:14px;cursor:pointer}
+.hrc-check input {height:22px;width:22px;flex-shrink:0}
+.hrc-extension {display:grid;gap:12px}
+.hrc-result {border:1px solid #dce3ec;border-radius:18px;background:#f6f8fb;padding:16px;align-self:start}
+.hrc-total {display:flex;flex-direction:column;gap:8px}
+.hrc-total>span {font-size:14px;color:#52657f}
+.hrc-total strong {font-size:clamp(24px,3vw,36px);letter-spacing:-.04em;line-height:1.2;color:#123052;overflow-wrap:anywhere}
+.hrc-total small {font-size:11px;color:#62718a;line-height:1.5}
+.hrc-breakdown {display:grid;gap:10px;font-size:13px;margin:20px 0}
+.hrc-breakdown>div {display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.hrc-breakdown dd {margin:0;font-variant-numeric:tabular-nums}
+.hrc-free {border-top:1px solid #dce3ec;padding-top:12px;display:grid;gap:12px}
+.hrc-free h3 {font-size:14px;font-weight:600;margin:0}
+.hrc-free .hrc-hint {margin:0}
+.hrc-extension-total {border-top:1px solid #dce3ec;margin-top:16px;padding-top:12px;font-size:14px;line-height:1.7}
+.hrc-stamp-summary {font-size:13px;margin-top:20px;line-height:1.7}
+.hrc-stamp-summary p {margin:3px 0 12px}
+.hrc-coupons {display:grid;gap:12px}
+.hrc-coupons p {font-size:12px;margin:4px 0 8px}
+.hrc-stamps {display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:3px}
+.hrc-stamps span {display:grid;place-items:center;aspect-ratio:1;border:1px solid #dce3ec;border-radius:50%;color:#78869a;background:#fff;font-size:11px;min-width:0}
+.hrc-stamps .hrc-old {background:#dce3ec;color:#52657f}
+.hrc-stamps .hrc-new {background:#254e78;color:#fff;border-color:#254e78}
+.hrc-copy {margin-top:18px;display:grid;gap:6px}
+.hrc-copy button {width:100%;white-space:normal}
+.hrc-copy p {font-size:12px;color:#62718a;line-height:1.5;overflow-wrap:anywhere;min-height:18px;margin:0}
+.hrc-error {color:#a43838;font-size:14px;line-height:1.65}
+.hrc-fallback {width:100%;min-height:180px;border:1px solid #dce3ec;border-radius:12px;padding:12px;font-size:12px}
+.hrc-night-list {display:grid;gap:8px;margin-bottom:12px}
+.hrc-night-list>div {display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 16px;border-bottom:1px solid #e7ebf1;padding:10px 0;font-size:12px;line-height:1.6}
+.hrc-night-list span {overflow-wrap:anywhere}
+@media(min-width:768px){.hrc-layout {grid-template-columns:minmax(0,1fr) minmax(0,.95fr)}.hrc-result {position:sticky;top:0}.hrc-room {padding:18px}.hrc-result {padding:22px}}
+@media(max-width:374px){.hrc-basic-grid {grid-template-columns:minmax(0,1fr)}.hrc-room,.hrc-result {padding:12px}.hrc-stamps {gap:2px}}

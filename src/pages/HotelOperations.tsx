@@ -1,3 +1,4 @@
+import {HotelRateCalculatorModal} from "./HotelRateCalculatorModal";
 import {LegacyHotelClosurePanel} from './LegacyHotelClosurePanel';
 import {useScheduleOperationalRefresh} from './useScheduleOperationalRefresh';
 import {RockyRecoveryPanel} from './RockyRecoveryPanel';
@@ -348,6 +349,7 @@ export function scheduleFormFromHotelStay(stay: HotelStay): ScheduleForm {
 }
 
 export function HotelOperationsPage() {
+  const [rateCalculatorOpen, setRateCalculatorOpen] = useState(false);
   const { profile } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const directStayHandledRef = useRef<string | null>(null);
@@ -1414,8 +1416,10 @@ export function HotelOperationsPage() {
       <PageHeader
         title="호텔 운영"
         description={hotelRoomBoardDateCopy[dateMode].description}
-        action={!isPast ? (
-          <div className="flex flex-wrap gap-2">
+        action={(
+          <div className="flex min-w-0 flex-wrap gap-2">
+            {isHotelOperator && <Button type="button" variant="secondary" onClick={() => setRateCalculatorOpen(true)}>요금 계산기</Button>}
+            {!isPast && <>
             {isHotelSettingsManager && snapshot.settings ? (
               <Button type="button" disabled={!presentationReady} variant="secondary" onClick={() => setModal("settings")}>
                 <Settings size={17} /> 기본 시간
@@ -1424,11 +1428,12 @@ export function HotelOperationsPage() {
             <Button type="button" disabled={!presentationReady} onClick={openNewSchedule}>
               <CalendarDays size={17} /> 새 일정
             </Button>
+            </>}
           </div>
-        ) : undefined}
+        )}
       />
-
       </div>
+      {rateCalculatorOpen && <HotelRateCalculatorModal onClose={() => setRateCalculatorOpen(false)} />}
       <div className="hotel-date-controls pm-d-date-control mb-3 flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-border bg-surface px-3 py-2.5 shadow-sm sm:px-4">
         <Field label="운영 날짜">
           <Input
