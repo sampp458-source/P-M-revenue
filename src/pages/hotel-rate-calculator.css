@@ -84,14 +84,21 @@
 .hotel-rate-calculator .hrc-night-value input[type="number"] {appearance:textfield;-moz-appearance:textfield}
 .hotel-rate-calculator .hrc-night-value input[type="number"]::-webkit-inner-spin-button,
 .hotel-rate-calculator .hrc-night-value input[type="number"]::-webkit-outer-spin-button {appearance:none;-webkit-appearance:none;margin:0}
-.hrc-service-time {display:flex;align-items:end;gap:8px;margin:8px 0 12px;min-width:0}
-.hrc-service-time>label {flex:1;min-width:0}
-.hrc-service-time input {min-width:0;width:100%}
-.hrc-service-time>span {font-size:12px;white-space:nowrap;padding-bottom:12px}
-.hrc-program-row {display:flex;align-items:center;gap:10px;min-width:0;margin-top:12px}
-.hrc-program-row>span {font-size:13px;min-width:64px}
 .hrc-service-breakdown {border-top:1px solid #dce3ec;padding-top:12px}
 
 .hotel-rate-calculator .hrc-program-row input[type="number"] {appearance:textfield;-moz-appearance:textfield}
 .hotel-rate-calculator .hrc-program-row input[type="number"]::-webkit-inner-spin-button,
 .hotel-rate-calculator .hrc-program-row input[type="number"]::-webkit-outer-spin-button {appearance:none;-webkit-appearance:none;margin:0}
+/* V1.5: always-visible service rows; compact widths with 44px interaction targets. */
+.hrc-services {margin-top:12px;padding-top:10px;border-top:1px solid #dce3ec;min-width:0}
+.hrc-services h3 {margin:0 0 6px;font-size:13px;font-weight:600}
+.hrc-service-room>p {font-size:11px;color:#62718a;margin:8px 0 4px}
+.hrc-service-row {display:grid;grid-template-columns:52px minmax(0,1fr) 48px;align-items:center;gap:4px;min-width:0;margin-top:4px}
+.hrc-service-row>label {font-size:12px;line-height:1.4}
+.hrc-service-row>input {width:100%;min-width:0;max-width:154px;padding:0 6px;height:44px}
+.hrc-service-fee {min-width:0;font-size:10px;text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.hrc-program-row .hrc-stepper {grid-template-columns:44px minmax(44px,1fr) 44px;gap:2px;width:100%;max-width:144px}
+.hrc-program-value {position:relative;min-width:0}
+.hrc-program-value input {width:100%;min-width:0;padding:0 14px 0 2px;height:44px;text-align:center}
+.hrc-program-value>span {position:absolute;right:4px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:#62718a}
+.hrc-service-note {font-size:11px;color:#62718a;margin:7px 0 0;line-height:1.5}

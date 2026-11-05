@@ -11,7 +11,6 @@ export function HotelRateCalculatorModal({onClose}:{onClose:()=>void}) {
  const [rooms,setRooms]=useState<DraftRoom[]>([draftRoom(1,'STANDARD')]);const nextOrder=useRef(2);
  const [stamps,setStamps]=useState('0');const [extension,setExtension]=useState(false);const [paid,setPaid]=useState('0');
  const [freeSelections,setFreeSelections]=useState<Record<string,string>>({});const [copyMessage,setCopyMessage]=useState('');const [copying,setCopying]=useState(false);const [fallback,setFallback]=useState('');
- const [earlyEnabled,setEarlyEnabled]=useState(false);const [lateEnabled,setLateEnabled]=useState(false);
  const [serviceTimes,setServiceTimes]=useState<Record<string,{early?:string;late?:string}>>({});const [agility,setAgility]=useState('0');const [fitness,setFitness]=useState('0');
  const [detailLimit,setDetailLimit]=useState(50);const [couponPage,setCouponPage]=useState(0);
  const currentTypes=new Set(rooms.map(r=>r.type));const mode=currentTypes.size===2?'BOTH':rooms[0].type;
@@ -23,7 +22,7 @@ export function HotelRateCalculatorModal({onClose}:{onClose:()=>void}) {
  const extensionInvalid=extension&&rooms.some(r=>!Number.isSafeInteger(numeric(r.nights))||numeric(r.nights)<1||!Number.isSafeInteger(numeric(r.extra))||numeric(r.extra)<0);
  const result=extensionInvalid?{ok:false as const,error:'기존 숙박은 1박 이상, 추가 연장은 0박 이상의 정수로 입력해 주세요.'}:calculateHotelQuote({stamps:numeric(stamps),rooms:roomInputs,paidAmount:extension?numeric(paid):0,freeSelections});
  const quote=result.ok?result.quote:null;
- const serviceInput={rooms:rooms.map(r=>({roomId:r.id,early:earlyEnabled?(serviceTimes[r.id]?.early??'10:00'):null,late:lateEnabled?(serviceTimes[r.id]?.late??'20:00'):null})),agility:numeric(agility),fitness:numeric(fitness)};
+ const serviceInput={rooms:rooms.map(r=>({roomId:r.id,early:serviceTimes[r.id]?.early??'10:00',late:serviceTimes[r.id]?.late??'20:00'})),agility:numeric(agility),fitness:numeric(fitness)};
  const services=quote?calculateAdditionalServices(quote,serviceInput):null;const pricing=services?.ok?services.quote:null;
  const error=!result.ok?result.error:services&&!services.ok?services.error:null;
  const changeServiceTime=(id:string,kind:'early'|'late',value:string)=>{clearFeedback();setServiceTimes(v=>({...v,[id]:{...v[id],[kind]:value}}));};
@@ -44,12 +43,12 @@ export function HotelRateCalculatorModal({onClose}:{onClose:()=>void}) {
       </div>)}
      </div>
 
-     <details className="hrc-options hrc-services"><summary>추가 서비스</summary>
-      <p className="hrc-hint">시간 요금은 객실별 최초 입실·최종 퇴실에 한 번만 적용합니다. 내부 객실 이동은 기본 시간으로 두세요.</p>
-      {(['early','late'] as const).map(kind=>{const early=kind==='early';const enabled=early?earlyEnabled:lateEnabled;const title=early?'이른 입실':'늦은 퇴실';return <div key={kind}><label className="hrc-check"><input type="checkbox" checked={enabled} onChange={e=>{clearFeedback();(early?setEarlyEnabled:setLateEnabled)(e.target.checked);}}/>{title}</label>{enabled&&rooms.map(r=>{const time=serviceTimes[r.id]?.[kind]??(early?'10:00':'20:00');const fee=timeServiceFee(kind,time);return <div key={r.id} className="hrc-service-time"><Field label={rooms.length===1?`희망 ${early?'입실':'퇴실'} 시간`:`${r.type} 객실 ${r.order} ${title}`}><Input aria-label={`${r.type} 객실 ${r.order} ${title} 시간`} type="time" min={early?'08:00':'20:00'} max={early?'10:00':'22:00'} step="60" value={time} onInput={e=>changeServiceTime(r.id,kind,e.currentTarget.value)} onChange={e=>changeServiceTime(r.id,kind,e.target.value)}/></Field><span>{fee===null?'시간 확인 필요':quoteWon(fee)}</span></div>;})}</div>;})}
-      {([{name:'어질리티',value:agility,set:setAgility},{name:'피트니스',value:fitness,set:setFitness}]).map(p=><div className="hrc-program-row" key={p.name}><span>{p.name}</span><div className="hrc-stepper"><Button variant="secondary" aria-label={`${p.name} 회수 감소`} disabled={!Number.isFinite(numeric(p.value))||numeric(p.value)<=0} onClick={()=>{clearFeedback();p.set(String(numeric(p.value)-1));}}>−</Button><Input aria-label={`${p.name} 총 신청 회수`} type="number" inputMode="numeric" min="0" step="1" value={p.value} onChange={e=>{clearFeedback();p.set(e.target.value);}}/><Button variant="secondary" aria-label={`${p.name} 회수 증가`} onClick={()=>{clearFeedback();p.set(String((Number.isFinite(numeric(p.value))?numeric(p.value):0)+1));}}>+</Button></div></div>)}
-      <p className="hrc-hint">프로그램은 반려견별 신청한 총 회수입니다. 각 1회 20,000원 · 추가 서비스는 쿠폰 할인·적립 대상이 아닙니다.</p>
-     </details>
+     <section className="hrc-services" aria-label="추가 서비스">
+      <h3>추가 서비스</h3>
+      {rooms.map(r=><div key={r.id} className="hrc-service-room">{rooms.length>1&&<p>{r.type} · 객실 {r.order}</p>}{(['early','late'] as const).map(kind=>{const early=kind==='early';const title=early?'이른 입실':'늦은 퇴실';const time=serviceTimes[r.id]?.[kind]??(early?'10:00':'20:00');const fee=timeServiceFee(kind,time);return <div key={kind} className="hrc-service-row"><label htmlFor={`hrc-${r.id}-${kind}`}>{title}</label><Input id={`hrc-${r.id}-${kind}`} aria-label={`${r.type} 객실 ${r.order} ${title} 시간`} title={early?'기본 10:00 · 08:00~10:00':'기본 20:00 · 20:00~22:00'} type="time" min={early?'08:00':'20:00'} max={early?'10:00':'22:00'} step="60" value={time} onInput={e=>changeServiceTime(r.id,kind,e.currentTarget.value)} onChange={e=>changeServiceTime(r.id,kind,e.target.value)}/><span className="hrc-service-fee">{fee===null?'확인 필요':`+${quoteWon(fee)}`}</span></div>;})}</div>)}
+      {([{name:'어질리티',value:agility,set:setAgility},{name:'피트니스',value:fitness,set:setFitness}]).map(p=><div className="hrc-service-row hrc-program-row" key={p.name}><label htmlFor={`hrc-program-${p.name}`}>{p.name}</label><div className="hrc-stepper"><Button variant="secondary" aria-label={`${p.name} 회수 감소`} disabled={!Number.isFinite(numeric(p.value))||numeric(p.value)<=0} onClick={()=>{clearFeedback();p.set(String(numeric(p.value)-1));}}>−</Button><div className="hrc-program-value"><Input id={`hrc-program-${p.name}`} aria-label={`${p.name} 총 신청 회수`} type="number" inputMode="numeric" min="0" step="1" value={p.value} onChange={e=>{clearFeedback();p.set(e.target.value);}}/><span aria-hidden="true">회</span></div><Button variant="secondary" aria-label={`${p.name} 회수 증가`} onClick={()=>{clearFeedback();p.set(String((Number.isFinite(numeric(p.value))?numeric(p.value):0)+1));}}>+</Button></div><span className="hrc-service-fee">{Number.isSafeInteger(numeric(p.value))&&numeric(p.value)>=0&&Number.isSafeInteger(numeric(p.value)*20000)?`+${quoteWon(numeric(p.value)*20000)}`:'확인 필요'}</span></div>)}
+      <p className="hrc-service-note">시간은 객실별 1회 · 프로그램은 총 회수</p>
+     </section>
 
     </div>
     <div className="hrc-result" aria-label="요금 계산 결과">

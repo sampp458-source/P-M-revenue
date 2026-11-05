@@ -30,12 +30,12 @@ export function calculateAdditionalServices(lodging:HotelQuote,input:AdditionalS
  return {ok:true,quote:{early,late,agility:input.agility,fitness:input.fitness,agilityAmount,fitnessAmount,total,final,additional:final===null?null:Math.max(0,final-lodging.paidAmount),overpaid:final===null?null:Math.max(0,lodging.paidAmount-final)}};
 }
 /** Presentation only; all amounts come from the validated service quote. */
-export function additionalServiceMessageLines(quote:AdditionalServiceQuote):string[]{
+export function additionalServiceMessageLines(quote:AdditionalServiceQuote,singleRoom=false):string[]{
  const won=(n:number)=>`${n.toLocaleString('ko-KR')}원`;
  return [
-  ...quote.early.filter(r=>r.amount>0).map(r=>`- 이른 입실 · ${r.roomLabel} ${r.time}: ${won(r.amount)}`),
-  ...quote.late.filter(r=>r.amount>0).map(r=>`- 늦은 퇴실 · ${r.roomLabel} ${r.time}: ${won(r.amount)}`),
-  ...(quote.agility>0?[`- 어질리티 ${quote.agility}회: ${won(quote.agilityAmount)}`]:[]),
-  ...(quote.fitness>0?[`- 피트니스 ${quote.fitness}회: ${won(quote.fitnessAmount)}`]:[])
+  ...quote.early.filter(r=>r.amount>0).map(r=>`이른 입실${singleRoom?'':` · ${r.roomLabel}`} (${r.time}): ${won(r.amount)}`),
+  ...quote.late.filter(r=>r.amount>0).map(r=>`늦은 퇴실${singleRoom?'':` · ${r.roomLabel}`} (${r.time}): ${won(r.amount)}`),
+  ...(quote.agility>0?[`어질리티 ${quote.agility}회: ${won(quote.agilityAmount)}`]:[]),
+  ...(quote.fitness>0?[`피트니스 ${quote.fitness}회: ${won(quote.fitnessAmount)}`]:[])
  ];
 }

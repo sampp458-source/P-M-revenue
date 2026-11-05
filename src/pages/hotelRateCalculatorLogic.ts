@@ -46,30 +46,30 @@ export function formatHotelQuote(quote:HotelQuote,services?:AdditionalServiceQuo
  const roomName=(type:RoomKind)=>type==='STANDARD'?'스탠다드':'디럭스';
  const rooms=Array.from(new Set(quote.nights.map(n=>n.roomId))).map(id=>{
   const nights=quote.nights.filter(n=>n.roomId===id);
-  return `- ${roomName(nights[0].type)} 1실 / ${nights.length}박: ${quoteWon(nights.reduce((sum,n)=>sum+n.rate,0))}`;
+  return `${roomName(nights[0].type)} 1실 · ${nights.length}박: ${quoteWon(nights.reduce((sum,n)=>sum+n.rate,0))}`;
  });
  const freeRooms=(['STANDARD','DELUXE'] as const).flatMap(type=>{
   const nights=quote.nights.filter(n=>n.type===type&&n.free);
-  return nights.length?[`- ${roomName(type)} ${nights.length}박 무료: -${quoteWon(nights.reduce((sum,n)=>sum+n.rate,0))}`]:[];
+  return nights.length?[`${roomName(type)} ${nights.length}박 무료: -${quoteWon(nights.reduce((sum,n)=>sum+n.rate,0))}`]:[];
  });
  return [
   '안녕하세요, P&M 호텔입니다. 🐾','',
   '문의주신 호텔 이용 요금을 안내드립니다.','',
   '숙박 요금',...rooms,'',
-  `정상 요금: ${quoteWon(quote.gross)}`,
   ...(quote.tenPercentDiscount>0?[`쿠폰 할인: -${quoteWon(quote.tenPercentDiscount)}`]:[]),
   ...(quote.freeNights>0?['무료 숙박 혜택',...freeRooms]:[]),'',
-  ...(services&&services.total>0?['추가 서비스',...additionalServiceMessageLines(services),'']:[]),
+  ...(services&&services.total>0?['추가 서비스',...additionalServiceMessageLines(services,new Set(quote.nights.map(n=>n.roomId)).size===1),'']:[]),
   `총 안내 금액: ${quoteWon(services?services.final!:quote.final)}`,
   ...(quote.paidAmount>0?[
    `이미 결제하신 금액: ${quoteWon(quote.paidAmount)}`,
    `추가 결제 안내 금액: ${quoteWon(services?services.additional!:quote.additional!)}`,
    ...((services?services.overpaid!:quote.overpaid!)>0?[`초과 결제 금액: ${quoteWon(services?services.overpaid!:quote.overpaid!)} (별도 정산 확인이 필요합니다.)`]:[])
   ]:[]),'',
-  `이번 이용 시 쿠폰 도장 ${quote.totalRoomNights}개가 적립됩니다.`,'',
-  '※ 안내드린 금액은 현재 이용 조건 기준이며,',
-  services&&services.total>0?'숙박 일정이나 객실·서비스 구성이 변경되면':'숙박 일정이나 객실 구성이 변경되면',
-  '금액이 달라질 수 있습니다.','',
+  `이번 이용 시 쿠폰 도장 ${quote.totalRoomNights}개가`,
+  '적립될 예정입니다.','',
+  '※ 안내 금액은 선택하신 이용 조건',
+  '기준이며, 예약 일정이나 서비스 구성이',
+  '변경되면 금액이 달라질 수 있습니다.','',
   '예약을 원하시면 편하게 말씀해 주세요. 😊'
  ].join('\n');
 }
