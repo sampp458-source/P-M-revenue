@@ -103,12 +103,29 @@
 .hrc-program-value>span {position:absolute;right:4px;top:50%;transform:translateY(-50%);pointer-events:none;font-size:10px;color:#62718a}
 .hrc-service-note {font-size:11px;color:#62718a;margin:7px 0 0;line-height:1.5}
 
-/* V1.7: fixed single-line time rows, no native time placeholder/picker state. */
-.hrc-service-inline-row {display:grid;grid-template-columns:80px minmax(0,1fr) 58px;align-items:center;gap:4px;margin-top:4px;height:44px;min-width:0}
-.hrc-service-inline-row>label {display:flex;align-items:center;gap:5px;height:44px;min-width:0;font-size:11px;cursor:pointer;white-space:nowrap}
-.hrc-service-inline-row input[type="checkbox"] {width:18px;height:18px;flex-shrink:0;margin:0;accent-color:#3158bc}
-.hrc-service-inline-row>input {width:100%;min-width:0;height:44px;max-width:154px;padding:0 6px;font-size:13px;font-variant-numeric:tabular-nums}
-.hrc-inline-default {display:flex;align-items:center;height:44px;font-size:11px;color:#62718a;white-space:nowrap}
-.hrc-service-inline-row .hrc-service-fee {font-size:9px;white-space:nowrap}
-.hrc-visually-hidden {position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .hrc-total small {min-height:33px}
+
+/* V1.8: two fixed rows; the minute picker overlays instead of extending the quote. */
+.hrc-service-time-row {display:grid;grid-template-columns:110px minmax(0,1fr) 58px;gap:4px;align-items:center;height:44px;margin-top:4px;min-width:0}
+.hrc-time-types {display:flex;min-width:0;gap:2px;height:44px}
+.hrc-time-types button {flex:1;min-width:44px;padding:0 2px;white-space:nowrap;font-size:10px;letter-spacing:-.04em;border:1px solid #dce3ec;border-radius:7px;color:#52657f;background:#fff;cursor:pointer}
+.hrc-time-types button[aria-pressed="true"] {background:#e7effb;border-color:#3158bc;color:#234798;font-weight:700}
+.hrc-time-trigger,.hrc-time-idle {display:flex;align-items:center;justify-content:center;width:100%;min-width:0;height:44px;white-space:nowrap;font-size:11px;letter-spacing:-.03em}
+.hrc-time-trigger {padding:0 3px;border:1px solid #b8c6dc;border-radius:7px;background:#fff;color:#234798;cursor:pointer;font-variant-numeric:tabular-nums}
+.hrc-time-idle {color:#8793a4}
+.hrc-service-time-row .hrc-service-fee {font-size:9px;white-space:nowrap}
+.hrc-time-panel {position:fixed;z-index:100;width:286px;max-width:calc(100vw - 16px);max-height:calc(100dvh - 16px);overflow:auto;box-sizing:border-box;padding:10px;background:#fff;color:#17243a;border:1px solid #b8c6dc;border-radius:12px;box-shadow:0 10px 36px #17243a35}
+.hrc-time-panel * {box-sizing:border-box}
+.hrc-time-panel-heading {display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px}
+.hrc-time-panel button {min-height:44px;border:1px solid #dce3ec;border-radius:7px;background:#f6f8fb;color:#234798;cursor:pointer;font-size:12px}
+.hrc-time-panel-heading button {padding:0 10px}
+.hrc-time-panel p {margin:3px 0 8px;font-size:11px;color:#62718a}
+.hrc-time-quick {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px}
+.hrc-time-quick button[aria-pressed="true"] {background:#e7effb;border-color:#3158bc}
+.hrc-time-precise-toggle {width:100%;margin-top:6px}
+.hrc-time-precise {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 48px;gap:6px;align-items:end;margin-top:6px}
+.hrc-time-precise label {font-size:11px;min-width:0}
+.hrc-time-precise select {display:block;width:100%;height:44px;min-width:0;font-size:12px;background:#fff;border:1px solid #b8c6dc;border-radius:7px}
+.hrc-time-panel button:disabled {opacity:.45;cursor:not-allowed}
+.hrc-time-panel :is(button,select):focus-visible,.hrc-service-time-row button:focus-visible {outline:2px solid #3158bc;outline-offset:1px}
+@media(max-width:374px){.hrc-service-time-row {grid-template-columns:104px minmax(0,1fr) 56px;gap:2px}.hrc-time-types button{font-size:9px}.hrc-time-trigger,.hrc-time-idle{font-size:10px}}
