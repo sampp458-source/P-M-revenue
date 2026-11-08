@@ -1,3 +1,4 @@
+import {RetroactiveDaycareCompletion} from './RetroactiveDaycareCompletion';
 import {daycareOperationalStatus} from './daycareOperationalStatus';
 import { useRef, useState } from "react";
 import { CalendarDays, CheckCircle2, LogIn, LogOut, Pencil, X } from "lucide-react";
@@ -25,9 +26,11 @@ export function DaycareOperationsPanel({
   snapshot,
   onChanged,
   historicalOnly = false,
+  selectedDate,
   canAdminReconcile = false,
 }: {
   historicalOnly?: boolean;
+  selectedDate?: string;
   canAdminReconcile?: boolean;
   reservations: readonly DaycareReservation[];
   snapshot: HotelOperationsSnapshot;
@@ -68,7 +71,7 @@ export function DaycareOperationsPanel({
     <Card className="mb-4 overflow-hidden">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
         <div>
-          <div className="flex items-center gap-2"><CalendarDays size={18} className="text-cyan-700" /><h2 className="font-extrabold text-text-primary">오늘 Daycare</h2></div>
+          <div className="flex items-center gap-2"><CalendarDays size={18} className="text-cyan-700" /><h2 className="font-extrabold text-text-primary">{selectedDate ? `${Number(selectedDate.slice(5,7))}월 ${Number(selectedDate.slice(8,10))}일 Daycare` : '선택일 Daycare'}</h2></div>
           <p className="mt-1 text-xs text-text-muted">예약·호실 배정·입실·퇴실을 한 곳에서 처리합니다.</p>
         </div>
         <Badge tone="blue">{reservations.filter((item) => item.lifecycleStatus !== "cancelled").length}건</Badge>
@@ -91,7 +94,8 @@ export function DaycareOperationsPanel({
                 <Badge tone={reservation.lifecycleStatus === "completed" ? "gray" : reservation.lifecycleStatus === "cancelled" ? "red" : reservation.lifecycleStatus === "checked_in" ? "green" : "blue"}>{daycareOperationalStatus(reservation)?.label ?? '입퇴실 확인 필요'}</Badge>
               </div>
               {reservation.lifecycleStatus === "administratively_released" ? <p className="mt-3 text-sm text-text-secondary">원본 입실 {displayActualTime(reservation.checkedInAt)} · 실제 퇴실시각 미확정 · 행정 해제 {displayActualTime(reservation.administrativeRelease?.releasedAt)}. 일정 업무 완료와 별개입니다.</p> : null}
-              {reservation.lifecycleStatus === "scheduled" ? <div className="mt-4 space-y-3">
+              {historicalOnly && reservation.lifecycleStatus === "scheduled" ? <div className="mt-3 space-y-3"><p className="text-sm">{reservation.roomAllocation ? "실제 이용 시각과 근거 확인 필요" : "객실 배정 필요 · 실제 사용한 호실 확인 후 사후 처리하세요."}</p>{canAdminReconcile ? <RetroactiveDaycareCompletion reservation={reservation} rooms={snapshot.rooms} onChanged={async()=>{await onChanged();}}/> : <p className="text-sm">과거 이용 확정은 관리자에게 요청해 주세요.</p>}</div> : null}
+              {reservation.lifecycleStatus === "scheduled" && !historicalOnly ? <div className="mt-4 space-y-3">
                 <p className="text-sm text-text-secondary">확인된 실제 시각만 입력하세요. 예정·현재 시각으로 자동 대체하지 않습니다. 시각을 모르면 확인 필요 상태로 유지하세요.</p>
                 <Field label={`${reservation.dog.name} 실제 입실 시각`}><Input type="datetime-local" disabled={processing} value={actual.entry} onChange={e=>changeTime(reservation.operationScheduleId,{entry:e.target.value,confirmed:false})}/></Field>
                 <Field label={`${reservation.dog.name} 실제 퇴실 시각 (사후 기록)`}><Input type="datetime-local" disabled={processing} value={actual.exit} onChange={e=>changeTime(reservation.operationScheduleId,{exit:e.target.value,confirmed:false})}/></Field>

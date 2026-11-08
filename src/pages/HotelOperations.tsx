@@ -1500,6 +1500,7 @@ export function HotelOperationsPage() {
       <RockyRecoveryPanel allowed={profile?.role === "admin" && isHotelOperator} />
       <LegacyHotelClosurePanel allowed={profile?.role === "admin" && isHotelOperator} onChanged={() => window.dispatchEvent(new Event("focus"))} />
       <DaycareOperationsPanel
+        selectedDate={selectedDate}
         historicalOnly={isPast}
         canAdminReconcile={profile?.role === "admin" && isHotelOperator}
         reservations={daycareReservations}

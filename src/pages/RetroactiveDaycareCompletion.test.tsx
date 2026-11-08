@@ -1,0 +1,28 @@
+// @vitest-environment jsdom
+import {afterEach,beforeEach,describe,expect,it,vi} from 'vitest';
+import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {RetroactiveDaycareCompletion,retrospectiveProblems} from './RetroactiveDaycareCompletion';
+import {DaycareOperationsPanel} from './DaycareOperationsPanel';
+import type {DaycareReservation} from './daycareOperationsRepository';
+import type {HotelOperationsSnapshot,HotelRoomSnapshot} from './hotelOperationsRepository';
+const api=vi.hoisted(()=>({read:vi.fn(),save:vi.fn()}));
+vi.mock('./daycareOperationsRepository',()=>({fetchDaycareReservation:api.read,completeRetrospectiveDaycareVisit:api.save,completeDaycareCheckIn:vi.fn(),completeDaycareCheckOut:vi.fn(),recordVerifiedDaycareVisit:vi.fn(),administrativelyReleaseDaycareOccupancy:vi.fn(),assignDaycareRoom:vi.fn(),cancelDaycareReservation:vi.fn(),unassignDaycareRoom:vi.fn()}));
+vi.mock('./DaycareReservationModal',()=>({DaycareReservationModal:()=>null}));
+const row={operationScheduleId:'visit',version:1,scheduleVersion:1,scheduleStatus:'scheduled',lifecycleStatus:'scheduled',startsAt:'2026-11-07T01:00:00Z',endsAt:'2026-11-07T09:00:00Z',dog:{name:'테스트'},roomTypeId:'standard',roomTypeCode:'STANDARD',roomAllocation:null,checkedInAt:null,checkedOutAt:null} as DaycareReservation;
+const rooms=[{id:'room',name:'STANDARD 3',roomTypeId:'standard',isActive:true}] as HotelRoomSnapshot[];
+const form={date:'2026-11-07',entry:'10:20',exit:'18:10',room:'room',reason:'입퇴실 누락',evidence:'담당자 확인',confirmed:true};
+function input(label:string,value:string){fireEvent.change(screen.getByLabelText(label),{target:{value}});}
+function fill(){input('실제 이용 날짜',form.date);input('실제 입실 시각',form.entry);input('실제 퇴실 시각',form.exit);input('실제 사용한 객실',form.room);input('사후 처리 사유',form.reason);input('이용 사실 확인 근거',form.evidence);fireEvent.click(screen.getByLabelText('실제 이용·입퇴실 시각·사용 객실을 확인했습니다.'));}
+function open(){render(<RetroactiveDaycareCompletion reservation={row} rooms={rooms} onChanged={vi.fn()}/>);fireEvent.click(screen.getByText('사후 이용 처리'));}
+beforeEach(()=>{vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-11-08T04:00:00Z'));api.read.mockResolvedValue(row);api.save.mockReset().mockResolvedValue({...row,lifecycleStatus:'completed'});});
+afterEach(()=>{cleanup();vi.useRealTimers();vi.clearAllMocks();});
+describe('administrator historical completion',()=>{
+ it('starts all actual fields empty and blocks missing evidence',()=>{open();for(const label of ['실제 이용 날짜','실제 입실 시각','실제 퇴실 시각','실제 사용한 객실','사후 처리 사유','이용 사실 확인 근거'])expect((screen.getByLabelText(label) as HTMLInputElement).value).toBe('');expect((screen.getByText('최신 상태 및 입력 확인') as HTMLButtonElement).disabled).toBe(true);expect(api.save).not.toHaveBeenCalled();});
+ it('requires live read then final confirmation and calls only one RPC',async()=>{open();fill();fireEvent.click(screen.getByText('최신 상태 및 입력 확인'));await screen.findByLabelText('사후 이용 최종 확인');expect(api.save).not.toHaveBeenCalled();fireEvent.click(screen.getByText('최종 확인 후 완료'));fireEvent.click(screen.getByText('최종 확인 후 완료'));await waitFor(()=>expect(api.save).toHaveBeenCalledTimes(1));expect(api.save).toHaveBeenCalledWith('visit',1,'room','2026-11-07T10:20:00+09:00','2026-11-07T18:10:00+09:00',form.reason,form.evidence,expect.any(String));});
+ it('rejects stale and completed records on refresh',async()=>{api.read.mockResolvedValue({...row,version:2,lifecycleStatus:'completed'});open();fill();fireEvent.click(screen.getByText('최신 상태 및 입력 확인'));await screen.findByText('예약 상태가 변경됐습니다. 화면을 새로고침해 주세요.');expect(screen.queryByText('최종 확인 후 완료')).toBeNull();expect(api.save).not.toHaveBeenCalled();});
+ it('keeps failure visible and blocks automatic retry',async()=>{api.save.mockRejectedValue(new Error('다른 점유 이력 충돌'));open();fill();fireEvent.click(screen.getByText('최신 상태 및 입력 확인'));await screen.findByLabelText('사후 이용 최종 확인');fireEvent.click(screen.getByText('최종 확인 후 완료'));await screen.findByText(/다른 점유 이력 충돌/);expect((screen.getByText('최종 확인 후 완료') as HTMLButtonElement).disabled).toBe(true);expect(api.save).toHaveBeenCalledTimes(1);});
+ it('does not show historical confirmation to staff',()=>{render(<DaycareOperationsPanel historicalOnly selectedDate="2026-11-07" reservations={[row]} snapshot={{rooms} as HotelOperationsSnapshot} onChanged={vi.fn()}/>);expect(screen.getByText('11월 7일 Daycare')).toBeTruthy();expect(screen.queryByText('사후 이용 처리')).toBeNull();expect(screen.getByText(/관리자에게 요청/)).toBeTruthy();});
+ it('admin can open historical unassigned recovery but no normal checkin/cancel',()=>{render(<DaycareOperationsPanel historicalOnly canAdminReconcile reservations={[row]} snapshot={{rooms} as HotelOperationsSnapshot} onChanged={vi.fn()}/>);expect(screen.getByText('사후 이용 처리')).toBeTruthy();expect(screen.queryByText('입실 완료')).toBeNull();expect(screen.queryByText('예약 취소')).toBeNull();});
+ it('validates actual date, reversed/future times, missing room and confirmation',()=>{const now=Date.now();expect(retrospectiveProblems(form,row,now)).toEqual([]);for(const bad of [{date:'2026-11-06'},{entry:'19:00'},{room:''},{confirmed:false},{reason:''},{evidence:''}])expect(retrospectiveProblems({...form,...bad},row,now).length).toBeGreaterThan(0);expect(retrospectiveProblems({...form,date:'2026-11-09'},{...row,startsAt:'2026-11-09T01:00:00Z'},now).length).toBeGreaterThan(0);});
+ it('resets unsubmitted values on reopening',()=>{open();input('실제 입실 시각','10:20');fireEvent.click(screen.getAllByRole('button',{name:'닫기'})[1]);fireEvent.click(screen.getByText('사후 이용 처리'));expect((screen.getByLabelText('실제 입실 시각') as HTMLInputElement).value).toBe('');});
+});

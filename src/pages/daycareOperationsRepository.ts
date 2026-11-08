@@ -301,3 +301,8 @@ export function recordVerifiedDaycareVisit(id: string, version: number, checkedI
 export function administrativelyReleaseDaycareOccupancy(id: string, dogId: string, version: number, reason: string, evidence: string, approval: string, confirmedVacant: boolean, requestId: string) {
   return rpc<DaycareReservation>("administratively_release_daycare_occupancy_v1", {p_operation_schedule_id:id,p_dog_id:dogId,p_expected_version:version,p_reason:reason,p_evidence:evidence,p_approval:approval,p_confirmed_vacant:confirmedVacant,p_request_id:requestId});
 }
+
+// One authenticated server transaction: allocation/capacity correction + verified visit.
+export function completeRetrospectiveDaycareVisit(id:string,version:number,roomId:string,entry:string,exit:string,reason:string,evidence:string,requestId:string) {
+ return rpc<DaycareReservation>('complete_retrospective_daycare_visit_v1',{p_operation_schedule_id:id,p_expected_version:version,p_room_id:roomId,p_checked_in_at:new Date(entry).toISOString(),p_checked_out_at:new Date(exit).toISOString(),p_reason:reason,p_evidence:evidence,p_request_id:requestId,p_confirmed:true});
+}

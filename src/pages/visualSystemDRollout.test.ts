@@ -54,6 +54,11 @@ if(file==='src/pages/HotelOperations.tsx') {
 ];
  for(const [before,after] of calculatorDelta){expect(source.split(after)).toHaveLength(2);source=source.replace(after,before);}
 }
+if(file==='src/pages/HotelOperations.tsx'){
+ const selectedDayLine='      <DaycareOperationsPanel\n        selectedDate={selectedDate}\n';
+ expect(source.split(selectedDayLine)).toHaveLength(2);
+ source=source.replace(selectedDayLine,'      <DaycareOperationsPanel\n');
+}
 source=restoreReviewedDaycareStatusDelta(file,source);
 if(file==='src/pages/HotelOperations.tsx') {
  // Exempt exactly the two reviewed integration lines, preserving the original hotel boundary.
