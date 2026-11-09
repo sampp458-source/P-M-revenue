@@ -67,6 +67,13 @@ if(file==='src/pages/HotelOperations.tsx') {
  expect(source.split(imported)).toHaveLength(2);expect(source.split(mounted)).toHaveLength(2);
  source=source.replace(imported,'').replace(mounted,'');
 }
+if(file==='src/pages/HotelOperations.tsx') {
+ // Only the reviewed fixed-target admin panel integration is new; freeze all other hotel bytes.
+ const imported="import {DustCorrectionPanel} from './DustCorrectionPanel';\n";
+ const mounted='      <DustCorrectionPanel allowed={profile?.role === "admin" && isHotelOperator} onChanged={() => window.dispatchEvent(new Event("focus"))} />\n';
+ expect(source.split(imported)).toHaveLength(2);expect(source.split(mounted)).toHaveLength(2);
+ source=source.replace(imported,'').replace(mounted,'');
+}
 expect(createHash('sha256').update(normalizeVisualSystemD(source)).digest('hex')).toBe(hash);
 });
 it('retains the four Rollout 1 target roots', () => {

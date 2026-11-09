@@ -1,6 +1,7 @@
 import {HotelRateCalculatorModal} from "./HotelRateCalculatorModal";
 import {LegacyHotelClosurePanel} from './LegacyHotelClosurePanel';
 import {useScheduleOperationalRefresh} from './useScheduleOperationalRefresh';
+import {DustCorrectionPanel} from './DustCorrectionPanel';
 import {RockyRecoveryPanel} from './RockyRecoveryPanel';
 import { hotelUnassignedClassificationPresentation } from "./hotelUnassignedClassificationPresentation";
 import { hotelFutureUnassignedPresentation } from "./hotelFutureUnassignedPresentation";
@@ -1497,6 +1498,7 @@ export function HotelOperationsPage() {
         onUnassignSharedOccupancy={requestUnassignSharedOccupancy}
       /></>}
         modules={<>
+      <DustCorrectionPanel allowed={profile?.role === "admin" && isHotelOperator} onChanged={() => window.dispatchEvent(new Event("focus"))} />
       <RockyRecoveryPanel allowed={profile?.role === "admin" && isHotelOperator} />
       <LegacyHotelClosurePanel allowed={profile?.role === "admin" && isHotelOperator} onChanged={() => window.dispatchEvent(new Event("focus"))} />
       <DaycareOperationsPanel
