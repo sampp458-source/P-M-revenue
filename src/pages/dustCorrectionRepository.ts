@@ -56,10 +56,32 @@ export async function inspectDustCorrection():Promise<DustCorrectionState>{
  }
  return {actorId,completed,fingerprint:JSON.stringify([actorId,stay,cap,a.data,e.data]),stayVersion:stay.version,oldVersion:old.version,newVersion:next.version,auditId:completed?corrections[0].id:null};
 }
-export async function executeDustCorrection(expected:DustCorrectionState,requestId:string,confirmed:boolean){
+export type DustRequestState = 'succeeded'|'not_applied'|'in_progress'|'unknown';
+export interface DustAttempt {requestId:string;actorId?:string;fingerprint?:string;snapshotHash?:string;error?:string;}
+export interface DustRequestOutcome {state:DustRequestState;requestId:string;snapshotHash?:string;}
+export async function inspectDustRequest(requestId:string):Promise<DustRequestOutcome>{
+ const actorId=await administrator();
+ const r=await supabase.rpc('get_dust_correction_request_state_v1',{p_request_id:requestId});
+ if(r.error)fail(`요청 결과 확인 실패: ${r.error.message}`);
+ const d=r.data;
+ if(!d||d.requestId!==requestId||!['succeeded','not_applied','in_progress','unknown'].includes(d.state))fail('요청 결과가 불확실합니다. 재실행하지 마세요.');
+ if(d.state==='not_applied'&&(d.actorId!==actorId||d.operation!=='dust_transfer_20261107_v1'||!sameTime(d.oldBoundary,DUST.oldBoundary)||!sameTime(d.correctedBoundary,DUST.correctedBoundary)||typeof d.snapshotHash!=='string'||!d.snapshotHash))fail('요청 원본 검증 실패. 재실행하지 마세요.');
+ return {state:d.state,requestId,snapshotHash:d.state==='not_applied'?d.snapshotHash:undefined};
+}
+export async function resolveDustAttempt(attempt:DustAttempt,row:DustCorrectionState){
+ const outcome=await inspectDustRequest(attempt.requestId);
+ if(outcome.state!=='not_applied')return {outcome,attempt};
+ if(row.completed||(attempt.actorId&&attempt.actorId!==row.actorId)||(attempt.fingerprint&&attempt.fingerprint!==row.fingerprint)||(attempt.snapshotHash&&attempt.snapshotHash!==outcome.snapshotHash))fail('요청 당시 계정 또는 원본 기록이 다릅니다. 재시도할 수 없습니다.');
+ // Legacy browser ID-only attempts are reconciled against the server-pinned original
+ // event. No request ID is discarded; no default execution or automatic retry.
+ return {outcome,attempt:{...attempt,actorId:row.actorId,fingerprint:row.fingerprint,snapshotHash:outcome.snapshotHash}};
+}
+export async function executeDustCorrection(expected:DustCorrectionState,requestId:string,confirmed:boolean,snapshotHash?:string){
  if(!confirmed||!requestId||expected.completed)fail('명시적 최종 확인이 필요하거나 이미 정정된 기록입니다.');
  const fresh=await inspectDustCorrection();
  if(fresh.completed||fresh.fingerprint!==expected.fingerprint)fail('확인 후 상태 또는 로그인 계정이 변경됐습니다. 실행하지 않습니다.');
+ const outcome=await inspectDustRequest(requestId);
+ if(outcome.state!=='not_applied'||(snapshotHash&&outcome.snapshotHash!==snapshotHash))fail('요청이 완료·진행 중이거나 결과/원본이 변경됐습니다. 실행하지 않습니다.');
  // No target, time, version or identity can be supplied by the caller. The server pins all of them.
  const result=await supabase.rpc('correct_dust_transfer_20261107_v1',{p_request_id:requestId,p_confirmed:true});
  if(result.error)throw new Error(`${result.error.message} (${result.error.code})`);

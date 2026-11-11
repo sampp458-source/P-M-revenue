@@ -1,7 +1,7 @@
 import {beforeEach,describe,it,expect,vi} from 'vitest';
 const api=vi.hoisted(()=>({user:vi.fn(),rpc:vi.fn(),from:vi.fn()}));
 vi.mock('../lib/supabase',()=>({supabase:{auth:{getUser:api.user},rpc:api.rpc,from:api.from}}));
-import {DUST,inspectDustCorrection,executeDustCorrection} from './dustCorrectionRepository';
+import {DUST,inspectDustCorrection,executeDustCorrection,inspectDustRequest,resolveDustAttempt} from './dustCorrectionRepository';
 function fixture(){return {
  hotel_stays:{id:String(DUST.stay),dog_id:String(DUST.dog),version:6,checked_in_at:String(DUST.entered),checked_out_at:String(DUST.exited),archived_at:null},
  hotel_capacity_reservations:{id:String(DUST.capacity),hotel_stay_id:String(DUST.stay),version:3,reserved_from:'2026-11-06T10:00:00Z',reserved_until:'2026-11-08T09:00:00Z',quantity:1,source_kind:'stay',shared_room_group_id:null,physical_occupancy_id:null,archived_at:null},
@@ -10,6 +10,7 @@ function fixture(){return {
 };}
 let rows=fixture(),conflict=false,readError=false;
 const command='correct_dust_transfer_20261107_v1';
+const outcome=(id:string)=>({state:'not_applied',requestId:id,actorId:'admin',snapshotHash:'server',operation:'dust_transfer_20261107_v1',oldBoundary:DUST.oldBoundary,correctedBoundary:DUST.correctedBoundary});
 function complete(){
  rows.hotel_room_allocations[0].version=3;rows.hotel_room_allocations[0].allocated_until=DUST.correctedBoundary;
  rows.hotel_room_allocations[1].version=4;rows.hotel_room_allocations[1].allocated_from=DUST.correctedBoundary;
@@ -19,7 +20,7 @@ function complete(){
 beforeEach(()=>{
  vi.resetAllMocks();rows=fixture();conflict=false;readError=false;
  api.user.mockResolvedValue({data:{user:{id:'admin'}},error:null});
- api.rpc.mockImplementation(async(name)=>({data:name.startsWith('assert_')?null:true,error:null}));
+ api.rpc.mockImplementation(async(name,args)=>({data:name==='get_dust_correction_request_state_v1'?outcome(args.p_request_id):name.startsWith('assert_')?null:true,error:null}));
  api.from.mockImplementation((table:keyof typeof rows)=>{
   let onlyConflicts=false;
   const q={select:vi.fn((fields)=>{onlyConflicts=fields==='id';return q;}),eq:vi.fn(()=>q),in:vi.fn(()=>q),order:vi.fn(()=>q),limit:vi.fn(()=>q),neq:vi.fn(()=>q),lt:vi.fn(()=>q),gt:vi.fn(()=>q),single:vi.fn(()=>q),then:(resolve:(v:unknown)=>unknown)=>Promise.resolve({data:structuredClone(onlyConflicts?(conflict?[{id:'other'}]:[]):rows[table]),error:readError?{message:'denied'}:null}).then(resolve)};return q;
@@ -46,11 +47,17 @@ describe('fixed Dust authenticated correction',()=>{
  it('re-reads and denies changed actor before write',async()=>{const r=await inspectDustCorrection();api.user.mockResolvedValue({data:{user:{id:'other-admin'}},error:null});await expect(executeDustCorrection(r,'request',true)).rejects.toThrow('로그인 계정');expect(writes()).toHaveLength(0);});
  it('requires explicit final confirmation',async()=>{const r=await inspectDustCorrection();await expect(executeDustCorrection(r,'request',false)).rejects.toThrow('최종 확인');expect(writes()).toHaveLength(0);});
  it('one fixed command uses session and only request ID plus confirmed; verifies postflight',async()=>{
-  const r=await inspectDustCorrection();api.rpc.mockImplementation(async name=>({data:name===command?complete():true,error:null}));
+  const r=await inspectDustCorrection();api.rpc.mockImplementation(async(name,args)=>({data:name===command?complete():name==='get_dust_correction_request_state_v1'?outcome(args.p_request_id):true,error:null}));
   expect(await executeDustCorrection(r,'unique-request',true)).toMatchObject({completed:true,auditId:'correction-audit'});
   expect(writes()).toEqual([[command,{p_request_id:'unique-request',p_confirmed:true}]]);
  });
  it('blocks an already corrected record from a fresh UI instance',async()=>{complete();const r=await inspectDustCorrection();expect(r.completed).toBe(true);await expect(executeDustCorrection(r,'another',true)).rejects.toThrow('이미 정정');expect(writes()).toHaveLength(0);});
- it('does not retry command errors',async()=>{const r=await inspectDustCorrection();api.rpc.mockImplementation(async name=>({data:true,error:name===command?{message:'충돌',code:'23P01'}:null}));await expect(executeDustCorrection(r,'request',true)).rejects.toThrow('23P01');expect(writes()).toHaveLength(1);});
+ it('does not retry command errors',async()=>{const r=await inspectDustCorrection();api.rpc.mockImplementation(async(name,args)=>({data:name==='get_dust_correction_request_state_v1'?outcome(args.p_request_id):true,error:name===command?{message:'충돌',code:'23P01'}:null}));await expect(executeDustCorrection(r,'request',true)).rejects.toThrow('23P01');expect(writes()).toHaveLength(1);});
  it('rejects uncertain success response and never retries',async()=>{const r=await inspectDustCorrection();await expect(executeDustCorrection(r,'request',true)).rejects.toThrow('응답 확인');expect(writes()).toHaveLength(1);});
 });
+
+it.each(['succeeded','unknown','in_progress'])('does not execute when authoritative outcome is %s',async state=>{const r=await inspectDustCorrection();api.rpc.mockImplementation(async(name,args)=>({data:name==='get_dust_correction_request_state_v1'?{state,requestId:args.p_request_id}:true,error:null}));await expect(executeDustCorrection(r,'original',true)).rejects.toThrow('실행하지 않습니다');expect(writes()).toHaveLength(0);});
+it('retry rejects changed server snapshot',async()=>{const r=await inspectDustCorrection();await expect(executeDustCorrection(r,'original',true,'different')).rejects.toThrow('원본');expect(writes()).toHaveLength(0);});
+it('keeps same input and ID while upgrading a legacy browser marker',async()=>{const r=await inspectDustCorrection();expect(await resolveDustAttempt({requestId:'original'},r)).toMatchObject({outcome:{state:'not_applied'},attempt:{requestId:'original',actorId:'admin',fingerprint:r.fingerprint,snapshotHash:'server'}});expect(writes()).toHaveLength(0);});
+it.each([{actorId:'other'},{fingerprint:'changed'},{snapshotHash:'changed'}])('does not discard original retry snapshot %o',async value=>{const r=await inspectDustCorrection();await expect(resolveDustAttempt({requestId:'original',...value},r)).rejects.toThrow('원본');expect(writes()).toHaveLength(0);});
+it('unmatched server request result is not trusted',async()=>{api.rpc.mockImplementation(async name=>({data:name==='get_dust_correction_request_state_v1'?outcome('different'):true,error:null}));await expect(inspectDustRequest('original')).rejects.toThrow('불확실');});
