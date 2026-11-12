@@ -1,0 +1,2 @@
+import type {Unit} from '../../supabase/functions/_shared/guardianMessage';
+export function GuardianMessageShortcut({customerId,scheduleId,unit}:{customerId:string;scheduleId?:string;unit?:Unit}) {const query=new URLSearchParams({customerId,...(scheduleId?{scheduleId}:{}),...(unit?{unit}:{})});return <a className="inline-flex min-h-11 items-center rounded-xl border border-border-strong bg-surface px-4 py-2 text-sm font-semibold text-primary" href={`/operations/guardian-messages?${query}`}>보호자 안내 발송</a>;}

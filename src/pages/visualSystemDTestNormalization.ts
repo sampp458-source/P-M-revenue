@@ -1,3 +1,4 @@
+import {normalizeGuardianMessageEntry} from '../guardianMessages/integrationBoundary';
 // Only the explicit visual role hooks added by Rollout 1 are removed.
 // Historical behavioral hashes below remain unchanged.
 export function normalizeVisualSystemD(source: string) {
@@ -45,6 +46,7 @@ export function normalizeNotificationShell(source: string) {
 
 // Exact Task V1 integration additions only; legacy Finance controls and Today remain frozen.
 export function normalizeTaskRequestIntegration(source: string) {
+  source = normalizeGuardianMessageEntry(source);
  // Exact Payment V1 sidebar integration; runtime behavior has dedicated navigation tests.
  source = source
   .replace('import { usePaymentAccess } from "./paymentRequests/usePaymentAccess";\n', '')

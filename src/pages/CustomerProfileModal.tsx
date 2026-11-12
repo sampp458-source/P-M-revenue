@@ -1,3 +1,4 @@
+import {GuardianMessageShortcut} from "../guardianMessages/GuardianMessageShortcut";
 import { CalendarDays, Dog, Eye, Phone, Plus, UserRound, UsersRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -193,6 +194,7 @@ export function CustomerProfileModal({
             actions={
               customer.active ? (
                 <div className="flex flex-wrap gap-2">
+                  {window.location.pathname.startsWith("/operations/")&&<GuardianMessageShortcut customerId={customer.id}/>}
                   <Button variant="secondary" onClick={() => onAddDog(customer.id)}>
                     <Plus size={16} />
                     반려견 추가

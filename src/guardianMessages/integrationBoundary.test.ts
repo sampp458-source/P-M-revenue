@@ -1,0 +1,4 @@
+import {readFileSync} from 'node:fs';import{createHash}from'node:crypto';import{expect,it}from'vitest';
+import reviewed from './integrationBoundary.json';import{normalizeGuardianMessageEntry}from'./integrationBoundary';
+it.each(reviewed)('$file preserves every previous auth, hotel and schedule byte',r=>{const source=readFileSync(r.file,'utf8');for(const line of r.additions)expect(source.split(line)).toHaveLength(2);expect(createHash('sha256').update(normalizeGuardianMessageEntry(source)).digest('hex')).toBe(r.baselineSHA256);});
+it('rejects duplicated entry and does not normalize altered workflow',()=>{expect(()=>normalizeGuardianMessageEntry(reviewed[0].additions[0].repeat(2))).toThrow();expect(normalizeGuardianMessageEntry('arbitrary workflow changed')).toBe('arbitrary workflow changed');});

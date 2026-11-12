@@ -1,3 +1,7 @@
 # Custom constant-time secret authentication in handler; no browser invocation authority.
 [functions.notification-push-dispatch]
 verify_jwt = false
+
+# Auth user is verified via Supabase Auth before every action (never trust decoded JWT fields).
+[functions.guardian-messages]
+verify_jwt = false

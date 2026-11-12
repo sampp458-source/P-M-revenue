@@ -1,0 +1,35 @@
+[
+  {
+    "file": "src/App.tsx",
+    "baselineSHA256": "87cb7584288ba65ca8d1b4c01b05ad9efc407ca160f17b7f95cba2f911b93c2f",
+    "additions": [
+      "import { GuardianMessageCenter } from \"./guardianMessages/GuardianMessageCenter\";\n",
+      "  { to: \"/operations/guardian-messages\", label: \"보호자 메시지\", icon: ListChecks },\n",
+      "        <Route path=\"guardian-messages\" element={<GuardianMessageCenter />} />\n"
+    ]
+  },
+  {
+    "file": "src/pages/OperationsToday.tsx",
+    "baselineSHA256": "505a510f4625f4e022d45a8ab3cb8ca081041ce4c250967d6440255442a82ea8",
+    "additions": [
+      "import {GuardianMessageShortcut} from \"../guardianMessages/GuardianMessageShortcut\";\n",
+      "      {schedule.customers.length===1&&schedule.businessUnitCode&&<GuardianMessageShortcut customerId={schedule.customers[0].id} scheduleId={schedule.id} unit={schedule.businessUnitCode}/>}\n"
+    ]
+  },
+  {
+    "file": "src/pages/HotelOperations.tsx",
+    "baselineSHA256": "ceba033678d4572b55cd2c7adc54a9510d30e2ae656620ed4a0c027a5fd8daf0",
+    "additions": [
+      "import {GuardianMessageShortcut} from \"../guardianMessages/GuardianMessageShortcut\";\n",
+      "        {stay.customerId&&<GuardianMessageShortcut customerId={stay.customerId} unit=\"hotel\" scheduleId={stay.scheduleEvents.find(e=>e.eventKind==='check_in')?.schedule.id}/>}\n"
+    ]
+  },
+  {
+    "file": "src/pages/CustomerProfileModal.tsx",
+    "baselineSHA256": "6bbe3b09ad0ff9ced424140391dcce27d372025f6a29fe9a35384938e38efd30",
+    "additions": [
+      "import {GuardianMessageShortcut} from \"../guardianMessages/GuardianMessageShortcut\";\n",
+      "                  {window.location.pathname.startsWith(\"/operations/\")&&<GuardianMessageShortcut customerId={customer.id}/>}\n"
+    ]
+  }
+]

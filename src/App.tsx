@@ -70,6 +70,7 @@ import { StaffManagementPage } from "./pages/StaffManagement";
 import { OperationsSettingsPage } from "./pages/OperationsSettings";
 import { OperationsCalendarFoundationPage } from "./pages/OperationsCalendarFoundation";
 import { OperationsTodayPage } from "./pages/OperationsToday";
+import { GuardianMessageCenter } from "./guardianMessages/GuardianMessageCenter";
 import { HotelOperationsPage } from "./pages/HotelOperations";
 import { CustomerManagementPage } from "./pages/CustomerManagement";
 import { JournalHomePage } from "./pages/JournalHome";
@@ -100,6 +101,7 @@ const operationsMenus: OperationsMenuItem[] = [
     : []),
   { to: "/operations/customers", label: "반려견 관리", icon: Dog },
   { to: "/operations/customer-management", label: "보호자 관리", icon: UsersRound },
+  { to: "/operations/guardian-messages", label: "보호자 메시지", icon: ListChecks },
   { to: "/operations/requests", label: "요청", icon: ListChecks },
   { to: "/operations/staff", label: "직원 관리", icon: UserCog },
   { to: "/operations/settings", label: "일정 설정", icon: Settings },
@@ -198,6 +200,7 @@ export default function App() {
           element={<OperationsCalendarFoundationPage />}
         />
         <Route path="hotel" element={<HotelOperationsPage />} />
+        <Route path="guardian-messages" element={<GuardianMessageCenter />} />
         <Route path="requests" element={<TaskRequestsPage />} />
         <Route path="tasks" element={<LegacyTaskRoute />} />
         <Route path="journal" element={<Navigate to="/journal/today" replace />} />

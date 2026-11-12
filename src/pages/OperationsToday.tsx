@@ -1,3 +1,4 @@
+import {GuardianMessageShortcut} from "../guardianMessages/GuardianMessageShortcut";
 import {useScheduleOperationalRefresh} from './useScheduleOperationalRefresh';
 import { TaskHomeEntry } from "../taskRequests/TaskHomeEntry";
 import "../operations-schedule-presentation.css";
@@ -2353,6 +2354,7 @@ export function ScheduleDetailModal({
         <span className="mx-1.5 text-text-muted">·</span>
         등록 {schedule.createdByName || "이름 미등록"}
       </p>
+      {schedule.customers.length===1&&schedule.businessUnitCode&&<GuardianMessageShortcut customerId={schedule.customers[0].id} scheduleId={schedule.id} unit={schedule.businessUnitCode}/>}
       <dl className="mt-5 grid gap-4 sm:grid-cols-2">
         <Detail label="담당자" value={compactNames(schedule.assignees, "미지정")} />
         <Detail label="생성자" value={schedule.createdByName || "이름 미등록"} />
