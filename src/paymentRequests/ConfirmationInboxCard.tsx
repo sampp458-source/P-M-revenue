@@ -21,7 +21,7 @@ export function ConfirmationInboxCard({row,onOpen,onProcessing,onLockChange,user
  };
  return <article className="pt-task-row payment-inline-card" data-status={status} data-administrative-cancelled={row.administrative_cancelled?'true':undefined} aria-label={row.display_title} onClick={onOpen}>
   <button className="payment-inline-open" onClick={event=>{event.stopPropagation();onOpen();}} aria-label={`${row.display_title} · ${row.counterparty} · ${paymentStatus('PAYMENT_CONFIRMATION_REQUEST',status)}`}>
-   <div className="payment-inline-caption"><small className="payment-type">결제 확인 요청</small><strong className="payment-inline-title">{row.display_title}</strong></div>
+   <div className="payment-inline-caption"><small className="payment-type">입금 확인 요청</small><strong className="payment-inline-title">{row.display_title}</strong></div>
    <dl className="payment-inline-summary"><div><dt>입금 확인 대상</dt><dd>{detail?.payer_name||'확인 중'}</dd></div><div className="payment-inline-amount"><dt>확인 금액</dt><dd>{detail?.reported_amount===undefined?'확인 중':`${detail.reported_amount.toLocaleString('ko-KR')}원`}</dd></div></dl>
    <dl className="payment-inline-meta"><div><dt>반려견</dt><dd>{detail?detail.dog_name||'미입력':'확인 중'}</dd></div><div><dt>요청자</dt><dd>{row.counterparty}</dd></div></dl>
   </button>

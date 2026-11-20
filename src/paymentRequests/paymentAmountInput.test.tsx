@@ -32,7 +32,7 @@ it.each(['1,23원','1.2원','-100원','2,147,483,648원'])('invalid form amount 
  await screen.findByText('합성 담당자');
  fireEvent.change(screen.getByLabelText('입금자명 / 확인 대상 이름'),{target:{value:'합성 입금자'}});
  fireEvent.change(screen.getByLabelText('확인 금액'),{target:{value}});
- fireEvent.click(screen.getByRole('button',{name:'결제 확인 요청 보내기'}));
+ fireEvent.click(screen.getByRole('button',{name:'입금 확인 요청 보내기'}));
  expect(screen.getByRole('alert').textContent).toContain('정수');
  expect(repo.command).not.toHaveBeenCalled();
 });
@@ -48,7 +48,7 @@ it.each(['PAYMENT_CONFIRMATION_REQUEST','PAYMENT_REQUEST'] as const)('%s sends n
   fireEvent.change(screen.getByLabelText('제목'),{target:{value:'합성 요청'}});
   fireEvent.change(screen.getByLabelText('사유'),{target:{value:'합성 검증'}});
  }
- fireEvent.click(screen.getByRole('button',{name:confirmation?'결제 확인 요청 보내기':'지급 요청 보내기'}));
+ fireEvent.click(screen.getByRole('button',{name:confirmation?'입금 확인 요청 보내기':'지급 요청 보내기'}));
  await screen.findByText('합성 연결 오류');
  expect(repo.command).toHaveBeenCalledTimes(1);
  const first=repo.command.mock.calls[0][0];

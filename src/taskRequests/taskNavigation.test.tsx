@@ -67,7 +67,7 @@ it('Module Gate payment notification uses SPA detail; read is never confirmation
  vi.spyOn(paymentRequestRepository,'detail').mockResolvedValue({id:'payment-one',request_type:'PAYMENT_CONFIRMATION_REQUEST',requester_name:'요청자',handler_name:'담당자',payer_name:'새 입금자',reported_amount:100000,status:'REQUESTED',version:1,can_process:true,can_cancel:false});
  const command=vi.spyOn(paymentRequestRepository,'command');
  vi.mocked(notificationRepository.inbox).mockResolvedValue({...emptyInbox,items:[{id:'payment-notice',category:'PAYMENT_CONFIRMATION_REQUEST',deep_link_type:'PAYMENT_CONFIRMATION_REQUEST',deep_link_id:'payment-one',title:'새 결제 확인 요청이 있습니다.',message:'요청 상세에서 확인해 주세요.',created_at:task.created_at,priority:'NORMAL',ack_required:false} as Notice]});
- render(root());fireEvent.click(await screen.findByRole('button',{name:/알림센터, 읽지 않은/}));fireEvent.click(await screen.findByRole('button',{name:/새 결제 확인 요청이 있습니다/}));await screen.findByText('새 입금자');
+ render(root());fireEvent.click(await screen.findByRole('button',{name:/알림센터, 읽지 않은/}));fireEvent.click(await screen.findByRole('button',{name:/새 입금 확인 요청이 있습니다/}));await screen.findByText('새 입금자');
  expect(screen.getByLabelText('경로').textContent).toBe('/operations/requests?type=PAYMENT_CONFIRMATION_REQUEST&request=payment-one');
  expect(notificationRepository.read).toHaveBeenCalledWith('payment-notice');expect(command).not.toHaveBeenCalled();expect(screen.queryByRole('dialog')).toBeNull();
 });

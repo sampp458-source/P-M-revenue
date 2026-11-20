@@ -1,4 +1,4 @@
-import {paymentRequestPath} from '../paymentRequests/paymentRequestPresentation';
+import {paymentRequestPath,paymentNoticeTitle} from '../paymentRequests/paymentRequestPresentation';
 import { useTaskAccess } from "../taskRequests/useTaskAccess";
 import { taskRequestPath } from "../taskRequests/taskNavigation";
 import { announcementExpiryError, announcementExpiryLocal, announcementExpiryMin, announcementExpiryUtc } from "./announcementExpiry";
@@ -30,8 +30,8 @@ export function NotificationBell() {
 function NoticeRow({ item, onOpen }: { item: Notice; onOpen: (item: Notice) => void }) {
   return <button type="button" className={`pn-notice-row ${item.read_at ? "pn-read" : "pn-unread"}`} onClick={() => onOpen(item)}>
     <span className={`pn-read-dot ${item.read_at ? "is-read" : ""}`} aria-label={item.read_at ? "읽음" : "읽지 않음"} />
-    <span className="pn-notice-copy"><span className="pn-notice-meta">{item.category === "PAYMENT_CONFIRMATION_REQUEST" ? "결제 확인" : item.category === "PAYMENT_REQUEST" ? "지급 요청" : item.category === "TASK_REQUEST" ? "업무요청" : item.category === "SCHEDULE" ? "일정" : item.category === "PUSH_SELF_TEST" ? "테스트 알림" : "공지"} · {relativeTime(item.created_at)}{item.priority === "IMPORTANT" && <span className="pn-important">중요</span>}</span>
-      <strong>{item.title}</strong><span className="pn-preview">{item.message}</span>
+    <span className="pn-notice-copy"><span className="pn-notice-meta">{item.category === "PAYMENT_CONFIRMATION_REQUEST" ? "입금 확인" : item.category === "PAYMENT_REQUEST" ? "지급 요청" : item.category === "TASK_REQUEST" ? "업무요청" : item.category === "SCHEDULE" ? "일정" : item.category === "PUSH_SELF_TEST" ? "테스트 알림" : "공지"} · {relativeTime(item.created_at)}{item.priority === "IMPORTANT" && <span className="pn-important">중요</span>}</span>
+      <strong>{paymentNoticeTitle(item.category,item.title)}</strong><span className="pn-preview">{item.message}</span>
       {(!item.category || item.category === "ANNOUNCEMENT") && item.ack_required && <span className={`pn-ack-state ${item.acknowledged_at ? "pn-acked" : "pn-needs-ack"}`}>{item.acknowledged_at ? "확인 완료" : "확인 필요"}</span>}
     </span><ChevronRight size={16} aria-hidden="true" />
   </button>;
@@ -177,7 +177,7 @@ export function NotificationDialogs({ navigate }: { navigate: (path: string) => 
         {state.view === "detail" && detail && <>
           <button className="pn-text-button" onClick={() => state.setView("center")}>← 알림센터</button>
           <p className="pn-notice-meta">{notificationTime(detail.created_at)}{detail.priority === "IMPORTANT" && <span className="pn-important">중요</span>}</p>
-          <h3 className="pn-detail-title">{detail.title}</h3><p className="pn-body">{detail.message}</p>
+          <h3 className="pn-detail-title">{paymentNoticeTitle(detail.category,detail.title)}</h3><p className="pn-body">{detail.message}</p>
           {detail.expires_at && <p className="pn-secondary">게시 종료 · {notificationTime(detail.expires_at)}</p>}
           {detail.category !== "SCHEDULE" && detail.ack_required ? <button className="pn-primary" disabled={busy || !!detail.acknowledged_at} onClick={() => void act(async () => { await state.repository.acknowledge(detail.id); state.setDetail({ ...detail, acknowledged_at: new Date().toISOString() }); await state.refresh(); setToast("공지 확인을 기록했습니다."); })}><Check size={16} />{detail.acknowledged_at ? "확인 완료" : "확인했습니다"}</button> : <button className="pn-primary" onClick={() => state.setView("center")}>확인</button>}
         </>}

@@ -13,3 +13,6 @@ export function paymentAmount(value:string){
 }
 export const paymentDue=(value:string)=>value?taskDue(value):null;
 export function paymentRequestPath(type:PaymentType,id:string){return `/operations/requests?${new URLSearchParams({type,request:id})}`;}
+
+// Older stored notification text remains unchanged; clarify only its displayed title.
+export function paymentNoticeTitle(category:string|undefined,title:string){return category==='PAYMENT_CONFIRMATION_REQUEST'?title.replaceAll('결제 확인','입금 확인'):title;}

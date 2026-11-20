@@ -1,7 +1,7 @@
 import {useCallback,useEffect,useRef,useState} from 'react';
 import type {CapabilityRow} from '../taskRequests/taskRequestRepository';
 import {paymentRequestRepository,PaymentFailure} from './paymentRequestRepository';
-const labels:Record<string,string>={PAYMENT_CONFIRMATION_REQUEST_CREATE:'결제 확인 요청',PAYMENT_REQUEST_CREATE:'지급 요청',PAYMENT_CONFIRMATION_REVIEW:'결제 확인 처리',PAYMENT_REQUEST_PROCESS:'지급 요청 처리',PAYMENT_REQUESTS_VIEW_ALL:'금융 요청 전체 조회'};
+const labels:Record<string,string>={PAYMENT_CONFIRMATION_REQUEST_CREATE:'입금 확인 요청',PAYMENT_REQUEST_CREATE:'지급 요청',PAYMENT_CONFIRMATION_REVIEW:'입금 확인 처리',PAYMENT_REQUEST_PROCESS:'지급 요청 처리',PAYMENT_REQUESTS_VIEW_ALL:'금융 요청 전체 조회'};
 export function PaymentCapabilityManagement({selectedId}:{selectedId:string}){
  const [row,setRow]=useState<CapabilityRow>(),[error,setError]=useState(''),[busy,setBusy]=useState(false),[retry,setRetry]=useState(false);const pending=useRef<{cap:string;active:boolean;version:number;key:string}|undefined>(undefined),lock=useRef(false);
  const load=useCallback(async()=>{try{setRow((await paymentRequestRepository.directory()).find(r=>r.id===selectedId));}catch(e){setError((e as Error).message);}},[selectedId]);useEffect(()=>{void load();},[load]);
