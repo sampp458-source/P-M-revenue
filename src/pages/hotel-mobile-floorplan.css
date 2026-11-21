@@ -1,7 +1,6 @@
 .hotel-mobile-floorplan { min-width:0; }
 .hotel-floorplan-row { display:grid; grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr); align-items:stretch; }
 .hotel-floorplan-head { align-items:center; padding:4px 0 8px; font-size:12px; color:#52677b; }
-.hotel-floorplan-head>span { font-size:10px; text-align:center; writing-mode:vertical-rl; justify-self:center; }
 .hotel-floorplan-head>strong:last-child { grid-column:3; }
 .hotel-floorplan-slot { min-width:0; padding-bottom:6px; }
 .hotel-floorplan-slot[data-side=left] { grid-column:1; grid-row:1; }
@@ -25,7 +24,11 @@
   .hotel-board-mobile-navigation { order:-2; }
   .hotel-operations-workspace[data-view=rooms]:has(.hotel-board-mobile-navigation)>.hotel-workspace-default-nav { display:none; }
   .hotel-board-mobile-timeline { order:-1; }
-  .pm-hotel-v2 .hotel-command-heading .pm-v1-page-header { margin-bottom:0; }
+  .pm-hotel-v2 .hotel-command-heading .pm-v1-page-header { margin-bottom:0; flex-wrap:wrap; }
+  /* Override the existing hotel heading's flex:1 so actions wrap before the title shrinks. */
+  .pm-design-v1.pm-hotel-v1.pm-hotel-v2.pm-design-d .hotel-command-heading>.pm-v1-page-header>div:first-child { flex:0 0 auto; }
+  .pm-hotel-v2 .hotel-command-heading .pm-v1-page-header>div:last-child { max-width:100%; }
+  .pm-hotel-v2 .hotel-command-heading h1 { white-space:nowrap; }
   .pm-hotel-v2 .hotel-command-heading .pm-v1-page-header p { display:none; }
   .pm-hotel-v2 .hotel-workspace-nav { position:static; }
 }

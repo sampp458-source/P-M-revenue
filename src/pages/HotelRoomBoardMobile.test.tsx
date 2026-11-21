@@ -204,8 +204,9 @@ describe('mobile floorplan transposes desktop identity without occupancy sorting
   const value=props();value.snapshot.rooms=[...Array.from({length:6},(_,i)=>({...value.snapshot.rooms[0],id:`d-${i+1}`,name:`DELUXE ${i+1}`,sortOrder:i+1})),...Array.from({length:5},(_,i)=>({...value.snapshot.rooms[3],id:`s-${i+1}`,name:`STANDARD ${i+1}`,sortOrder:i+1}))].reverse();
   value.snapshot.stays=[];value.sharedOccupancies=[];value.daycareReservations=[];
   const {container}=render(<HotelRoomBoard {...value}/>);
-  expect([...container.querySelectorAll('[data-side=left]')].map(x=>x.getAttribute('data-room-id'))).toEqual(['d-1','d-2','d-3','d-4','d-5','d-6']);
-  expect([...container.querySelectorAll('[data-side=right]')].map(x=>x.getAttribute('data-room-id'))).toEqual(['s-1','s-2','s-3','s-4','s-5',null]);
+  expect([...container.querySelectorAll('[data-side=left]')].map(x=>x.getAttribute('data-room-id'))).toEqual(['s-1','s-2','s-3','s-4','s-5',null]);
+  expect([...container.querySelectorAll('[data-side=right]')].map(x=>x.getAttribute('data-room-id'))).toEqual(['d-1','d-2','d-3','d-4','d-5','d-6']);
+  expect(within(screen.getByRole('region',{name:'호텔 객실 배치도'})).queryByText('통로')).not.toBeInTheDocument();
   expect(container.querySelectorAll('.hotel-floorplan-room')).toHaveLength(11);
   fireEvent.click(screen.getByTestId('hotel-room-board-room-s-5'));expect(screen.getByRole('dialog',{name:'객실 상세'})).toHaveTextContent('STANDARD 5');
   expect(value.onDropStay).not.toHaveBeenCalled();expect(value.onUnassignStay).not.toHaveBeenCalled();
