@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import {afterEach,expect,it,vi} from 'vitest';
+import '@testing-library/jest-dom/vitest';
 import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {AdminPushSelfTest} from './AdminPushSelfTest';
 import {buildPreview} from '../../supabase/functions/notification-push-dispatch/preview';
@@ -9,11 +10,26 @@ vi.mock('../lib/supabase',()=>({supabase:{rpc:vi.fn()}}));
 afterEach(cleanup);
 const context={allowed:true,subscription:{id:'s',binding_id:'b',provider:'Apple 기기',last_seen_at:'2026-11-02T03:00:00Z'}};
 function api(){return {context:vi.fn().mockResolvedValue(context),send:vi.fn().mockResolvedValue({request_id:'r',notification_id:'n',delivery_id:'d',status:'PENDING'})};}
+async function openPanel(){fireEvent.click(await screen.findByRole('button',{name:'테스트 알림 도구 열기'}));}
+it('starts collapsed and exposes the unchanged preview and confirmation only after an explicit open',async()=>{
+ const a=api();render(<AdminPushSelfTest userId="u" api={a}/>);
+ const toggle=await screen.findByRole('button',{name:'테스트 알림 도구 열기'});
+ expect(toggle).toHaveAttribute('aria-expanded','false');
+ expect(screen.getByText('제목: [테스트 알림] 새 미리보기 확인')).not.toBeVisible();
+ expect(screen.queryByRole('checkbox')).toBeNull();expect(screen.queryByRole('button',{name:'테스트 알림 1건 보내기'})).toBeNull();
+ expect(a.send).not.toHaveBeenCalled();
+ fireEvent.click(toggle);expect(toggle).toHaveAttribute('aria-expanded','true');
+ expect(screen.getByText('P&M OS 알림 표시 테스트입니다. 실제 업무 처리는 필요하지 않습니다.')).toBeVisible();
+ expect(screen.getByRole('checkbox')).not.toBeChecked();expect(screen.getByRole('button',{name:'테스트 알림 1건 보내기'})).toBeDisabled();
+ expect(screen.getByText(/5분에 1회 · 하루 최대 3회/)).toBeVisible();
+ fireEvent.click(toggle);expect(screen.getByText('제목: [테스트 알림] 새 미리보기 확인')).not.toBeVisible();
+ expect(a.context).toHaveBeenCalledTimes(1);expect(a.send).not.toHaveBeenCalled();
+});
 it('non-admin has no send control',async()=>{const a=api();a.context.mockResolvedValue({allowed:false} as typeof context);render(<AdminPushSelfTest userId="u" api={a}/>);await waitFor(()=>expect(a.context).toHaveBeenCalled());expect(screen.queryByRole('button',{name:'테스트 알림 1건 보내기'})).toBeNull();});
-it('ambiguous device blocks sending',async()=>{const a=api();a.context.mockResolvedValue({allowed:true,blocked:'연결 기기 확인 필요'} as unknown as typeof context);render(<AdminPushSelfTest userId="u" api={a}/>);expect(await screen.findByText('연결 기기 확인 필요')).toBeTruthy();expect(a.send).not.toHaveBeenCalled();});
-it('explicit confirmation, fresh check and duplicate click protection',async()=>{const a=api();render(<AdminPushSelfTest userId="u" api={a}/>);const b=await screen.findByRole('button',{name:'테스트 알림 1건 보내기'});expect(b.hasAttribute('disabled')).toBe(true);fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(b);fireEvent.click(b);await waitFor(()=>expect(a.send).toHaveBeenCalledOnce());expect(a.send.mock.calls[0]).toHaveLength(3);expect(a.context).toHaveBeenCalledTimes(2);expect(b.hasAttribute('disabled')).toBe(true);});
-it('stale subscription cannot execute',async()=>{const a=api();a.context.mockResolvedValueOnce(context).mockResolvedValue({...context,subscription:{...context.subscription,id:'other'}});render(<AdminPushSelfTest userId="u" api={a}/>);await screen.findByRole('checkbox');fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(screen.getByRole('button',{name:'테스트 알림 1건 보내기'}));expect(await screen.findByRole('alert')).toBeTruthy();expect(a.send).not.toHaveBeenCalled();});
-it('uncertain response keeps same request id rather than making a new notification',async()=>{const a=api();a.send.mockRejectedValueOnce(new Error('결과 확인 필요'));render(<AdminPushSelfTest userId="u" api={a}/>);fireEvent.click(await screen.findByRole('checkbox'));const b=screen.getByRole('button',{name:'테스트 알림 1건 보내기'});fireEvent.click(b);await screen.findByRole('alert');fireEvent.click(b);await waitFor(()=>expect(a.send).toHaveBeenCalledTimes(2));expect(a.send.mock.calls[0][0]).toBe(a.send.mock.calls[1][0]);});
+it('ambiguous device blocks sending',async()=>{const a=api();a.context.mockResolvedValue({allowed:true,blocked:'연결 기기 확인 필요'} as unknown as typeof context);render(<AdminPushSelfTest userId="u" api={a}/>);await openPanel();expect(await screen.findByText('연결 기기 확인 필요')).toBeTruthy();expect(a.send).not.toHaveBeenCalled();});
+it('explicit confirmation, fresh check and duplicate click protection',async()=>{const a=api();render(<AdminPushSelfTest userId="u" api={a}/>);await openPanel();const b=await screen.findByRole('button',{name:'테스트 알림 1건 보내기'});expect(b.hasAttribute('disabled')).toBe(true);fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(b);fireEvent.click(b);await waitFor(()=>expect(a.send).toHaveBeenCalledOnce());expect(a.send.mock.calls[0]).toHaveLength(3);expect(a.context).toHaveBeenCalledTimes(2);expect(b.hasAttribute('disabled')).toBe(true);});
+it('stale subscription cannot execute',async()=>{const a=api();a.context.mockResolvedValueOnce(context).mockResolvedValue({...context,subscription:{...context.subscription,id:'other'}});render(<AdminPushSelfTest userId="u" api={a}/>);await openPanel();await screen.findByRole('checkbox');fireEvent.click(screen.getByRole('checkbox'));fireEvent.click(screen.getByRole('button',{name:'테스트 알림 1건 보내기'}));expect(await screen.findByRole('alert')).toBeTruthy();expect(a.send).not.toHaveBeenCalled();});
+it('uncertain response keeps same request id rather than making a new notification',async()=>{const a=api();a.send.mockRejectedValueOnce(new Error('결과 확인 필요'));render(<AdminPushSelfTest userId="u" api={a}/>);await openPanel();fireEvent.click(await screen.findByRole('checkbox'));const b=screen.getByRole('button',{name:'테스트 알림 1건 보내기'});fireEvent.click(b);await screen.findByRole('alert');fireEvent.click(b);await waitFor(()=>expect(a.send).toHaveBeenCalledTimes(2));expect(a.send.mock.calls[0][0]).toBe(a.send.mock.calls[1][0]);});
 it('fixed preview ignores arbitrary source; current and legacy SW safely route CENTER',()=>{
  const preview=buildPreview({category:'PUSH_SELF_TEST',event_type:'ADMIN_PUSH_SELF_TEST',preview_source:{title:'secret',body:'010-1234-5678'}});
  expect(preview.preview?.title).toBe('[테스트 알림] 새 미리보기 확인');expect(preview.preview?.body).toBe('P&M OS 알림 표시 테스트입니다. 실제 업무 처리는 필요하지 않습니다.');

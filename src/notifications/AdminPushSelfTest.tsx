@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { adminPushSelfTest, type SelfTestContext, type SelfTestResult } from "./pushSelfTestRepository";
 export function AdminPushSelfTest({userId, api=adminPushSelfTest}:{userId:string;api?:typeof adminPushSelfTest}) {
+ const [expanded,setExpanded]=useState(false); const panelId=useId();
  const [context,setContext]=useState<SelfTestContext>(); const [confirmed,setConfirmed]=useState(false);
  const [busy,setBusy]=useState(false); const [error,setError]=useState(""); const [result,setResult]=useState<SelfTestResult>();
  const lock=useRef(false); const request=useRef<string | null>(null);
@@ -14,6 +15,8 @@ export function AdminPushSelfTest({userId, api=adminPushSelfTest}:{userId:string
  }catch(e){setError((e as Error).message);}finally{lock.current=false;setBusy(false);}};
  if(!context?.allowed)return null;
  return <section className="pn-push-settings" aria-label="관리자 본인 테스트 알림">
+  <button type="button" className="pn-secondary-button" aria-expanded={expanded} aria-controls={panelId} onClick={()=>setExpanded(value=>!value)}>{expanded ? "테스트 알림 도구 닫기" : "테스트 알림 도구 열기"}</button>
+  <div id={panelId} hidden={!expanded}>
   <strong>내 기기로 테스트 알림 보내기</strong>
   <p className="pn-secondary">로그인한 본인에게만 전송합니다. 5분에 1회 · 하루 최대 3회.</p>
   {context.blocked ? <p role="status">{context.blocked}</p> : context.subscription && <>
@@ -25,5 +28,6 @@ export function AdminPushSelfTest({userId, api=adminPushSelfTest}:{userId:string
   {result && <p role="status">{result.status === "SENT" ? "전송 제공자가 수락했습니다. 기기 표시와 소리를 확인해 주세요." : `전송 상태: ${result.status}`}<br/>알림 {result.notification_id}<br/>전송 {result.delivery_id}</p>}
   <button className="pn-secondary-button" disabled={busy} onClick={()=>void refresh()}>기기·전송 결과 다시 확인</button>
   {error&&<p role="alert">{error}</p>}
+  </div>
  </section>;
 }
