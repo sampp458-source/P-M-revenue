@@ -31,6 +31,8 @@ it('waits for matching date evidence and makes only one historical call per comp
   expect(screen.getByTestId('hotel-date-presentation')).toHaveAttribute('inert');
   await act(async()=>pending.resolve(snapshot(date)));
   await waitFor(()=>{expect(screen.getByTestId('loaded-board')).toHaveTextContent(date);expect(screen.getByTestId('hotel-date-presentation')).not.toHaveAttribute('inert');});
+  expect(document.querySelector('.hotel-date-controls>p')).toHaveTextContent(date<'2032-01-03'?'선택일 운영 기록':date==='2032-01-03'?'현재 객실 운영 현황':'선택일 예약·배정 계획');
+  expect(screen.getByLabelText('운영 날짜')).toBe(input);
  }
  expect(m.history.mock.calls.map(c=>c[0])).toEqual(['2032-01-01','2032-01-02']);
  expect(m.shared).toHaveBeenCalledTimes(5);expect(m.snapshot).toHaveBeenCalledTimes(5);

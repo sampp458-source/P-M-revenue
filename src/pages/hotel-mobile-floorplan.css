@@ -18,6 +18,9 @@
 .hotel-mobile-summary { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; padding:8px 10px; font-size:13px; }
 .hotel-mobile-summary b { margin-left:4px; }
 @media(max-width:767px) {
+  .pm-design-v1.pm-hotel-v1.pm-hotel-v2.pm-design-d .hotel-date-controls { display:grid; grid-template-columns:minmax(0,1fr) 168px; gap:12px; }
+  .pm-design-v1.pm-hotel-v1.pm-hotel-v2.pm-design-d .hotel-date-controls>label { grid-column:2; grid-row:1; flex-direction:column; align-items:flex-start; gap:4px; }
+  .pm-hotel-v2 .hotel-date-controls>p { grid-column:1; grid-row:1; min-width:0; padding-bottom:0; overflow-wrap:anywhere; }
   .hotel-board-desktop-overview { display:none!important; }
   .hotel-board-mobile-body { padding:0 8px 12px!important; gap:12px!important; }
   .hotel-board-map-first { order:-3; }
