@@ -88,12 +88,18 @@
 .pm-dashboard-v1 .dashboard-business-card > button > .mt-auto { margin-top: 14px; gap: 10px 16px; padding-top: 12px; }
 .pm-dashboard-v1 .dashboard-business-card-selected { background: #f5f8fc; border-color: #7796b6; box-shadow: inset 0 0 0 1px #7796b6; }
 @media (width < 48rem) {
-  .pm-dashboard-v1 .dashboard-calendar-surface { overflow-x: auto; overscroll-behavior-x: contain; }
-  .pm-dashboard-v1 .dashboard-calendar-surface > .grid { min-width: 560px; }
+  .pm-dashboard-v1 .dashboard-calendar-surface { min-width: 0; }
+  .pm-dashboard-v1 .dashboard-calendar-surface > .grid { min-width: 0; grid-template-columns: repeat(7,minmax(0,1fr)); }
   .pm-reports-v1 .finance-summary .finance-metric > p:nth-child(2) { font-size: clamp(1rem, 4.35vw, 1.4rem); }
   .pm-reports-v1 .finance-methods > .grid { grid-template-columns: minmax(0,1fr); gap: 0; }
   .pm-reports-v1 .finance-methods > .grid > div { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; border-left: 0; padding: 10px 0; }
   .pm-reports-v1 .finance-methods > .grid > div + div { border-top: 1px solid #e4e8ed; }
+}
+@media (width < 40rem) {
+  .pm-dashboard-v1 .dashboard-calendar-toolbar { flex-wrap: wrap; gap: 8px; }
+  .pm-dashboard-v1 .dashboard-calendar-toolbar > div:last-child { margin-left: auto; }
+  .pm-dashboard-v1 .dashboard-calendar-day { padding: 6px 2px; }
+  .pm-dashboard-v1 .dashboard-calendar-amount { overflow: hidden; text-overflow: ellipsis; font-size: 9.5px; line-height: 14px; }
 }
 .pm-reports-v1 .finance-list > h2,
 .pm-reports-v1 .finance-list > .divide-y > div { border-color: #e4e8ed; }

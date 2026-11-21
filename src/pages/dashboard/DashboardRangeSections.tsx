@@ -133,7 +133,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
   const theme = dashboardThemeMap[themeCode];
   return (
     <Card className="dashboard-surface dashboard-calendar-surface pm-d-workspace p-3.5 shadow-none sm:p-6">
-      <div className="mb-2.5 flex min-h-8 items-center justify-between gap-3 sm:mb-3">
+      <div className="dashboard-calendar-toolbar mb-2.5 flex min-h-8 items-center justify-between gap-3 sm:mb-3">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <h2 className="text-[clamp(1.05rem,1.7vw,1.2rem)] font-bold tracking-[-0.025em] text-text-primary">{monthTitle}</h2>
           <span className="dashboard-theme-badge inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold">
@@ -223,10 +223,11 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
               ) : (
                 <>
                   <strong className={cn(
-                    "mt-1.5 block whitespace-nowrap text-[clamp(0.5rem,2.5vw,0.7rem)] font-bold tracking-[-0.035em] tabular-nums sm:text-[13px]",
+                    "dashboard-calendar-amount mt-1.5 block whitespace-nowrap text-[clamp(0.5rem,2.5vw,0.7rem)] font-bold tracking-[-0.035em] tabular-nums sm:text-[13px]",
                     hasReceipt ? "dashboard-theme-text" : "dashboard-calendar-empty-value",
                   )}>
-                    {hasReceipt ? shortWon(amount) : "0원"}
+                    <span className="sm:hidden">{hasReceipt ? shortWon(amount).replace(/원$/, "") : "0"}</span>
+                    <span className="hidden sm:inline">{hasReceipt ? shortWon(amount) : "0원"}</span>
                   </strong>
                   <span className={cn(
                     "mt-1 block truncate text-[8px] font-medium leading-3 min-[430px]:text-[9px] sm:text-[10px]",
@@ -245,6 +246,7 @@ export function SalesHeatmapCalendar({ month, activeRange, data, totalData, unit
           );
         })}
       </div>
+      {!hideAmounts && <p className="mt-2 text-[10px] leading-4 text-text-muted sm:hidden">금액은 원 단위(만·억 축약) · 날짜를 눌러 상세 확인</p>}
     </Card>
   );
 }
