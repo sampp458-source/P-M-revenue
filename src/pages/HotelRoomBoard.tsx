@@ -1,3 +1,5 @@
+import { HotelMobileWorkspaceNavigation } from './HotelOperationsWorkspace';
+import { HotelMobileFloorplan } from './HotelMobileFloorplan';
 import {daycareOperationalStatus} from './daycareOperationalStatus';
 import { useHotelPreassignEligibility } from "./useHotelPreassignEligibility";
 import "./hotel-unassigned-classification.css";
@@ -21,7 +23,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Badge, Card, cn } from "../components/ui";
+import { Badge, Card, Modal, cn } from "../components/ui";
 import type {
   HotelOperationsSnapshot,
   HotelEventRoomProjections,
@@ -1076,7 +1078,7 @@ function RoomCell(props: CurrentRoomCellProps | HistoricalRoomCellProps) {
 }
 
 export function HotelRoomBoard({
-  attention,
+  attention, mobileTimeline, attentionCount = 0,
   completedSharedStays = [], completedSharedError, historicalBoard, historicalBoardError,
   dateMode: explicitDateMode,
   eventRoomProjections,
@@ -1102,7 +1104,7 @@ export function HotelRoomBoard({
   onUnassignSharedOccupancy: requestOnUnassignSharedOccupancy = () => undefined,
   allowCheckInReversal = false,
 }: {
-  attention?: ReactNode;
+  attention?: ReactNode; mobileTimeline?: ReactNode; attentionCount?: number;
   completedSharedStays?: readonly CompletedSharedStay[]; completedSharedError?: string; historicalBoard?: HistoricalBoard; historicalBoardError?: string;
   eventRoomProjections?: HotelEventRoomProjections;
   dateMode?: HotelRoomBoardDateMode;
@@ -1164,6 +1166,8 @@ export function HotelRoomBoard({
     target.focus({preventScroll: true});
   };
 
+  const [roomDetailId, setRoomDetailId] = useState<string | null>(null);
+  useEffect(() => setRoomDetailId(null), [selectedDate]);
   const [mobileFilter, setMobileFilter] = useState<MobileRoomFilter>("all");
   const [mobileAccordionState, setMobileAccordionState] = useState<
     Partial<Record<"DELUXE" | "STANDARD", boolean>>
@@ -1880,6 +1884,39 @@ export function HotelRoomBoard({
   const historicalCount=(event?:'check_in'|'check_out')=>new Set(historicalSegments.filter(segment=>!event||segment.selectedDayEvents.includes(event)).map(segment=>segment.stayId)).size;
   const historicalWarningCount = new Set(historicalBoard?.unavailable.map(item => item.stayId) ?? []).size;
 
+  const floorplanStayStatus = (stay: HotelStay) => {
+    const label = hotelRoomBoardDogStatus(stay, selectedDate).label;
+    const explicit = label === '입실' ? (stay.checkedInAt ? '입실 완료' : '입실 예정') : label === '퇴실' ? (stay.checkedOutAt ? '퇴실 완료' : '퇴실 예정') : label === '완료' ? '퇴실 완료' : label;
+    const unknown = hotelStayUnspecifiedState(stay);
+    return `${explicit}${unknown.checkInTime || unknown.checkOutTime ? ' · 시간 미정' : ''}`;
+  };
+  const renderFloorplanRoom = (room: {id:string;roomTypeCode:string}) => {
+    const history = readOnly ? historicalBoard?.rooms.find(item => item.roomId === room.id) : undefined;
+    const physical = activeRooms.find(item => item.id === room.id);
+    const name = history?.roomName ?? physical?.name ?? room.id;
+    const shared = readOnly ? undefined : sharedByRoom.get(room.id);
+    const daycare = readOnly ? undefined : daycareByRoom.get(room.id);
+    const occupants = readOnly ? [] : roomStays.get(room.id) ?? [];
+    const people = history ? history.segments.map(segment => ({id:segment.stayId,name:segment.dogName,status:segment.selectedDayEvents.includes('check_out')?'당일 퇴실':segment.selectedDayEvents.includes('check_in')?'당일 입실':'투숙 기록'}))
+      : daycare ? [{id:daycare.operationScheduleId,name:daycare.dog.name,status:`데이케어 · ${daycareOperationalStatus(daycare)?.label ?? '확인 필요'}`}]
+      : shared ? shared.members.filter(member=>member.status==='active').map(member=>({id:member.hotelStayId,name:member.dogName,status:staysById.get(member.hotelStayId)?floorplanStayStatus(staysById.get(member.hotelStayId)!):'일정 확인'}))
+      : occupants.map(stay=>({id:stay.id,name:stay.dogName,status:floorplanStayStatus(stay)}));
+    const phase = history ? historicalRoomPhase(history.segments) : roomBoardRoomStage(occupants,shared??null,daycare??null,staysById,selectedDate);
+    const emptyLabel = readOnly ? '확인된 기록 없음' : '빈 호실';
+    const label = `${name} · ${people.map(item=>`${item.name} ${item.status}`).join(' · ') || emptyLabel}${shared ? ' · 함께 투숙 · 객실 1실' : ''} · 상세 보기`;
+    return <button type="button" className="hotel-floorplan-room" data-testid={`hotel-room-board-room-${room.id}`} data-room-phase={phase??'empty'} data-room-content={people.length?'occupied':'empty'} aria-label={label} title={label} onClick={()=>{
+      if(shared) onOpenSharedOccupancy(shared.id);
+      else if(!daycare && people.length===1) onOpenStay(people[0].id);
+      else setRoomDetailId(room.id);
+    }}>
+      <strong>{name}</strong>
+      {people.length ? people.slice(0,2).map((item,index)=><span className="hotel-floorplan-dog" key={`${item.id}-${index}`}><b>{item.name}</b><small>{item.status}</small></span>) : <span className="hotel-floorplan-empty">{emptyLabel}</span>}
+      {people.length>2 ? <small>외 {people.length-2}마리 · 상세</small> : null}
+      {shared ? <small>{people.length}마리 · 1실</small> : null}
+    </button>;
+  };
+  const detailRoom = presentationRooms.find(room=>room.id===roomDetailId);
+
   return (
     <Card
       className="hotel-board-surface pm-d-board mb-6 overflow-hidden"
@@ -1890,7 +1927,8 @@ export function HotelRoomBoard({
         onPointerUp={readOnly ? undefined : endDrag}
         onPointerCancel={readOnly ? undefined : endDrag}
       >
-        <div className="hotel-board-overview pm-d-operational-strip border-b border-border px-4 py-4 sm:px-5 lg:px-6">
+        {mobileProjection && <div className="hotel-mobile-summary" aria-label="호텔 모바일 업무 요약"><span>{readOnly?'당일':selectedDateIsToday?'오늘':'선택일'} 입실<b>{readOnly?historicalCount('check_in'):boardSummary.checkIn}</b></span><span>퇴실<b>{readOnly?historicalCount('check_out'):boardSummary.checkOut}</b></span><span>처리 필요<b>{attentionCount}</b></span></div>}
+        <div className="hotel-board-desktop-overview hotel-board-overview pm-d-operational-strip border-b border-border px-4 py-4 sm:px-5 lg:px-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className={cn("font-extrabold uppercase tracking-[0.16em] text-primary", mobileProjection ? "text-xs" : "text-[11px]")}>
@@ -1951,7 +1989,7 @@ export function HotelRoomBoard({
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-5 p-4 sm:p-5 lg:p-6">
+        <div className="hotel-board-mobile-body flex flex-col gap-5 p-4 sm:p-5 lg:p-6">
           {!readOnly && (arrivalCount > 0 || upperArrivalEligible) ? <section data-testid="hotel-room-board-arrival-drop-zone"
             data-arrival-mode={arrivalDropOnly ? "DROP_ONLY" : "ARRIVAL"}
             data-drop-active={arrivalDropOver && upperArrivalEligible || undefined}
@@ -1971,7 +2009,7 @@ export function HotelRoomBoard({
           {!readOnly && preassignKey && preassignEntry?.status !== "ready" ? <div role="status" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-text-secondary">
             {preassignEntry?.status === "error" ? <>객실 확인에 실패했습니다. 배정은 실행되지 않습니다. <button type="button" className="font-semibold underline" onClick={() => draggedStay && eligibilityCache.retry(draggedStay.id, draggedStay.version)}>객실 다시 확인</button></> : "객실 확인 중… 확인이 끝나면 배정 가능한 객실이 표시됩니다."}
           </div> : null}
-          {mobileProjection ? (
+          {mobileProjection && !draggedStay && !draggedSharedGroup ? <div className="hotel-board-map-first"><HotelMobileFloorplan rooms={presentationRooms} renderRoom={renderFloorplanRoom}/></div> : mobileProjection ? (
             <div className="min-w-0 space-y-4" data-testid="hotel-room-board-mobile-projection">
               <div className="hotel-board-filter-control" aria-label="객실 표시 제어">
                 {readOnly ? <p className="flex min-h-11 items-center text-xs text-text-muted">조회 전용 · 확인된 투숙 표시</p> : <>
@@ -2056,6 +2094,8 @@ export function HotelRoomBoard({
             </div>
           )}
 
+          {mobileProjection ? <div className="hotel-board-mobile-navigation"><HotelMobileWorkspaceNavigation/></div> : null}
+          {mobileProjection && mobileTimeline ? <div className="hotel-board-mobile-timeline">{mobileTimeline}</div> : null}
           {dateMode === "TODAY" ? attention : null}
 
           <section className="hotel-board-support space-y-4" aria-label="보조 운영 정보" id={supportId} ref={supportRef} tabIndex={-1}>
@@ -2183,6 +2223,10 @@ export function HotelRoomBoard({
         </div>
       </div>
       </RoomBoardMotion>
+      <Modal open={mobileProjection && Boolean(detailRoom)} title="객실 상세" description={detailRoom ? (activeRooms.find(room=>room.id===detailRoom.id)?.name ?? historicalBoard?.rooms.find(room=>room.roomId===detailRoom.id)?.roomName) : undefined} onClose={()=>setRoomDetailId(null)}>
+        {detailRoom ? renderRoomCell(detailRoom,true) : null}
+        <p className="mt-3 text-sm text-text-secondary">{readOnly ? '확인된 과거 기록입니다. 기록이 없다고 빈 객실을 의미하지 않습니다.' : '현재 객실 표시입니다. 예약 가능 여부는 전체 숙박 기간을 기준으로 확인해 주세요.'}</p>
+      </Modal>
     </Card>
   );
 }

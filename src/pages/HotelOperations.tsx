@@ -1467,6 +1467,8 @@ export function HotelOperationsPage() {
         rooms={<>
       {dateMode === "TODAY" ? <OverdueDaycarePanel refreshKey={snapshot} onChanged={() => loadSnapshot(selectedDate).then(() => undefined)} /> : null}
         <HotelRoomBoard
+        mobileTimeline={<HotelDayOperationsTimeline items={dayItems} />}
+        attentionCount={attentionItems.length}
         attention={<HotelAttentionQueue items={attentionItems} disabled={!presentationReady || processing} />}
         completedSharedStays={currentSharedReads?.completed}
         completedSharedError={currentSharedReads?.error}

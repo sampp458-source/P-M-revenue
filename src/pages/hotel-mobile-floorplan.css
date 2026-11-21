@@ -1,0 +1,31 @@
+.hotel-mobile-floorplan { min-width:0; }
+.hotel-floorplan-row { display:grid; grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr); align-items:stretch; }
+.hotel-floorplan-head { align-items:center; padding:4px 0 8px; font-size:12px; color:#52677b; }
+.hotel-floorplan-head>span { font-size:10px; text-align:center; writing-mode:vertical-rl; justify-self:center; }
+.hotel-floorplan-head>strong:last-child { grid-column:3; }
+.hotel-floorplan-slot { min-width:0; padding-bottom:6px; }
+.hotel-floorplan-slot[data-side=left] { grid-column:1; grid-row:1; }
+.hotel-floorplan-slot[data-side=right] { grid-column:3; grid-row:1; }
+.hotel-floorplan-aisle { grid-column:2; grid-row:1; background:#edf2f5; margin:0 5px; }
+.hotel-floorplan-room { display:flex; flex-direction:column; gap:4px; width:100%; min-height:88px; height:100%; padding:8px; border:1px solid #ccd8e2; border-radius:10px; background:#f8fafc; color:#203e57; text-align:left; }
+.hotel-floorplan-room:focus-visible { outline:3px solid #3978b8; outline-offset:1px; }
+.hotel-floorplan-room>strong { font-size:12px; line-height:16px; }
+.hotel-floorplan-dog { display:block; min-width:0; }
+.hotel-floorplan-dog>b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; line-height:20px; }
+.hotel-floorplan-dog>small,.hotel-floorplan-empty { font-size:12px; line-height:16px; }
+.hotel-floorplan-room[data-room-phase=in_house] { background:#eaf5f0; border-color:#b8d7c8; }
+.hotel-floorplan-room[data-room-phase=check_in] { background:#eef4ff; border-color:#adc4ed; }
+.hotel-floorplan-room[data-room-phase=check_out] { background:#fff2eb; border-color:#e7baa9; }
+.hotel-mobile-summary { display:flex; flex-wrap:wrap; justify-content:space-between; gap:8px; padding:8px 10px; font-size:13px; }
+.hotel-mobile-summary b { margin-left:4px; }
+@media(max-width:767px) {
+  .hotel-board-desktop-overview { display:none!important; }
+  .hotel-board-mobile-body { padding:0 8px 12px!important; gap:12px!important; }
+  .hotel-board-map-first { order:-3; }
+  .hotel-board-mobile-navigation { order:-2; }
+  .hotel-operations-workspace[data-view=rooms]:has(.hotel-board-mobile-navigation)>.hotel-workspace-default-nav { display:none; }
+  .hotel-board-mobile-timeline { order:-1; }
+  .pm-hotel-v2 .hotel-command-heading .pm-v1-page-header { margin-bottom:0; }
+  .pm-hotel-v2 .hotel-command-heading .pm-v1-page-header p { display:none; }
+  .pm-hotel-v2 .hotel-workspace-nav { position:static; }
+}

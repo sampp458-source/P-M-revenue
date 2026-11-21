@@ -27,6 +27,7 @@ vi.mock("./hotelOperationsRepository", async importOriginal => ({
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
   eligibilityMock.mockReset();
   cleanup();
@@ -834,7 +835,7 @@ it.each([false,true])('012 retains the same room node across TODAY/PAST/FUTURE (
   expect(room).toHaveTextContent('이전 투숙견');expect(room).not.toHaveTextContent('감자');
   expect(screen.queryByText(/실 잔여|빈방/)).not.toBeInTheDocument();expect(room.querySelector('[draggable="true"]')).toBeNull();
   fireEvent.pointerDown(room);fireEvent.pointerUp(room);fireEvent.drop(room);expect(props.onDropStay).not.toHaveBeenCalled();
-  fireEvent.click(within(room).getByRole('button',{name:/이전 투숙견 당일 퇴실/}));expect(props.onOpenStay).toHaveBeenCalledWith('past-stay');
+  fireEvent.click(mobile ? room : within(room).getByRole('button',{name:/이전 투숙견 당일 퇴실/}));expect(props.onOpenStay).toHaveBeenCalledWith('past-stay');
   rerender(<HotelRoomBoard {...props} dateMode="FUTURE" selectedDate="2032-01-04"/>);
   expect(screen.getByTestId('hotel-room-board-room-room-1')).toBe(room);expect(room).not.toHaveTextContent('이전 투숙견');
   media.mockRestore();
@@ -1135,7 +1136,7 @@ describe('selected-date count versus broader unassigned work queue', () => {
 
 
 describe("arrival priority and safe upper unassign", () => {
-  it.each([[false,false],[false,true],[true,false],[true,true]])("returns only a pre-check-in selected-date Single to ARRIVAL (mobile %s, today %s)", (mobile, today) => {
+  it.each([[false,false],[false,true],[true,false],[true,true]])("routes mobile Single to detail and retains desktop guarded ARRIVAL return (mobile %s, today %s)", (mobile, today) => {
     vi.useFakeTimers({toFake:["Date"]});
     vi.setSystemTime(new Date("2026-08-13T07:00:00Z"));
     vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({matches: mobile, addEventListener: vi.fn(), removeEventListener: vi.fn()}));
@@ -1143,6 +1144,12 @@ describe("arrival priority and safe upper unassign", () => {
     const value = classified(snapshot([assigned]), "2026-08-13", []);
     const props = {...boardProps(value, value.date), selectedDateIsToday: today};
     const view = render(<HotelRoomBoard {...props} />);
+    if(mobile){
+      fireEvent.click(screen.getByTestId('hotel-room-board-room-room-1'));
+      expect(props.onOpenStay).toHaveBeenCalledWith(assigned.id);
+      expect(props.onUnassignStay).not.toHaveBeenCalled();
+      return;
+    }
     const card = screen.getByTestId("hotel-room-board-stay-stay-1");
     const transfer = dragTransfer();
     fireEvent.dragStart(card, {dataTransfer: transfer});
@@ -1228,7 +1235,8 @@ it('retains real ARRIVAL count and cards during an eligible assigned Single drag
 });
 
 describe('ARRIVAL prefetch race regression', () => {
-  it('loads before drag, retains in-flight reads across cancellation, then activates the first ready drag immediately', async () => {
+  it('loads before mobile drag, retains in-flight reads across cancellation, then activates the first ready drag immediately', async () => {
+    vi.stubGlobal('matchMedia',vi.fn().mockImplementation(query=>({matches:query==='(max-width: 767px)',addEventListener:vi.fn(),removeEventListener:vi.fn()})));
     let resolve!: (value: unknown) => void;
     eligibilityMock.mockImplementation(() => new Promise(done => { resolve = done; }));
     const value=classified(snapshot([stay()]),'2026-08-13',[['stay-1','ARRIVAL']]);

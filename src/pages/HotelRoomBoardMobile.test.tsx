@@ -198,150 +198,43 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("Hotel Room Board mobile projection", () => {
-  it("orders room workspace before unassigned work and renders occupied and empty rooms without a desktop grid", () => {
-    render(<HotelRoomBoard {...props()} />);
 
-    const unassigned = screen.getByTestId("hotel-room-board-unassigned-drop-zone");
-    const mobile = screen.getByTestId("hotel-room-board-mobile-projection");
-    expect(unassigned.compareDocumentPosition(mobile) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-    expect(screen.queryByTestId("hotel-room-board-desktop-projection")).not.toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "DELUXE 모바일 Room Board" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "STANDARD 모바일 Room Board" })).toBeInTheDocument();
-    expect(screen.getByTestId("hotel-room-board-room-deluxe-1").parentElement).toHaveClass("col-span-3");
-    expect(screen.getByTestId("hotel-room-board-room-deluxe-2").parentElement).toHaveClass("col-span-1");
-    expect(screen.getByText("아주긴이름의장기호텔반려견")).toHaveClass("truncate");
-    expect(mobile.innerHTML).not.toContain("text-[9px]");
-  });
-
-  it("keeps shared-room dog rows and Daycare identity readable in the same room system", () => {
-    render(<HotelRoomBoard {...props()} />);
-
-    const sharedCard = screen.getByTestId("shared-room-card-shared-1");
-    expect(sharedCard.parentElement).toHaveAttribute("draggable", "false");
-    expect(sharedCard).toHaveTextContent("망치");
-    expect(sharedCard).toHaveTextContent("펀치");
-    expect(sharedCard).toHaveTextContent("세번째아주긴이름");
-    expect(sharedCard).toHaveTextContent("함께 투숙 · 3마리 · 객실 1실");
-    expect(sharedCard).not.toHaveTextContent("Capacity");
-    expect(screen.getByRole("button", { name: "초코 데이케어" })).toHaveTextContent("데이케어 · 이용중");
-    expect(screen.getByTestId("hotel-room-board-room-standard-1")).toHaveAttribute("data-room-phase", "in_house");
-    expect(screen.getByTestId("hotel-room-board-room-standard-1")).toHaveClass("bg-emerald-50/65");
-  });
-
-  it("filters locally, preserves accordions, and expands every room type in move mode", () => {
-    const value = props();
-    render(<HotelRoomBoard {...value} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "빈방" }));
-    expect(screen.getByTestId("hotel-room-board-room-deluxe-1")).not.toBeVisible();
-    expect(screen.getByTestId("hotel-room-board-room-deluxe-2")).toBeVisible();
-
-    const standardToggle = within(screen.getByRole("region", { name: "STANDARD 모바일 Room Board" })).getByRole("button", { name: /STANDARD/ });
-    expect(standardToggle).toHaveAttribute("aria-expanded", "true");
-    fireEvent.click(standardToggle);
-    expect(standardToggle).toHaveAttribute("aria-expanded", "false");
-
-    fireEvent.click(screen.getByRole("button", { name: "전체" }));
-    fireEvent.click(screen.getByRole("button", { name: "아주긴이름의장기호텔반려견 호실 이동 시작" }));
-    expect(standardToggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByTestId("hotel-room-board-room-standard-2")).toBeVisible();
-    fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-standard-2"));
-    expect(value.onDropStay).toHaveBeenCalledWith("stay-1", "standard-2", true);
-  });
-
-  it("keeps completed stays collapsed on mobile and does not restore a released outing into a room", () => {
-    const value = props();
-    const completed = hotelStay({
-      id: "completed",
-      dogName: "퇴실견",
-      checkedOutAt: "2026-08-14T03:32:00Z",
-      checkedOutBy: "owner-1",
-    });
-    value.snapshot.stays.push(completed);
-    render(<HotelRoomBoard {...value} />);
-
-    const completedSection = screen.getByTestId("hotel-room-board-completed-checkouts");
-    expect(within(completedSection).queryByText("퇴실견")).not.toBeInTheDocument();
-    fireEvent.click(within(completedSection).getByRole("button", { name: /퇴실 완료/ }));
-    expect(within(completedSection).getByText("퇴실견")).toBeInTheDocument();
-
-    expect(screen.getByTestId("hotel-room-board-room-deluxe-2")).toHaveAttribute("data-room-phase", "empty");
-    expect(screen.getByTestId("hotel-room-board-room-deluxe-2")).toHaveTextContent("빈 호실");
-  });
-
-  it("rerenders Dog-level day phases when the selected business date changes", () => {
-    const value = props();
-    const { rerender } = render(<HotelRoomBoard {...value} selectedDate="2026-08-13" />);
-    expect(screen.getByTestId("hotel-room-board-stay-stay-1")).toHaveTextContent("입실");
-
-    rerender(<HotelRoomBoard {...value} selectedDate="2026-08-16" />);
-    expect(screen.getByTestId("hotel-room-board-stay-stay-1")).toHaveTextContent("퇴실");
-  });
-
-  it("preserves the desktop/tablet projection at the 768px contract", () => {
-    cleanup();
-    window.matchMedia = matchMedia(false);
-    render(<HotelRoomBoard {...props()} />);
-    expect(screen.getByTestId("hotel-room-board-desktop-projection")).toBeInTheDocument();
-    expect(screen.queryByTestId("hotel-room-board-mobile-projection")).not.toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "DELUXE Room Board" })).toBeInTheDocument();
-  });
-});
-
-it('places compact filters before the mobile room results and keeps explanations below', () => {
-  render(<HotelRoomBoard {...props()}/>);
-  const controls=screen.getByRole('group',{name:'객실 상태'});
-  const deluxe=screen.getByRole('region',{name:'DELUXE 모바일 Room Board'});
-  const support=screen.getByRole('region',{name:'보조 운영 정보'});
-  expect(controls.compareDocumentPosition(deluxe)&Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  expect(support).not.toContainElement(controls);
-  expect(support).toContainElement(screen.getByRole('heading',{name:'선택일 관련 예약·배정'}));
-  fireEvent.click(within(controls).getByRole('button',{name:'빈방'}));
-  expect(screen.getByTestId('hotel-room-board-room-deluxe-1')).not.toBeVisible();
-  expect(screen.getByTestId('hotel-room-board-room-deluxe-2')).toBeVisible();
-  fireEvent.click(within(controls).getByRole('button',{name:'전체'}));
-  expect(screen.getByTestId('hotel-room-board-room-deluxe-1')).toBeVisible();
-});
-
-it('opens the mobile completed collection from its header count', () => {
-  const value=props();value.snapshot.stays.push(hotelStay({id:'done-link',dogName:'완료바로가기',checkedOutAt:'2026-08-14T03:32:00Z'}));
-  render(<HotelRoomBoard {...value}/>);
-  const completed=screen.getByTestId('hotel-room-board-completed-checkouts');
-  completed.scrollIntoView=vi.fn();
-  expect(within(completed).queryByText('완료바로가기')).not.toBeInTheDocument();
-  fireEvent.click(within(screen.getByRole('navigation',{name:'보조 운영 바로가기'})).getByRole('button',{name:'퇴실 완료 1'}));
-  expect(within(completed).getByText('완료바로가기')).toBeVisible();
-  expect(completed).toHaveFocus();
-});
-
-it('uses the compact control slot for read-only meaning in PAST without availability filters', () => {
-  render(<HotelRoomBoard {...props()} dateMode="PAST"/>);
-  const control=screen.getByLabelText('객실 표시 제어');
-  expect(control).toHaveTextContent('조회 전용 · 확인된 투숙 표시');
-  expect(within(control).queryByRole('button')).not.toBeInTheDocument();
-  expect(screen.queryByRole('group',{name:'객실 상태'})).not.toBeInTheDocument();
-  expect(screen.queryByTestId('hotel-room-board-unassigned-drop-zone')).not.toBeInTheDocument();
-});
-
-describe('compact room slots', () => {
-  it('preserves each room shell through local filters and keeps Shared in one occupied slot', () => {
-    const value=props();
-    render(<HotelRoomBoard {...value} />);
-    const ids=['deluxe-1','deluxe-2','deluxe-3','standard-1','standard-2'];
-    const cells=ids.map(id=>screen.getByTestId(`hotel-room-board-room-${id}`));
-    const filter=screen.getByRole('group',{name:'객실 상태'});
-    const expected:Record<string,string[]>={ '이용중':['deluxe-1','deluxe-3','standard-1'], '입실':[], '퇴실':[], '빈방':['deluxe-2','standard-2'], '전체':ids };
-    for(const [label,visibleIds] of Object.entries(expected)) {
-      fireEvent.click(within(filter).getByRole('button',{name:label}));
-      ids.forEach((id,index)=>{
-        const cell=screen.getByTestId(`hotel-room-board-room-${id}`);
-        expect(cell).toBe(cells[index]);
-        if(visibleIds.includes(id))expect(cell).toBeVisible();else expect(cell).not.toBeVisible();
-      });
-    }
-    expect(cells[2]).toHaveTextContent('함께 투숙 · 3마리 · 객실 1실');
-    expect(cells[2].parentElement).toHaveAttribute('data-room-slot','occupied');
-    expect(cells[1].parentElement).toHaveAttribute('data-room-slot','empty');
-  });
+describe('mobile floorplan transposes desktop identity without occupancy sorting',()=>{
+ it('keeps eleven real room IDs in desktop type order and an unmatched blank, including empty rooms',()=>{
+  const value=props();value.snapshot.rooms=[...Array.from({length:6},(_,i)=>({...value.snapshot.rooms[0],id:`d-${i+1}`,name:`DELUXE ${i+1}`,sortOrder:i+1})),...Array.from({length:5},(_,i)=>({...value.snapshot.rooms[3],id:`s-${i+1}`,name:`STANDARD ${i+1}`,sortOrder:i+1}))].reverse();
+  value.snapshot.stays=[];value.sharedOccupancies=[];value.daycareReservations=[];
+  const {container}=render(<HotelRoomBoard {...value}/>);
+  expect([...container.querySelectorAll('[data-side=left]')].map(x=>x.getAttribute('data-room-id'))).toEqual(['d-1','d-2','d-3','d-4','d-5','d-6']);
+  expect([...container.querySelectorAll('[data-side=right]')].map(x=>x.getAttribute('data-room-id'))).toEqual(['s-1','s-2','s-3','s-4','s-5',null]);
+  expect(container.querySelectorAll('.hotel-floorplan-room')).toHaveLength(11);
+  fireEvent.click(screen.getByTestId('hotel-room-board-room-s-5'));expect(screen.getByRole('dialog',{name:'객실 상세'})).toHaveTextContent('STANDARD 5');
+  expect(value.onDropStay).not.toHaveBeenCalled();expect(value.onUnassignStay).not.toHaveBeenCalled();
+ });
+ it('opens the existing single-stay detail without issuing a room command',()=>{
+  const value=props();render(<HotelRoomBoard {...value}/>);fireEvent.click(screen.getByTestId('hotel-room-board-room-deluxe-1'));
+  expect(value.onOpenStay).toHaveBeenCalledWith('stay-1');expect(value.onDropStay).not.toHaveBeenCalled();
+ });
+ it('retains Shared Room as one cell, previews two names and exposes all names to the existing shared detail',()=>{
+  const value=props();render(<HotelRoomBoard {...value}/>);const cell=screen.getByTestId('hotel-room-board-room-deluxe-3');
+  expect(cell).toHaveTextContent('망치');expect(cell).toHaveTextContent('펀치');expect(cell).toHaveTextContent('외 1마리');expect(cell).toHaveAccessibleName(/세번째아주긴이름/);expect(cell).toHaveTextContent('3마리 · 1실');
+  fireEvent.click(cell);expect(value.onOpenSharedOccupancy).toHaveBeenCalledWith('shared-1');
+ });
+ it('retains Daycare exact information in the reused room detail',()=>{
+  render(<HotelRoomBoard {...props()}/>);const cell=screen.getByTestId('hotel-room-board-room-standard-1');expect(cell).toHaveTextContent('초코');expect(cell).toHaveTextContent('데이케어');
+  fireEvent.click(cell);expect(screen.getByRole('dialog',{name:'객실 상세'})).toHaveTextContent('퇴실 18:00');
+ });
+ it('keeps room positions and DOM identity when the selected date changes',()=>{
+  const value=props();const {rerender}=render(<HotelRoomBoard {...value} selectedDate="2026-08-13"/>);const room=screen.getByTestId('hotel-room-board-room-deluxe-1');expect(room).toHaveTextContent('입실');
+  rerender(<HotelRoomBoard {...value} selectedDate="2026-08-16"/>);expect(screen.getByTestId('hotel-room-board-room-deluxe-1')).toBe(room);expect(room).toHaveTextContent('퇴실');
+ });
+ it('does not turn absent past evidence into vacant rooms or allow current operations',()=>{
+  render(<HotelRoomBoard {...props()} dateMode="PAST"/>);expect(screen.queryByText('빈 호실')).toBeNull();expect(screen.queryByRole('group',{name:'객실 상태'})).toBeNull();expect(screen.queryByTestId('hotel-room-board-unassigned-drop-zone')).toBeNull();expect(screen.getByRole('note')).toBeTruthy();
+ });
+ it('retains the completed collection and exact detail callback below the map',()=>{
+  const value=props();value.snapshot.stays.push(hotelStay({id:'done',dogName:'완료견',checkedOutAt:'2026-08-14T03:32:00Z'}));render(<HotelRoomBoard {...value}/>);
+  const completed=screen.getByTestId('hotel-room-board-completed-checkouts');fireEvent.click(within(completed).getByRole('button',{name:/퇴실 완료/}));expect(within(completed).getByText('완료견')).toBeVisible();
+ });
+ it('leaves desktop projection unchanged at the existing 768px boundary',()=>{
+  window.matchMedia=matchMedia(false);render(<HotelRoomBoard {...props()}/>);expect(screen.getByTestId('hotel-room-board-desktop-projection')).toBeTruthy();expect(screen.queryByTestId('hotel-room-board-mobile-projection')).toBeNull();expect(screen.getByRole('region',{name:'DELUXE Room Board'})).toBeTruthy();
+ });
 });
