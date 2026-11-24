@@ -9,6 +9,7 @@ import { DataProvider } from "./store/DataContext";
 import { startDeploymentFreshnessMonitor } from "./lib/deploymentFreshness";
 import "./styles.css";
 import "./visual-system-pearl.css";
+import "./visual-system-glass.css";
 import { NotificationProvider } from "./notifications/NotificationProvider";
 
 if (import.meta.env.PROD) startDeploymentFreshnessMonitor();

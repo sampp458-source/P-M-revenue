@@ -54,26 +54,21 @@ if(file==='src/pages/HotelOperations.tsx') {
 ];
  for(const [before,after] of calculatorDelta){expect(source.split(after)).toHaveLength(2);source=source.replace(after,before);}
 }
+if(file==='src/pages/HotelOperations.tsx') {
+ // Hide only the three one-off administrative launchers. Reconstitute the legacy
+ // launcher bytes for the existing hash guard; every other hotel byte stays frozen.
+ for(const name of ['DustCorrectionPanel','RockyRecoveryPanel','LegacyHotelClosurePanel']) expect(source).not.toContain(name);
+ const importAnchor='import { hotelUnassignedClassificationPresentation }';
+ const mountAnchor="      <DaycareOperationsPanel\n";
+ expect(source.split(importAnchor)).toHaveLength(2);expect(source.split(mountAnchor)).toHaveLength(2);
+ source=source.replace(importAnchor,"import {LegacyHotelClosurePanel} from './LegacyHotelClosurePanel';\n"+importAnchor).replace(mountAnchor,"      <LegacyHotelClosurePanel allowed={profile?.role === \"admin\" && isHotelOperator} onChanged={() => window.dispatchEvent(new Event(\"focus\"))} />\n"+mountAnchor);
+}
 if(file==='src/pages/HotelOperations.tsx'){
  const selectedDayLine='      <DaycareOperationsPanel\n        selectedDate={selectedDate}\n';
  expect(source.split(selectedDayLine)).toHaveLength(2);
  source=source.replace(selectedDayLine,'      <DaycareOperationsPanel\n');
 }
 source=restoreReviewedDaycareStatusDelta(file,source);
-if(file==='src/pages/HotelOperations.tsx') {
- // Exempt exactly the two reviewed integration lines, preserving the original hotel boundary.
- const imported="import {RockyRecoveryPanel} from './RockyRecoveryPanel';\n";
- const mounted='      <RockyRecoveryPanel allowed={profile?.role === "admin" && isHotelOperator} />\n';
- expect(source.split(imported)).toHaveLength(2);expect(source.split(mounted)).toHaveLength(2);
- source=source.replace(imported,'').replace(mounted,'');
-}
-if(file==='src/pages/HotelOperations.tsx') {
- // Only the reviewed fixed-target admin panel integration is new; freeze all other hotel bytes.
- const imported="import {DustCorrectionPanel} from './DustCorrectionPanel';\n";
- const mounted='      <DustCorrectionPanel allowed={profile?.role === "admin" && isHotelOperator} onChanged={() => window.dispatchEvent(new Event("focus"))} />\n';
- expect(source.split(imported)).toHaveLength(2);expect(source.split(mounted)).toHaveLength(2);
- source=source.replace(imported,'').replace(mounted,'');
-}
 expect(createHash('sha256').update(normalizeVisualSystemD(source)).digest('hex')).toBe(hash);
 });
 it('retains the four Rollout 1 target roots', () => {

@@ -1,0 +1,162 @@
+/* Pearl Glass across P&M OS. Presentation only; v8 launcher and Hotel are not restyled here. */
+:root {
+  --pg-canvas:radial-gradient(ellipse at 8% -12%,#f2f5ff 0,transparent 52%),radial-gradient(ellipse at 92% 0%,#d5e4f5a8 0,transparent 55%),#e9eef6;
+  --pg-glass:radial-gradient(ellipse at 6% 0%,#ffffffcc,transparent 57%),linear-gradient(151deg,#f9fbffbd,#f0f5fc80 62%,#dce8f460);
+  --pg-paper:#f8fafe;
+  --pg-rim:#eef5fd #bacbdf #bdccdd #e6eef8;
+  --pg-rim-control:#a9b9ce;
+  --pg-reflect:inset 1px 1px 1px #fcfeffca,inset -2px -2px 6px #6b87a412;
+  --pg-cast:0 2px 5px -3px #26477245,5px 12px 25px -18px #35578162;
+  --pg-well:inset 1px 2px 4px #24446f17,inset -1px -1px 2px #fff9;
+  --pg-accent:linear-gradient(158deg,#326ccd,#285dc1 62%,#214fa9);
+  --pg-pressed:inset 0 2px 5px #14264872;
+  --pg-ink:#142844;
+  --pg-focus:#2354cc;
+}
+@layer pm-d-adoption {
+  .pm-d-shell-host.bg-app-background:not(:has(.pm-hotel-v2)):has(.pm-design-d) {background:var(--pg-canvas)!important;}
+  .pm-d-shell-host.bg-app-background:not(:has(.pm-hotel-v2)):has(.pm-design-d)>.pm-d-sidebar,
+  .pm-d-shell-host.bg-app-background:not(:has(.pm-hotel-v2)):has(.pm-design-d)>div>header {
+    background:linear-gradient(146deg,#f9fbff,#edf3fa)!important;
+    border-color:#cfdbe9!important;box-shadow:var(--pg-reflect)!important;
+  }
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)):has(.pm-design-d) .pm-d-sidebar>div:first-child {
+    background:transparent;
+  }
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)):has(.pm-design-d) .pm-d-nav.is-active {
+    background:#e3ecfb!important;box-shadow:var(--pg-well)!important;
+  }
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)):has(.pm-design-d) .pm-d-sidebar button[aria-controls="pm-module-switcher-menu"],
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)):has(.pm-design-d)>div>header .pn-header-tools>.pn-notification-bell {
+    background:var(--pg-glass)!important;border-color:var(--pg-rim-control)!important;
+    box-shadow:var(--pg-reflect),var(--pg-cast)!important;
+  }
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)):has(.pm-design-d) header input[type=search] {
+    background:#eaf0f9!important;box-shadow:var(--pg-well)!important;
+  }
+  /* Large shell sections receive the material once. Dense lists, unread rows,
+     calendar cells, chart marks, tags/pills and status tints stay opaque. */
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) .pm-design-d.pm-d-page :is(
+    .pm-d-calendar-board,.pm-d-schedule-workspace,.pm-d-passive-summary,.pm-d-directory,
+    .pm-d-pet-directory,.pm-d-financial-workspace,.pm-d-ledger-workspace,
+    .pm-d-report-metrics,.pm-d-catalog-workspace,.pm-d-editor-workspace
+  ),
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) :is(.pm-design-d.pm-d-page,.pm-d-journal-editor) .pm-d-panel:not(
+    .pm-d-row,.pm-card-interactive,.gm-contact,.payment-inline-card,[data-status],[data-room-content]
+  ),
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) .pt-request-hub :is(.payment-filters,.payment-history-section) {
+    background:var(--pg-paper)!important;
+    border-color:#c8d5e4!important;
+    box-shadow:var(--pg-reflect),0 2px 5px -4px #3b577a47!important;
+  }
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) :is(.pm-d-hero-plane,.pm-d-financial-summary,.pm-d-transaction-table) {
+    border-color:var(--pg-rim)!important;
+  }
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) .pm-design-d.pm-d-page :is(.pm-d-hero-plane,.pm-d-calendar-nav,.pm-d-ledger-summary),
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) .pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-heading::before {
+    background:var(--pg-glass)!important;
+    border-color:var(--pg-rim)!important;
+    box-shadow:var(--pg-reflect),var(--pg-cast)!important;
+  }
+
+  /* Form wells apply only to editable, valid controls; no invalid-state
+     outlines, destruction affordances, or native picker geometry changed. */
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) :is(.pm-d-input,.payment-form select,.payment-filters select):not(:disabled,[readonly],[aria-invalid=true]) {
+    background:#f0f5fc!important;border-color:var(--pg-rim-control)!important;
+    box-shadow:var(--pg-well)!important;
+  }
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) :is(.pm-design-d.pm-d-page,.pm-d-modal,.pm-d-drawer,.pm-d-journal-editor) :is(.pm-d-button-secondary,.pm-d-icon-button):not(:disabled,[aria-disabled=true],[data-tone],[data-status],.pm-d-destructive,[class*="error"],[class*="red-"],[class*="amber-"]) {
+    background:var(--pg-glass)!important;border-color:var(--pg-rim-control)!important;
+    box-shadow:var(--pg-reflect),0 3px 6px -4px #284b795f!important;
+  }
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) :is(.pm-design-d.pm-d-page,.pm-d-modal,.pm-d-drawer,.pm-d-journal-editor) .pm-d-button-primary:not(:disabled,[aria-disabled=true],[data-tone],[data-status],.pm-d-destructive,[class*="error"],[class*="red-"],[class*="amber-"],.pm-today-empty *) {
+    background:var(--pg-accent)!important;border-color:#2d5eaf!important;
+    box-shadow:var(--pg-reflect),0 3px 7px -3px #20448770!important;
+  }
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) :is(.pm-d-button-primary,.pm-d-button-secondary):not(:disabled,[aria-disabled=true],[data-tone],[data-status],.pm-d-destructive,[class*="error"],[class*="red-"],[class*="amber-"]):active {
+    box-shadow:var(--pg-pressed)!important;
+  }
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) .pt-page-tabs button[aria-pressed=true] {
+    background:#e4edfb!important;
+    box-shadow:inset 0 -2px #2858c8,inset 1px 2px 3px #24446f17!important;
+  }
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) :is(.pm-d-input,.pm-d-button-primary,.pm-d-button-secondary,.pm-d-icon-button,.pm-d-nav,.pt-page-tabs button):focus-visible {
+    outline:2px solid var(--pg-focus)!important;outline-offset:2px!important;
+  }
+
+  /* Overlays need solid frosted backing for reading. No compositing filters
+     on overlays, movable cards, rows or any compact/touch layout. */
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) :is(.pm-d-modal,.pm-d-drawer),
+  .pn-notifications .pm-d-modal {
+    background:linear-gradient(148deg,#fbfdff,#f1f5fc)!important;
+    border-color:var(--pg-rim)!important;
+    box-shadow:var(--pg-reflect),0 16px 36px #24426e35!important;
+  }
+  main.pm-access-v1.pm-design-d.pm-d-page.pm-d-rollout4:is(.pm-signup,.pm-account-recovery,.pm-not-found),
+  main.auth-loading-screen {background:var(--pg-canvas)!important;}
+  main.pm-access-v1.pm-design-d.pm-d-page.pm-d-rollout4:is(.pm-signup,.pm-account-recovery,.pm-not-found) .pm-card {
+    background:var(--pg-glass)!important;border-color:var(--pg-rim)!important;
+    box-shadow:var(--pg-reflect),var(--pg-cast)!important;
+  }
+}
+main.login-shell {background:var(--pg-canvas)!important;}
+main.login-shell .login-form-side {background:transparent!important;}
+main.login-shell .login-form-panel {
+  background:var(--pg-glass)!important;border-color:var(--pg-rim)!important;
+  box-shadow:var(--pg-reflect),var(--pg-cast)!important;
+}
+main.login-shell .login-input:not(:disabled,[readonly],[aria-invalid=true]) {
+  background:#eef3fb!important;box-shadow:var(--pg-well)!important;
+}
+main.login-shell .login-submit:not(:disabled,[aria-disabled=true]) {
+  background:var(--pg-accent)!important;
+  box-shadow:var(--pg-reflect),0 4px 8px -3px #21428268;
+}
+main.login-shell .login-submit:not(:disabled,[aria-disabled=true]):active {
+  box-shadow:var(--pg-pressed)!important;
+}
+@media(prefers-reduced-motion:reduce) {
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) :is(.pm-d-button-primary,.pm-d-button-secondary,.pm-d-icon-button,.pm-d-input,.pt-page-tabs button),
+  main.login-shell :is(.login-submit,.login-input) {transition:none!important;}
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) :is(.pm-d-button-primary,.pm-d-button-secondary):active,
+  main.login-shell .login-submit:active {transform:none!important;translate:none!important;}
+}
+
+/* Controls with an established local vocabulary, outside the shared Button component. */
+@layer pm-d-adoption {
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) :is(.gm-tabs,.settings-menu,.pm-d-period-control,.pm-d-ledger-summary),
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) .pm-d-journal-editor :is(.pm-d-editor-header,.journal-editor-control-panel) {
+    background:var(--pg-glass)!important;
+    border-color:var(--pg-rim)!important;
+    box-shadow:var(--pg-reflect),0 2px 5px -4px #3b577a47!important;
+  }
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) .pt-task .pt-workspace-region {
+    background:var(--pg-paper);
+    border-color:#c8d5e4;
+  }
+  .pm-d-shell-host:not(:has(.pm-hotel-v2)) .pt-task .pn-primary:not(:disabled,[aria-disabled=true],.pn-destructive),
+  .pn-notifications .pn-notification-content .pn-primary:not(:disabled,[aria-disabled=true],.pn-destructive) {
+    background:var(--pg-accent)!important;
+    box-shadow:var(--pg-reflect),0 3px 7px -3px #20448770!important;
+  }
+  .pn-notifications .pn-notification-content :is(.pn-tabs,.pn-primary-modes) button[aria-pressed=true] {
+    background:#e4edfb!important;
+    box-shadow:inset 0 -2px #2858c8,inset 1px 2px 3px #24446f17!important;
+  }
+  .pn-notifications .pn-notification-content .pn-secondary-button:not(:disabled,[aria-disabled=true],.pn-destructive) {
+    background:var(--pg-glass)!important;
+    border-color:var(--pg-rim-control)!important;
+    box-shadow:var(--pg-reflect)!important;
+  }
+}
+
+/* Login uses the launcher’s unboxed brand mark. The transparent border preserves its footprint. */
+main.login-shell :is(.login-brand-panel>div:first-child,.login-mobile-brand>div:first-child)>span:first-child {
+  background:transparent;
+  border-color:transparent;
+  box-shadow:none;
+  animation:none;
+}
+main.login-shell :is(.login-brand-panel>div:first-child,.login-mobile-brand>div:first-child)>span:first-child>img {
+  filter:brightness(0) saturate(100%) invert(22%) sepia(76%) saturate(1636%) hue-rotate(211deg) brightness(89%) contrast(100%);
+}

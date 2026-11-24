@@ -3,7 +3,7 @@ import {act, cleanup, fireEvent, render, screen, waitFor} from '@testing-library
 import '@testing-library/jest-dom/vitest';
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
 import {MemoryRouter} from 'react-router-dom';
-const m=vi.hoisted(()=>({snapshot:vi.fn(),history:vi.fn(),completed:vi.fn(),event:vi.fn(),shared:vi.fn(),unassigned:vi.fn(),daycare:vi.fn(),profile:{id:'local-test-user'}}));
+const m=vi.hoisted(()=>({snapshot:vi.fn(),history:vi.fn(),completed:vi.fn(),event:vi.fn(),shared:vi.fn(),unassigned:vi.fn(),daycare:vi.fn(),profile:{id:'local-test-user',role:undefined as 'admin' | undefined}}));
 vi.mock('../auth/AuthContext',()=>({useAuth:()=>({profile:m.profile})}));
 vi.mock('./hotelOperationsRepository',async original=>({...await original<typeof import('./hotelOperationsRepository')>(),fetchHotelOperationsSnapshot:m.snapshot,fetchHotelEventRoomProjections:m.event}));
 vi.mock('./hotelHistoricalBoardRepository',()=>({fetchHistoricalBoard:m.history}));
@@ -19,6 +19,18 @@ const snapshot=(date:string)=>({date,roomTypes:[],rooms:[],settings:null,stays:[
 function deferred<T>() {let resolve!:(v:T)=>void;let reject!:(e:Error)=>void;const promise=new Promise<T>((r,j)=>{resolve=r;reject=j;});return {promise,resolve,reject};}
 afterEach(()=>{cleanup();vi.clearAllMocks();});
 beforeEach(()=>{m.snapshot.mockImplementation(async date=>snapshot(date));m.history.mockImplementation(async date=>({selectedDate:date,unavailable:[]}));m.completed.mockResolvedValue([]);m.event.mockResolvedValue(new Map());m.shared.mockResolvedValue([]);m.unassigned.mockResolvedValue([]);m.daycare.mockResolvedValue([]);});
+it('keeps current hotel operations but no longer shows the three one-off historical admin launchers',async()=>{
+ m.profile.role='admin';
+ try {
+  render(<MemoryRouter><HotelOperationsPage/></MemoryRouter>);
+  await screen.findByTestId('loaded-board');
+  expect(screen.getByLabelText('운영 날짜')).toBeEnabled();
+  expect(screen.getByRole('button',{name:'새 일정'})).toBeVisible();
+  for(const name of ['관리자 복구 · 먼지 이동 시각 정정','관리자 · 로키 사후 이용 복구','관리자 · 단추·라라 과거 호텔 행정 종료']){
+   expect(screen.queryAllByRole('button',{name})).toHaveLength(0);
+  }
+ } finally { m.profile.role=undefined; }
+});
 it('waits for matching date evidence and makes only one historical call per completed date load',async()=>{
  render(<MemoryRouter><HotelOperationsPage/></MemoryRouter>);
  await waitFor(()=>expect(screen.getByTestId('loaded-board')).toHaveTextContent('2032-01-03 / TODAY'));
