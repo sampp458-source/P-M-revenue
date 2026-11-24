@@ -1247,3 +1247,397 @@ main.auth-loading-screen .auth-loading-bar {background:#2954d6;}
     box-shadow:inset 0 1px 0 #fff,0 3px 8px #203f7520!important;
   }
 }
+
+/* Pearl Cobalt v4 / signed-in shared shell + Today only.
+   Append to visual-system-pearl.css. No layout, geometry, or interaction changes. */
+@layer pm-d-adoption {
+  .pm-d-shell-host.bg-app-background:has(.pm-design-d) {
+    --pnm-v4-workspace:#f6f7fa;
+    --pnm-v4-panel:#fff;
+    --pnm-v4-rail:#f9fafc;
+    --pnm-v4-rule:#dbe1e9;
+    --pnm-v4-control:#8290a5;
+    --pnm-v4-ink:#172842;
+    --pnm-v4-muted:#53637a;
+    --pnm-v4-accent:#214dc3;
+    --pnm-v4-selection:#e8effe;
+    --pnm-v4-focus:#2354cc;
+    --pnm-v4-lift:0 1px 2px #1b2a4310,0 4px 12px #1b2a4307;
+    background:var(--pnm-v4-workspace)!important;
+  }
+  .pm-d-shell-host.bg-app-background:has(.pm-design-d)>.pm-d-sidebar {
+    background:var(--pnm-v4-rail)!important;
+    border-inline-end-color:var(--pnm-v4-rule)!important;
+    box-shadow:none!important;
+  }
+  .pm-d-shell-host:has(.pm-design-d) .pm-d-sidebar>div:first-child {
+    background:var(--pnm-v4-rail);
+    box-shadow:none;
+  }
+  .pm-d-shell-host:has(.pm-design-d)>div>header {
+    background:#fff!important;
+    border-color:var(--pnm-v4-rule)!important;
+    box-shadow:none!important;
+  }
+  .pm-d-shell-host:has(.pm-design-d) header input[type=search] {
+    background:#f5f7fa!important;
+    border-color:var(--pnm-v4-control)!important;
+    box-shadow:inset 0 1px 2px #1728420c!important;
+  }
+  .pm-d-shell-host.bg-app-background:has(.pm-design-d) .pm-d-nav.is-active {
+    background:var(--pnm-v4-selection)!important;
+    color:#1b43a4!important;
+    box-shadow:none!important;
+  }
+  .pm-d-shell-host.bg-app-background:has(.pm-design-d) .pm-d-nav.is-active>span:first-child:empty {
+    background:var(--pnm-v4-accent);
+  }
+  .pm-d-shell-host:has(.pm-design-d) .pm-d-sidebar button[aria-controls="pm-module-switcher-menu"] {
+    background:#fff!important;
+    border-color:var(--pnm-v4-control)!important;
+    box-shadow:var(--pnm-v4-lift)!important;
+  }
+  .pm-d-shell-host:has(.pm-design-d) .pm-d-sidebar button[aria-controls="pm-module-switcher-menu"]:is(:hover,[aria-expanded=true]) {
+    background:var(--pnm-v4-selection)!important;
+  }
+  .pm-d-shell-host:has(.pm-design-d)>div>header .pn-header-tools>.pn-notification-bell {
+    background:#fff!important;
+    border-color:var(--pnm-v4-control)!important;
+    box-shadow:none!important;
+  }
+  .pm-d-shell-host:has(.pm-design-d)>div>header .pn-header-tools>.pn-notification-bell:hover {
+    background:var(--pnm-v4-selection)!important;
+  }
+
+  .pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-heading::before {
+    background:#fff;
+    border-color:#e4e8ed;
+    box-shadow:var(--pnm-v4-lift);
+    animation:none;
+  }
+  .pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-heading::after {
+    content:none;
+    animation:none;
+  }
+  .pm-design-d.pm-d-page.pm-d-rollout2 :is(.pm-today-schedules,.pm-today-summary,.pm-today-alerts) {
+    background:var(--pnm-v4-panel)!important;
+    border-color:var(--pnm-v4-rule)!important;
+    box-shadow:none!important;
+  }
+  .pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-schedule-heading {
+    background:#fff!important;
+    border-bottom-color:var(--pnm-v4-rule)!important;
+  }
+  .pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-schedule-heading h2 {
+    color:var(--pnm-v4-ink);
+  }
+  .pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-summary>div:first-child>div>p:nth-of-type(2) {
+    color:var(--pnm-v4-accent)!important;
+    text-shadow:none;
+  }
+  .pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-summary>div:first-child>span {
+    background:#edf2fe!important;
+    box-shadow:none;
+  }
+  .pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-heading :is(.pm-v1-button-primary,.pm-d-button-primary) {
+    background:#234fc4!important;
+    border-color:#1d42a7!important;
+    box-shadow:inset 0 1px #ffffff3d,0 2px 0 #16358e,0 4px 8px #1c3c8f26!important;
+  }
+  .pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-heading :is(.pm-v1-button-primary,.pm-d-button-primary):hover:not(:disabled,[aria-disabled=true]) {
+    background:#1d44ad!important;
+  }
+  .pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-heading :is(.pm-v1-button-primary,.pm-d-button-primary):active:not(:disabled,[aria-disabled=true]) {
+    box-shadow:inset 0 2px 3px #0a225f69!important;
+  }
+  .pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-heading :is(.pm-v1-button-primary,.pm-d-button-primary):is(:disabled,[aria-disabled=true]) {
+    box-shadow:none!important;
+  }
+  .pm-d-shell-host:has(.pm-design-d) :is(
+    .pm-d-nav,
+    .pm-d-sidebar button[aria-controls="pm-module-switcher-menu"],
+    .pm-d-sidebar #pm-module-switcher-menu [role="menuitemradio"],
+    header input[type=search],
+    header .pn-header-tools button,
+    .pm-today-heading :is(.pm-v1-button-primary,.pm-d-button-primary)
+  ):focus-visible {
+    outline:2px solid var(--pnm-v4-focus)!important;
+    outline-offset:2px!important;
+  }
+  @media (prefers-reduced-motion:reduce) {
+    .pm-d-shell-host:has(.pm-design-d) :is(
+      .pm-d-nav,
+      .pm-d-sidebar button[aria-controls="pm-module-switcher-menu"],
+      header input[type=search],
+      header .pn-header-tools button,
+      .pm-today-heading :is(.pm-v1-button-primary,.pm-d-button-primary)
+    ) {
+      transition:none!important;
+      animation:none!important;
+    }
+    .pm-d-shell-host:has(.pm-design-d) .pm-today-heading :is(.pm-v1-button-primary,.pm-d-button-primary):active {
+      transform:none!important;
+    }
+  }
+}
+
+/* Same action in the empty state remains available but defers to the header CTA. */
+@layer pm-d-adoption {
+  .pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-empty :is(.pm-v1-button-primary,.pm-d-button-primary):not(:disabled,[aria-disabled=true]) {
+    background:#fff!important;
+    color:#2146a5!important;
+    border-color:#8290a5!important;
+    box-shadow:none!important;
+  }
+  .pm-design-d.pm-d-page.pm-d-rollout2 .pm-today-empty :is(.pm-v1-button-primary,.pm-d-button-primary):hover:not(:disabled,[aria-disabled=true]) {
+    background:#edf2fe!important;
+  }
+  .pm-design-d.pm-d-page.pm-d-rollout2 :is(.pm-today-heading,.pm-today-empty) :is(.pm-v1-button-primary,.pm-d-button-primary):focus-visible {
+    outline:2px solid var(--pnm-v4-focus)!important;
+    outline-offset:2px!important;
+  }
+}
+
+
+/* Pearl IV | Finance only. Role mapping follows the existing fixed KPI order.
+   Paint-only: no control, geometry, visibility, or Cash Flow styles. */
+@layer pm-d-adoption {
+  .pm-design-d.pm-d-page:is(.pm-dashboard-v1,.pm-ledger-v1,.pm-reports-v1) {
+    --pnm-kpi-neutral:#142744;
+    --pnm-kpi-secondary:#455b79;
+    --pnm-kpi-received:#2149a2;
+    --pnm-kpi-received-paper:#edf3ff;
+    --pnm-kpi-refund:#a23837;
+    --pnm-kpi-refund-paper:#fff5f3;
+    --pnm-kpi-outstanding:#784b10;
+    --pnm-kpi-outstanding-paper:#fff7e9;
+  }
+
+  .pm-design-d.pm-d-page.pm-dashboard-v1 .dashboard-kpi-card,
+  .pm-design-d.pm-d-page.pm-ledger-v1 .pm-d-ledger-summary>div:nth-child(2)>div,
+  .pm-design-d.pm-d-page.pm-reports-v1 .finance-summary>.finance-metric {
+    --pnm-kpi-ink:var(--pnm-kpi-neutral);
+    --pnm-kpi-paper:#f9fbff;
+    background:var(--pnm-kpi-paper)!important;
+  }
+  .pm-design-d.pm-d-page.pm-dashboard-v1 .dashboard-kpi-card:nth-child(2),
+  .pm-design-d.pm-d-page.pm-ledger-v1 .pm-d-ledger-summary>div:nth-child(2)>div:nth-child(2),
+  .pm-design-d.pm-d-page.pm-reports-v1 .finance-summary>.finance-metric:nth-child(2) {
+    --pnm-kpi-ink:var(--pnm-kpi-received);
+    --pnm-kpi-paper:var(--pnm-kpi-received-paper);
+  }
+  .pm-design-d.pm-d-page.pm-dashboard-v1 .dashboard-kpi-card:nth-child(3),
+  .pm-design-d.pm-d-page.pm-ledger-v1 .pm-d-ledger-summary>div:nth-child(2)>div:nth-child(3),
+  .pm-design-d.pm-d-page.pm-reports-v1 .finance-summary>.finance-metric:nth-child(3) {
+    --pnm-kpi-ink:var(--pnm-kpi-refund);
+    --pnm-kpi-paper:var(--pnm-kpi-refund-paper);
+  }
+  .pm-design-d.pm-d-page.pm-dashboard-v1 .dashboard-kpi-card:nth-child(4),
+  .pm-design-d.pm-d-page.pm-ledger-v1 .pm-d-ledger-summary>div:nth-child(2)>div:last-child,
+  .pm-design-d.pm-d-page.pm-reports-v1 .finance-summary>.finance-metric:nth-child(4) {
+    --pnm-kpi-ink:var(--pnm-kpi-outstanding);
+    --pnm-kpi-paper:var(--pnm-kpi-outstanding-paper);
+  }
+
+  .pm-design-d.pm-d-page.pm-dashboard-v1 .dashboard-kpi-card>:is(p:first-of-type,strong,.text-warning),
+  .pm-design-d.pm-d-page.pm-ledger-v1 .pm-d-ledger-summary>div:nth-child(2)>div>:is(span:first-child,strong),
+  .pm-design-d.pm-d-page.pm-reports-v1 .finance-summary>.finance-metric:nth-child(n)>p:nth-child(-n+2) {
+    color:var(--pnm-kpi-ink)!important;
+  }
+  .pm-design-d.pm-d-page.pm-dashboard-v1 .dashboard-kpi-card>p:last-of-type,
+  .pm-design-d.pm-d-page.pm-dashboard-v1 .dashboard-kpi-card :is(.text-text-secondary,.text-text-muted),
+  .pm-design-d.pm-d-page.pm-dashboard-v1 .dashboard-period-toolbar button.bg-transparent:not(:disabled,[aria-disabled="true"]),
+  .pm-design-d.pm-d-page.pm-dashboard-v1 section[aria-labelledby="business-unit-overview-title"] >div:first-child>div>p,
+  .pm-design-d.pm-d-page.pm-ledger-v1 .pm-d-ledger-summary>div:nth-child(2)>div>span:last-child,
+  .pm-design-d.pm-d-page.pm-ledger-v1 .ledger-filters :is(.text-text-muted,.text-text-secondary),
+  .pm-design-d.pm-d-page.pm-reports-v1 .finance-summary>.finance-metric:nth-child(n)>p:nth-child(3),
+  .pm-design-d.pm-d-page.pm-reports-v1 .finance-divisions>.finance-metric :is(.text-slate-500,.text-text-muted),
+  .pm-design-d.pm-d-page.pm-reports-v1 .finance-methods :is(.text-slate-500,.text-text-muted) {
+    color:var(--pnm-kpi-secondary)!important;
+  }
+  .pm-design-d.pm-d-page.pm-dashboard-v1 .dashboard-kpi-card :is(.text-error) {
+    color:var(--pnm-kpi-refund)!important;
+  }
+  .pm-design-d.pm-d-page.pm-ledger-v1 .ledger-filters {
+    background:transparent!important;
+    box-shadow:inset 0 -1px 0 var(--pm-d-divider)!important;
+  }
+  .pm-design-d.pm-d-page.pm-reports-v1 .finance-divisions {
+    background:#f9fbff!important;
+    box-shadow:inset 0 1px var(--pm-d-divider),inset 0 -1px var(--pm-d-divider)!important;
+  }
+}
+
+/* Pearl IV | Cash Flow detail is an independent light surface, including standalone mounts.
+   Only paints the existing date detail; geometry, scroll, order and actions remain unchanged. */
+@layer pm-d-adoption {
+  .dashboard-date-drawer.pm-d-drawer {
+    --pnm-cash-ink:#132744;
+    --pnm-cash-muted:#425979;
+    --pnm-cash-linked:#2448a6;
+    --pnm-cash-refund:#9d3443;
+    --pnm-cash-warning:#78470f;
+    --pnm-cash-paper:#f8fbff;
+    --pnm-cash-band:#eaf2ff;
+    --pnm-cash-line:#becfe6;
+    --pnm-cash-focus:#264ec8;
+    --pnm-cash-active:#2447b4;
+    color:var(--pnm-cash-ink)!important;
+    background:var(--pnm-cash-paper)!important;
+    border-color:#91a9cd!important;
+    box-shadow:0 12px 38px #17345a30!important;
+  }
+  .pm-d-shell-host:has(.pm-design-d) .dashboard-date-drawer.pm-d-drawer {
+    color:var(--pnm-cash-ink)!important;
+    background:var(--pnm-cash-paper)!important;
+    border-color:#91a9cd!important;
+    box-shadow:0 12px 38px #17345a30!important;
+  }
+  :is(.pm-d-shell-host:has(.pm-design-d),.dashboard-shell) .dashboard-date-drawer.pm-d-drawer :is(.pm-d-drawer-ink,.pm-d-drawer-ink.text-white) {
+    color:var(--pnm-cash-ink)!important;
+  }
+  :is(.pm-d-shell-host:has(.pm-design-d),.dashboard-shell) .dashboard-date-drawer.pm-d-drawer .pm-d-drawer-muted {
+    color:var(--pnm-cash-muted)!important;
+  }
+  :is(.pm-d-shell-host:has(.pm-design-d),.dashboard-shell) .dashboard-date-drawer.pm-d-drawer .pm-d-drawer-cobalt {
+    color:var(--pnm-cash-linked)!important;
+  }
+  :is(.pm-d-shell-host:has(.pm-design-d),.dashboard-shell) .dashboard-date-drawer.pm-d-drawer :is(.pm-d-drawer-coral,.text-error) {
+    color:var(--pnm-cash-refund)!important;
+  }
+  :is(.pm-d-shell-host:has(.pm-design-d),.dashboard-shell) .dashboard-date-drawer.pm-d-drawer .pm-d-drawer-amber {
+    color:var(--pnm-cash-warning)!important;
+  }
+  :is(.pm-d-shell-host:has(.pm-design-d),.dashboard-shell) .dashboard-date-drawer.pm-d-drawer .pm-d-drawer-band {
+    background:var(--pnm-cash-band)!important;
+    border-color:var(--pnm-cash-line)!important;
+  }
+  :is(.pm-d-shell-host:has(.pm-design-d),.dashboard-shell) .dashboard-date-drawer.pm-d-drawer .pm-d-drawer-flat {
+    background:#fff!important;
+    border-color:var(--pnm-cash-line)!important;
+    box-shadow:none!important;
+  }
+  .dashboard-date-drawer.pm-d-drawer :is(.dashboard-drawer-accent-text,.dashboard-drawer-icon) {
+    color:var(--pnm-cash-linked)!important;
+  }
+  .dashboard-date-drawer.pm-d-drawer .dashboard-drawer-icon {
+    background:#d9e7ff;
+    box-shadow:inset 0 1px 0 #fff,0 1px 2px #23499b2a;
+  }
+  .dashboard-date-drawer.pm-d-drawer .dashboard-drawer-summary>div:first-child {
+    background:#fff;
+    border-color:#bccde8;
+  }
+  .dashboard-date-drawer.pm-d-drawer :is(.dashboard-drawer-summary>div:first-child>div,
+     #dashboard-date-payments-title,section[aria-labelledby="dashboard-date-payments-title"] dl) {
+    border-color:var(--pnm-cash-line);
+  }
+  .dashboard-date-drawer.pm-d-drawer .dashboard-drawer-unit-row {
+    background:#fff;
+    border-color:#c6d5eb;
+  }
+  .dashboard-date-drawer.pm-d-drawer .dashboard-drawer-unit-row-focused {
+    background:#edf4ff;
+    border-color:#809fd4;
+  }
+  .dashboard-date-drawer.pm-d-drawer [role=tablist] {
+    box-shadow:inset 0 0 0 1px #c1d1e8!important;
+  }
+  .dashboard-date-drawer.pm-d-drawer .dashboard-drawer-tab[aria-selected=true] {
+    background:var(--pnm-cash-active)!important;
+    color:#fff!important;
+    box-shadow:inset 0 1px #ffffff38,inset 0 0 0 1px #17388f!important;
+  }
+  .dashboard-date-drawer.pm-d-drawer .dashboard-drawer-tab[aria-selected=false].dashboard-drawer-tab-focused {
+    background:#e7efff;
+    box-shadow:inset 0 0 0 1px #7799d6;
+  }
+  .dashboard-date-drawer.pm-d-drawer :is(.dashboard-drawer-control,[role=tab],[aria-labelledby="dashboard-date-payments-title"] button,
+    [aria-labelledby="dashboard-date-refunds-title"] button,.dashboard-drawer-unit-section button,.dashboard-drawer-unit-row,button.pm-d-drawer-muted):focus-visible {
+    outline:2px solid var(--pnm-cash-focus)!important;
+    outline-offset:-2px!important;
+  }
+  .dashboard-date-drawer.pm-d-drawer :is(.dashboard-drawer-control,.dashboard-drawer-tab[aria-selected=false],.dashboard-drawer-unit-row,button.pm-d-drawer-muted):hover {
+    background:#e3edff!important;
+  }
+  .dashboard-date-drawer.pm-d-drawer section[aria-labelledby="dashboard-date-refunds-title"] button {
+    background:#fff4f4;
+    border-color:#e6bcc3;
+  }
+  .dashboard-date-drawer.pm-d-drawer section[aria-labelledby="dashboard-date-refunds-title"] button:hover {
+    background:#fcebed;
+    border-color:#c98d99;
+  }
+}
+/* At the 320px case, spend only the existing horizontal padding beside the amount.
+   Preserve the seven track sizes, day button hit area, single-line height and formatting. */
+@media (max-width:359px) {
+  .pm-dashboard-v1 .dashboard-calendar-day .dashboard-calendar-amount {
+    margin-inline:-2px;
+    font-size:8.5px;
+    letter-spacing:-.055em;
+  }
+}
+
+/* Hotel / mobile: color and material only; preserve the 11-room map and date geometry. */
+@layer pm-d-adoption {
+  @media (max-width: 767px) {
+    .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-date-controls.pm-d-date-control {
+      background:linear-gradient(145deg,#f8fbff,#eaf1fc)!important;
+      border-color:#b8cae6!important;
+      box-shadow:inset 0 1px #fff,0 2px 5px #253f7211!important;
+    }
+    .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-date-controls>p {
+      color:#203f70;
+    }
+    .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-date-controls label>span {
+      color:#4c5f79;
+    }
+    .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-mobile-summary {
+      background:#f4f8ff;
+      outline-color:#b8c9e4;
+      box-shadow:inset 0 1px #fff;
+    }
+    .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-mobile-summary>span:last-child {
+      color:#713711;
+      text-decoration:underline;
+      text-decoration-color:#d9ad86;
+      text-underline-offset:.22em;
+    }
+    .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-mobile-summary>span:last-child b {
+      color:#713711;
+      text-decoration:none;
+    }
+    .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-floorplan-room {
+      box-shadow:inset 0 1px #ffffffb3;
+    }
+    .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-floorplan-aisle {
+      box-shadow:none;
+    }
+  }
+}
+
+/* Settle Cash Flow state paints immediately when the OS requests reduced motion. */
+@layer pm-d-adoption {
+  .dashboard-date-drawer.pm-d-drawer .dashboard-drawer-summary>div:first-child {
+    background:#fff!important;
+    border-color:#bccde8!important;
+  }
+  @media (prefers-reduced-motion:reduce) {
+    .dashboard-date-drawer.pm-d-drawer :is(.dashboard-drawer-tab,.dashboard-drawer-control,.dashboard-drawer-unit-row) {
+      transition:none!important;
+    }
+  }
+}
+@media (max-width:639px) {
+  .pm-dashboard-v1 .dashboard-calendar-day.dashboard-calendar-selected .dashboard-calendar-amount {
+    margin-inline:-1px;
+  }
+}
+@media (max-width:359px) {
+  .pm-dashboard-v1 .dashboard-calendar-day.dashboard-calendar-selected .dashboard-calendar-amount {
+    margin-inline:-4px;
+    font-size:8.25px;
+    letter-spacing:-.065em;
+  }
+}
