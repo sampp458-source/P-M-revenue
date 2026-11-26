@@ -1,6 +1,6 @@
 /* Arrival is a normal assignment action, not a lifecycle warning. */
 .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals .hotel-room-card-settle[data-room-phase]:not(.opacity-40),
-.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals [data-testid^="hotel-room-board-unassigned-shared-"] {
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals :is([data-testid^="hotel-room-board-unassigned-shared-"], [data-testid^="hotel-room-board-unassigned-daycare:"]) {
   background: #fff !important;
   border-color: var(--pm-d-border-default, #dce1e6) !important;
   color: var(--pm-d-ink, #172b42) !important;
@@ -20,7 +20,7 @@
   border-inline-start: 3px solid var(--pm-d-border-default, #dce1e6);
 }
 .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals .hotel-room-card-settle[data-room-phase]:not(.opacity-40),
-.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals [data-testid^="hotel-room-board-unassigned-shared-"] {
+.pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals :is([data-testid^="hotel-room-board-unassigned-shared-"], [data-testid^="hotel-room-board-unassigned-daycare:"]) {
   background: var(--pm-d-semantic-amber-soft, #fff7e8) !important;
   border-color: color-mix(in srgb, var(--pm-d-semantic-amber, #946515) 45%, white) !important;
   box-shadow: 0 2px 4px rgb(148 101 21 / 9%) !important;
@@ -57,4 +57,17 @@
   color: var(--pm-d-ink, #172b42) !important;
   box-shadow: none !important;
 }
+}
+
+@media (min-width: 1024px) {
+  /* Keep the selected day's arrivals together instead of spreading narrow cards
+     across the full board. Mobile, return-only, and future layouts are unchanged. */
+  .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals[data-arrival-mode="ARRIVAL"] > .grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 17.5rem), 17.5rem));
+    justify-content: start;
+  }
+  .pm-design-d.pm-d-page.pm-hotel-v2 .hotel-board-arrivals[data-arrival-mode="ARRIVAL"] > .grid > div > .flex > div {
+    flex: 1 1 0;
+    min-inline-size: 0;
+  }
 }

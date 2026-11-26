@@ -33,7 +33,7 @@ describe("forms, modals, and action hierarchy", () => {
     expect(source("SharedHotelRoomModal.tsx")).toContain('confirmLabel="Dog별 퇴실"');
     expect(source("LongStayOperationsPanel.tsx")).toContain('openAction("leave", contract)');
     expect(source("LongStayOperationsPanel.tsx")).toContain('openAction("return", contract)');
-    expect(source("DaycareOperationsPanel.tsx")).toContain("reservation.roomAllocation ? <Button");
+    expect(source("DaycareOperationsPanel.tsx")).toContain("reservation.roomAllocation && !futureOnly ? <Button");
   });
 
   it("separates service identity from lifecycle color", () => {

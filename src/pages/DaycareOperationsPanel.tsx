@@ -27,10 +27,12 @@ export function DaycareOperationsPanel({
   snapshot,
   onChanged,
   historicalOnly = false,
+  futureOnly = false,
   selectedDate,
   canAdminReconcile = false,
 }: {
   historicalOnly?: boolean;
+  futureOnly?: boolean;
   selectedDate?: string;
   canAdminReconcile?: boolean;
   reservations: readonly DaycareReservation[];
@@ -97,6 +99,7 @@ export function DaycareOperationsPanel({
               {reservation.lifecycleStatus === "administratively_released" ? <p className="mt-3 text-sm text-text-secondary">원본 입실 {displayActualTime(reservation.checkedInAt)} · 실제 퇴실시각 미확정 · 행정 해제 {displayActualTime(reservation.administrativeRelease?.releasedAt)}. 일정 업무 완료와 별개입니다.</p> : null}
               {historicalOnly && reservation.lifecycleStatus === "scheduled" ? <div className="mt-3 space-y-3"><p className="text-sm">{reservation.roomAllocation ? "실제 이용 시각과 근거 확인 필요" : "객실 배정 필요 · 실제 사용한 호실 확인 후 사후 처리하세요."}</p>{canAdminReconcile ? <RetroactiveDaycareCompletion reservation={reservation} rooms={snapshot.rooms} onChanged={async()=>{await onChanged();}}/> : <p className="text-sm">과거 이용 확정은 관리자에게 요청해 주세요.</p>}</div> : null}
               {reservation.lifecycleStatus === "scheduled" && !historicalOnly ? <div className="mt-4 space-y-3">
+                {!futureOnly ? <>
                 <p className="text-sm text-text-secondary">확인된 실제 시각만 입력하세요. 예정·현재 시각으로 자동 대체하지 않습니다. 시각을 모르면 확인 필요 상태로 유지하세요.</p>
                 <Field label={`${daycareDogNames(reservation)} 실제 입실 시각`}><Input type="datetime-local" disabled={processing} value={actual.entry} onChange={e=>changeTime(reservation.operationScheduleId,{entry:e.target.value,confirmed:false})}/></Field>
                 <Field label={`${daycareDogNames(reservation)} 실제 퇴실 시각 (사후 기록)`}><Input type="datetime-local" disabled={processing} value={actual.exit} onChange={e=>changeTime(reservation.operationScheduleId,{exit:e.target.value,confirmed:false})}/></Field>
@@ -108,6 +111,7 @@ export function DaycareOperationsPanel({
                   if(attempts.current[key]?.payload!==payload) attempts.current[key]={payload,requestId:crypto.randomUUID()};
                   return recordVerifiedDaycareVisit(key,reservation.version,toIso(actual.entry),toIso(actual.exit),actual.confirmed,attempts.current[key].requestId);
                 })}>확인한 이용 기록 등록</Button>
+                </> : null}
                 {!historicalOnly ? <><div className="max-w-sm"><Field label="호실"><Select aria-label={`${daycareDogNames(reservation)} Daycare 호실`} disabled={processing} value={reservation.roomAllocation?.roomId ?? ""} onChange={(event) => {
                   const roomId = event.target.value;
                   void run(reservation, () => roomId
@@ -115,12 +119,12 @@ export function DaycareOperationsPanel({
                     : unassignDaycareRoom(reservation.operationScheduleId, reservation.version));
                 }}><option value="">미배정</option>{rooms.map((room) => <option key={room.id} value={room.id}>{room.name}</option>)}</Select></Field></div>
                 <ResponsiveActionGroup
-                  primary={reservation.roomAllocation ? <Button disabled={processing || !actual.confirmed || !validEntry || Boolean(actual.exit)} onClick={() => void run(reservation, () => completeDaycareCheckIn(reservation.operationScheduleId, reservation.version, toIso(actual.entry)))}><LogIn size={15} /> {reservation.dogs?.length === 2 ? "두 마리 입실 완료" : "입실 완료"}</Button> : undefined}
+                  primary={reservation.roomAllocation && !futureOnly ? <Button disabled={processing || !actual.confirmed || !validEntry || Boolean(actual.exit)} onClick={() => void run(reservation, () => completeDaycareCheckIn(reservation.operationScheduleId, reservation.version, toIso(actual.entry)))}><LogIn size={15} /> {reservation.dogs?.length === 2 ? "두 마리 입실 완료" : "입실 완료"}</Button> : undefined}
                   secondary={<Button variant="secondary" disabled={processing} onClick={() => setEditing(reservation)}><Pencil size={15} /> 수정</Button>}
                   destructive={<Button variant="danger" disabled={processing} onClick={() => { setCancelTarget(reservation); setCancelReason(""); }}><X size={15} /> 예약 취소</Button>}
                 /></> : null}
               </div> : null}
-              {reservation.lifecycleStatus === "checked_in" && !historicalOnly ? <div className="mt-4 space-y-3"><div className="max-w-sm"><Field label={`${daycareDogNames(reservation)} 실제 퇴실 시간`}><Input type="datetime-local" value={actual.exit} onChange={(event) => changeTime(reservation.operationScheduleId,{exit:event.target.value,confirmed:false})} /></Field><label><input type="checkbox" checked={actual.confirmed} onChange={e=>changeTime(reservation.operationScheduleId,{confirmed:e.target.checked})}/>실제 퇴실 시각을 확인했습니다.</label></div><ResponsiveActionGroup primary={<Button disabled={processing || !actual.confirmed || !validExit} onClick={() => void run(reservation, () => completeDaycareCheckOut(reservation.operationScheduleId, reservation.version, toIso(actual.exit)))}><LogOut size={15} /> {reservation.dogs?.length === 2 ? "두 마리 퇴실 완료" : "퇴실 완료"}</Button>} /></div> : null}
+              {reservation.lifecycleStatus === "checked_in" && !historicalOnly && !futureOnly ? <div className="mt-4 space-y-3"><div className="max-w-sm"><Field label={`${daycareDogNames(reservation)} 실제 퇴실 시간`}><Input type="datetime-local" value={actual.exit} onChange={(event) => changeTime(reservation.operationScheduleId,{exit:event.target.value,confirmed:false})} /></Field><label><input type="checkbox" checked={actual.confirmed} onChange={e=>changeTime(reservation.operationScheduleId,{confirmed:e.target.checked})}/>실제 퇴실 시각을 확인했습니다.</label></div><ResponsiveActionGroup primary={<Button disabled={processing || !actual.confirmed || !validExit} onClick={() => void run(reservation, () => completeDaycareCheckOut(reservation.operationScheduleId, reservation.version, toIso(actual.exit)))}><LogOut size={15} /> {reservation.dogs?.length === 2 ? "두 마리 퇴실 완료" : "퇴실 완료"}</Button>} /></div> : null}
               {reservation.lifecycleStatus === "checked_in" && historicalOnly ? <p className="mt-3 text-sm">실제 퇴실 시각을 확인한 후 현재 운영 화면의 미퇴실 목록에서 처리하세요. 시각 미확인은 그대로 보존합니다.</p> : null}
               {canAdminReconcile && historicalOnly && reservation.dogs?.length !== 2 && reservation.lifecycleStatus === "checked_in" ? <section className="mt-4 rounded-xl border border-border p-3" aria-label={`${daycareDogNames(reservation)} 관리자 정합성 복구`}>
                 <h3 className="font-bold">관리자 행정 점유 해제</h3>

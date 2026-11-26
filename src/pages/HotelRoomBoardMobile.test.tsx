@@ -199,6 +199,64 @@ afterEach(() => {
 });
 
 
+const daycareToAssign: DaycareReservation = {
+  ...daycare, lifecycleStatus:"scheduled", checkedInAt:null, roomAllocation:null, roomTypeId:"deluxe", roomTypeCode:"DELUXE",
+  dogs:[daycare.dog, {...daycare.dog,id:"dog-second",name:"별이"}],
+};
+function daycareAssignmentProps() {
+  const value=props();
+  value.snapshot.stays=[];
+  value.sharedMemberStays=[];
+  value.sharedOccupancies=[];
+  value.daycareReservations=[daycareToAssign, {...daycareToAssign, operationScheduleId:"other-date",
+    startsAt:"2026-08-15T01:00:00Z",endsAt:"2026-08-15T09:00:00Z"}];
+  return {...value,onDropDaycare:vi.fn()};
+}
+
+describe("shared Daycare assignment on the room board", () => {
+  it("shows one selected-date card and supports mobile tap without assigning a non-Deluxe room",()=>{
+    const value=daycareAssignmentProps();
+    render(<HotelRoomBoard {...value}/>);
+    const queue=screen.getByTestId("hotel-room-board-arrival-drop-zone");
+    expect(within(queue).getByText("초코 · 별이")).toBeVisible();
+    expect(within(queue).getByText("데이케어")).toBeVisible();
+    expect(within(queue).getByText("2마리 · 객실 1실")).toBeVisible();
+    expect(within(queue).getByText("1건")).toBeVisible();
+    expect(screen.queryByTestId("hotel-room-board-unassigned-daycare:other-date")).toBeNull();
+    fireEvent.click(within(queue).getByRole("button",{name:"초코 · 별이 객실 배정 시작"}));
+    fireEvent.pointerDown(screen.getByTestId("hotel-room-board-room-standard-1"));
+    expect(value.onDropDaycare).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button",{name:"DELUXE 2에 데이케어 배정"}));
+    expect(value.onDropDaycare).toHaveBeenCalledTimes(1);
+    expect(value.onDropDaycare).toHaveBeenCalledWith(daycareToAssign,"deluxe-2");
+    expect(value.onDropStay).not.toHaveBeenCalled();
+  });
+  it("drags on desktop and rejects overlapping time even when the other booking starts later",()=>{
+    window.matchMedia=matchMedia(false);
+    const value=daycareAssignmentProps();
+    value.daycareReservations.push({...daycareToAssign,operationScheduleId:"blocker",
+      startsAt:"2026-08-14T08:00:00Z",endsAt:"2026-08-14T11:00:00Z",
+      roomAllocation:{...daycare.roomAllocation!,roomId:"deluxe-1",allocatedFrom:"2026-08-14T08:00:00Z",allocatedUntil:"2026-08-14T11:00:00Z"}});
+    render(<HotelRoomBoard {...value}/>);
+    const payload:Record<string,string>={};
+    const dataTransfer={effectAllowed:"",dropEffect:"",setData:(key:string,text:string)=>{payload[key]=text},getData:(key:string)=>payload[key]??""};
+    fireEvent.dragStart(screen.getByTestId("hotel-room-board-unassigned-daycare:daycare-1"),{dataTransfer});
+    fireEvent.drop(screen.getByTestId("hotel-room-board-room-deluxe-1"),{dataTransfer});
+    fireEvent.drop(screen.getByTestId("hotel-room-board-room-standard-1"),{dataTransfer});
+    expect(value.onDropDaycare).not.toHaveBeenCalled();
+    fireEvent.dragOver(screen.getByTestId("hotel-room-board-room-deluxe-2"),{dataTransfer});
+    fireEvent.drop(screen.getByTestId("hotel-room-board-room-deluxe-2"),{dataTransfer});
+    expect(value.onDropDaycare).toHaveBeenCalledTimes(1);
+    expect(value.onDropDaycare).toHaveBeenCalledWith(daycareToAssign,"deluxe-2");
+    expect(value.onDropStay).not.toHaveBeenCalled();
+  });
+  it("does not offer assignment from past dates",()=>{
+    const value=daycareAssignmentProps();
+    render(<HotelRoomBoard {...value} dateMode="PAST"/>);
+    expect(screen.queryByTestId("hotel-room-board-unassigned-daycare:daycare-1")).toBeNull();
+  });
+});
+
 describe('mobile floorplan transposes desktop identity without occupancy sorting',()=>{
  it('keeps eleven real room IDs in desktop type order and an unmatched blank, including empty rooms',()=>{
   const value=props();value.snapshot.rooms=[...Array.from({length:6},(_,i)=>({...value.snapshot.rooms[0],id:`d-${i+1}`,name:`DELUXE ${i+1}`,sortOrder:i+1})),...Array.from({length:5},(_,i)=>({...value.snapshot.rooms[3],id:`s-${i+1}`,name:`STANDARD ${i+1}`,sortOrder:i+1}))].reverse();
