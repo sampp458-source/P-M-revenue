@@ -1,3 +1,4 @@
+import { daycareDogNames } from "./daycareReservationPresentation";
 import { HotelMobileWorkspaceNavigation } from './HotelOperationsWorkspace';
 import { HotelMobileFloorplan } from './HotelMobileFloorplan';
 import {daycareOperationalStatus} from './daycareOperationalStatus';
@@ -1012,10 +1013,10 @@ function RoomCell(props: CurrentRoomCellProps | HistoricalRoomCellProps) {
         <button
           type="button"
           className={cn("w-full rounded-lg border border-cyan-200 bg-white text-left shadow-sm", mobile ? "px-3 py-2.5" : "px-2.5 py-2")}
-          aria-label={`${daycareReservation.dog.name} 데이케어`}
+          aria-label={`${daycareDogNames(daycareReservation)} 데이케어`}
         >
-          <span className={cn("block truncate font-extrabold text-cyan-950", mobile ? "text-sm leading-5" : "text-xs")}>{daycareReservation.dog.name}</span>
-          <span className={cn("mt-1 block font-bold text-cyan-700", mobile ? "text-xs leading-5" : "text-[10px]")}>데이케어 · {daycareOperationalStatus(daycareReservation)?.label ?? '입퇴실 확인 필요'}</span>
+          <span className={cn("block font-extrabold text-cyan-950", daycareReservation.dogs?.length === 2 ? "break-all" : "truncate", mobile ? "text-sm leading-5" : "text-xs")}>{daycareDogNames(daycareReservation)}</span>
+          <span className={cn("mt-1 block font-bold text-cyan-700", mobile ? "text-xs leading-5" : "text-[10px]")}>데이케어{daycareReservation.dogs?.length === 2 ? " · 2마리" : ""} · {daycareOperationalStatus(daycareReservation)?.label ?? '입퇴실 확인 필요'}</span>
           <span className={cn("mt-0.5 block text-cyan-800", mobile ? "text-xs leading-5" : "text-[10px]")}>퇴실 {new Intl.DateTimeFormat("ko-KR", { timeZone: "Asia/Seoul", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(daycareReservation.endsAt))}</span>
         </button>
       ) : sharedOccupancy ? (
@@ -1898,7 +1899,7 @@ export function HotelRoomBoard({
     const daycare = readOnly ? undefined : daycareByRoom.get(room.id);
     const occupants = readOnly ? [] : roomStays.get(room.id) ?? [];
     const people = history ? history.segments.map(segment => ({id:segment.stayId,name:segment.dogName,status:segment.selectedDayEvents.includes('check_out')?'당일 퇴실':segment.selectedDayEvents.includes('check_in')?'당일 입실':'투숙 기록'}))
-      : daycare ? [{id:daycare.operationScheduleId,name:daycare.dog.name,status:`데이케어 · ${daycareOperationalStatus(daycare)?.label ?? '확인 필요'}`}]
+      : daycare ? [{id:daycare.operationScheduleId,name:daycareDogNames(daycare),status:`데이케어 · ${daycareOperationalStatus(daycare)?.label ?? '확인 필요'}`}]
       : shared ? shared.members.filter(member=>member.status==='active').map(member=>({id:member.hotelStayId,name:member.dogName,status:staysById.get(member.hotelStayId)?floorplanStayStatus(staysById.get(member.hotelStayId)!):'일정 확인'}))
       : occupants.map(stay=>({id:stay.id,name:stay.dogName,status:floorplanStayStatus(stay)}));
     const phase = history ? historicalRoomPhase(history.segments) : roomBoardRoomStage(occupants,shared??null,daycare??null,staysById,selectedDate);

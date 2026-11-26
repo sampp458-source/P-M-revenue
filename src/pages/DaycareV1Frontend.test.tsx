@@ -89,6 +89,43 @@ describe("Daycare V1 common form", () => {
     expect(screen.getByTestId("modal-actions")).not.toBeNull();
   });
 
+  it("selects two same-household dogs for tomorrow, locks Deluxe, and submits one booking", async () => {
+    mocks.options.mockResolvedValue({ ...options, dogs: [
+      ...options.dogs,
+      { id: "dog-2", customerId: "customer-1", name: "보리" },
+      { id: "dog-3", customerId: "customer-1", name: "콩이" },
+      { id: "dog-4", customerId: "customer-2", name: "다른집" },
+    ] });
+    mocks.snapshot.mockResolvedValue({ ...snapshot, roomTypes: [
+      { ...snapshot.roomTypes[0], id: "standard", code: "STANDARD", name: "STANDARD" },
+      ...snapshot.roomTypes,
+    ] });
+    mocks.create.mockResolvedValue({ operationScheduleId: "shared-1" });
+    render(<DaycareReservationModal open prefill={{ customerId: "customer-1", dogId: "dog-1", serviceDate: "2026-11-27" }} onClose={vi.fn()} onSaved={vi.fn()} />);
+    const toggle = await screen.findByRole("checkbox", { name: /한 객실에 두 마리/ });
+    await waitFor(() => expect((toggle as HTMLInputElement).disabled).toBe(false));
+    fireEvent.click(toggle);
+    const roomType = screen.getByLabelText("객실 유형") as HTMLSelectElement;
+    expect(roomType.disabled).toBe(true);
+    expect(roomType.value).toBe("deluxe");
+    fireEvent.click(screen.getByRole("button", { name: /예약 저장/ }));
+    expect(await screen.findByText("반려견 두 마리를 선택해 주세요.")).not.toBeNull();
+    expect(mocks.create).not.toHaveBeenCalled();
+    const dogPicker = screen.getByRole("combobox", { name: "반려견" });
+    fireEvent.change(dogPicker, { target: { value: "다른집" } });
+    expect(screen.queryByRole("option", { name: /다른집/ })).toBeNull();
+    fireEvent.change(dogPicker, { target: { value: "보리" } });
+    fireEvent.click(await screen.findByRole("option", { name: /보리/ }));
+    fireEvent.change(dogPicker, { target: { value: "콩이" } });
+    fireEvent.click(await screen.findByRole("option", { name: /콩이/ }));
+    expect(await screen.findByText("함께 데이케어는 두 마리까지 선택할 수 있습니다.")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /예약 저장/ }));
+    await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1));
+    expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({
+      dogId: "dog-1", sharedDogIds: ["dog-1", "dog-2"], roomTypeId: "deluxe", serviceDate: "2026-11-27",
+    }), expect.any(String));
+  });
+
   it("submits the canonical single-block payload with optional room", async () => {
     mocks.options.mockResolvedValue(options);
     mocks.snapshot.mockResolvedValue(snapshot);

@@ -160,3 +160,30 @@ main.login-shell :is(.login-brand-panel>div:first-child,.login-mobile-brand>div:
 main.login-shell :is(.login-brand-panel>div:first-child,.login-mobile-brand>div:first-child)>span:first-child>img {
   filter:brightness(0) saturate(100%) invert(22%) sepia(76%) saturate(1636%) hue-rotate(211deg) brightness(89%) contrast(100%);
 }
+
+@layer pm-d-adoption {
+  /* The signed-in mark follows the selected navigation ink, not a raster filter. */
+  @supports (mask-image:url("./assets/pm-logo.png")) {
+    .pm-d-sidebar a[aria-label="P&M OS 홈"]>span>img {
+      opacity:0;
+    }
+    .pm-d-sidebar a[aria-label="P&M OS 홈"]>span::after {
+      content:"";
+      position:absolute;
+      inset:50% auto auto 50%;
+      width:8rem;
+      height:8rem;
+      transform:translate(-50%,-50%);
+      pointer-events:none;
+      background:var(--pm-d-selected-ink);
+      mask:url("./assets/pm-logo.png") center / contain no-repeat;
+    }
+  }
+  @media (width < 1024px) {
+    /* An overlaid drawer needs an opaque surface; keep Hotel’s desktop glass. */
+    .pm-d-shell-host.bg-app-background:has(.pm-hotel-v2)>.pm-d-sidebar {
+      background:linear-gradient(146deg,#f9fbff,#edf3fa)!important;
+      backdrop-filter:none!important;
+    }
+  }
+}

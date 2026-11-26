@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { daycareDogNames } from "./daycareReservationPresentation";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { CalendarDays, Check } from "lucide-react";
 import { CustomerDogSearchFields } from "../components/CustomerDogSearchFields";
 import { Button, Field, FormAlert, FormSection, Input, Modal, ModalActions, Select, Textarea } from "../components/ui";
@@ -20,8 +21,18 @@ export interface DaycareReservationPrefill {
 export function validateDaycareReservationInput(
   input: DaycareReservationInput,
   dogs: OperationScheduleOptions["dogs"] = [],
+  deluxeRoomTypeId?: string,
 ) {
   if (!input.customerId || !input.dogId) return "보호자와 반려견을 선택해 주세요.";
+  if (input.sharedDogIds) {
+    if (input.sharedDogIds.length !== 2 || !input.sharedDogIds.includes(input.dogId) || new Set(input.sharedDogIds).size !== 2) {
+      return "반려견 두 마리를 선택해 주세요.";
+    }
+    if (!deluxeRoomTypeId || input.roomTypeId !== deluxeRoomTypeId) return "함께 데이케어는 디럭스 객실에서만 가능합니다.";
+    if (input.sharedDogIds.some((id) => dogs.find((dog) => dog.id === id)?.customerId !== input.customerId)) {
+      return "같은 보호자의 반려견만 함께 예약할 수 있습니다.";
+    }
+  }
   const selectedDog = dogs.find((dog) => dog.id === input.dogId);
   if (selectedDog?.customerId && selectedDog.customerId !== input.customerId) {
     return "선택한 보호자와 반려견 정보가 일치하지 않습니다.";
@@ -72,6 +83,7 @@ function inputFromReservation(reservation: DaycareReservation): DaycareReservati
     scheduleTypeId: reservation.scheduleTypeId,
     customerId: reservation.customer.id,
     dogId: reservation.dog.id,
+    ...(reservation.dogs?.length === 2 ? { sharedDogIds: reservation.dogs.map((dog) => dog.id) } : {}),
     serviceDate: `${value("year")}-${value("month")}-${value("day")}`,
     checkInTime: `${value("hour")}:${value("minute")}`,
     checkOutTime: `${end("hour")}:${end("minute")}`,
@@ -99,6 +111,8 @@ export function DaycareReservationForm({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const sharedAttempt = useRef<{ key: string; requestId: string } | null>(null);
+  const submitting = useRef(false);
   const prefillCustomerId = prefill?.customerId;
   const prefillDogId = prefill?.dogId;
   const prefillServiceDate = prefill?.serviceDate;
@@ -109,6 +123,7 @@ export function DaycareReservationForm({
       dogId: prefillDogId,
       serviceDate: prefillServiceDate,
     }));
+    sharedAttempt.current = null;
     setError("");
     setLoading(true);
     Promise.all([
@@ -148,23 +163,34 @@ export function DaycareReservationForm({
     () => (snapshot?.rooms ?? []).filter((room) => room.isActive && room.roomTypeId === input.roomTypeId),
     [input.roomTypeId, snapshot?.rooms],
   );
+  const deluxeRoomTypeId = snapshot?.roomTypes.find((roomType) => roomType.code.trim().toUpperCase() === "DELUXE")?.id;
+  const shared = input.sharedDogIds !== undefined;
   const patch = (change: Partial<DaycareReservationInput>) => setInput((current) => ({ ...current, ...change }));
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    const validation = validateDaycareReservationInput(input, options?.dogs ?? []);
+    if (submitting.current) return;
+    const validation = validateDaycareReservationInput(input, options?.dogs ?? [], deluxeRoomTypeId);
     if (validation) return setError(validation);
+    submitting.current = true;
     setSaving(true);
     setError("");
     try {
+      if (!reservation && input.sharedDogIds) {
+        const key = JSON.stringify({ ...input, dogId: undefined, sharedDogIds: [...input.sharedDogIds].sort() });
+        if (sharedAttempt.current?.key !== key) sharedAttempt.current = { key, requestId: crypto.randomUUID() };
+      }
       const saved = reservation
         ? await updateDaycareReservation(reservation.operationScheduleId, reservation.version, input)
-        : await createDaycareReservation(input);
+        : input.sharedDogIds && sharedAttempt.current
+          ? await createDaycareReservation(input, sharedAttempt.current.requestId)
+          : await createDaycareReservation(input);
       await onSaved(saved);
       onClose();
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : "Daycare 예약을 저장하지 못했습니다.");
     } finally {
+      submitting.current = false;
       setSaving(false);
     }
   };
@@ -173,18 +199,29 @@ export function DaycareReservationForm({
       <form className="space-y-7" aria-label="데이케어 예약 양식" onSubmit={submit}>
         <FormAlert tone="info"><span className="flex items-center gap-2"><CalendarDays size={17} /> 같은 날짜 안에서 이용할 객실을 확보합니다.</span></FormAlert>
         <FormSection title="예약 대상" description="보호자와 반려견을 검색해 선택합니다.">
+          {!reservation ? <label className="mb-3 flex min-h-11 items-center gap-2 text-sm font-semibold">
+            <input type="checkbox" checked={shared} disabled={loading || saving || !deluxeRoomTypeId}
+              onChange={(event) => patch(event.target.checked
+                ? { sharedDogIds: input.dogId ? [input.dogId] : [], roomTypeId: deluxeRoomTypeId ?? "", roomId: null }
+                : { sharedDogIds: undefined })} />
+            한 객실에 두 마리 (디럭스)
+          </label> : null}
+          {shared ? <p className="mb-3 text-sm text-text-secondary">같은 보호자의 반려견 두 마리가 같은 시간에 디럭스 한 객실을 이용합니다.</p> : null}
           <div className="grid gap-4 sm:grid-cols-2">
           <CustomerDogSearchFields
             customers={options?.customers ?? []}
             dogs={dogs}
             customerIds={input.customerId ? [input.customerId] : []}
-            dogIds={input.dogId ? [input.dogId] : []}
+            dogIds={input.sharedDogIds ?? (input.dogId ? [input.dogId] : [])}
+            dogMultiple={shared}
             disabled={Boolean(reservation)}
             recentScope="daycare-reservation"
             onDogIdsChange={(dogIds) => {
-              const dogId = dogIds.at(-1) ?? "";
+              if (shared && dogIds.length > 2) return setError("함께 데이케어는 두 마리까지 선택할 수 있습니다.");
+              const dogId = (shared ? dogIds[0] : dogIds.at(-1)) ?? "";
+              setError("");
               const customerId = options?.dogs.find((dog) => dog.id === dogId)?.customerId ?? "";
-              patch({ dogId, customerId: dogId ? customerId : input.customerId });
+              patch({ dogId, ...(shared ? { sharedDogIds: dogIds } : {}), customerId: dogId ? customerId : input.customerId });
             }}
             onCustomerIdsChange={(customerIds) => {
               const customerId = customerIds.at(-1) ?? "";
@@ -192,6 +229,7 @@ export function DaycareReservationForm({
               patch({
                 customerId,
                 dogId: selectedDog?.customerId === customerId ? input.dogId : "",
+                ...(shared ? { sharedDogIds: selectedDog?.customerId === customerId ? input.sharedDogIds : [] } : {}),
               });
             }}
           />
@@ -210,7 +248,7 @@ export function DaycareReservationForm({
             <Input aria-label="퇴실 시간" type="time" value={input.checkOutTime} onChange={(event) => patch({ checkOutTime: event.target.value })} />
           </Field>
           <Field label="객실 유형" required>
-            <Select aria-label="객실 유형" value={input.roomTypeId} onChange={(event) => patch({ roomTypeId: event.target.value, roomId: null })}>
+            <Select aria-label="객실 유형" disabled={shared} value={input.roomTypeId} onChange={(event) => patch({ roomTypeId: event.target.value, roomId: null })}>
               <option value="">객실 유형 선택</option>
               {snapshot?.roomTypes.map((roomType) => <option key={roomType.id} value={roomType.id}>{roomType.name}</option>)}
             </Select>
@@ -257,7 +295,7 @@ export function DaycareReservationModal({
   reservation?: DaycareReservation | null;
 }) {
   return (
-    <Modal open={open} title={reservation ? "데이케어 예약 수정" : "데이케어 예약"} description={reservation?.dog.name ?? "보호자와 반려견을 선택해 주세요."} onClose={onClose} size="large" resetKey={reservation?.operationScheduleId ?? `${prefill?.customerId ?? "new"}:${prefill?.dogId ?? ""}`}>
+    <Modal open={open} title={reservation ? "데이케어 예약 수정" : "데이케어 예약"} description={reservation ? daycareDogNames(reservation) : "보호자와 반려견을 선택해 주세요."} onClose={onClose} size="large" resetKey={reservation?.operationScheduleId ?? `${prefill?.customerId ?? "new"}:${prefill?.dogId ?? ""}`}>
       <DaycareReservationForm
         prefill={prefill}
         reservation={reservation}

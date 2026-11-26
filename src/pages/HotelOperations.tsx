@@ -78,6 +78,7 @@ import {
 } from "./hotelOperationCapabilities";
 import { OverdueDaycarePanel } from "./OverdueDaycarePanel";
 import { DaycareOperationsPanel } from "./DaycareOperationsPanel";
+import { DaycareReservationForm } from "./DaycareReservationModal";
 import {
   fetchDaycareOperationsForDate,
   type DaycareReservation,
@@ -88,6 +89,7 @@ import {
   existingStaySharedRoomCandidates,
 } from "./SharedHotelRoomModal";
 import { LongStayOperationsPanel } from "./LongStayOperationsPanel";
+import { LongStayRegistrationForm } from "./LongStayRegistrationForm";
 import {
   resolveSharedRoomAssignmentAttempt,
   type SharedHotelOccupancy,
@@ -153,6 +155,7 @@ import {
   hotelReservationInputFromForm,
   initializeHotelScheduleForm,
   resolveScheduleCreateAttempt,
+  type CalendarCreateProduct,
   type ScheduleCreateAttempt,
   type ScheduleForm,
 } from "./OperationsToday";
@@ -434,6 +437,9 @@ export function HotelOperationsPage() {
     ? eventRoomResult.projections : undefined;
 
   const [modal, setModal] = useState<ModalName>(null);
+  const [calendarCreateProduct, setCalendarCreateProduct] = useState<CalendarCreateProduct | null>(null);
+  const reservationFormVersionRef = useRef(0);
+  const [longStayContractRevision, setLongStayContractRevision] = useState(0);
   const [processing, setProcessing] = useState(false);
   const createAttemptRef = useRef<ScheduleCreateAttempt | null>(null);
   const createInFlightRef = useRef(false);
@@ -626,6 +632,8 @@ export function HotelOperationsPage() {
             });
             return;
           }
+          reservationFormVersionRef.current += 1;
+          setCalendarCreateProduct(null);
           setScheduleForm(scheduleFormFromHotelStay(stay));
           setTitleManuallyEdited(true);
           setFormError("");
@@ -745,6 +753,7 @@ export function HotelOperationsPage() {
   };
 
   const openNewSchedule = () => {
+    reservationFormVersionRef.current += 1;
     createAttemptRef.current = null;
     createInFlightRef.current = false;
     const initial = emptyForm();
@@ -752,6 +761,7 @@ export function HotelOperationsPage() {
     initial.endDate = selectedDate;
     initial.assigneeIds = profile?.id ? [profile.id] : [];
     setScheduleForm(initializeHotelScheduleForm(initial, options, snapshot!));
+    setCalendarCreateProduct("hotel");
     setTitleManuallyEdited(false);
     setFormError("");
     setDetail(null);
@@ -760,6 +770,8 @@ export function HotelOperationsPage() {
 
   const openReservationEdit = () => {
     if (!detail) return;
+    reservationFormVersionRef.current += 1;
+    setCalendarCreateProduct(null);
     setScheduleForm(scheduleFormFromHotelStay(detail));
     setTitleManuallyEdited(true);
     setFormError("");
@@ -1347,6 +1359,23 @@ export function HotelOperationsPage() {
   const selectedDateIsToday = selectedDate === seoulDateKey();
   const isHotelOperator = canOperateHotel(operationRole);
   const isHotelSettingsManager = canManageHotelSettings(operationRole);
+  const showScheduleProductChooser = !detail && isHotelOperator;
+  const reservationFormVersion = reservationFormVersionRef.current;
+  const closeReservationForm = () => {
+    // A submitted embedded form can finish after another draft is open.
+    if (processing || reservationFormVersion !== reservationFormVersionRef.current) return;
+    reservationFormVersionRef.current += 1;
+    createAttemptRef.current = null;
+    createInFlightRef.current = false;
+    setRoomTypeChangeConfirmationOpen(false);
+    setCalendarCreateProduct(null);
+    setModal(null);
+  };
+  const changeScheduleProduct = (product: CalendarCreateProduct | null) => {
+    if (processing || product === calendarCreateProduct || (product === "long-stay" && !isHotelSettingsManager)) return;
+    reservationFormVersionRef.current += 1;
+    setCalendarCreateProduct(product);
+  };
 
   const presentationError = loadError || currentSharedReads?.historyError;
   const presentationReady = !loading && !presentationError && snapshotGeneration === requestGeneration && snapshotDate === selectedDate
@@ -1515,6 +1544,7 @@ export function HotelOperationsPage() {
         options={options}
         operationRole={operationRole}
         selectedBusinessDate={selectedDate}
+        contractRevision={longStayContractRevision}
         onHotelSnapshotRefresh={() => loadSnapshot(selectedDate)}
       />
 
@@ -1716,15 +1746,9 @@ export function HotelOperationsPage() {
         recentScope={profile?.id ?? "hotel"}
         titleManuallyEdited={titleManuallyEdited}
         onTitleManuallyEdited={setTitleManuallyEdited}
-        onChange={setScheduleForm}
+        onChange={processing ? () => undefined : setScheduleForm}
         onSubmit={saveReservation}
-        onClose={() => {
-          if (processing) return;
-          createAttemptRef.current = null;
-          createInFlightRef.current = false;
-          setRoomTypeChangeConfirmationOpen(false);
-          setModal(null);
-        }}
+        onClose={closeReservationForm}
         currentUserName={
           detail
             ? options.assignees.find((person) => person.id === detail.createdBy)
@@ -1736,6 +1760,35 @@ export function HotelOperationsPage() {
         modalTitle={detail ? "호텔 예약 수정" : "새 일정"}
         modalResetKey={detail?.id ?? `hotel-new-${selectedDate}`}
         calendarLocked={Boolean(detail)}
+        calendarCreateProduct={showScheduleProductChooser ? calendarCreateProduct : null}
+        onCalendarCreateProductChange={showScheduleProductChooser ? changeScheduleProduct : undefined}
+        longStayAllowed={isHotelSettingsManager}
+        createProductContent={
+          showScheduleProductChooser && calendarCreateProduct === "daycare" ? (
+            <DaycareReservationForm
+              prefill={{ serviceDate: selectedDate }}
+              onClose={closeReservationForm}
+              onSaved={() => {
+                setToast({ message: "데이케어 예약을 등록했습니다.", tone: "success" });
+                void loadSnapshot(dateRequestRef.current.date).catch(() => {
+                  setToast({ message: "데이케어 예약은 등록했지만 호텔 현황을 새로 불러오지 못했습니다.", tone: "error" });
+                });
+              }}
+            />
+          ) : showScheduleProductChooser && isHotelSettingsManager && calendarCreateProduct === "long-stay" ? (
+            <LongStayRegistrationForm
+              customers={options.customers}
+              dogs={options.dogs}
+              prefill={{ startedOn: selectedDate }}
+              onCancel={closeReservationForm}
+              onSaved={() => {
+                closeReservationForm();
+                setLongStayContractRevision((current) => current + 1);
+                setToast({ message: "장기호텔 계약을 등록했습니다. 이번 달 객실을 배정하세요.", tone: "success" });
+              }}
+            />
+          ) : null
+        }
       />
       <ConfirmModal
         open={roomTypeChangeConfirmationOpen}

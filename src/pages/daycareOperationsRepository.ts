@@ -27,6 +27,7 @@ export interface DaycareReservation {
   cancelledAt: string | null;
   administrativeRelease?: { releasedAt: string; releasedBy: string; actualCheckoutKnown: false; reason: string } | null;
   dog: { id: string; name: string; customerId: string | null };
+  dogs?: DaycareReservation["dog"][];
   customer: { id: string; name: string | null; phone: string | null };
   assignees: Array<{ id: string; name: string | null }>;
   capacityReservation: {
@@ -52,6 +53,7 @@ export interface DaycareReservationInput {
   scheduleTypeId: string;
   customerId: string;
   dogId: string;
+  sharedDogIds?: string[];
   serviceDate: string;
   checkInTime: string;
   checkOutTime: string;
@@ -161,8 +163,16 @@ const inputArgs = (input: DaycareReservationInput) => ({
 
 export function createDaycareReservation(
   input: DaycareReservationInput,
-  requestId = crypto.randomUUID(),
+  requestId: string = crypto.randomUUID(),
 ) {
+  if (input.sharedDogIds) {
+    const { p_dog_id: primaryDogId, ...args } = inputArgs(input);
+    return rpc<DaycareReservation>("create_shared_daycare_reservation_v1", {
+      ...args,
+      p_dog_ids: [primaryDogId, ...input.sharedDogIds.filter((id) => id !== primaryDogId)],
+      p_request_id: requestId,
+    });
+  }
   return rpc<DaycareReservation>("create_daycare_reservation", {
     ...inputArgs(input),
     p_request_id: requestId,

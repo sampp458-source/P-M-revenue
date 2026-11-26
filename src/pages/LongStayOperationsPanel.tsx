@@ -191,6 +191,7 @@ export function LongStayOperationsPanel({
   options,
   operationRole,
   selectedBusinessDate = snapshot.date,
+  contractRevision = 0,
   onHotelSnapshotRefresh,
 }: {
   snapshot: HotelOperationsSnapshot;
@@ -198,6 +199,7 @@ export function LongStayOperationsPanel({
   operationRole: OperationRole | null;
   readOnly?: boolean;
   selectedBusinessDate?: string;
+  contractRevision?: number;
   onHotelSnapshotRefresh: () => Promise<unknown>;
 }) {
   const [serviceMonth, setServiceMonth] = useState(() => monthStart(new Date()));
@@ -244,7 +246,7 @@ export function LongStayOperationsPanel({
     }
   }, [serviceMonth]);
 
-  useEffect(() => void load(), [load]);
+  useEffect(() => void load(), [load, contractRevision]);
 
   const hotelCalendar = options.calendars.find((calendar) => calendar.businessUnitCode === "hotel") ?? null;
   const hotelScheduleType = hotelCalendar

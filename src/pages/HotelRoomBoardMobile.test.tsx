@@ -224,6 +224,18 @@ describe('mobile floorplan transposes desktop identity without occupancy sorting
   render(<HotelRoomBoard {...props()}/>);const cell=screen.getByTestId('hotel-room-board-room-standard-1');expect(cell).toHaveTextContent('초코');expect(cell).toHaveTextContent('데이케어');
   fireEvent.click(cell);expect(screen.getByRole('dialog',{name:'객실 상세'})).toHaveTextContent('퇴실 18:00');
  });
+ it('shows both shared Daycare dogs in one Deluxe cell and the same room detail',()=>{
+  const value=props();
+  const single=value.daycareReservations[0];
+  value.daycareReservations=[{...single,roomTypeCode:'DELUXE',
+    dogs:[single.dog,{...single.dog,id:'second-dog',name:'별이'}],
+    roomAllocation:{...single.roomAllocation!,roomId:'deluxe-2',roomName:'DELUXE 2'}}];
+  render(<HotelRoomBoard {...value}/>);
+  const cell=screen.getByTestId('hotel-room-board-room-deluxe-2');
+  expect(cell).toHaveTextContent('초코 + 별이');
+  fireEvent.click(cell);
+  expect(screen.getByRole('dialog',{name:'객실 상세'})).toHaveTextContent('초코 + 별이');
+ });
  it('keeps room positions and DOM identity when the selected date changes',()=>{
   const value=props();const {rerender}=render(<HotelRoomBoard {...value} selectedDate="2026-08-13"/>);const room=screen.getByTestId('hotel-room-board-room-deluxe-1');expect(room).toHaveTextContent('입실');
   rerender(<HotelRoomBoard {...value} selectedDate="2026-08-16"/>);expect(screen.getByTestId('hotel-room-board-room-deluxe-1')).toBe(room);expect(room).toHaveTextContent('퇴실');
