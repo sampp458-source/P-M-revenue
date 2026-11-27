@@ -160,19 +160,27 @@ export function isOperationScheduleAssignedTo(
 
 export function canManageOperationSchedule(
   schedule: Pick<OperationSchedule, "assignees" | "createdBy"> &
-    Partial<Pick<OperationSchedule, "businessUnitCode" | "hotelStayId" | "hotelEventKind" | "archivedAt">>,
+    Partial<Pick<OperationSchedule, "businessUnitCode" | "hotelStayId" | "hotelEventKind" | "archivedAt" | "daycareReservation" | "daycareOperation" | "startsAt" | "status">>,
   profileId: string | null | undefined,
   operationRole: OperationRole | null | undefined,
 ) {
   if (!profileId) return false;
+  const isHotelOperator = operationRole === "owner" || operationRole === "manager" || operationRole === "staff";
+  const isOpenDaycareReservation =
+    schedule.daycareReservation === true &&
+    (schedule.businessUnitCode === "hotel" || schedule.businessUnitCode === "daycare") &&
+    (schedule.daycareOperation?.lifecycleStatus === "scheduled" || schedule.daycareOperation?.lifecycleStatus === "checked_in") &&
+    schedule.status === "scheduled" &&
+    typeof schedule.startsAt === "string" && Number.isFinite(Date.parse(schedule.startsAt)) &&
+    seoulDateKey(new Date(schedule.startsAt)) >= seoulDateKey();
   return (
     // Canonical Hotel events mirror the server's Hotel-scoped exception.
     // A Hotel calendar alone is not proof of a Hotel reservation.
-    ((operationRole === "owner" || operationRole === "manager" || operationRole === "staff") &&
-      schedule.businessUnitCode === "hotel" &&
-      Boolean(schedule.hotelStayId) &&
-      (schedule.hotelEventKind === "check_in" || schedule.hotelEventKind === "check_out") &&
-      !schedule.archivedAt) ||
+    (isHotelOperator && !schedule.archivedAt && (
+      isOpenDaycareReservation ||
+      (schedule.businessUnitCode === "hotel" && Boolean(schedule.hotelStayId) &&
+        (schedule.hotelEventKind === "check_in" || schedule.hotelEventKind === "check_out"))
+    )) ||
     operationRole === "owner" ||
     operationRole === "manager" ||
     schedule.createdBy === profileId ||
