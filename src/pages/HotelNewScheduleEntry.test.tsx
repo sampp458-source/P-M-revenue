@@ -14,6 +14,7 @@ const m = vi.hoisted(() => ({
   daycareList: vi.fn(),
   createDaycare: vi.fn(),
   assignDaycare: vi.fn(),
+  checkInDaycare: vi.fn(),
   hotelCreate: vi.fn(),
   createOperation: vi.fn(),
   createLongStay: vi.fn(),
@@ -40,6 +41,7 @@ vi.mock("./daycareOperationsRepository", async (original) => ({
   fetchDaycareOperationsForDate: m.daycareList,
   createDaycareReservation: m.createDaycare,
   assignDaycareRoom: m.assignDaycare,
+  completeDaycareCheckIn: m.checkInDaycare,
 }));
 vi.mock("./operationsScheduleRepository", async (original) => ({
   ...await original<typeof import("./operationsScheduleRepository")>(),
@@ -96,6 +98,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  vi.restoreAllMocks();
   vi.resetAllMocks();
 });
 
@@ -190,17 +193,17 @@ describe("Hotel Operations 새 일정 entry", () => {
     expect(m.createOperation).not.toHaveBeenCalled();
   });
 
-  it("assigns the two-dog Daycare card once without changing its future scheduled lifecycle", async () => {
+  it.each([FUTURE, TODAY])("assigns one paired Daycare card and only offers actual arrival on today (%s)", async (date) => {
     const room={id:"deluxe-a",roomTypeId:"deluxe",roomTypeCode:"DELUXE",roomTypeName:"DELUXE",name:"DELUXE A",sortOrder:1,isActive:true};
     const booking: DaycareReservation={
-      operationScheduleId:"future-dc",calendarId:"hotel",scheduleTypeId:DAYCARE_TYPE,title:"합성 감자 · 합성 보리",
-      memo:null,startsAt:`${FUTURE}T08:00:00+09:00`,endsAt:`${FUTURE}T19:00:00+09:00`,
+      operationScheduleId:"paired-dc",calendarId:"hotel",scheduleTypeId:DAYCARE_TYPE,title:"합성 감자 · 합성 보리",
+      memo:null,startsAt:`${date}T08:00:00+09:00`,endsAt:`${date}T19:00:00+09:00`,
       scheduleStatus:"scheduled",scheduleVersion:1,version:7,lifecycleStatus:"scheduled",
       roomTypeId:"deluxe",roomTypeCode:"DELUXE",roomTypeName:"DELUXE",checkedInAt:null,checkedOutAt:null,
       cancelledAt:null,dog:{id:"dog-1",name:"합성 감자",customerId:"guardian"},
       dogs:[{id:"dog-1",name:"합성 감자",customerId:"guardian"},{id:"dog-2",name:"합성 보리",customerId:"guardian"}],
       customer:{id:"guardian",name:"합성 보호자",phone:null},assignees:[],
-      capacityReservation:{id:"cap",reservedFrom:`${FUTURE}T08:00:00+09:00`,reservedUntil:`${FUTURE}T19:00:00+09:00`,archivedAt:null},
+      capacityReservation:{id:"cap",reservedFrom:`${date}T08:00:00+09:00`,reservedUntil:`${date}T19:00:00+09:00`,archivedAt:null},
       roomAllocation:null,createdAt:`${TODAY}T10:00:00+09:00`,updatedAt:`${TODAY}T10:00:00+09:00`,
     };
     m.operationRole.mockResolvedValue("owner");
@@ -208,22 +211,59 @@ describe("Hotel Operations 새 일정 entry", () => {
     let assigned=false;
     const assignedBooking: DaycareReservation={...booking, version:8,
       roomAllocation:{id:"allocation",roomId:room.id,roomName:room.name,allocatedFrom:booking.startsAt,allocatedUntil:booking.endsAt,version:1}};
-    m.daycareList.mockImplementation(async(date:string)=>date===FUTURE?[assigned?assignedBooking:booking]:[]);
+    const actual = { ...assignedBooking, version: 9, lifecycleStatus: "checked_in" as const, checkedInAt: `${date}T08:30:00+09:00` };
+    let checkedIn=false;
+    m.daycareList.mockImplementation(async(selected:string)=>selected===date?[checkedIn?actual:assigned?assignedBooking:booking]:[]);
+    m.checkInDaycare.mockImplementation(async()=>{checkedIn=true;return actual;});
     m.assignDaycare.mockImplementation(async()=>{assigned=true;return assignedBooking;});
     render(<MemoryRouter initialEntries={["/operations/hotel"]}><HotelOperationsPage /></MemoryRouter>);
     await waitFor(()=>expect(screen.getByRole("button",{name:"새 일정"})).toBeEnabled());
-    fireEvent.change(screen.getByLabelText("운영 날짜"),{target:{value:FUTURE}});
-    const dayCard=await screen.findByTestId("hotel-room-board-unassigned-daycare:future-dc");
+    if (date !== TODAY) fireEvent.change(screen.getByLabelText("운영 날짜"),{target:{value:date}});
+    const dayCard=await screen.findByTestId("hotel-room-board-unassigned-daycare:paired-dc");
     expect(dayCard).toHaveTextContent("합성 감자 · 합성 보리");
-    expect(screen.queryByLabelText(/실제 입실 시각/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button",{name:"확인한 이용 기록 등록"})).not.toBeInTheDocument();
-    fireEvent.click(within(dayCard).getByRole("button",{name:/객실 배정 시작/}));
-    fireEvent.click(await screen.findByRole("button",{name:"DELUXE A에 데이케어 배정"}));
+    expect(screen.queryByRole("dialog",{name:"데이케어 실제 입실"})).not.toBeInTheDocument();
+    if (date === FUTURE) expect(screen.queryByLabelText(/실제 입실 시각/)).not.toBeInTheDocument();
+    if (date === TODAY) {
+      const pointer = (target: Element, event: string, clientY: number) => {
+        const input = new MouseEvent(event, {bubbles:true,button:0,clientX:50,clientY});
+        Object.defineProperties(input, {pointerType:{value:"mouse"},pointerId:{value:1}});
+        fireEvent(target,input);
+      };
+      const target = screen.getByTestId("hotel-room-board-room-deluxe-a");
+      expect(dayCard).toHaveAttribute("draggable", "false");
+      pointer(dayCard,"pointerdown",20);
+      pointer(target,"pointermove",220);
+      expect(m.assignDaycare).not.toHaveBeenCalled();
+      pointer(target,"pointerup",220);
+    } else {
+      fireEvent.click(within(dayCard).getByRole("button",{name:/객실 배정 시작/}));
+      fireEvent.click(await screen.findByRole("button",{name:"DELUXE A에 데이케어 배정"}));
+    }
     await waitFor(()=>expect(m.assignDaycare).toHaveBeenCalledTimes(1));
-    expect(m.assignDaycare).toHaveBeenCalledWith("future-dc",7,"deluxe-a","객실 배치도에서 데이케어 배정",expect.any(String));
-    await waitFor(()=>expect(screen.queryByTestId("hotel-room-board-unassigned-daycare:future-dc")).not.toBeInTheDocument());
+    expect(m.assignDaycare).toHaveBeenCalledWith("paired-dc",7,"deluxe-a","객실 배치도에서 데이케어 배정",expect.any(String));
+    await waitFor(()=>expect(screen.queryByTestId("hotel-room-board-unassigned-daycare:paired-dc")).not.toBeInTheDocument());
     expect(screen.getByTestId("hotel-room-board-room-deluxe-a")).toHaveTextContent("합성 감자 + 합성 보리");
-    expect(screen.queryByRole("button",{name:"두 마리 입실 완료"})).not.toBeInTheDocument();
+    expect(m.checkInDaycare).not.toHaveBeenCalled();
+    if (date === TODAY) {
+      const modal = await screen.findByRole("dialog",{name:"데이케어 실제 입실"});
+      fireEvent.click(within(modal).getByRole("button",{name:"나중에"}));
+      const arrival = screen.getByRole("region",{name:"오늘 입실"});
+      fireEvent.click(within(arrival).getByRole("button",{name:/합성 감자.*합성 보리.*입실 처리/}));
+      const form = within(await screen.findByRole("dialog",{name:"데이케어 실제 입실"}));
+      vi.spyOn(Date,"now").mockReturnValue(Date.parse(`${date}T11:00:00+09:00`));
+      expect(form.getByRole("button",{name:"두 마리 입실 완료"})).toBeDisabled();
+      fireEvent.change(form.getByLabelText("실제 입실 시각"),{target:{value:"08:30"}});
+      expect(form.getByRole("button",{name:"두 마리 입실 완료"})).toBeDisabled();
+      fireEvent.click(form.getByRole("checkbox"));
+      fireEvent.click(form.getByRole("button",{name:"두 마리 입실 완료"}));
+      await waitFor(()=>expect(m.checkInDaycare).toHaveBeenCalledTimes(1));
+      expect(m.checkInDaycare).toHaveBeenCalledWith("paired-dc",8,new Date(`${date}T08:30:00+09:00`).toISOString(),expect.any(String));
+      await waitFor(()=>expect(screen.queryByRole("dialog",{name:"데이케어 실제 입실"})).not.toBeInTheDocument());
+      expect(screen.queryByRole("button",{name:/합성 감자.*합성 보리.*입실 처리/})).not.toBeInTheDocument();
+    } else {
+      expect(screen.queryByRole("dialog",{name:"데이케어 실제 입실"})).not.toBeInTheDocument();
+      expect(screen.queryByRole("button",{name:"두 마리 입실 완료"})).not.toBeInTheDocument();
+    }
     expect(m.hotelCreate).not.toHaveBeenCalled();
     expect(m.createDaycare).not.toHaveBeenCalled();
   });

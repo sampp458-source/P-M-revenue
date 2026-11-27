@@ -1,4 +1,4 @@
-import { daycareNeedsBoardAssignment } from "./daycareBoardAssignment";
+import { daycareIsBoardArrival, daycareNeedsBoardAssignment } from "./daycareBoardAssignment";
 import { daycareDogNames } from "./daycareReservationPresentation";
 import {GuardianMessageShortcut} from "../guardianMessages/GuardianMessageShortcut";
 import {HotelRateCalculatorModal} from "./HotelRateCalculatorModal";
@@ -79,10 +79,12 @@ import {
   canOperateHotel,
 } from "./hotelOperationCapabilities";
 import { OverdueDaycarePanel } from "./OverdueDaycarePanel";
+import { DaycareBoardCheckInModal } from "./DaycareBoardCheckInModal";
 import { DaycareOperationsPanel } from "./DaycareOperationsPanel";
 import { DaycareReservationForm } from "./DaycareReservationModal";
 import {
   assignDaycareRoom,
+  completeDaycareCheckIn,
   fetchDaycareOperationsForDate,
   type DaycareReservation,
 } from "./daycareOperationsRepository";
@@ -999,6 +1001,7 @@ export function HotelOperationsPage() {
     );
   };
 
+  const [boardDaycareEntry, setBoardDaycareEntry] = useState<{ id: string; generation: number } | null>(null);
   const daycareAssignmentAttempt = useRef<{ key: string; id: ReturnType<typeof requestId> } | null>(null);
   const daycareAssignmentInFlight = useRef(false);
   const dropDaycareOnRoom = (candidate: DaycareReservation, roomId: string) => {
@@ -1010,12 +1013,16 @@ export function HotelOperationsPage() {
     const key = `${booking.operationScheduleId}:${booking.version}:${roomId}`;
     if (daycareAssignmentAttempt.current?.key !== key) daycareAssignmentAttempt.current = { key, id: requestId() };
     const attempt = daycareAssignmentAttempt.current;
+    const generation = dateRequestRef.current.generation;
     daycareAssignmentInFlight.current = true;
     setProcessing(true);
     void (async () => {
       try {
         await assignDaycareRoom(booking.operationScheduleId, booking.version, roomId, "객실 배치도에서 데이케어 배정", attempt.id);
         daycareAssignmentAttempt.current = null;
+        if (selectedDate === seoulDateKey() && generation === dateRequestRef.current.generation) {
+          setBoardDaycareEntry({ id: booking.operationScheduleId, generation });
+        }
         setToast({ tone: "success", title: daycareDogNames(booking), message: `${room.name}에 데이케어 객실을 배정했습니다.` });
       } catch (error) {
         setToast({ tone: "error", message: error instanceof Error ? error.message : "데이케어 객실을 배정하지 못했습니다." });
@@ -1431,6 +1438,11 @@ export function HotelOperationsPage() {
   if (!snapshot) {
     return <ErrorState title={loadError || "호텔 현황을 불러오지 못했습니다."} retry={retryPresentation} />;
   }
+  const boardDaycareBooking = selectedDateIsToday && snapshotDate === selectedDate && snapshotGeneration === requestGeneration
+    && boardDaycareEntry?.generation === requestGeneration
+    ? daycareReservations.find(booking => booking.operationScheduleId === boardDaycareEntry.id && booking.roomAllocation
+      && daycareIsBoardArrival(booking, selectedDate))
+    : undefined;
   const detailSharedOccupancy = detail
     ? sharedOccupancies.find((occupancy) =>
         occupancy.members.some((member) => member.hotelStayId === detail.id),
@@ -1552,6 +1564,7 @@ export function HotelOperationsPage() {
         onDropStay={dropStayOnRoom}
         onDropSharedGroup={dropSharedGroupOnRoom}
         onDropDaycare={dropDaycareOnRoom}
+        onCheckInDaycare={id => setBoardDaycareEntry({ id, generation: requestGeneration })}
         onRetryUnassignedSharedGroups={() => {
           void loadUnassignedSharedGroups(selectedDate);
         }}
@@ -1584,6 +1597,39 @@ export function HotelOperationsPage() {
 
         </>}
       />
+
+      {boardDaycareBooking ? <DaycareBoardCheckInModal
+        key={`${boardDaycareBooking.operationScheduleId}:${boardDaycareBooking.version}`}
+        reservation={boardDaycareBooking}
+        date={selectedDate}
+        onClose={() => setBoardDaycareEntry(null)}
+        onSubmit={async (at, id) => {
+          if (selectedDate !== seoulDateKey() || requestGeneration !== dateRequestRef.current.generation || processing) {
+            throw new Error("오늘 운영 날짜와 예약 상태를 다시 확인해 주세요.");
+          }
+          const saved = await (async () => {
+            try {
+              return await completeDaycareCheckIn(boardDaycareBooking.operationScheduleId, boardDaycareBooking.version, at, id);
+            } catch (error) {
+              // Keep the server error, but recover the current state if another staff member already updated it.
+              try { await loadSnapshot(selectedDate); } catch { /* The original error remains actionable. */ }
+              throw error;
+            }
+          })();
+          setDaycareReservations(previous => previous.map(item => item.operationScheduleId === boardDaycareBooking.operationScheduleId
+            && item.version === boardDaycareBooking.version
+            ? saved
+            : item));
+          setBoardDaycareEntry(previous => previous?.id === boardDaycareBooking.operationScheduleId
+            && previous.generation === requestGeneration ? null : previous);
+          try {
+            await loadSnapshot(selectedDate);
+            setToast({ tone: "success", title: daycareDogNames(boardDaycareBooking), message: "데이케어 입실을 완료했습니다." });
+          } catch {
+            setToast({ tone: "error", message: "입실은 저장되었습니다. 최신 객실 현황은 화면을 새로고침해 확인해 주세요." });
+          }
+        }}
+      /> : null}
 
       <SharedHotelRoomModal
         readOnly={isPast}

@@ -5,13 +5,16 @@ import { hotelStayHasPhysicalHold, seoulInputParts } from "./hotelOperationsUi";
 
 export const daycareBoardKey = (id: string) => `daycare:${id}`;
 
-export const daycareNeedsBoardAssignment = (reservation: DaycareReservation, selectedDate: string) =>
+export const daycareIsBoardArrival = (reservation: DaycareReservation, selectedDate: string) =>
   reservation.lifecycleStatus === "scheduled" && reservation.scheduleStatus === "scheduled"
-  && !reservation.roomAllocation && !reservation.capacityReservation.archivedAt
+  && !reservation.capacityReservation.archivedAt
   && Number.isFinite(Date.parse(reservation.startsAt))
   && Number.isFinite(Date.parse(reservation.endsAt))
   && Date.parse(reservation.startsAt) < Date.parse(reservation.endsAt)
   && seoulInputParts(reservation.startsAt).date === selectedDate;
+
+export const daycareNeedsBoardAssignment = (reservation: DaycareReservation, selectedDate: string) =>
+  !reservation.roomAllocation && daycareIsBoardArrival(reservation, selectedDate);
 
 export function daycareCanDropOnRoom(
   reservation: DaycareReservation,
