@@ -135,14 +135,6 @@ function fitImage(context: CanvasRenderingContext2D, image: HTMLImageElement, sl
   context.drawImage(image, slot.x + (slot.width - width) / 2, slot.y + (slot.height - height) / 2, width, height);
 }
 
-function drawTintedImage(context: CanvasRenderingContext2D, image: HTMLImageElement, slot: JournalSceneRect, color: string) {
-  const surface = document.createElement("canvas"); surface.width = Math.ceil(slot.width); surface.height = Math.ceil(slot.height);
-  const paint = surface.getContext("2d"); if (!paint) throw new Error("JOURNAL_CANVAS_LOGO_CONTEXT_UNAVAILABLE");
-  fitImage(paint, image, { x: 0, y: 0, width: surface.width, height: surface.height });
-  paint.globalCompositeOperation = "source-in"; paint.fillStyle = color; paint.fillRect(0, 0, surface.width, surface.height);
-  context.drawImage(surface, slot.x, slot.y, slot.width, slot.height); surface.width = 1; surface.height = 1;
-}
-
 function regionSignature(context: CanvasRenderingContext2D, slot: JournalSceneRect) {
   const x = Math.max(0, Math.floor(slot.x)); const y = Math.max(0, Math.floor(slot.y));
   const width = Math.max(1, Math.min(context.canvas.width - x, Math.ceil(slot.width)));
@@ -330,7 +322,7 @@ function renderScene(context: CanvasRenderingContext2D, scene: JournalReportScen
   context.globalAlpha = 0.78; fillRounded(context, { x: 836, y: 74, width: 174, height: 144 }, 48, "#e8f4fc"); context.globalAlpha = 1;
   assetFingerprints["header-dog-a"] = drawVerifiedAsset(context, assets["header-dog-a"], assetSlots["header-dog-a"], "header-dog-a");
   assetFingerprints["header-dog-b"] = drawVerifiedAsset(context, assets["header-dog-b"], assetSlots["header-dog-b"], "header-dog-b");
-  visualFingerprints["official-logo"] = verifyDrawing(context, JOURNAL_REPORT_VISUAL_REGIONS["official-logo"], "official-logo", () => drawTintedImage(context, assets["official-logo"], assetSlots["official-logo"], colors.blue));
+  visualFingerprints["official-logo"] = verifyDrawing(context, JOURNAL_REPORT_VISUAL_REGIONS["official-logo"], "official-logo", () => fitImage(context, assets["official-logo"], assetSlots["official-logo"]));
   visualFingerprints["header-underline"] = verifyDrawing(context, JOURNAL_REPORT_VISUAL_REGIONS["header-underline"], "header-underline", () => {
     context.save(); context.translate(540, 213); context.rotate(-Math.PI / 180); context.globalAlpha = 0.42;
     fillRounded(context, { x: -133, y: -7.5, width: 266, height: 15 }, 8, colors.coral.accent); context.restore();

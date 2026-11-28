@@ -1,3 +1,4 @@
+// Journal hashes include the later logo-only update; all other byte guards are unchanged.
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { describe, it, expect } from 'vitest';
@@ -13,7 +14,7 @@ describe('D hotfix 1 presentation contract', () => {
   });
   it('freezes Foundation and Journal export source', () => {
     expect(hash(read('src/visual-system-d.css'))).toBe('976c988622debfa6303ef967df89f7d29ad09308888416e7d2d29db5864e6455');
-    expect(hash(read('src/pages/JournalReportTemplate.tsx'))).toBe('e2114a8f27bb509cfcd04d35b6337bcca2c059edd32da12876040f69297de925');
+    expect(hash(read('src/pages/JournalReportTemplate.tsx'))).toBe('8926eac4dd77d997531a5680949ad8ebd83f6fb0c628adbc7880fe3e5b83cbe5');
     expect(read('src/visual-system-d-rollout3.css')).not.toMatch(/journal-report|journal-editor-preview|\[data-journal/);
   });
   it('keeps spatial room order and adaptive widths only at the safe desktop breakpoint', () => {

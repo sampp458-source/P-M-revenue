@@ -168,7 +168,6 @@ function ReportHeader({ viewModel }: { viewModel: JournalPreviewViewModel }) {
           alt="P&M"
           data-testid="journal-official-logo"
           className="h-[86px] w-[220px] object-contain"
-          style={{ filter: "brightness(0) saturate(100%) invert(32%) sepia(22%) saturate(1195%) hue-rotate(158deg) brightness(92%) contrast(90%)" }}
           onError={(event) => { event.currentTarget.style.visibility = "hidden"; }}
         />
         <div className="relative mt-[-13px] px-[42px] pb-[11px]">
