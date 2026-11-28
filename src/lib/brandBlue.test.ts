@@ -39,3 +39,12 @@ it("uses the same blue mark on light browser and home-screen icons", () => {
     .match(/data:image\/png;base64,([^"]+)/)?.[1];
   expect(Buffer.from(embedded!, "base64")).toEqual(read("../../public/android-chrome-512x512.png"));
 });
+
+it("leaves the shared logo unfiltered even in the signed-in Pearl side menu", () => {
+  const app = read("../App.tsx").toString();
+  const glass = read("../visual-system-glass.css").toString();
+  const pearl = read("../visual-system-pearl.css").toString();
+  expect(pearl).not.toMatch(/\.pm-d-sidebar[^{}]*a\[aria-label="P&M OS 홈"\][^{}]*\{[^{}]*\bfilter\s*:/);
+  expect(glass).toMatch(/\[data-pm-brand-mark\]\s*\{\s*filter:\s*none;\s*\}/);
+  expect(app).toMatch(/<img\s+data-pm-brand-mark\s+src=\{pmLogo\}/);
+});

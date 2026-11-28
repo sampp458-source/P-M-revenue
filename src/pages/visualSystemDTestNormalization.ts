@@ -36,7 +36,8 @@ export function normalizePersistentDShell(source: string) {
 
 // Sprint 1 adds only these exact bell insertion points. Keep historical hashes intact.
 export function normalizeNotificationShell(source: string) {
-  return source.replace("<RequestQuickAction />", "")
+  return source.replace('        data-pm-brand-mark\n', '')
+    .replace("<RequestQuickAction />", "")
   .replace('  if (access.loading && profile?.role !== "admin") return <p role="status">권한 확인 중…</p>;\n','')
     .replace('import { NotificationBell } from "./notifications/NotificationUi";\n', '')
     .replace('        <div className="pn-gate-bell"><NotificationBell /></div>\n', '')

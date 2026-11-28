@@ -150,8 +150,8 @@ main.login-shell .login-submit:not(:disabled,[aria-disabled=true]):active {
   }
 }
 
-/* The blue asset already matches the sidebar ink; override the legacy logo filter. */
-.module-gate-logo { filter:none; }
+/* All app marks render the calibrated sidebar blue directly from the shared asset. */
+[data-pm-brand-mark] { filter:none; }
 main.login-shell :is(.login-brand-panel>div:first-child,.login-mobile-brand>div:first-child)>span:first-child {
   border:1px solid transparent;
 }

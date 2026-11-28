@@ -73,9 +73,6 @@
   .pm-d-shell-host:has(.pm-design-d) .pm-d-nav:focus-visible {
     outline:2px solid #245adb!important;outline-offset:2px!important;
   }
-  .pm-d-shell-host:has(.pm-design-d) .pm-d-sidebar a[aria-label="P&M OS 홈"] img {
-    filter:brightness(0) saturate(100%) invert(13%) sepia(31%) saturate(1209%) hue-rotate(181deg) brightness(95%) contrast(99%)!important;
-  }
   .pm-d-shell-host:has(.pm-design-d) header input[type=search] {
     background:#f3f7fc!important;box-shadow:var(--pnm-pearl-well)!important;
     border-color:var(--pm-d-border-control)!important;
@@ -1648,12 +1645,6 @@ main.auth-loading-screen .auth-loading-bar {background:#2954d6;}
       transform:none!important;
       transition:none!important;
     }
-  }
-}
-/* The owner also flagged the shared signed-in sidebar mark. Keep the silhouette and footprint. */
-@layer pm-d-adoption {
-  .pm-d-shell-host:has(.pm-design-d) .pm-d-sidebar a[aria-label="P&M OS 홈"] img {
-    filter:brightness(0) saturate(100%) invert(22%) sepia(76%) saturate(1636%) hue-rotate(211deg) brightness(89%) contrast(100%)!important;
   }
 }
 

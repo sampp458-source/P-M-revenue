@@ -122,6 +122,7 @@ function BrandLogo({
       className={`relative block shrink-0 ${className}`}
     >
       <img
+        data-pm-brand-mark
         src={pmLogo}
         alt="P&M"
         className={`pointer-events-none absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 object-contain ${imageClassName}`}
